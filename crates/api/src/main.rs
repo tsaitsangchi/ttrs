@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use tracing_subscriber::EnvFilter;
-use ttrs_api::{AppState, router};
+use ttrs_api::{AppState, cors_from_env, router};
 use ttrs_app::{ItemService, memory::InMemoryStore};
 use ttrs_infra::PgStore;
 
@@ -32,6 +32,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = std::env::var("TTRS_API_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".into());
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("listening on http://{addr}");
-    axum::serve(listener, router(AppState { items })).await?;
+    let mut app = router(AppState { items });
+    if let Some(cors) = cors_from_env() {
+        tracing::info!("CORS enabled from TTRS_CORS_ORIGINS");
+        app = app.layer(cors);
+    }
+    axum::serve(listener, app).await?;
     Ok(())
 }

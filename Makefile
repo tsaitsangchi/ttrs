@@ -1,4 +1,7 @@
-.PHONY: test bdd bdd-pg api web desktop check fmt db-create
+.PHONY: test bdd bdd-pg api web desktop bundle check fmt db-create
+
+# 本機 8080 常被占用，可用 make web WEB_PORT=xxxx 覆寫
+WEB_PORT ?= 8765
 
 test:
 	cargo test --workspace
@@ -14,10 +17,14 @@ api:
 	cargo run -p ttrs-api
 
 web:
-	cd crates/web && dx serve --platform web
+	cd crates/web && dx serve --platform web --port $(WEB_PORT)
 
 desktop:
 	cd crates/web && dx serve --platform desktop
+
+# 正式版前端靜態檔，輸出至 target/dx/ttrs-web/release/web/public（交給 nginx）
+bundle:
+	cd crates/web && dx bundle --platform web --release
 
 fmt:
 	cargo fmt --all

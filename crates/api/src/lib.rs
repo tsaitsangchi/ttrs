@@ -3,12 +3,15 @@
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
 use serde::Deserialize;
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
 use ttrs_app::{AppError, ItemService};
 use ttrs_shared::{ApiError, CreateItemRequest, ItemDto};
 
@@ -24,9 +27,29 @@ pub fn router(state: AppState) -> Router {
         .route("/api/items/{plant}/{no}", get(get_item).delete(delete_item))
         .route("/api/items/{plant}/{no}/confirm", post(confirm_item))
         .route("/api/items/{plant}/{no}/unconfirm", post(unconfirm_item))
-        .layer(CorsLayer::permissive()) // TODO: 上線前改為白名單
         .layer(TraceLayer::new_for_http())
         .with_state(state)
+}
+
+/// 跨來源白名單。Web 版經 nginx / dx proxy 走同源，正常不需要 CORS；
+/// 只有前端與 API 不同網域時才設定 `TTRS_CORS_ORIGINS`（逗號分隔）。
+pub fn cors_from_env() -> Option<CorsLayer> {
+    let raw = std::env::var("TTRS_CORS_ORIGINS").ok()?;
+    let origins: Vec<HeaderValue> = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|o| !o.is_empty())
+        .filter_map(|o| o.parse().ok())
+        .collect();
+    if origins.is_empty() {
+        return None;
+    }
+    Some(
+        CorsLayer::new()
+            .allow_origin(origins)
+            .allow_methods(Any)
+            .allow_headers(Any),
+    )
 }
 
 pub struct HttpError(AppError);

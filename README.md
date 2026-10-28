@@ -25,7 +25,7 @@ make test                     # 不需資料庫即可跑全部測試
 make api                      # 啟動 API，http://127.0.0.1:3000
 cargo install dioxus-cli      # 第一次需要
 rustup target add wasm32-unknown-unknown
-make web                      # 啟動前端
+make web                      # 啟動前端 http://127.0.0.1:8765（/api 由 dx proxy 轉給 API）
 ```
 
 ### 使用 PostgreSQL
@@ -46,3 +46,14 @@ make api                      # 啟動時自動執行 migration
 sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libxdo-dev
 make desktop
 ```
+
+### 正式部署（nginx）
+
+```bash
+make bundle                                    # 產出前端靜態檔
+sudo cp -r target/dx/ttrs-web/release/web/public/. /srv/ttrs/web/
+sudo cp deploy/nginx/ttrs.conf /etc/nginx/conf.d/ # 先改網域、憑證路徑
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+架構說明見 [ADR 0002](docs/adr/0002-deployment-nginx.md)。

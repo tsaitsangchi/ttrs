@@ -3,3 +3,7 @@ name = "ttrs-web"
 
 [web.app]
 title = "TTRS ERP"
+
+# 開發用：dx serve 將 /api 轉發給本機 Axum，讓前端走同源（與正式環境 nginx 相同）
+[[web.proxy]]
+backend = "http://127.0.0.1:3000/api/"

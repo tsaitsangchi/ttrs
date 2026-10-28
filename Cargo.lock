@@ -6647,6 +6647,7 @@ dependencies = [
  "reqwest 0.13.5",
  "serde",
  "ttrs-shared",
+ "web-sys",
 ]
 
 [[package]]

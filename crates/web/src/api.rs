@@ -1,11 +1,24 @@
-//! 後端 API 呼叫。Web 與桌面版共用；位址可於編譯時以 TTRS_API_URL 覆寫。
+//! 後端 API 呼叫。Web 與桌面版共用。
+//!
+//! API 位址：編譯時設定 `TTRS_API_URL` 則一律使用；否則 Web 版走同源 `/api`
+//! （開發由 dx proxy、正式由 nginx 轉發），桌面/行動版預設連本機 API。
 
 use ttrs_shared::{ApiError, CreateItemRequest, ItemDto};
 
-const API_URL: &str = match option_env!("TTRS_API_URL") {
-    Some(url) => url,
-    None => "http://127.0.0.1:3000",
-};
+fn base_url() -> String {
+    if let Some(url) = option_env!("TTRS_API_URL") {
+        return url.trim_end_matches('/').to_owned();
+    }
+    #[cfg(target_arch = "wasm32")]
+    if let Some(origin) = web_sys::window().and_then(|w| w.location().origin().ok()) {
+        return origin;
+    }
+    "http://127.0.0.1:3000".to_owned()
+}
+
+fn url(path: &str) -> String {
+    format!("{}{path}", base_url())
+}
 
 async fn into_result<T: serde::de::DeserializeOwned>(res: reqwest::Response) -> Result<T, String> {
     if res.status().is_success() {
@@ -25,7 +38,7 @@ async fn error_message(res: reqwest::Response) -> String {
 
 pub async fn list_items(plant: &str) -> Result<Vec<ItemDto>, String> {
     let res = reqwest::Client::new()
-        .get(format!("{API_URL}/api/items"))
+        .get(url("/api/items"))
         .query(&[("plant", plant)])
         .send()
         .await
@@ -35,7 +48,7 @@ pub async fn list_items(plant: &str) -> Result<Vec<ItemDto>, String> {
 
 pub async fn create_item(req: &CreateItemRequest) -> Result<ItemDto, String> {
     let res = reqwest::Client::new()
-        .post(format!("{API_URL}/api/items"))
+        .post(url("/api/items"))
         .json(req)
         .send()
         .await
@@ -45,7 +58,7 @@ pub async fn create_item(req: &CreateItemRequest) -> Result<ItemDto, String> {
 
 pub async fn confirm_item(plant: &str, no: &str) -> Result<ItemDto, String> {
     let res = reqwest::Client::new()
-        .post(format!("{API_URL}/api/items/{plant}/{no}/confirm"))
+        .post(url(&format!("/api/items/{plant}/{no}/confirm")))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -54,7 +67,7 @@ pub async fn confirm_item(plant: &str, no: &str) -> Result<ItemDto, String> {
 
 pub async fn unconfirm_item(plant: &str, no: &str) -> Result<ItemDto, String> {
     let res = reqwest::Client::new()
-        .post(format!("{API_URL}/api/items/{plant}/{no}/unconfirm"))
+        .post(url(&format!("/api/items/{plant}/{no}/unconfirm")))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -63,7 +76,7 @@ pub async fn unconfirm_item(plant: &str, no: &str) -> Result<ItemDto, String> {
 
 pub async fn delete_item(plant: &str, no: &str) -> Result<(), String> {
     let res = reqwest::Client::new()
-        .delete(format!("{API_URL}/api/items/{plant}/{no}"))
+        .delete(url(&format!("/api/items/{plant}/{no}")))
         .send()
         .await
         .map_err(|e| e.to_string())?;
