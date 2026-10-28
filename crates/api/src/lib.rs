@@ -23,6 +23,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/items", get(list_items).post(create_item))
         .route("/api/items/{plant}/{no}", get(get_item).delete(delete_item))
         .route("/api/items/{plant}/{no}/confirm", post(confirm_item))
+        .route("/api/items/{plant}/{no}/unconfirm", post(unconfirm_item))
         .layer(CorsLayer::permissive()) // TODO: 上線前改為白名單
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -90,6 +91,13 @@ async fn confirm_item(
     Path((plant, no)): Path<(String, String)>,
 ) -> ApiResult<Json<ItemDto>> {
     Ok(Json(s.items.confirm(&plant, &no).await?))
+}
+
+async fn unconfirm_item(
+    State(s): State<AppState>,
+    Path((plant, no)): Path<(String, String)>,
+) -> ApiResult<Json<ItemDto>> {
+    Ok(Json(s.items.unconfirm(&plant, &no).await?))
 }
 
 async fn delete_item(

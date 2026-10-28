@@ -72,6 +72,11 @@ async fn confirm_item(w: &mut ErpWorld, plant: String, no: String) {
     w.last = Some(w.items.confirm(&plant, &no).await.map(|_| ()));
 }
 
+#[when(expr = "使用者取消確認 {string} 料件 {string}")]
+async fn unconfirm_item(w: &mut ErpWorld, plant: String, no: String) {
+    w.last = Some(w.items.unconfirm(&plant, &no).await.map(|_| ()));
+}
+
 #[when(expr = "使用者刪除 {string} 料件 {string}")]
 async fn delete_item(w: &mut ErpWorld, plant: String, no: String) {
     w.last = Some(w.items.delete(&plant, &no).await);

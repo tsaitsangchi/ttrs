@@ -97,6 +97,23 @@ pub fn ItemList() -> Element {
                                             "確認"
                                         }
                                     }
+                                    if it.status == ItemStatusDto::Confirmed {
+                                        button {
+                                            onclick: {
+                                                let no = it.item_no.clone();
+                                                move |_| {
+                                                    let no = no.clone();
+                                                    spawn(async move {
+                                                        match api::unconfirm_item(PLANT, &no).await {
+                                                            Ok(_) => { error.set(None); items.restart(); }
+                                                            Err(e) => error.set(Some(e)),
+                                                        }
+                                                    });
+                                                }
+                                            },
+                                            "取消確認"
+                                        }
+                                    }
                                     button {
                                         class: "danger",
                                         onclick: {

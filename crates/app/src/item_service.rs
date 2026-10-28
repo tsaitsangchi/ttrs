@@ -74,6 +74,23 @@ impl ItemService {
         Ok(to_dto(&item))
     }
 
+    /// 取消確認規則：已有庫存異動者不可取消確認。
+    pub async fn unconfirm(&self, plant: &str, no: &str) -> Result<ItemDto, AppError> {
+        let (plant, no) = parse_key(plant, no)?;
+        let mut item = self.load(&plant, &no).await?;
+        if self
+            .items
+            .has_transactions(&plant, &no)
+            .await
+            .map_err(infra)?
+        {
+            return Err(DomainError::ItemHasTransactions.into());
+        }
+        item.unconfirm()?;
+        self.items.update(&item).await.map_err(infra)?;
+        Ok(to_dto(&item))
+    }
+
     /// 刪除規則：已有庫存異動者不可刪；已確認者須先取消確認。
     pub async fn delete(&self, plant: &str, no: &str) -> Result<(), AppError> {
         let (plant, no) = parse_key(plant, no)?;

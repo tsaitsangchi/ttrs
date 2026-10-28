@@ -52,6 +52,15 @@ pub async fn confirm_item(plant: &str, no: &str) -> Result<ItemDto, String> {
     into_result(res).await
 }
 
+pub async fn unconfirm_item(plant: &str, no: &str) -> Result<ItemDto, String> {
+    let res = reqwest::Client::new()
+        .post(format!("{API_URL}/api/items/{plant}/{no}/unconfirm"))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
 pub async fn delete_item(plant: &str, no: &str) -> Result<(), String> {
     let res = reqwest::Client::new()
         .delete(format!("{API_URL}/api/items/{plant}/{no}"))
