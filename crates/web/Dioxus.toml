@@ -1,0 +1,5 @@
+[application]
+name = "ttrs-web"
+
+[web.app]
+title = "TTRS ERP"

@@ -1,0 +1,6 @@
+/target
+/crates/*/target
+/crates/web/dist
+.env
+# TipTop 原始碼與客戶資料不進版控（授權與資料保護）
+/legacy/

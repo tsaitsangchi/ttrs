@@ -1,0 +1,26 @@
+[package]
+name = "ttrs-api"
+description = "HTTP API（Axum）。Web、桌面、PDA 前端都透過此 API 存取。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ttrs-app = { workspace = true, features = ["memory"] }
+ttrs-infra.workspace = true
+ttrs-shared.workspace = true
+axum.workspace = true
+serde.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tower = { version = "0.5", features = ["util"] }
+
+[lints]
+workspace = true

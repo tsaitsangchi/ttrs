@@ -1,0 +1,21 @@
+[package]
+name = "ttrs-app"
+description = "應用層：use case、交易邊界、repository 介面（ports）"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# 記憶體版 repository：給 BDD、單元測試與無資料庫的本機開發使用
+memory = []
+
+[dependencies]
+ttrs-domain.workspace = true
+ttrs-shared.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

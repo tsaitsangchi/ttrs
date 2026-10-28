@@ -1,0 +1,31 @@
+# TipTop → TTRS 資料對照：庫存管理 (aim)
+# verify: true 表示欄位意義尚未依實際 TipTop 版本確認，請 Key User 或 DBA 核對後移除。
+
+tables:
+  - legacy: ima_file
+    target: item
+    program: aimi100
+    note: 料件主檔；TipTop 依營運中心分 schema，新系統以 plant_id 區分
+    columns:
+      - { legacy: "(schema)", target: plant_id, note: 來源資料庫/營運中心代碼 }
+      - { legacy: ima01, target: item_no, note: 料件編號 }
+      - { legacy: ima02, target: name, note: 品名 }
+      - { legacy: ima021, target: spec, note: 規格 }
+      - { legacy: ima25, target: stock_unit, note: 庫存單位, verify: true }
+      - { legacy: imaacti, target: status, note: 資料有效碼/確認碼對應 unconfirmed|confirmed|voided, verify: true }
+
+  - legacy: tlf_file
+    target: inventory_txn
+    note: 庫存異動明細，所有進出庫交易皆寫入
+    verify: true
+    columns: []   # 待匯入 tlf_file 結構後補齊
+
+  - legacy: gfe_file
+    target: unit
+    verify: true
+    columns: []
+
+  - legacy: azp_file
+    target: plant
+    verify: true
+    columns: []

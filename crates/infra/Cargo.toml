@@ -1,0 +1,17 @@
+[package]
+name = "ttrs-infra"
+description = "基礎設施：PostgreSQL（SQLx）repository 實作與 migration"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+ttrs-domain.workspace = true
+ttrs-app.workspace = true
+async-trait.workspace = true
+sqlx.workspace = true
+
+[lints]
+workspace = true
