@@ -19,9 +19,20 @@ bdd：驗收測試，執行 specs/features/**/*.feature
 - `crates/api`：handler 只做轉譯，錯誤碼對應 HTTP 狀態集中在 `HttpError`。
 - `crates/web`：Dioxus 0.7。畫面依 TipTop 模組分資料夾 `pages/<模組>/`。
 
+## TipTop 原始碼（legacy/，唯讀，不進版控）
+
+- 由 `scripts/legacy-import.sh` 匯入，說明見 `legacy/README.md`。
+- **只讀 `legacy/utf8/`**；`legacy/src/` 是原始 Big5 檔，讀了會亂碼。兩者都禁止修改。
+- 找程式先查 `legacy/INDEX.tsv`（program / ext / layer / module / path）。
+- **先查 `topcust/` 再查 `tiptop/`**：客製程式可能覆寫標準邏輯，以客製為準。
+- 一支作業通常要一起讀：`<模組>/4gl/<程式>.4gl`、`<模組>/4fd/<程式>.4fd`，
+  以及它呼叫的 `lib/4gl/cl_*`、`sub/4gl/s_*`、`qry/4gl/q_*`。
+- 表結構看 `legacy/schema/`，錯誤訊息代碼看 `legacy/messages/`。
+
 ## 開發流程（每支 TipTop 程式都照做，不可跳步）
 
-1. **萃取**：讀 TipTop 原始碼（`legacy/` 下的 .4gl/.per，若有）與資料表，整理業務規則。
+1. **萃取**：讀 `legacy/utf8/` 下的 4gl/4fd 與資料表，整理業務規則，
+   feature 檔頭以 `規則來源：tiptop/aim/4gl/aimi100.4gl:行號` 註明出處。
 2. **規格**：寫 `specs/features/<模組>/<名稱>.feature`（`# language: zh-TW`），
    檔頭註明 TipTop 程式代號、資料表、規則來源。**規格未經使用者確認前不寫實作。**
 3. **Red**：在 `crates/bdd/tests/steps/<模組>_<名稱>.rs` 寫步驟，`make bdd` 必須先失敗。

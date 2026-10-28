@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(legacy/src/**)",
+      "Edit(legacy/utf8/**)",
+      "Edit(legacy/schema/**)",
+      "Edit(legacy/messages/**)"
+    ]
+  }
+}
