@@ -14,8 +14,8 @@ use tower_http::{
 };
 use ttrs_app::{Actor, AppError, ItemService, ProgramService};
 use ttrs_shared::{
-    ApiError, CreateItemRequest, GrantRequest, ItemDto, NewProgramNoRequest, ProgramDto,
-    ProgramInput,
+    ApiError, CreateItemRequest, GrantRequest, ItemDto, NewProgramNoRequest, Page, ProgramDto,
+    ProgramInput, QueryRequest,
 };
 
 #[derive(Clone)]
@@ -45,6 +45,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/items/{plant}/{no}/confirm", post(confirm_item))
         .route("/api/items/{plant}/{no}/unconfirm", post(unconfirm_item))
         .route("/api/programs", get(list_programs).post(create_program))
+        .route("/api/programs/query", post(query_programs))
         .route(
             "/api/programs/{no}",
             get(get_program).put(update_program).delete(delete_program),
@@ -164,6 +165,14 @@ async fn delete_item(
 
 async fn list_programs(State(s): State<AppState>) -> ApiResult<Json<Vec<ProgramDto>>> {
     Ok(Json(s.programs.list().await?))
+}
+
+/// QBE 查詢（p_zz Q.查詢）；條件格式見 ttrs_domain::qbe
+async fn query_programs(
+    State(s): State<AppState>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ProgramDto>>> {
+    Ok(Json(s.programs.query(req).await?))
 }
 
 async fn create_program(

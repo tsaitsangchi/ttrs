@@ -11,6 +11,7 @@ use cucumber::World;
 use sqlx::PgPool;
 use ttrs_app::{Actor, AppError, ItemService, ProgramService, memory::InMemoryStore};
 use ttrs_infra::PgStore;
+use ttrs_shared::{Page, ProgramDto};
 
 pub enum Backend {
     Memory(InMemoryStore),
@@ -27,6 +28,8 @@ pub struct ErpWorld {
     pub actor: Actor,
     /// 最近一次「當」步驟的結果
     pub last: Option<Result<(), AppError>>,
+    /// 最近一次 p_zz 查詢的結果
+    pub program_page: Option<Page<ProgramDto>>,
 }
 
 impl fmt::Debug for ErpWorld {
@@ -72,6 +75,7 @@ impl ErpWorld {
             programs,
             actor: Actor::default(),
             last: None,
+            program_page: None,
         }
     }
 }

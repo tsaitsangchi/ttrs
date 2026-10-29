@@ -5,6 +5,7 @@ pub mod item_service;
 #[cfg(feature = "memory")]
 pub mod memory;
 pub mod ports;
+pub mod program_query;
 pub mod program_service;
 
 pub use error::AppError;

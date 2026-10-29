@@ -4,8 +4,8 @@
 //! （開發由 dx proxy、正式由 nginx 轉發），桌面/行動版預設連本機 API。
 
 use ttrs_shared::{
-    ApiError, CreateItemRequest, GrantRequest, ItemDto, NewProgramNoRequest, ProgramDto,
-    ProgramInput,
+    ApiError, CreateItemRequest, GrantRequest, ItemDto, NewProgramNoRequest, Page, ProgramDto,
+    ProgramInput, QueryRequest,
 };
 
 fn base_url() -> String {
@@ -116,9 +116,11 @@ async fn no_content(res: reqwest::Response) -> Result<(), String> {
     }
 }
 
-pub async fn list_programs() -> Result<Vec<ProgramDto>, String> {
+/// QBE 查詢（條件語法見 ttrs_domain::qbe）
+pub async fn query_programs(req: &QueryRequest) -> Result<Page<ProgramDto>, String> {
     let res = reqwest::Client::new()
-        .get(url("/api/programs"))
+        .post(url("/api/programs/query"))
+        .json(req)
         .send()
         .await
         .map_err(|e| e.to_string())?;

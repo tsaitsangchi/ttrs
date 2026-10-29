@@ -2,4 +2,5 @@
 
 mod aim_item;
 mod azz_program;
+mod azz_program_query;
 mod common;

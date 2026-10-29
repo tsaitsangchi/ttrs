@@ -13,6 +13,7 @@ tables:
     target: program
     program: p_zz
     note: 程式登錄檔；主鍵 zz01
+    query: "Q.查詢 CONSTRUCT 27 欄位（p_zz.4gl :286-290，zz04 除外）→ ttrs_app::program_query；QBE 語法 → ttrs_domain::qbe；排序 zz01 位元組順序（COLLATE \"C\"）"
     columns:
       - { legacy: zz01,   target: program_no,  note: 程式代號（鍵值，不可重複） }
       - { legacy: zz011,  target: module_code, note: 所屬模組；選項來自 gao_file，排除 SUB/CSUB/LIB/CLIB/QRY/CQRY，另加 MENU }

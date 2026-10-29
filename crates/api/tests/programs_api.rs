@@ -114,3 +114,34 @@ async fn delete_returns_204() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::NO_CONTENT);
 }
+
+#[tokio::test]
+async fn query_returns_page_and_bad_condition_422() {
+    let app = app();
+    app.clone().oneshot(create("aimi100")).await.unwrap();
+    app.clone().oneshot(create("aimi101")).await.unwrap();
+
+    let res = app
+        .clone()
+        .oneshot(json(
+            "POST",
+            "/api/programs/query",
+            serde_json::json!({ "conditions": [{ "field": "program_no", "expr": "aimi10?" }], "page_size": 1 }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let page: ttrs_shared::Page<ProgramDto> = body(res).await;
+    assert_eq!((page.total, page.items.len()), (2, 1));
+
+    let res = app
+        .oneshot(json(
+            "POST",
+            "/api/programs/query",
+            serde_json::json!({ "conditions": [{ "field": "report_width", "expr": "abc" }] }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body::<ApiError>(res).await.code, "QBE_INVALID_NUMBER");
+}

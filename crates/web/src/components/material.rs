@@ -303,3 +303,34 @@ pub fn Notification(kind: NotificationKind, title: String, onclose: EventHandler
         }
     }
 }
+
+/// 圖示按鈕（Standard icon button）；`path` 為 24×24 的 SVG 路徑
+#[component]
+pub fn IconButton(
+    label: String,
+    path: &'static str,
+    #[props(default)] disabled: bool,
+    onclick: EventHandler<MouseEvent>,
+) -> Element {
+    rsx! {
+        button {
+            r#type: "button",
+            class: "md-icon-button md-state",
+            title: "{label}",
+            aria_label: "{label}",
+            disabled,
+            onclick: move |e| onclick.call(e),
+            svg { width: "24", height: "24", view_box: "0 0 24 24", fill: "currentColor",
+                path { d: path }
+            }
+        }
+    }
+}
+
+/// Material Symbols 的路徑（Apache-2.0）
+pub mod icons {
+    pub const FIRST_PAGE: &str = "M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6zM6 6h2v12H6z";
+    pub const CHEVRON_LEFT: &str = "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z";
+    pub const CHEVRON_RIGHT: &str = "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z";
+    pub const LAST_PAGE: &str = "M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6zM16 6h2v12h-2z";
+}

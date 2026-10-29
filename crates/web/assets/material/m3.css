@@ -295,3 +295,4 @@ textarea.md-field__input:focus { padding: 9px 15px; }
 }
 .md-table td.mono { font-family: var(--md-font-mono); font-size: 0.75rem; }
 .md-table td.num, .md-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.md-icon-button:disabled { color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent); cursor: default; }

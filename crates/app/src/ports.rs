@@ -5,6 +5,7 @@ use ttrs_domain::{
     item::{Item, ItemNo},
     plant::PlantId,
     program::{ModuleCode, Program, ProgramNo},
+    qbe::QbeFilter,
 };
 
 use crate::error::RepoError;
@@ -51,6 +52,13 @@ pub struct AuditEntry {
 pub trait ProgramRepository: Send + Sync {
     async fn get(&self, no: &ProgramNo) -> Result<Option<Program>, RepoError>;
     async fn list(&self) -> Result<Vec<Program>, RepoError>;
+    /// QBE 查詢：符合全部篩選者依程式代號（位元組順序）排序，回傳指定範圍與總筆數
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Program>, u64), RepoError>;
     /// 新增程式與名稱；`grant_to` 有值時同時授權給該權限類別。代號重複回傳 `Conflict`
     async fn insert(
         &self,

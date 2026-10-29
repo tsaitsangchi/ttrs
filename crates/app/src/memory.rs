@@ -10,6 +10,7 @@ use ttrs_domain::{
     item::{Item, ItemNo},
     plant::PlantId,
     program::{ModuleCode, Program, ProgramNo},
+    qbe::QbeFilter,
 };
 
 use crate::{
@@ -160,6 +161,41 @@ impl ProgramRepository for InMemoryStore {
 
     async fn list(&self) -> Result<Vec<Program>, RepoError> {
         Ok(self.lock().programs.values().cloned().collect())
+    }
+
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Program>, u64), RepoError> {
+        let s = self.lock();
+        // BTreeMap 依 ProgramNo（String）排序＝位元組順序，與 PostgreSQL 的 COLLATE "C" 一致
+        let hits: Vec<Program> = s
+            .programs
+            .values()
+            .filter(|p| {
+                let names: Vec<ProgramName> = s
+                    .names
+                    .iter()
+                    .filter(|((n, _), _)| n == p.program_no.as_str())
+                    .map(|((_, lang), (name, report_title))| ProgramName {
+                        lang: lang.clone(),
+                        name: name.clone(),
+                        report_title: report_title.clone(),
+                    })
+                    .collect();
+                crate::program_query::matches_all(p, &names, filters)
+            })
+            .cloned()
+            .collect();
+        let total = hits.len() as u64;
+        let page = hits
+            .into_iter()
+            .skip(usize::try_from(offset).unwrap_or(usize::MAX))
+            .take(usize::try_from(limit).unwrap_or(usize::MAX))
+            .collect();
+        Ok((page, total))
     }
 
     async fn insert(

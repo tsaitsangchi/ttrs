@@ -284,3 +284,38 @@ pub struct NewProgramNoRequest {
 pub struct GrantRequest {
     pub permission_class: String,
 }
+
+// ---------------------------------------------------------------------------
+// QBE 查詢（TipTop CONSTRUCT）：各維護作業共用
+// ---------------------------------------------------------------------------
+
+/// 單一欄位的查詢條件；`expr` 為使用者輸入的 QBE 字串，如 `aim*`、`1:5`、`a|b`
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct QbeCondition {
+    /// 欄位鍵值，與該作業 DTO 的欄位名稱相同（如 `program_no`）
+    pub field: String,
+    pub expr: String,
+}
+
+/// 查詢請求：條件之間為 AND；未給頁碼時取第 1 頁、每頁 `DEFAULT_PAGE_SIZE` 筆
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct QueryRequest {
+    pub conditions: Vec<QbeCondition>,
+    /// 從 1 開始
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
+}
+
+impl QueryRequest {
+    pub const DEFAULT_PAGE_SIZE: u32 = 50;
+}
+
+/// 分頁結果；`total` 為符合條件的總筆數（TipTop 的 cnt）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Page<T> {
+    pub items: Vec<T>,
+    pub total: u64,
+    pub page: u32,
+    pub page_size: u32,
+}

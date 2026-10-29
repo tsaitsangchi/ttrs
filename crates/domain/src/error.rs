@@ -50,6 +50,16 @@ pub enum DomainError {
     PermissionClassNotFound,
     #[error("經由 p_query 執行的程式必須先建立查詢定義")]
     QueryDefinitionNotFound,
+
+    // QBE 查詢條件
+    #[error("查詢條件格式錯誤：{0}")]
+    QbeInvalidSyntax(String),
+    #[error("查詢條件不是數字：{0}")]
+    QbeInvalidNumber(String),
+    #[error("查詢條件不是正確的日期（YYYY/MM/DD）：{0}")]
+    QbeInvalidDate(String),
+    #[error("欄位「{0}」不可做為查詢條件")]
+    QbeFieldNotAllowed(String),
 }
 
 impl DomainError {
@@ -76,6 +86,10 @@ impl DomainError {
             Self::MenuHasNoPermission => "MENU_HAS_NO_PERMISSION",
             Self::PermissionClassNotFound => "PERMISSION_CLASS_NOT_FOUND",
             Self::QueryDefinitionNotFound => "QUERY_DEFINITION_NOT_FOUND",
+            Self::QbeInvalidSyntax(_) => "QBE_INVALID_SYNTAX",
+            Self::QbeInvalidNumber(_) => "QBE_INVALID_NUMBER",
+            Self::QbeInvalidDate(_) => "QBE_INVALID_DATE",
+            Self::QbeFieldNotAllowed(_) => "QBE_FIELD_NOT_ALLOWED",
         }
     }
 }

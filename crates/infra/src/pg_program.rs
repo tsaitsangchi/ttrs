@@ -3,14 +3,17 @@
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
-use sqlx::FromRow;
+use sqlx::{FromRow, Postgres, QueryBuilder};
 use ttrs_app::{
     error::RepoError,
     ports::{AuditEntry, ProgramName, ProgramRepository},
 };
-use ttrs_domain::program::{
-    IdleAction, IdleControl, ModuleCode, OtherSettings, Program, ProgramNo, ReportExtMode,
-    ReportType, RuntimeSettings,
+use ttrs_domain::{
+    program::{
+        IdleAction, IdleControl, ModuleCode, OtherSettings, Program, ProgramNo, ReportExtMode,
+        ReportType, RuntimeSettings,
+    },
+    qbe::{PatternPart, QbeFilter, QbeTerm, QbeValue},
 };
 
 use crate::pg::{PgStore, db_err};
@@ -131,6 +134,46 @@ impl ProgramRepository for PgStore {
         .map_err(db_err)?
         .map(Program::try_from)
         .transpose()
+    }
+
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Program>, u64), RepoError> {
+        let mut count = QueryBuilder::<Postgres>::new("SELECT COUNT(*) FROM program p WHERE TRUE");
+        push_filters(&mut count, filters)?;
+        let total: i64 = count
+            .build_query_scalar()
+            .fetch_one(&self.pool)
+            .await
+            .map_err(db_err)?;
+
+        let mut rows = QueryBuilder::<Postgres>::new(
+            "SELECT program_no, module_code, program_type, report_type, idle_control,
+                    idle_seconds, idle_action, pass_book_no, deferred_print_count,
+                    current_print_count, report_width, run_command, window_style,
+                    report_ext_mode, program_group, print_method, fixed_run_condition,
+                    help_enabled, log_errors, default_actions, print_option, allow_key_update,
+                    remark, designed_on, created_by, created_dept, updated_by, updated_on
+             FROM program p WHERE TRUE",
+        );
+        push_filters(&mut rows, filters)?;
+        // 位元組順序排序（同 Oracle BINARY 排序與記憶體版）
+        rows.push(r#" ORDER BY p.program_no COLLATE "C" LIMIT "#);
+        rows.push_bind(i64::try_from(limit).unwrap_or(i64::MAX));
+        rows.push(" OFFSET ");
+        rows.push_bind(i64::try_from(offset).unwrap_or(i64::MAX));
+        let programs = rows
+            .build_query_as::<ProgramRow>()
+            .fetch_all(&self.pool)
+            .await
+            .map_err(db_err)?
+            .into_iter()
+            .map(Program::try_from)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok((programs, u64::try_from(total).unwrap_or(0)))
     }
 
     async fn list(&self) -> Result<Vec<Program>, RepoError> {
@@ -413,4 +456,136 @@ impl ProgramRepository for PgStore {
             .await
             .map_err(db_err)
     }
+}
+
+// ----- QBE → SQL：欄位名稱只來自下方白名單，條件值一律 push_bind -----
+
+/// 查詢鍵值 → (資料庫欄位, 是否文字)；鍵值清單見 ttrs_app::program_query
+fn column(field: &str) -> Option<(&'static str, bool)> {
+    Some(match field {
+        "program_no" => ("p.program_no", true),
+        "module_code" => ("p.module_code", true),
+        "program_group" => ("p.program_group", true),
+        "window_style" => ("p.window_style", true),
+        "program_type" => ("p.program_type", true),
+        "run_command" => ("p.run_command", true),
+        "fixed_run_condition" => ("p.fixed_run_condition", true),
+        "designed_on" => ("p.designed_on", false),
+        "print_method" => ("p.print_method", true),
+        "report_type" => ("p.report_type", true),
+        "report_ext_mode" => ("p.report_ext_mode", true),
+        "report_width" => ("p.report_width", false),
+        "current_print_count" => ("p.current_print_count", false),
+        "deferred_print_count" => ("p.deferred_print_count", false),
+        "print_option" => ("p.print_option", false),
+        "idle_control" => ("p.idle_control", true),
+        "idle_seconds" => ("p.idle_seconds", false),
+        "idle_action" => ("p.idle_action", true),
+        "log_errors" => ("p.log_errors", false),
+        "allow_key_update" => ("p.allow_key_update", false),
+        "help_enabled" => ("p.help_enabled", false),
+        "remark" => ("p.remark", true),
+        "created_by" => ("p.created_by", true),
+        "updated_by" => ("p.updated_by", true),
+        "created_dept" => ("p.created_dept", true),
+        "updated_on" => ("p.updated_on", false),
+        _ => return None,
+    })
+}
+
+fn push_filters(qb: &mut QueryBuilder<Postgres>, filters: &[QbeFilter]) -> Result<(), RepoError> {
+    for f in filters {
+        qb.push(" AND (");
+        for (i, term) in f.terms.iter().enumerate() {
+            if i > 0 {
+                qb.push(" OR ");
+            }
+            if f.field == "name" {
+                // 程式名稱多語系（gaz_file）：任一語系符合即符合；空值＝沒有任何名稱
+                if *term == QbeTerm::IsNull {
+                    qb.push(
+                        "NOT EXISTS (SELECT 1 FROM program_name n \
+                         WHERE n.program_no = p.program_no AND n.name <> '')",
+                    );
+                } else {
+                    qb.push("EXISTS (SELECT 1 FROM program_name n WHERE n.program_no = p.program_no AND ");
+                    push_term(qb, "n.name", true, term);
+                    qb.push(")");
+                }
+            } else {
+                let (col, is_text) = column(f.field)
+                    .ok_or_else(|| RepoError::Other(format!("未定義的查詢欄位：{}", f.field)))?;
+                push_term(qb, col, is_text, term);
+            }
+        }
+        qb.push(")");
+    }
+    Ok(())
+}
+
+fn push_term(qb: &mut QueryBuilder<Postgres>, col: &'static str, is_text: bool, term: &QbeTerm) {
+    // 文字以位元組順序比較、區分大小寫（QBE2）
+    let collate = if is_text { r#" COLLATE "C""# } else { "" };
+    let mut cmp = |op: &str, v: &QbeValue| {
+        qb.push(col).push(collate).push(op);
+        push_value(qb, v);
+    };
+    match term {
+        QbeTerm::IsNull => {
+            if is_text {
+                qb.push("(")
+                    .push(col)
+                    .push(" IS NULL OR ")
+                    .push(col)
+                    .push(" = '')");
+            } else {
+                qb.push(col).push(" IS NULL");
+            }
+        }
+        QbeTerm::Eq(v) => cmp(" = ", v),
+        QbeTerm::Ne(v) => cmp(" <> ", v),
+        QbeTerm::Lt(v) => cmp(" < ", v),
+        QbeTerm::Le(v) => cmp(" <= ", v),
+        QbeTerm::Gt(v) => cmp(" > ", v),
+        QbeTerm::Ge(v) => cmp(" >= ", v),
+        QbeTerm::Range(lo, hi) => {
+            cmp(" BETWEEN ", lo);
+            qb.push(" AND ");
+            push_value(qb, hi);
+        }
+        QbeTerm::Like(parts) => {
+            qb.push(col).push(collate).push(r" LIKE ");
+            qb.push_bind(like_pattern(parts));
+            qb.push(r" ESCAPE '\'");
+        }
+    }
+}
+
+fn push_value(qb: &mut QueryBuilder<Postgres>, v: &QbeValue) {
+    match v {
+        QbeValue::Text(s) => qb.push_bind(s.clone()),
+        QbeValue::Integer(n) => qb.push_bind(*n),
+        QbeValue::Date(d) => qb.push_bind(*d),
+        QbeValue::Flag(b) => qb.push_bind(*b),
+    };
+}
+
+/// `*` → `%`、`?` → `_`；字面的 `%` `_` `\` 以反斜線跳脫
+fn like_pattern(parts: &[PatternPart]) -> String {
+    let mut out = String::new();
+    for p in parts {
+        match p {
+            PatternPart::AnyMany => out.push('%'),
+            PatternPart::AnyOne => out.push('_'),
+            PatternPart::Literal(s) => {
+                for c in s.chars() {
+                    if matches!(c, '%' | '_' | '\\') {
+                        out.push('\\');
+                    }
+                    out.push(c);
+                }
+            }
+        }
+    }
+    out
 }
