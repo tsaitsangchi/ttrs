@@ -1,5 +1,5 @@
 //! p_zz 程式資料建立
-//! 版面比照 tiptop/azz/4fd/p_zz.4fd，視覺採 IBM Carbon（components::carbon）：
+//! 版面比照 tiptop/azz/4fd/p_zz.4fd，視覺採 Material 3（components::material）：
 //!   上方頁籤 pc700（基本資料 / 資料擁有者）＋ 下方頁籤 pc701（資料、權限設定 / 列印設定 / 閒置設定 / 其他設定）
 //!   ＋ 瀏覽清單（4fd 底部 cnt 筆數）。
 //! 4fd 為英文標籤，中文由此翻譯。規則都在後端（ttrs-app ProgramService），畫面只負責輸入與顯示。
@@ -10,9 +10,9 @@ use ttrs_shared::{
 };
 
 use crate::api;
-use crate::components::carbon::{
-    Button, ButtonKind, Checkbox, Notification, NotificationKind, RadioGroup, Select, Tabs,
-    TextArea, TextInput,
+use crate::components::material::{
+    Button, ButtonVariant, Card, Checkbox, Notification, NotificationKind, RadioGroup, Select,
+    Tabs, TextArea, TextField,
 };
 
 const LEDGER_MODULES: [&str; 4] = ["AGL", "CGL", "GGL", "CGGL"];
@@ -164,7 +164,7 @@ pub fn ProgramList() -> Element {
         .map_or(0, Vec::len);
 
     rsx! {
-        div { class: "cds--layout--size-sm",
+        div { class: "page",
             div { class: "page-header",
                 div { class: "program-id", "系統管理 / p_zz" }
                 h2 { "程式資料建立" }
@@ -175,7 +175,7 @@ pub fn ProgramList() -> Element {
                 if editing {
                     Button { onclick: save, "確定" }
                     Button {
-                        kind: ButtonKind::Secondary,
+                        variant: ButtonVariant::Text,
                         onclick: move |_| {
                             error.set(None);
                             show(current());
@@ -193,18 +193,18 @@ pub fn ProgramList() -> Element {
                         },
                         "新增"
                     }
-                    Button { kind: ButtonKind::Tertiary, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), "修改" }
-                    Button { kind: ButtonKind::Danger, disabled: no_cur, onclick: delete, "刪除" }
+                    Button { variant: ButtonVariant::Tonal, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), "修改" }
+                    Button { variant: ButtonVariant::Error, disabled: no_cur, onclick: delete, "刪除" }
                     div { class: "spacer" }
-                    TextInput {
+                    TextField {
                         id: "new-no",
                         label: "新程式代號",
                         value: new_no(),
                         disabled: no_cur,
                         oninput: move |v| new_no.set(v),
                     }
-                    Button { kind: ButtonKind::Tertiary, disabled: no_cur, onclick: copy, "複製" }
-                    Button { kind: ButtonKind::Tertiary, disabled: no_cur, onclick: rename, "改代號" }
+                    Button { variant: ButtonVariant::Outlined, disabled: no_cur, onclick: copy, "複製" }
+                    Button { variant: ButtonVariant::Outlined, disabled: no_cur, onclick: rename, "改代號" }
                 }
             }
 
@@ -216,25 +216,26 @@ pub fn ProgramList() -> Element {
             }
 
             // ----- 上方頁籤 pc700 -----
+            Card {
             Tabs { tabs: UPPER_TABS.to_vec(), active: upper_tab }
-            div { class: "tab-panel cds--layer-two",
+            div { class: "card-body",
                 if upper_tab() == 0 {
                     div { class: "form-grid cols-4",
-                        TextInput {
+                        TextField {
                             id: "zz01",
                             label: "程式代號",
                             value: f.program_no.clone(),
                             readonly: mode() != Mode::New,
                             oninput: move |v| form.write().program_no = v,
                         }
-                        TextInput {
+                        TextField {
                             id: "zz011",
                             label: "模組代號",
                             value: f.module_code.clone(),
                             readonly: ro,
                             oninput: move |v| form.write().module_code = v,
                         }
-                        TextInput {
+                        TextField {
                             id: "gaz03",
                             class: "span-2",
                             label: "程式名稱",
@@ -245,17 +246,20 @@ pub fn ProgramList() -> Element {
                     }
                 } else {
                     div { class: "form-grid cols-4",
-                        TextInput { id: "zzuser", label: "資料所有者", readonly: true, value: cur.as_ref().map(|p| p.created_by.clone()).unwrap_or_default() }
-                        TextInput { id: "zzmodu", label: "最後修改者", readonly: true, value: cur.as_ref().and_then(|p| p.updated_by.clone()).unwrap_or_default() }
-                        TextInput { id: "zzgrup", label: "所屬部門", readonly: true, value: cur.as_ref().map(|p| p.created_dept.clone()).unwrap_or_default() }
-                        TextInput { id: "zzdate", label: "建立/修改日期", readonly: true, value: cur.as_ref().map(|p| p.updated_on.to_string()).unwrap_or_default() }
+                        TextField { id: "zzuser", label: "資料所有者", readonly: true, value: cur.as_ref().map(|p| p.created_by.clone()).unwrap_or_default() }
+                        TextField { id: "zzmodu", label: "最後修改者", readonly: true, value: cur.as_ref().and_then(|p| p.updated_by.clone()).unwrap_or_default() }
+                        TextField { id: "zzgrup", label: "所屬部門", readonly: true, value: cur.as_ref().map(|p| p.created_dept.clone()).unwrap_or_default() }
+                        TextField { id: "zzdate", label: "建立/修改日期", readonly: true, value: cur.as_ref().map(|p| p.updated_on.to_string()).unwrap_or_default() }
                     }
                 }
             }
 
+            }
+
             // ----- 下方頁籤 pc701 -----
+            Card {
             Tabs { tabs: LOWER_TABS.to_vec(), active: lower_tab }
-            div { class: "tab-panel cds--layer-two",
+            div { class: "card-body",
                 match lower_tab() {
                     0 => rsx! {
                         div { class: "group-columns",
@@ -274,7 +278,7 @@ pub fn ProgramList() -> Element {
                                 section { class: "form-section",
                                     h3 { class: "form-section-title", "設定" }
                                     div { class: "form-grid",
-                                        TextInput {
+                                        TextField {
                                             id: "zz10",
                                             label: "程式群組",
                                             readonly: ro,
@@ -297,7 +301,7 @@ pub fn ProgramList() -> Element {
                                             readonly: ro,
                                             onchange: move |v| form.write().program_type = non_empty(v),
                                         }
-                                        TextInput {
+                                        TextField {
                                             id: "zz09",
                                             label: "設計日期",
                                             input_type: "date",
@@ -310,7 +314,7 @@ pub fn ProgramList() -> Element {
                                 section { class: "form-section",
                                     h3 { class: "form-section-title", "執行設定" }
                                     div { class: "form-grid",
-                                        TextInput {
+                                        TextField {
                                             id: "zz08",
                                             class: "span-all mono",
                                             label: "UNIX 指令",
@@ -319,7 +323,7 @@ pub fn ProgramList() -> Element {
                                             value: f.run_command.clone().unwrap_or_default(),
                                             oninput: move |v| form.write().run_command = non_empty(v),
                                         }
-                                        TextInput {
+                                        TextField {
                                             id: "zz21",
                                             class: "span-all",
                                             label: "固定執行條件",
@@ -349,7 +353,7 @@ pub fn ProgramList() -> Element {
                                         Some(Ok(list)) if list.is_empty() => rsx! { span { class: "muted", "尚未授權任何權限類別" } },
                                         Some(Ok(list)) => rsx! {
                                             for c in list.iter() {
-                                                span { key: "{c}", class: "cds--tag cds--tag--blue", "{c}" }
+                                                span { key: "{c}", class: "md-chip", "{c}" }
                                             }
                                         },
                                         Some(Err(e)) => rsx! { span { class: "muted", "{e}" } },
@@ -358,13 +362,13 @@ pub fn ProgramList() -> Element {
                                 }
                                 if p.module_code != "MENU" {
                                     div { class: "action-bar grant-bar",
-                                        TextInput {
+                                        TextField {
                                             id: "grant-class",
                                             label: "權限類別",
                                             value: grant_class(),
                                             oninput: move |v| grant_class.set(v),
                                         }
-                                        Button { kind: ButtonKind::Tertiary, onclick: grant, "設定權限" }
+                                        Button { variant: ButtonVariant::Tonal, onclick: grant, "設定權限" }
                                     }
                                 }
                             }
@@ -372,7 +376,7 @@ pub fn ProgramList() -> Element {
                     },
                     1 => rsx! {
                         div { class: "form-grid cols-4",
-                            TextInput {
+                            TextField {
                                 id: "gaz06",
                                 class: "span-2",
                                 label: "報表抬頭",
@@ -380,7 +384,7 @@ pub fn ProgramList() -> Element {
                                 value: f.report_title.clone().unwrap_or_default(),
                                 oninput: move |v| form.write().report_title = non_empty(v),
                             }
-                            TextInput {
+                            TextField {
                                 id: "zz22",
                                 label: "列印方式",
                                 readonly: ro,
@@ -509,18 +513,20 @@ pub fn ProgramList() -> Element {
                 }
             }
 
-            // ----- 瀏覽清單（4fd 底部 cnt 筆數）：Carbon Data table -----
-            div { class: "cds--data-table-container",
-                div { class: "cds--data-table-header",
-                    h4 { class: "cds--data-table-header__title", "程式清單" }
-                    p { class: "cds--data-table-header__description", "共 {count} 筆，點選一筆以檢視或修改" }
+            }
+
+            // ----- 瀏覽清單（4fd 底部 cnt 筆數） -----
+            Card {
+                div { class: "table-header",
+                    h3 { "程式清單" }
+                    p { "共 {count} 筆，點選一筆以檢視或修改" }
                 }
-                div { class: "cds--data-table-content",
-                    table { class: "cds--data-table cds--data-table--sm",
+                div { class: "table-scroll",
+                    table { class: "md-table",
                         thead {
                             tr {
                                 for h in ["程式代號", "程式名稱", "模組", "類別", "報表類型", "UNIX 指令", "最後修改日期"] {
-                                    th { key: "{h}", div { class: "cds--table-header-label", "{h}" } }
+                                    th { key: "{h}", "{h}" }
                                 }
                             }
                         }
@@ -533,8 +539,8 @@ pub fn ProgramList() -> Element {
                                     for p in list.iter().cloned() {
                                         tr {
                                             key: "{p.program_no}",
-                                            class: "clickable",
-                                            class: if cur.as_ref().is_some_and(|c| c.program_no == p.program_no) { "cds--data-table--selected" },
+                                            class: "md-table__row--clickable",
+                                            class: if cur.as_ref().is_some_and(|c| c.program_no == p.program_no) { "md-table__row--selected" },
                                             onclick: {
                                                 let p = p.clone();
                                                 move |_| {
@@ -564,7 +570,7 @@ pub fn ProgramList() -> Element {
     }
 }
 
-/// 數字欄位（Carbon 的 Number input 有加減鈕，ERP 輸入不需要，改用 type=number 的 text input）
+/// 數字欄位（type=number 的 outlined text field）
 #[component]
 fn NumberField(
     id: String,
@@ -575,7 +581,7 @@ fn NumberField(
     onchange: EventHandler<Option<i32>>,
 ) -> Element {
     rsx! {
-        TextInput {
+        TextField {
             id,
             label,
             input_type: "number",

@@ -1,191 +1,165 @@
-/* TTRS 樣式。載入順序：carbon/carbon-*.min.css → 本檔。
- * 顏色一律用 Carbon token（--cds-*），不寫死色碼；主題由根元素的 cds--g10 / cds--g100 決定。 */
+/* TTRS 版面樣式。載入順序：material/m3-colors.css → material/m3.css → 本檔。
+ * 顏色一律用 M3 token（--md-sys-color-*），不寫死色碼；主題由根元素的 md-theme-light / md-theme-dark 決定。 */
 
-/* Carbon 編譯後的 CSS 只把「顏色」token 放在主題類別（cds--g10…）上，
- * 間距與字級 token 不是全域變數，這裡依 Carbon 規格補上（@carbon/layout、@carbon/type）。 */
-:root {
-  --cds-spacing-01: 0.125rem;
-  --cds-spacing-02: 0.25rem;
-  --cds-spacing-03: 0.5rem;
-  --cds-spacing-04: 0.75rem;
-  --cds-spacing-05: 1rem;
-  --cds-spacing-06: 1.5rem;
-  --cds-spacing-07: 2rem;
-  --cds-spacing-08: 2.5rem;
-  --cds-spacing-09: 3rem;
-  --cds-spacing-10: 4rem;
-  --cds-heading-compact-01-font-size: 0.875rem;
-  --cds-heading-compact-02-font-size: 1rem;
-  --cds-heading-04-font-size: 1.75rem;
+body { margin: 0; }
+
+/* ----- 外框：導覽抽屜（Navigation drawer）+ 內容 ----- */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  font-family: var(--md-font);
 }
-
-/* 中文：Carbon 只指定 IBM Plex Sans，補上中文字型（IBM Plex 字型檔未內附，會落到 Noto Sans TC / 正黑體） */
-body,
-.cds--g10,
-.cds--g100 {
-  font-family: "IBM Plex Sans", "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
-}
-
-body {
-  margin: 0;
-  background: var(--cds-background);
-  color: var(--cds-text-primary);
-}
-
-/* ----- 外框：側邊欄 + 內容 ----- */
-
-.shell { display: flex; min-height: 100vh; background: var(--cds-background); color: var(--cds-text-primary); }
 
 .sidebar {
   width: 16rem;
   flex-shrink: 0;
-  background: var(--cds-layer-01);
-  border-right: 1px solid var(--cds-border-subtle-01);
-  padding: var(--cds-spacing-05) 0;
+  background: var(--md-sys-color-surface-container-low);
+  padding: 12px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 .sidebar h1 {
-  font-size: var(--cds-heading-compact-02-font-size, 1rem);
-  font-weight: 600;
-  padding: 0 var(--cds-spacing-05) var(--cds-spacing-05);
-  margin: 0;
-}
-.sidebar a {
-  color: var(--cds-text-secondary);
-  text-decoration: none;
-  padding: var(--cds-spacing-03) var(--cds-spacing-05);
-  font-size: 0.875rem;
-  border-left: 3px solid transparent;
-}
-.sidebar a:hover { background: var(--cds-layer-hover-01); color: var(--cds-text-primary); }
-.sidebar a.active {
-  background: var(--cds-layer-selected-01);
-  color: var(--cds-text-primary);
-  border-left-color: var(--cds-border-interactive);
-  font-weight: 600;
+  font: 500 1rem/1.5rem var(--md-font);
+  letter-spacing: 0.15px;
+  color: var(--md-sys-color-on-surface);
+  margin: 4px 16px 12px;
 }
 .sidebar .group {
-  color: var(--cds-text-helper);
-  font-size: 0.75rem;
-  letter-spacing: 0.32px;
-  margin: var(--cds-spacing-05) var(--cds-spacing-05) var(--cds-spacing-02);
+  font: 500 0.875rem/1.25rem var(--md-font);
+  letter-spacing: 0.1px;
+  color: var(--md-sys-color-on-surface-variant);
+  margin: 16px 16px 4px;
+}
+.sidebar a {
+  display: flex;
+  align-items: center;
+  height: var(--md-list-item-height);
+  padding: 0 16px;
+  border-radius: var(--md-sys-shape-corner-full);
+  color: var(--md-sys-color-on-surface-variant);
+  font: 500 0.875rem/1.25rem var(--md-font);
+  letter-spacing: 0.1px;
+  text-decoration: none;
+}
+.sidebar a:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
+.sidebar a.active {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  font-weight: 700;
 }
 
-.content { flex: 1; min-width: 0; padding: var(--cds-spacing-06) var(--cds-spacing-07); }
+.content { flex: 1; min-width: 0; padding: 24px; box-sizing: border-box; }
 
-@media (max-width: 672px) {
+@media (max-width: 600px) {
   .shell { flex-direction: column; }
-  .sidebar { width: auto; border-right: 0; border-bottom: 1px solid var(--cds-border-subtle-01); }
-  .content { padding: var(--cds-spacing-05); }
+  .sidebar { width: auto; }
+  .content { padding: 16px; }
 }
 
-/* ----- 作業畫面（Carbon 版面輔助） ----- */
+/* ----- 作業畫面 ----- */
 
-.page-header { margin-bottom: var(--cds-spacing-06); }
+.page-header { margin-bottom: 16px; }
 .page-header .program-id {
-  font-size: 0.75rem;
-  color: var(--cds-text-helper);
-  letter-spacing: 0.32px;
+  font: 500 0.75rem/1rem var(--md-font);
+  letter-spacing: 0.5px;
+  color: var(--md-sys-color-on-surface-variant);
 }
-.page-header h2 {
-  font-size: var(--cds-heading-04-font-size, 1.75rem);
-  font-weight: 400;
-  line-height: 1.28572;
-  margin: var(--cds-spacing-02) 0 0;
-}
+.page-header h2 { font: 400 1.5rem/2rem var(--md-font); margin: 4px 0 0; color: var(--md-sys-color-on-surface); }
 
 /* 動作列：左側主要動作，右側代號相關動作 */
 .action-bar {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--cds-spacing-03);
-  margin-bottom: var(--cds-spacing-05);
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 .action-bar .spacer { flex: 1; }
-.action-bar .cds--form-item { flex: 0 0 12rem; }
+.action-bar .md-field { flex: 0 0 12rem; }
 
-/* 頁籤內容區：Carbon contained tabs 下方的面板。
- * 面板是 layer-01（白），內容加 cds--layer-two，欄位才會用 field-02（淺灰）而不是與面板同色 */
-.tab-panel {
-  background: var(--cds-layer-01);
-  padding: var(--cds-spacing-06) var(--cds-spacing-05);
-  margin-bottom: var(--cds-spacing-06);
-}
+.page > .md-card, .page > .md-banner { margin-bottom: 16px; }
 
-/* 表單格線：依 4fd 的欄位位置排成 2 或 4 欄，標籤在上（Carbon 標準） */
+/* 卡片內容區（頁籤下方） */
+.card-body { padding: 24px 20px 20px; }
+
+/* 表單格線：依 4fd 的欄位位置排成 2 或 4 欄；欄位標籤浮在框線上，列距需留標籤高度 */
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--cds-spacing-05) var(--cds-spacing-06);
+  gap: 24px 16px;
 }
 .form-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .form-grid .span-2 { grid-column: span 2; }
 .form-grid .span-all { grid-column: 1 / -1; }
 
-/* 4fd 的 Group：左右分欄，群組間用間距而非框線區隔 */
+/* 4fd 的 Group：左右分欄 */
 .group-columns {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: var(--cds-spacing-07);
+  gap: 32px;
 }
-.form-section + .form-section { margin-top: var(--cds-spacing-07); }
+.form-section + .form-section { margin-top: 32px; }
 .form-section-title {
-  font-size: var(--cds-heading-compact-01-font-size, 0.875rem);
-  font-weight: 600;
-  color: var(--cds-text-primary);
-  margin: 0 0 var(--cds-spacing-05);
-  padding-bottom: var(--cds-spacing-03);
-  border-bottom: 1px solid var(--cds-border-subtle-01);
+  font: 500 0.875rem/1.25rem var(--md-font);
+  letter-spacing: 0.1px;
+  color: var(--md-sys-color-primary);
+  margin: 0 0 20px;
 }
-.check-list { display: flex; flex-direction: column; gap: var(--cds-spacing-03); }
-.inline-items { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cds-spacing-03); }
+.check-list { display: flex; flex-direction: column; }
+.inline-items { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.grant-bar { margin: 24px 0 0; }
 
-.mono input { font-family: "IBM Plex Mono", ui-monospace, monospace; }
-.muted { color: var(--cds-text-helper); }
+.mono .md-field__input { font-family: var(--md-font-mono); }
+.muted { color: var(--md-sys-color-on-surface-variant); }
 
-/* 資料表格：可點選的列 */
-.cds--data-table tbody tr.clickable { cursor: pointer; }
-.cds--data-table td.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.75rem; }
-.cds--data-table td.num, .cds--data-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* 清單卡片標題 */
+.table-header { padding: 20px 20px 12px; }
+.table-header h3 { font: 400 1.375rem/1.75rem var(--md-font); margin: 0; color: var(--md-sys-color-on-surface); }
+.table-header p {
+  font: 400 0.875rem/1.25rem var(--md-font);
+  letter-spacing: 0.25px;
+  margin: 4px 0 0;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.table-scroll { overflow-x: auto; }
 
-.cds--inline-notification { max-inline-size: none; margin-bottom: var(--cds-spacing-05); }
-
-@media (max-width: 1056px) {
+@media (max-width: 1040px) {
   .form-grid.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .group-columns { grid-template-columns: 1fr; }
 }
-@media (max-width: 672px) {
+@media (max-width: 600px) {
   .form-grid, .form-grid.cols-4 { grid-template-columns: 1fr; }
   .form-grid .span-2 { grid-column: auto; }
 }
 
-/* ----- 尚未改用 Carbon 的舊畫面（aimi100），樣式限定在 .classic 內 ----- */
+/* ----- 尚未改用 M3 元件的舊畫面（aimi100、首頁），樣式限定在 .classic 內 ----- */
 
-.classic h2 { font-size: 1.5rem; margin: 0 0 1rem; }
+.classic h2 { font: 400 1.5rem/2rem var(--md-font); margin: 0 0 16px; }
 .classic .form-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .classic input {
   padding: 6px 8px;
-  border: 1px solid var(--cds-border-strong-01);
+  border: 1px solid var(--md-sys-color-outline);
   border-radius: 4px;
-  background: var(--cds-field-01);
-  color: var(--cds-text-primary);
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
 }
 .classic button {
-  padding: 6px 12px;
+  padding: 6px 16px;
   border: 0;
-  border-radius: 4px;
-  background: var(--cds-button-primary);
-  color: var(--cds-text-on-color);
+  border-radius: 9999px;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
   cursor: pointer;
   margin-right: 4px;
 }
-.classic button.danger { background: var(--cds-button-danger-primary); }
-.classic table { border-collapse: collapse; width: 100%; background: var(--cds-layer-01); }
-.classic th, .classic td { border: 1px solid var(--cds-border-subtle-01); padding: 6px 10px; text-align: left; }
-.classic th { background: var(--cds-layer-accent-01); font-weight: 600; }
-.classic p { margin: 0.5rem 0; }
-.classic .error { color: var(--cds-text-error); }
-.grant-bar { margin-top: var(--cds-spacing-05); margin-bottom: 0; }
-.cds--text-area__wrapper, .cds--text-area { inline-size: 100%; }
+.classic button.danger { background: var(--md-sys-color-error); color: var(--md-sys-color-on-error); }
+.classic table { border-collapse: collapse; width: 100%; background: var(--md-sys-color-surface-container-lowest); }
+.classic th, .classic td { border: 1px solid var(--md-sys-color-outline-variant); padding: 6px 10px; text-align: left; }
+.classic th { background: var(--md-sys-color-surface-container-low); font-weight: 500; }
+.classic p { margin: 8px 0; }
+.classic .error { color: var(--md-sys-color-error); }

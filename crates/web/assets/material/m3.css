@@ -1,0 +1,297 @@
+/* Material 3 的字級、形狀、狀態層與元件樣式（TTRS 自行實作，對應 components/material.rs）。
+ * 依據 m3.material.io 規格；顏色只用 m3-colors.css 的 --md-sys-color-* token。
+ * ERP 調整：元件密度採 M3 density -4（欄位 40px、按鈕 36px），其餘維持 M3 預設形狀。 */
+
+:root {
+  /* 字級（M3 type scale，rem 以 16px 為基準） */
+  --md-font: "Roboto", "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+  --md-font-mono: "Roboto Mono", ui-monospace, "Cascadia Mono", monospace;
+
+  /* 形狀（M3 shape scale） */
+  --md-sys-shape-corner-extra-small: 4px;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-full: 9999px;
+
+  /* 狀態層不透明度（M3 state layers） */
+  --md-sys-state-hover: 0.08;
+  --md-sys-state-focus: 0.10;
+  --md-sys-state-pressed: 0.10;
+
+  /* 密度 */
+  --md-field-height: 40px;
+  --md-button-height: 36px;
+  --md-list-item-height: 40px;
+  --md-table-row-height: 40px;
+}
+
+/* ----- 字級類別 ----- */
+.md-headline-small { font: 400 1.5rem/2rem var(--md-font); }
+.md-title-large { font: 400 1.375rem/1.75rem var(--md-font); }
+.md-title-medium { font: 500 1rem/1.5rem var(--md-font); letter-spacing: 0.15px; }
+.md-title-small { font: 500 0.875rem/1.25rem var(--md-font); letter-spacing: 0.1px; }
+.md-body-medium { font: 400 0.875rem/1.25rem var(--md-font); letter-spacing: 0.25px; }
+.md-body-small { font: 400 0.75rem/1rem var(--md-font); letter-spacing: 0.4px; }
+.md-label-large { font: 500 0.875rem/1.25rem var(--md-font); letter-spacing: 0.1px; }
+.md-label-medium { font: 500 0.75rem/1rem var(--md-font); letter-spacing: 0.5px; }
+
+/* ----- 共用：狀態層（以 ::before 疊一層 currentColor） ----- */
+.md-state {
+  position: relative;
+  isolation: isolate;
+}
+.md-state::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  transition: opacity 120ms linear;
+}
+.md-state:hover:not(:disabled)::before { opacity: var(--md-sys-state-hover); }
+.md-state:focus-visible::before { opacity: var(--md-sys-state-focus); }
+.md-state:active:not(:disabled)::before { opacity: var(--md-sys-state-pressed); }
+.md-state:focus-visible { outline: 2px solid var(--md-sys-color-secondary); outline-offset: 2px; }
+
+/* ----- 按鈕（Common buttons） ----- */
+.md-button {
+  box-sizing: border-box;
+  height: var(--md-button-height);
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  font: 500 0.875rem/1.25rem var(--md-font);
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.md-button--filled { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
+.md-button--tonal { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.md-button--outlined {
+  background: transparent;
+  color: var(--md-sys-color-primary);
+  border: 1px solid var(--md-sys-color-outline);
+  padding: 0 19px;
+}
+.md-button--text { background: transparent; color: var(--md-sys-color-primary); padding: 0 12px; }
+.md-button--error { background: var(--md-sys-color-error); color: var(--md-sys-color-on-error); }
+.md-button:disabled {
+  cursor: default;
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+}
+.md-button--outlined:disabled { background: transparent; border-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent); }
+.md-button--text:disabled { background: transparent; }
+
+/* ----- 文字欄位（Outlined text field，標籤固定浮在框線上） -----
+ * 標籤底色需等於所在容器底色：容器設定 --md-field-label-bg（.md-card 已設定）。 */
+.md-field { position: relative; min-width: 0; }
+.md-field__label {
+  position: absolute;
+  top: -0.5rem;
+  left: 12px;
+  padding: 0 4px;
+  max-width: calc(100% - 32px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 400 0.75rem/1rem var(--md-font);
+  letter-spacing: 0.4px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-field-label-bg, var(--md-sys-color-surface));
+  z-index: 1;
+  pointer-events: none;
+}
+.md-field__input {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--md-field-height);
+  padding: 0 16px;
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  font: 400 0.875rem/1.25rem var(--md-font);
+  letter-spacing: 0.25px;
+  outline: none;
+  appearance: none;
+}
+textarea.md-field__input { height: auto; padding: 10px 16px; resize: vertical; }
+select.md-field__input { padding-right: 40px; cursor: pointer; }
+.md-field__input::placeholder { color: var(--md-sys-color-on-surface-variant); opacity: 0.7; }
+.md-field__input:hover { border-color: var(--md-sys-color-on-surface); }
+.md-field__input:focus { border: 2px solid var(--md-sys-color-primary); padding-left: 15px; }
+textarea.md-field__input:focus { padding: 9px 15px; }
+.md-field:focus-within .md-field__label { color: var(--md-sys-color-primary); }
+.md-field__trailing {
+  position: absolute;
+  right: 12px;
+  top: calc(var(--md-field-height) / 2 - 12px);
+  width: 24px;
+  height: 24px;
+  color: var(--md-sys-color-on-surface-variant);
+  pointer-events: none;
+}
+/* 唯讀（瀏覽模式）：框線淡化、不可游標輸入，但仍可選取複製 */
+.md-field--readonly .md-field__input,
+.md-field--readonly .md-field__input:hover {
+  border-color: var(--md-sys-color-outline-variant);
+  cursor: default;
+}
+.md-field--readonly .md-field__input:focus { border: 1px solid var(--md-sys-color-outline); padding-left: 16px; }
+.md-field--readonly select.md-field__input { opacity: 1; color: var(--md-sys-color-on-surface); }
+.md-field--readonly .md-field__trailing { display: none; }
+/* 停用（依規則不可輸入） */
+.md-field__input:disabled {
+  border-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
+  cursor: default;
+}
+.md-field--disabled .md-field__label { color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent); }
+
+/* ----- 勾選框、單選 ----- */
+.md-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--md-list-item-height);
+  color: var(--md-sys-color-on-surface);
+  font: 400 0.875rem/1.25rem var(--md-font);
+  letter-spacing: 0.25px;
+  cursor: pointer;
+}
+.md-check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--md-sys-color-primary);
+  cursor: pointer;
+}
+.md-check--readonly, .md-check--readonly input { cursor: default; }
+.md-check--disabled { color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent); cursor: default; }
+.md-radio-group { border: 0; margin: 0; padding: 0; min-width: 0; }
+.md-radio-group legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font: 500 0.875rem/1.25rem var(--md-font);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ----- 頁籤（Primary tabs） ----- */
+.md-tabs {
+  display: flex;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+.md-tab {
+  flex: 0 0 auto;
+  height: 48px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  font: 500 0.875rem/1.25rem var(--md-font);
+  letter-spacing: 0.1px;
+  cursor: pointer;
+}
+.md-tab__label { position: relative; display: inline-block; height: 100%; line-height: 48px; }
+.md-tab--active { color: var(--md-sys-color-primary); }
+.md-tab--active .md-tab__label::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--md-sys-color-primary);
+}
+
+/* ----- 卡片 ----- */
+.md-card {
+  --md-field-label-bg: var(--md-sys-color-surface-container-lowest);
+  background: var(--md-sys-color-surface-container-lowest);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-medium);
+  overflow: hidden;
+}
+
+/* ----- 提示橫幅（M3 沒有 inline notification，以 container 色做 banner） ----- */
+.md-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 16px;
+  border-radius: var(--md-sys-shape-corner-medium);
+  font: 400 0.875rem/1.25rem var(--md-font);
+  letter-spacing: 0.25px;
+}
+.md-banner--error { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+.md-banner--success { background: var(--md-sys-color-success-container); color: var(--md-sys-color-on-success-container); }
+.md-banner__text { flex: 1; }
+.md-icon-button {
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ----- 標籤片（Assist chip，用於顯示權限類別等清單） ----- */
+.md-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-small);
+  color: var(--md-sys-color-on-surface);
+  font: 500 0.875rem/1.25rem var(--md-font);
+  letter-spacing: 0.1px;
+}
+
+/* ----- 資料表格（M3 規格未定義 data table，依 M3 色彩與狀態層自訂） ----- */
+.md-table { width: 100%; border-collapse: collapse; }
+.md-table th {
+  height: 48px;
+  padding: 0 16px;
+  text-align: left;
+  font: 500 0.75rem/1rem var(--md-font);
+  letter-spacing: 0.5px;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-low);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  white-space: nowrap;
+}
+.md-table td {
+  height: var(--md-table-row-height);
+  padding: 0 16px;
+  font: 400 0.875rem/1.25rem var(--md-font);
+  letter-spacing: 0.25px;
+  color: var(--md-sys-color-on-surface);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+.md-table tbody tr:last-child td { border-bottom: 0; }
+.md-table tbody tr.md-table__row--clickable { cursor: pointer; }
+.md-table tbody tr.md-table__row--clickable:hover td {
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+}
+.md-table tbody tr.md-table__row--selected td {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+}
+.md-table td.mono { font-family: var(--md-font-mono); font-size: 0.75rem; }
+.md-table td.num, .md-table th.num { text-align: right; font-variant-numeric: tabular-nums; }

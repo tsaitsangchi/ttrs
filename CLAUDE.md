@@ -18,8 +18,8 @@ bdd：驗收測試，執行 specs/features/**/*.feature
 - `crates/infra`：PostgreSQL 實作；SQL 一律用字面值 + bind 參數（sqlx 0.9 會擋動態字串）。
 - `crates/api`：handler 只做轉譯，錯誤碼對應 HTTP 狀態集中在 `HttpError`。
 - `crates/web`：Dioxus 0.7。畫面依 TipTop 模組分資料夾 `pages/<模組>/`。
-  設計系統採 IBM Carbon（ADR 0003）：畫面只用 `components/carbon.rs` 的元件，版面比照該作業的 4fd，
-  顏色只用 `--cds-*` token，不寫死色碼。
+  設計系統採 Material 3（ADR 0004）：畫面只用 `components/material.rs` 的元件，版面比照該作業的 4fd，
+  顏色只用 `--md-sys-color-*` token，不寫死色碼；色彩 token 由 `scripts/m3-colors.mjs` 產生，不手改。
 
 ## TipTop 原始碼（legacy/，唯讀，不進版控）
 

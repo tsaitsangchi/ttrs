@@ -7,8 +7,9 @@ mod pages;
 use dioxus::prelude::*;
 use pages::{aim::ItemList, azz::ProgramList, home::Home};
 
-/// IBM Carbon（見 assets/carbon/README.md），必須在 main.css 之前載入
-const CARBON_CSS: Asset = asset!("/assets/carbon/carbon-1.116.0.min.css");
+/// Material 3：色彩 token（自動產生）→ 元件樣式 → 版面，順序不可調換
+const M3_COLORS_CSS: Asset = asset!("/assets/material/m3-colors.css");
+const M3_CSS: Asset = asset!("/assets/material/m3.css");
 const MAIN_CSS: Asset = asset!("/assets/main.css");
 
 #[derive(Debug, Clone, Routable, PartialEq)]
@@ -32,7 +33,8 @@ fn main() {
 #[component]
 fn App() -> Element {
     rsx! {
-        document::Link { rel: "stylesheet", href: CARBON_CSS }
+        document::Link { rel: "stylesheet", href: M3_COLORS_CSS }
+        document::Link { rel: "stylesheet", href: M3_CSS }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
         Router::<Route> {}
     }
@@ -41,8 +43,8 @@ fn App() -> Element {
 #[component]
 fn Shell() -> Element {
     rsx! {
-        // Carbon 主題 Gray 10：頁面底色 #f4f4f4、面板白色
-        div { class: "shell cds--g10",
+        // M3 淺色主題；深色改為 md-theme-dark
+        div { class: "shell md-theme-light",
             nav { class: "sidebar",
                 h1 { "TTRS ERP" }
                 Link { active_class: "active", to: Route::Home {}, "首頁" }

@@ -1,6 +1,6 @@
 # ADR 0003：前端設計系統採用 IBM Carbon
 
-- 狀態：已採用（2026-10-29）
+- 狀態：**已被 [ADR 0004](0004-design-system-material3.md) 取代**（2026-10-29 改採 Material 3）
 - 範圍：crates/web（Web、桌面、行動版共用同一套 HTML/CSS）
 
 ## 決策
