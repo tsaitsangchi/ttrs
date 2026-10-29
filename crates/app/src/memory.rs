@@ -7,6 +7,7 @@ use std::{
 
 use async_trait::async_trait;
 use ttrs_domain::{
+    dictionary::{ColumnText, TableDictionary, TableText},
     item::{Item, ItemNo},
     plant::PlantId,
     program::{ModuleCode, Program, ProgramNo},
@@ -15,7 +16,10 @@ use ttrs_domain::{
 
 use crate::{
     error::RepoError,
-    ports::{AuditEntry, ItemRepository, MasterDataRepository, ProgramName, ProgramRepository},
+    ports::{
+        AuditEntry, DictionaryRepository, ItemRepository, MasterDataRepository, MigrationSource,
+        ProgramName, ProgramRepository, SchemaCatalog, TableSchema,
+    },
 };
 
 #[derive(Default)]
@@ -37,6 +41,14 @@ struct State {
     /// (權限類別, 程式代號)（zy_file）
     permissions: HashSet<(String, String)>,
     audit: Vec<AuditEntry>,
+    // 資料字典：資料庫結構與 migration 由測試提供（記憶體版無法讀取真正的資料庫）
+    schema: BTreeMap<String, TableSchema>,
+    migrations: Vec<MigrationSource>,
+    dictionaries: BTreeMap<String, TableDictionary>,
+    /// (資料表, 語系) → 表說明
+    table_texts: BTreeMap<(String, String), TableText>,
+    /// (資料表, 欄位, 語系) → 欄位說明
+    column_texts: BTreeMap<(String, String, String), ColumnText>,
 }
 
 #[derive(Clone, Default)]
@@ -90,6 +102,16 @@ impl InMemoryStore {
 
     pub fn add_query_definition(&self, query: &str) {
         self.lock().query_definitions.insert(query.to_string());
+    }
+
+    /// 測試用：登錄一張資料表的實際結構（PostgreSQL 版由系統目錄讀取）
+    pub fn add_table_schema(&self, table: TableSchema) {
+        self.lock().schema.insert(table.name.clone(), table);
+    }
+
+    /// 測試用：登錄 migration 內容（PostgreSQL 版取自 sqlx 內嵌的 migrations）
+    pub fn add_migration(&self, migration: MigrationSource) {
+        self.lock().migrations.push(migration);
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
@@ -345,4 +367,100 @@ impl ProgramRepository for InMemoryStore {
 
 fn rename(no: String, old: &str, new: &str) -> String {
     if no == old { new.to_owned() } else { no }
+}
+
+#[async_trait]
+impl SchemaCatalog for InMemoryStore {
+    async fn table_names(&self) -> Result<Vec<String>, RepoError> {
+        Ok(self.lock().schema.keys().cloned().collect())
+    }
+
+    async fn table(&self, name: &str) -> Result<Option<TableSchema>, RepoError> {
+        Ok(self.lock().schema.get(name).cloned())
+    }
+
+    async fn migrations(&self) -> Result<Vec<MigrationSource>, RepoError> {
+        let mut v = self.lock().migrations.clone();
+        v.sort_by_key(|m| m.version);
+        Ok(v)
+    }
+}
+
+#[async_trait]
+impl DictionaryRepository for InMemoryStore {
+    async fn get(&self, table: &str) -> Result<Option<TableDictionary>, RepoError> {
+        Ok(self.lock().dictionaries.get(table).cloned())
+    }
+
+    async fn list(&self) -> Result<Vec<TableDictionary>, RepoError> {
+        Ok(self.lock().dictionaries.values().cloned().collect())
+    }
+
+    async fn insert(&self, dict: &TableDictionary) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.dictionaries.contains_key(&dict.table_name) {
+            return Err(RepoError::Conflict);
+        }
+        s.dictionaries.insert(dict.table_name.clone(), dict.clone());
+        Ok(())
+    }
+
+    async fn update(&self, dict: &TableDictionary) -> Result<(), RepoError> {
+        self.lock()
+            .dictionaries
+            .insert(dict.table_name.clone(), dict.clone());
+        Ok(())
+    }
+
+    async fn delete(&self, table: &str) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        s.dictionaries.remove(table);
+        s.table_texts.retain(|(t, _), _| t != table);
+        s.column_texts.retain(|(t, _, _), _| t != table);
+        Ok(())
+    }
+
+    async fn set_table_text(&self, table: &str, text: &TableText) -> Result<(), RepoError> {
+        self.lock().table_texts.insert(
+            (table.to_owned(), text.lang.as_str().to_owned()),
+            text.clone(),
+        );
+        Ok(())
+    }
+
+    async fn table_texts(&self, table: &str) -> Result<Vec<TableText>, RepoError> {
+        Ok(self
+            .lock()
+            .table_texts
+            .iter()
+            .filter(|((t, _), _)| t == table)
+            .map(|(_, v)| v.clone())
+            .collect())
+    }
+
+    async fn set_column_text(&self, table: &str, text: &ColumnText) -> Result<(), RepoError> {
+        self.lock().column_texts.insert(
+            (
+                table.to_owned(),
+                text.column_name.clone(),
+                text.lang.as_str().to_owned(),
+            ),
+            text.clone(),
+        );
+        Ok(())
+    }
+
+    async fn column_texts(&self, table: &str) -> Result<Vec<ColumnText>, RepoError> {
+        Ok(self
+            .lock()
+            .column_texts
+            .iter()
+            .filter(|((t, _, _), _)| t == table)
+            .map(|(_, v)| v.clone())
+            .collect())
+    }
+
+    async fn module_exists(&self, module: &ModuleCode) -> Result<bool, RepoError> {
+        Ok(self.lock().modules.contains(module.as_str()))
+    }
 }

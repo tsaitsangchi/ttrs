@@ -3,15 +3,18 @@
 //! 預設使用記憶體 repository；設定 `TTRS_BDD_DATABASE_URL` 則改對 PostgreSQL 執行
 //! （每個場景前清空資料表，並改為循序執行）。同一份規格必須在兩種後端都通過。
 
+mod schema_fixture;
 mod steps;
 
 use std::{fmt, sync::Arc};
 
 use cucumber::World;
 use sqlx::PgPool;
-use ttrs_app::{Actor, AppError, ItemService, ProgramService, memory::InMemoryStore};
+use ttrs_app::{
+    Actor, AppError, DataDictionaryService, ItemService, ProgramService, memory::InMemoryStore,
+};
 use ttrs_infra::PgStore;
-use ttrs_shared::{Page, ProgramDto};
+use ttrs_shared::{ColumnInfoDto, ConstraintDto, MigrationDto, Page, ProgramDto};
 
 pub enum Backend {
     Memory(InMemoryStore),
@@ -30,6 +33,14 @@ pub struct ErpWorld {
     pub last: Option<Result<(), AppError>>,
     /// 最近一次程式維護查詢的結果
     pub program_page: Option<Page<ProgramDto>>,
+    pub dictionary: DataDictionaryService,
+    /// 資料字典：最近一次查看的欄位、限制、變更紀錄、匯出內容
+    pub dict_columns: Option<Vec<ColumnInfoDto>>,
+    pub dict_constraints: Option<Vec<ConstraintDto>>,
+    pub dict_history: Option<Vec<MigrationDto>>,
+    pub dict_export: Option<String>,
+    /// 程式維護多語言：最近一次依語系查看的程式
+    pub displayed_program: Option<ProgramDto>,
 }
 
 impl fmt::Debug for ErpWorld {
@@ -42,11 +53,11 @@ impl fmt::Debug for ErpWorld {
 
 impl ErpWorld {
     async fn init() -> Self {
-        let (backend, items, programs) = match database_url() {
+        let (backend, items, programs, dictionary) = match database_url() {
             Some(url) => {
                 let pool = ttrs_infra::connect(&url).await.expect("connect PostgreSQL");
                 ttrs_infra::migrate(&pool).await.expect("run migrations");
-                sqlx::query("TRUNCATE audit_log, query_definition, menu_item, program_permission, program_name, \
+                sqlx::query("TRUNCATE column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, inventory_txn, item, unit, plant \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
@@ -56,16 +67,19 @@ impl ErpWorld {
                 (
                     Backend::Pg(pool),
                     ItemService::new(store.clone(), store.clone()),
-                    ProgramService::new(store),
+                    ProgramService::new(store.clone()),
+                    DataDictionaryService::new(store.clone(), store),
                 )
             }
             None => {
                 let store = InMemoryStore::new();
+                schema_fixture::load(&store);
                 let shared = Arc::new(store.clone());
                 (
                     Backend::Memory(store),
                     ItemService::new(shared.clone(), shared.clone()),
-                    ProgramService::new(shared),
+                    ProgramService::new(shared.clone()),
+                    DataDictionaryService::new(shared.clone(), shared),
                 )
             }
         };
@@ -76,6 +90,12 @@ impl ErpWorld {
             actor: Actor::default(),
             last: None,
             program_page: None,
+            dictionary,
+            dict_columns: None,
+            dict_constraints: None,
+            dict_history: None,
+            dict_export: None,
+            displayed_program: None,
         }
     }
 }

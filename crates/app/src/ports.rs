@@ -2,6 +2,7 @@
 
 use async_trait::async_trait;
 use ttrs_domain::{
+    dictionary::{ColumnText, TableDictionary, TableText},
     item::{Item, ItemNo},
     plant::PlantId,
     program::{ModuleCode, Program, ProgramNo},
@@ -82,4 +83,85 @@ pub trait ProgramRepository: Send + Sync {
     async fn module_exists(&self, module: &ModuleCode) -> Result<bool, RepoError>;
     async fn permission_class_exists(&self, class: &str) -> Result<bool, RepoError>;
     async fn query_definition_exists(&self, query: &str) -> Result<bool, RepoError>;
+}
+
+// ---------------------------------------------------------------------------
+// 資料字典（TipTop p_zta）
+// ---------------------------------------------------------------------------
+
+/// 資料庫實際結構的一張表（唯讀；PostgreSQL 由系統目錄讀取，記憶體版由測試提供）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableSchema {
+    pub name: String,
+    pub columns: Vec<ColumnSchema>,
+    pub indexes: Vec<IndexSchema>,
+    pub constraints: Vec<ConstraintSchema>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ColumnSchema {
+    pub name: String,
+    pub data_type: String,
+    pub not_null: bool,
+    pub default: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexSchema {
+    pub name: String,
+    pub unique: bool,
+    pub columns: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConstraintKind {
+    PrimaryKey,
+    ForeignKey,
+    Unique,
+    Check,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConstraintSchema {
+    pub name: String,
+    pub kind: ConstraintKind,
+    pub columns: Vec<String>,
+    pub ref_table: Option<String>,
+    pub ref_columns: Vec<String>,
+    pub check_clause: Option<String>,
+}
+
+/// 一個 migration 的內容（版本、說明、SQL），用來推得變更紀錄
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MigrationSource {
+    pub version: i64,
+    pub description: String,
+    pub sql: String,
+}
+
+/// 資料庫結構（唯讀）
+#[async_trait]
+pub trait SchemaCatalog: Send + Sync {
+    /// 目前 schema 的資料表名稱（不含 sqlx 的 migration 紀錄表）
+    async fn table_names(&self) -> Result<Vec<String>, RepoError>;
+    async fn table(&self, name: &str) -> Result<Option<TableSchema>, RepoError>;
+    /// 依版本排序的所有 migration
+    async fn migrations(&self) -> Result<Vec<MigrationSource>, RepoError>;
+}
+
+/// 資料字典（TipTop zta_file、gat_file、gaq_file）
+#[async_trait]
+pub trait DictionaryRepository: Send + Sync {
+    async fn get(&self, table: &str) -> Result<Option<TableDictionary>, RepoError>;
+    async fn list(&self) -> Result<Vec<TableDictionary>, RepoError>;
+    /// 已存在回傳 `Conflict`
+    async fn insert(&self, dict: &TableDictionary) -> Result<(), RepoError>;
+    async fn update(&self, dict: &TableDictionary) -> Result<(), RepoError>;
+    /// 刪除字典，連同表與欄位的多語言說明（D3）
+    async fn delete(&self, table: &str) -> Result<(), RepoError>;
+    async fn set_table_text(&self, table: &str, text: &TableText) -> Result<(), RepoError>;
+    async fn table_texts(&self, table: &str) -> Result<Vec<TableText>, RepoError>;
+    async fn set_column_text(&self, table: &str, text: &ColumnText) -> Result<(), RepoError>;
+    async fn column_texts(&self, table: &str) -> Result<Vec<ColumnText>, RepoError>;
+    async fn module_exists(&self, module: &ModuleCode) -> Result<bool, RepoError>;
 }

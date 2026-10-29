@@ -335,3 +335,127 @@ pub mod program_max_len {
     pub const NAME: usize = 500;
     pub const REPORT_TITLE: usize = 255;
 }
+
+// ---------------------------------------------------------------------------
+// Data Dictionary Maintenance 資料字典維護（TipTop p_zta；見 docs/legacy-map/azz.yaml）
+// ---------------------------------------------------------------------------
+
+/// 資料表類型（TipTop gat07，D7）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TableTypeDto {
+    Parameter,
+    Master,
+    Transaction,
+    Statistics,
+    Base,
+}
+
+impl TableTypeDto {
+    pub const ALL: [Self; 5] = [
+        Self::Parameter,
+        Self::Master,
+        Self::Transaction,
+        Self::Statistics,
+        Self::Base,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Parameter => "參數",
+            Self::Master => "主檔",
+            Self::Transaction => "交易",
+            Self::Statistics => "統計",
+            Self::Base => "基本",
+        }
+    }
+}
+
+/// 支援的語系（gat02/gaq02；繁中、英文、簡中）
+pub const DICTIONARY_LANGS: [&str; 3] = ["zh-TW", "en", "zh-CN"];
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TableDictionaryInput {
+    pub table_name: String,
+    pub module_code: String,
+    pub table_type: Option<TableTypeDto>,
+    pub upstream: Option<String>,
+    pub downstream: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TableDictionaryDto {
+    pub table_name: String,
+    pub module_code: String,
+    pub table_type: Option<TableTypeDto>,
+    pub upstream: Option<String>,
+    pub downstream: Option<String>,
+    pub created_by: String,
+    pub created_on: NaiveDate,
+}
+
+/// 表名稱、目的、備註（某一語系；gat03/gat04/gat05）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TableTextDto {
+    pub lang: String,
+    pub name: Option<String>,
+    pub purpose: Option<String>,
+    pub remark: Option<String>,
+}
+
+/// 欄位名稱、說明、額外說明（某一語系；gaq03/gaq04/gaq05）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ColumnTextDto {
+    pub column_name: String,
+    pub lang: String,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub extra: Option<String>,
+}
+
+/// 資料庫實際欄位結構（唯讀）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ColumnInfoDto {
+    pub name: String,
+    /// 正規化型別，如 varchar(20)、integer、numeric(18,4)、timestamptz
+    pub data_type: String,
+    pub not_null: bool,
+    pub primary_key: bool,
+    pub default: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConstraintKindDto {
+    PrimaryKey,
+    ForeignKey,
+    Unique,
+    Check,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ConstraintDto {
+    pub name: String,
+    pub kind: ConstraintKindDto,
+    pub columns: Vec<String>,
+    pub ref_table: Option<String>,
+    pub ref_columns: Vec<String>,
+    pub check_clause: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct IndexDto {
+    pub name: String,
+    pub unique: bool,
+    pub columns: Vec<String>,
+}
+
+/// 變更紀錄：內容涉及該表的 migration（D5）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MigrationDto {
+    pub version: i64,
+    pub description: String,
+}

@@ -212,6 +212,21 @@ impl ProgramService {
         self.repo.menus_containing(&no).await.map_err(infra)
     }
 
+    /// 維護某語系的程式名稱與報表抬頭（gaz03/gaz06；modify_program_name / modify_report_title）
+    pub async fn set_name(
+        &self,
+        _actor: &Actor,
+        _no: &str,
+        _name: ProgramNameDto,
+    ) -> Result<(), AppError> {
+        todo!("程式維護 多語言名稱")
+    }
+
+    /// 以使用者語系取得程式；該語系無名稱時退回繁中（L2）
+    pub async fn get_localized(&self, _no: &str, _lang: &str) -> Result<ProgramDto, AppError> {
+        todo!("程式維護 依語系顯示")
+    }
+
     pub async fn names(&self, no: &str) -> Result<Vec<ProgramNameDto>, AppError> {
         let no = ProgramNo::parse(no)?;
         let names = self.repo.names(&no).await.map_err(infra)?;

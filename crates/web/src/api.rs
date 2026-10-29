@@ -4,8 +4,9 @@
 //! （開發由 dx proxy、正式由 nginx 轉發），桌面/行動版預設連本機 API。
 
 use ttrs_shared::{
-    ApiError, CreateItemRequest, GrantRequest, ItemDto, NewProgramNoRequest, Page, ProgramDto,
-    ProgramInput, QueryRequest,
+    ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
+    IndexDto, ItemDto, MigrationDto, NewProgramNoRequest, Page, ProgramDto, ProgramInput,
+    QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto,
 };
 
 fn base_url() -> String {
@@ -188,4 +189,121 @@ pub async fn grant_permission(no: &str, class: &str) -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())?;
     no_content(res).await
+}
+
+// ----- Data Dictionary Maintenance 資料字典維護 -----
+
+fn dict_url(table: &str, suffix: &str) -> String {
+    url(&format!(
+        "/api/dictionary/tables/{}{suffix}",
+        urlencoding(table)
+    ))
+}
+
+async fn get_json<T: serde::de::DeserializeOwned>(u: String) -> Result<T, String> {
+    let res = reqwest::Client::new()
+        .get(u)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+async fn put_json<B: serde::Serialize>(u: String, body: &B) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .put(u)
+        .json(body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn schema_tables() -> Result<Vec<String>, String> {
+    get_json(url("/api/dictionary/schema-tables")).await
+}
+
+pub async fn list_dictionaries() -> Result<Vec<TableDictionaryDto>, String> {
+    get_json(url("/api/dictionary/tables")).await
+}
+
+pub async fn get_dictionary(table: &str) -> Result<Option<TableDictionaryDto>, String> {
+    let res = reqwest::Client::new()
+        .get(dict_url(table, ""))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if res.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+    into_result(res).await.map(Some)
+}
+
+pub async fn create_dictionary(req: &TableDictionaryInput) -> Result<TableDictionaryDto, String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/dictionary/tables"))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn update_dictionary(
+    table: &str,
+    req: &TableDictionaryInput,
+) -> Result<TableDictionaryDto, String> {
+    let res = reqwest::Client::new()
+        .put(dict_url(table, ""))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn delete_dictionary(table: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(dict_url(table, ""))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn table_texts(table: &str) -> Result<Vec<TableTextDto>, String> {
+    get_json(dict_url(table, "/texts")).await
+}
+
+pub async fn set_table_text(table: &str, text: &TableTextDto) -> Result<(), String> {
+    put_json(dict_url(table, "/texts"), text).await
+}
+
+pub async fn table_columns(table: &str) -> Result<Vec<ColumnInfoDto>, String> {
+    get_json(dict_url(table, "/columns")).await
+}
+
+pub async fn column_texts(table: &str) -> Result<Vec<ColumnTextDto>, String> {
+    get_json(dict_url(table, "/column-texts")).await
+}
+
+pub async fn set_column_text(table: &str, text: &ColumnTextDto) -> Result<(), String> {
+    put_json(dict_url(table, "/column-texts"), text).await
+}
+
+pub async fn table_indexes(table: &str) -> Result<Vec<IndexDto>, String> {
+    get_json(dict_url(table, "/indexes")).await
+}
+
+pub async fn table_constraints(table: &str) -> Result<Vec<ConstraintDto>, String> {
+    get_json(dict_url(table, "/constraints")).await
+}
+
+pub async fn table_history(table: &str) -> Result<Vec<MigrationDto>, String> {
+    get_json(dict_url(table, "/history")).await
+}
+
+/// 匯出 CSV 的下載網址（由瀏覽器直接下載）
+pub fn export_url(table: &str, lang: &str) -> String {
+    format!("{}?lang={lang}", dict_url(table, "/export"))
 }

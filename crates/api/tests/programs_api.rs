@@ -9,14 +9,15 @@ use axum::{
 };
 use tower::ServiceExt;
 use ttrs_api::{AppState, actor_from_env, router};
-use ttrs_app::{ItemService, ProgramService, memory::InMemoryStore};
+use ttrs_app::{DataDictionaryService, ItemService, ProgramService, memory::InMemoryStore};
 use ttrs_shared::{ApiError, ProgramDto};
 
 fn app() -> Router {
     let store = Arc::new(InMemoryStore::seeded());
     router(AppState {
         items: ItemService::new(store.clone(), store.clone()),
-        programs: ProgramService::new(store),
+        programs: ProgramService::new(store.clone()),
+        dictionary: DataDictionaryService::new(store.clone(), store),
         actor: actor_from_env(),
     })
 }

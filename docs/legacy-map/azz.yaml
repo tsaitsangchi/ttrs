@@ -84,3 +84,59 @@ tables:
     target: audit_log
     note: 異動紀錄；azo01 作業、azo02 使用者、azo03 日期、azo04 時間、azo05 鍵值、azo06 動作
     verify: true   # azo_file.sch 不在 azz 模組，尚未取得定義
+
+  # ---------------------------------------------------------------------------
+  # p_zta 檔案架構修整記錄維護 → Data Dictionary Maintenance 資料字典維護
+  # 規格：specs/features/azz/data_dictionary.feature（@draft，D1–D8 待確認）
+  # 範圍只含字典維護；TipTop 在畫面上直接執行 DDL 的功能不移植（結構只由 migrations/ 變更）
+  # ---------------------------------------------------------------------------
+  - legacy: zta_file
+    target: table_dictionary
+    program: p_zta
+    new_program: Data Dictionary Maintenance
+    note: "檔案名稱檔；主鍵 (zta01, zta02)。新系統單一資料庫，鍵值只剩資料表名稱（D1：須已存在於資料庫）"
+    columns:
+      - { legacy: zta01, type: varchar2(15) NOT NULL, target: table_name, sch: 檔案代碼, note: "改用 PostgreSQL 識別字上限 63（D8）" }
+      - { legacy: zta02, type: varchar2(20) NOT NULL, sch: 檔案名稱, note: "實際為資料庫名稱（p_zta_i 帶 g_dbs）；新系統單一 schema，不搬" }
+      - { legacy: zta05, type: date, target: created_on, sch: 產生日期, note: 新增時預設今天（:1272） }
+      - { legacy: zta06, type: varchar2(10), target: created_by, sch: 產生者, note: "新增時預設目前使用者；必填（:1273、:1610）" }
+      - { legacy: zta07, type: varchar2(1), sch: "T/S建議 (Table/Synonym)", note: Synonym 不搬 }
+      - { legacy: zta10, type: varchar2(1), sch: 資料庫, note: "ERP 資料庫同步旗標（Y 時要輸入工作單號並同步各 DB）；不搬" }
+      - { legacy: zta11, type: varchar2(80), target: upstream_tables, sch: 檔案名稱, note: "4fd 標籤為 Upstream File（上游檔案），.sch 說明過時", mismatch: true }
+      - { legacy: zta12, type: varchar2(60), target: downstream_tables, sch: 檔案目的, note: "4fd 標籤為 Downstream File（下游檔案），.sch 說明過時", mismatch: true }
+      - { legacy: zta17, type: varchar2(10), sch: Synonym DB, note: 不搬 }
+      # zta03 系統別、zta04 使用別、zta08 No Use、zta09 檔案類別、zta13–zta16：4fd 未使用，不搬
+
+  - legacy: gat_file
+    target: table_dictionary / table_dictionary_text
+    note: "檔案名稱多語言對照檔；主鍵 (gat01, gat02)。gat06 模組、gat07 類型在 TipTop 寫入每個語言列（:1552、:1576），新系統放表頭（各語言共用）"
+    columns:
+      - { legacy: gat01, type: varchar2(15) NOT NULL, target: table_name }
+      - { legacy: gat02, type: varchar2(1) NOT NULL, target: lang, note: "TipTop 語言別 1 碼；新系統 zh-TW / en / zh-CN，代碼對照待確認", verify: true }
+      - { legacy: gat03, type: varchar2(120), target: table_dictionary_text.name, sch: 檔案名稱 }
+      - { legacy: gat04, type: varchar2(255), target: table_dictionary_text.purpose, sch: 檔案目的 }
+      - { legacy: gat05, type: varchar2(255), target: table_dictionary_text.remark, sch: 備註 }
+      - { legacy: gat06, type: varchar2(10), target: table_dictionary.module_code, sch: 所屬模組名稱, note: 必填 }
+      - { legacy: gat07, type: varchar2(1), target: table_dictionary.table_type, sch: 檔案型態, note: "P 參數 M 主檔 T 交易 S 統計 B 基本（4fd ComboBox）" }
+
+  - legacy: gaq_file
+    target: column_dictionary_text
+    note: "欄位多語言說明檔；主鍵 (gaq01, gaq02)。TipTop 以欄位代碼為全系統唯一鍵，新系統改 (table_name, column_name, lang)（D2）"
+    columns:
+      - { legacy: gaq01, type: varchar2(20) NOT NULL, target: column_name, note: 新系統加上 table_name }
+      - { legacy: gaq02, type: varchar2(1) NOT NULL, target: lang, verify: true }
+      - { legacy: gaq03, type: varchar2(255), target: name, sch: 欄位名稱 }
+      - { legacy: gaq04, type: varchar2(500), target: description, sch: 欄位說明 }
+      - { legacy: gaq05, type: varchar2(2000), target: extra, sch: 額外說明 }
+      - { legacy: gaq06, type: varchar2(1), sch: Unicode放大, note: 不搬 }
+      - { legacy: gaq07, type: varchar2(3), sch: 欄位屬性註記, note: 不搬 }
+      - { legacy: gaq08, type: date, target: updated_on, sch: 異動日期 }
+
+  - legacy: ztb_file / ztc_file / ztd_file
+    note: "欄位、索引、Constraint 定義。新系統不另存，改由 PostgreSQL 系統目錄（information_schema、pg_catalog）唯讀讀取。注意 4fd 的 ztb06–ztb09 實為精度/小數位/長度/NOT NULL，與 .sch 說明（中/英/簡說明）不符"
+
+  - legacy: zs_file
+    note: "檔案架構修整記錄（修正指令、p_zl 工作單號、測試/正式區、版號）。新系統以 migration 歷史取代（D5）"
+
+  - legacy: zte_file
+    note: 欄位預設值設定方式；不搬

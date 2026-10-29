@@ -3,7 +3,7 @@
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    http::{HeaderValue, StatusCode},
+    http::{HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
 };
@@ -12,16 +12,18 @@ use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
-use ttrs_app::{Actor, AppError, ItemService, ProgramService};
+use ttrs_app::{Actor, AppError, DataDictionaryService, ItemService, ProgramService};
 use ttrs_shared::{
-    ApiError, CreateItemRequest, GrantRequest, ItemDto, NewProgramNoRequest, Page, ProgramDto,
-    ProgramInput, QueryRequest,
+    ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
+    IndexDto, ItemDto, MigrationDto, NewProgramNoRequest, Page, ProgramDto, ProgramInput,
+    QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto,
 };
 
 #[derive(Clone)]
 pub struct AppState {
     pub items: ItemService,
     pub programs: ProgramService,
+    pub dictionary: DataDictionaryService,
     /// 尚未有登入機制前，所有請求都以此使用者身分執行（見 `actor_from_env`）
     pub actor: Actor,
 }
@@ -54,6 +56,37 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/programs/{no}/permissions",
             get(list_permissions).post(grant_permission),
+        )
+        // Data Dictionary Maintenance 資料字典維護（TipTop p_zta）；結構唯讀，不執行 DDL
+        .route("/api/dictionary/schema-tables", get(schema_tables))
+        .route(
+            "/api/dictionary/tables",
+            get(list_dictionaries).post(create_dictionary),
+        )
+        .route(
+            "/api/dictionary/tables/{table}",
+            get(get_dictionary)
+                .put(update_dictionary)
+                .delete(delete_dictionary),
+        )
+        .route(
+            "/api/dictionary/tables/{table}/texts",
+            get(table_texts).put(set_table_text),
+        )
+        .route("/api/dictionary/tables/{table}/columns", get(table_columns))
+        .route(
+            "/api/dictionary/tables/{table}/column-texts",
+            get(column_texts).put(set_column_text),
+        )
+        .route("/api/dictionary/tables/{table}/indexes", get(table_indexes))
+        .route(
+            "/api/dictionary/tables/{table}/constraints",
+            get(table_constraints),
+        )
+        .route("/api/dictionary/tables/{table}/history", get(table_history))
+        .route(
+            "/api/dictionary/tables/{table}/export",
+            get(export_dictionary),
         )
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -91,11 +124,12 @@ impl From<AppError> for HttpError {
 impl IntoResponse for HttpError {
     fn into_response(self) -> Response {
         let status = match self.0.code() {
-            "ITEM_NOT_FOUND" | "PROGRAM_NOT_FOUND" => StatusCode::NOT_FOUND,
+            "ITEM_NOT_FOUND" | "PROGRAM_NOT_FOUND" | "DICT_NOT_FOUND" => StatusCode::NOT_FOUND,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
             | "ITEM_HAS_TRANSACTIONS"
-            | "PROGRAM_ALREADY_EXISTS" => StatusCode::CONFLICT,
+            | "PROGRAM_ALREADY_EXISTS"
+            | "DICT_ALREADY_EXISTS" => StatusCode::CONFLICT,
             "INFRA_ERROR" => StatusCode::INTERNAL_SERVER_ERROR,
             _ => StatusCode::UNPROCESSABLE_ENTITY,
         };
@@ -230,4 +264,131 @@ async fn grant_permission(
 ) -> ApiResult<StatusCode> {
     s.programs.grant(&no, &req.permission_class).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- Data Dictionary Maintenance 資料字典維護（TipTop p_zta） -----
+
+async fn schema_tables(State(s): State<AppState>) -> ApiResult<Json<Vec<String>>> {
+    Ok(Json(s.dictionary.schema_tables().await?))
+}
+
+async fn list_dictionaries(State(s): State<AppState>) -> ApiResult<Json<Vec<TableDictionaryDto>>> {
+    Ok(Json(s.dictionary.list().await?))
+}
+
+async fn create_dictionary(
+    State(s): State<AppState>,
+    Json(req): Json<TableDictionaryInput>,
+) -> ApiResult<(StatusCode, Json<TableDictionaryDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.dictionary.create(&s.actor, req).await?),
+    ))
+}
+
+async fn get_dictionary(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+) -> ApiResult<Json<TableDictionaryDto>> {
+    Ok(Json(s.dictionary.get(&table).await?))
+}
+
+async fn update_dictionary(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+    Json(req): Json<TableDictionaryInput>,
+) -> ApiResult<Json<TableDictionaryDto>> {
+    Ok(Json(s.dictionary.update(&table, req).await?))
+}
+
+async fn delete_dictionary(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+) -> ApiResult<StatusCode> {
+    s.dictionary.delete(&table).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn table_texts(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+) -> ApiResult<Json<Vec<TableTextDto>>> {
+    Ok(Json(s.dictionary.table_texts(&table).await?))
+}
+
+async fn set_table_text(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+    Json(req): Json<TableTextDto>,
+) -> ApiResult<StatusCode> {
+    s.dictionary.set_table_text(&table, req).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn table_columns(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+) -> ApiResult<Json<Vec<ColumnInfoDto>>> {
+    Ok(Json(s.dictionary.columns(&table).await?))
+}
+
+async fn column_texts(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+) -> ApiResult<Json<Vec<ColumnTextDto>>> {
+    Ok(Json(s.dictionary.column_texts(&table).await?))
+}
+
+async fn set_column_text(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+    Json(req): Json<ColumnTextDto>,
+) -> ApiResult<StatusCode> {
+    s.dictionary.set_column_text(&table, req).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn table_indexes(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+) -> ApiResult<Json<Vec<IndexDto>>> {
+    Ok(Json(s.dictionary.indexes(&table).await?))
+}
+
+async fn table_constraints(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+) -> ApiResult<Json<Vec<ConstraintDto>>> {
+    Ok(Json(s.dictionary.constraints(&table).await?))
+}
+
+async fn table_history(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+) -> ApiResult<Json<Vec<MigrationDto>>> {
+    Ok(Json(s.dictionary.history(&table).await?))
+}
+
+#[derive(Deserialize)]
+struct LangQuery {
+    lang: Option<String>,
+}
+
+/// 匯出 CSV（D6）；開頭加 UTF-8 BOM，Excel 才會以 UTF-8 開啟中文
+async fn export_dictionary(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Response> {
+    let lang = q.lang.unwrap_or_else(|| "zh-TW".to_owned());
+    let csv = s.dictionary.export_csv(&table, &lang).await?;
+    let filename = format!("attachment; filename=\"{table}_{lang}.csv\"");
+    Ok((
+        [
+            (header::CONTENT_TYPE, "text/csv; charset=utf-8".to_owned()),
+            (header::CONTENT_DISPOSITION, filename),
+        ],
+        format!("\u{feff}{csv}"),
+    )
+        .into_response())
 }

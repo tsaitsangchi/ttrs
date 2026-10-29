@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tracing_subscriber::EnvFilter;
 use ttrs_api::{AppState, actor_from_env, cors_from_env, router};
-use ttrs_app::{ItemService, ProgramService, memory::InMemoryStore};
+use ttrs_app::{DataDictionaryService, ItemService, ProgramService, memory::InMemoryStore};
 use ttrs_infra::PgStore;
 
 #[tokio::main]
@@ -14,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     // 有 DATABASE_URL 就用 PostgreSQL（並自動 migrate），否則用記憶體資料方便前端開發
-    let (items, programs) = match std::env::var("DATABASE_URL") {
+    let (items, programs, dictionary) = match std::env::var("DATABASE_URL") {
         Ok(url) => {
             let pool = ttrs_infra::connect(&url).await?;
             ttrs_infra::migrate(&pool).await?;
@@ -22,7 +22,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let store = Arc::new(PgStore::new(pool));
             (
                 ItemService::new(store.clone(), store.clone()),
-                ProgramService::new(store),
+                ProgramService::new(store.clone()),
+                DataDictionaryService::new(store.clone(), store),
             )
         }
         Err(_) => {
@@ -30,7 +31,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let store = Arc::new(InMemoryStore::seeded());
             (
                 ItemService::new(store.clone(), store.clone()),
-                ProgramService::new(store),
+                ProgramService::new(store.clone()),
+                // 記憶體模式沒有真正的資料庫結構，資料字典只能看到空清單
+                DataDictionaryService::new(store.clone(), store),
             )
         }
     };
@@ -43,6 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut app = router(AppState {
         items,
         programs,
+        dictionary,
         actor,
     });
     if let Some(cors) = cors_from_env() {

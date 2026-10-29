@@ -55,6 +55,20 @@ pub enum DomainError {
     #[error("經由 p_query 執行的程式必須先建立查詢定義")]
     QueryDefinitionNotFound,
 
+    // 資料字典（TipTop p_zta）
+    #[error("資料表代碼不可空白")]
+    DictTableNameEmpty,
+    #[error("資料庫中沒有資料表 {0}（資料表需先由 migration 建立）")]
+    DictTableNotInSchema(String),
+    #[error("此資料表已有資料字典")]
+    DictAlreadyExists,
+    #[error("此資料表尚無資料字典")]
+    DictNotFound,
+    #[error("資料表沒有欄位 {0}")]
+    DictColumnNotFound(String),
+    #[error("不支援的語系：{0}（支援 zh-TW、en、zh-CN）")]
+    LanguageNotSupported(String),
+
     // QBE 查詢條件
     #[error("查詢條件格式錯誤：{0}")]
     QbeInvalidSyntax(String),
@@ -92,6 +106,12 @@ impl DomainError {
             Self::MenuHasNoPermission => "MENU_HAS_NO_PERMISSION",
             Self::PermissionClassNotFound => "PERMISSION_CLASS_NOT_FOUND",
             Self::QueryDefinitionNotFound => "QUERY_DEFINITION_NOT_FOUND",
+            Self::DictTableNameEmpty => "DICT_TABLE_NAME_EMPTY",
+            Self::DictTableNotInSchema(_) => "DICT_TABLE_NOT_IN_SCHEMA",
+            Self::DictAlreadyExists => "DICT_ALREADY_EXISTS",
+            Self::DictNotFound => "DICT_NOT_FOUND",
+            Self::DictColumnNotFound(_) => "DICT_COLUMN_NOT_FOUND",
+            Self::LanguageNotSupported(_) => "LANGUAGE_NOT_SUPPORTED",
             Self::QbeInvalidSyntax(_) => "QBE_INVALID_SYNTAX",
             Self::QbeInvalidNumber(_) => "QBE_INVALID_NUMBER",
             Self::QbeInvalidDate(_) => "QBE_INVALID_DATE",
