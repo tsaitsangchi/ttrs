@@ -76,6 +76,15 @@ fn main() {
         if database_url().is_some() {
             cucumber = cucumber.max_concurrent_scenarios(1);
         }
-        cucumber.fail_on_skipped().run_and_exit(features).await;
+        // @draft：規格審核中、尚未實作，不納入執行
+        cucumber
+            .fail_on_skipped()
+            .filter_run_and_exit(features, |feature, rule, scenario| {
+                let is_draft = |tags: &[String]| tags.iter().any(|t| t == "draft");
+                !(is_draft(&feature.tags)
+                    || rule.is_some_and(|r| is_draft(&r.tags))
+                    || is_draft(&scenario.tags))
+            })
+            .await;
     });
 }

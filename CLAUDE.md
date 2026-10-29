@@ -35,6 +35,8 @@ bdd：驗收測試，執行 specs/features/**/*.feature
    feature 檔頭以 `規則來源：tiptop/aim/4gl/aimi100.4gl:行號` 註明出處。
 2. **規格**：寫 `specs/features/<模組>/<名稱>.feature`（`# language: zh-TW`），
    檔頭註明 TipTop 程式代號、資料表、規則來源。**規格未經使用者確認前不寫實作。**
+   審核中的規格標 `@draft`（BDD 執行時自動略過），並在檔頭列出「待確認」問題；
+   使用者確認後移除 `@draft` 再進入 Red。
 3. **Red**：在 `crates/bdd/tests/steps/<模組>_<名稱>.rs` 寫步驟，`make bdd` 必須先失敗。
 4. **Green**：依序實作 domain → app → infra → api → web，直到 `make test` 全過。
 5. **對照**：更新 `docs/legacy-map/<模組>.yaml`（舊表/欄位 → 新表/欄位）。
