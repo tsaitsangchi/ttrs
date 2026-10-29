@@ -1,5 +1,6 @@
 //! p_zz 程式登錄 — specs/features/azz/program_registry.feature
 
+use chrono::{Local, NaiveDate};
 use cucumber::{gherkin::Step, given, then, when};
 use ttrs_app::{Actor, memory::InMemoryStore};
 use ttrs_shared::{
@@ -38,6 +39,15 @@ fn by_label<T: Copy>(all: &[T], label: fn(T) -> &'static str, text: &str) -> T {
 
 fn opt_label<T: Copy>(v: Option<T>, label: fn(T) -> &'static str) -> String {
     v.map(label).unwrap_or_default().to_string()
+}
+
+/// 今天以「今天」表示，避免規格寫死日期
+fn date_label(d: NaiveDate) -> String {
+    if d == Local::now().date_naive() {
+        "今天".to_owned()
+    } else {
+        d.to_string()
+    }
 }
 
 fn opt_num(v: Option<i32>) -> String {
@@ -258,6 +268,11 @@ async fn program_fields(w: &mut ErpWorld, step: &Step, no: String) {
             "最後修改者" => p.updated_by.clone().unwrap_or_default(),
             "延後列印次數" => p.deferred_print_count.to_string(),
             "目前列印次數" => p.current_print_count.to_string(),
+            "報表副檔名" => opt_label(p.report_ext_mode, ReportExtModeDto::label),
+            "列印選項" => yes_no_label(p.print_option).to_string(),
+            "維護作業可修改鍵值" => yes_no_label(p.allow_key_update).to_string(),
+            "設計日期" => date_label(p.designed_on),
+            "最後修改日期" => date_label(p.updated_on),
             other => panic!("未知欄位：{other}"),
         };
         assert_eq!(actual, expected, "欄位「{field}」");
@@ -376,4 +391,64 @@ async fn delete_audited(w: &mut ErpWorld, user: String, no: String) {
         .filter(|e| e.program == "p_zz" && e.user_id == user && e.action == "delete")
         .count();
     assert_eq!(hits, 1, "異動紀錄：{entries:?}");
+}
+
+// ----- 其他設定（zz04、zz05、zz13、zz31、gaz06） -----
+
+#[when(expr = "使用者新增程式 {string} 模組 {string}，其他設定為:")]
+async fn create_with_other(w: &mut ErpWorld, step: &Step, no: String, module: String) {
+    let mut req = input(&no, &module);
+    for (field, value) in field_rows(step) {
+        match field.as_str() {
+            "可執行功能" => req.default_actions = Some(value),
+            "列印選項" => req.print_option = yes_no(&value),
+            "維護作業可修改鍵值" => req.allow_key_update = yes_no(&value),
+            "其他備註" => req.remark = Some(value),
+            "報表抬頭" => req.report_title = Some(value),
+            other => panic!("未知欄位：{other}"),
+        }
+    }
+    create(w, req).await;
+}
+
+#[then(expr = "程式 {string} 的其他設定應為:")]
+async fn other_fields(w: &mut ErpWorld, step: &Step, no: String) {
+    let p = program(w, &no).await;
+    for (field, expected) in field_rows(step) {
+        let actual = match field.as_str() {
+            "可執行功能" => p.default_actions.clone().unwrap_or_default(),
+            "列印選項" => yes_no_label(p.print_option).to_string(),
+            "維護作業可修改鍵值" => yes_no_label(p.allow_key_update).to_string(),
+            "其他備註" => p.remark.clone().unwrap_or_default(),
+            "報表抬頭" => p.report_title.clone().unwrap_or_default(),
+            other => panic!("未知欄位：{other}"),
+        };
+        assert_eq!(actual, expected, "欄位「{field}」");
+    }
+}
+
+#[when(expr = "使用者將程式 {string} 的名稱改為 {string}，報表抬頭改為 {string}")]
+async fn change_name_and_title(w: &mut ErpWorld, no: String, name: String, title: String) {
+    let result = match w.programs.get(&no).await {
+        Ok(p) => {
+            let req = ProgramInput {
+                name: Some(name),
+                report_title: Some(title),
+                ..p.to_input()
+            };
+            w.programs.update(&w.actor, &no, req).await.map(|_| ())
+        }
+        Err(e) => Err(e),
+    };
+    w.last = Some(result);
+}
+
+#[then(expr = "程式 {string} 的最後修改日期應為今天")]
+async fn updated_today(w: &mut ErpWorld, no: String) {
+    assert_eq!(date_label(program(w, &no).await.updated_on), "今天");
+}
+
+#[then(expr = "程式 {string} 的設計日期應為今天")]
+async fn designed_today(w: &mut ErpWorld, no: String) {
+    assert_eq!(date_label(program(w, &no).await.designed_on), "今天");
 }

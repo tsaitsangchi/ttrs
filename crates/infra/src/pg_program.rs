@@ -2,14 +2,15 @@
 //! 子表以 ON UPDATE / ON DELETE CASCADE 連動，改代號與刪除只需操作 program 表。
 
 use async_trait::async_trait;
+use chrono::NaiveDate;
 use sqlx::FromRow;
 use ttrs_app::{
     error::RepoError,
     ports::{AuditEntry, ProgramName, ProgramRepository},
 };
 use ttrs_domain::program::{
-    IdleAction, IdleControl, ModuleCode, Program, ProgramNo, ReportExtMode, ReportType,
-    RuntimeSettings,
+    IdleAction, IdleControl, ModuleCode, OtherSettings, Program, ProgramNo, ReportExtMode,
+    ReportType, RuntimeSettings,
 };
 
 use crate::pg::{PgStore, db_err};
@@ -30,14 +31,20 @@ struct ProgramRow {
     run_command: Option<String>,
     window_style: Option<String>,
     report_ext_mode: Option<String>,
-    print_setting: Option<String>,
-    print_default: Option<String>,
-    quick_run_data: Option<String>,
+    program_group: Option<String>,
+    print_method: Option<String>,
+    fixed_run_condition: Option<String>,
     help_enabled: bool,
     log_errors: bool,
+    default_actions: Option<String>,
+    print_option: bool,
+    allow_key_update: bool,
+    remark: Option<String>,
+    designed_on: NaiveDate,
     created_by: String,
     created_dept: String,
     updated_by: Option<String>,
+    updated_on: NaiveDate,
 }
 
 fn bad(what: &str, v: &str) -> RepoError {
@@ -85,15 +92,23 @@ impl TryFrom<ProgramRow> for Program {
                     r.report_ext_mode,
                     ReportExtMode::from_code,
                 )?,
-                print_setting: r.print_setting,
-                print_default: r.print_default,
-                quick_run_data: r.quick_run_data,
+                program_group: r.program_group,
+                print_method: r.print_method,
+                fixed_run_condition: r.fixed_run_condition,
                 help_enabled: r.help_enabled,
                 log_errors: r.log_errors,
             },
+            other: OtherSettings {
+                default_actions: r.default_actions,
+                print_option: r.print_option,
+                allow_key_update: r.allow_key_update,
+                remark: r.remark,
+            },
+            designed_on: r.designed_on,
             created_by: r.created_by,
             created_dept: r.created_dept,
             updated_by: r.updated_by,
+            updated_on: r.updated_on,
         })
     }
 }
@@ -105,8 +120,9 @@ impl ProgramRepository for PgStore {
             "SELECT program_no, module_code, program_type, report_type, idle_control,
                     idle_seconds, idle_action, pass_book_no, deferred_print_count,
                     current_print_count, report_width, run_command, window_style,
-                    report_ext_mode, print_setting, print_default, quick_run_data,
-                    help_enabled, log_errors, created_by, created_dept, updated_by
+                    report_ext_mode, program_group, print_method, fixed_run_condition,
+                    help_enabled, log_errors, default_actions, print_option, allow_key_update,
+                    remark, designed_on, created_by, created_dept, updated_by, updated_on
              FROM program WHERE program_no = $1",
         )
         .bind(no.as_str())
@@ -122,8 +138,9 @@ impl ProgramRepository for PgStore {
             "SELECT program_no, module_code, program_type, report_type, idle_control,
                     idle_seconds, idle_action, pass_book_no, deferred_print_count,
                     current_print_count, report_width, run_command, window_style,
-                    report_ext_mode, print_setting, print_default, quick_run_data,
-                    help_enabled, log_errors, created_by, created_dept, updated_by
+                    report_ext_mode, program_group, print_method, fixed_run_condition,
+                    help_enabled, log_errors, default_actions, print_option, allow_key_update,
+                    remark, designed_on, created_by, created_dept, updated_by, updated_on
              FROM program ORDER BY program_no",
         )
         .fetch_all(&self.pool)
@@ -146,11 +163,12 @@ impl ProgramRepository for PgStore {
             "INSERT INTO program (program_no, module_code, program_type, report_type,
                     idle_control, idle_seconds, idle_action, pass_book_no,
                     deferred_print_count, current_print_count, report_width, run_command,
-                    window_style, report_ext_mode, print_setting, print_default,
-                    quick_run_data, help_enabled, log_errors, created_by, created_dept,
-                    updated_by)
+                    window_style, report_ext_mode, program_group, print_method,
+                    fixed_run_condition, help_enabled, log_errors, created_by, created_dept,
+                    updated_by, default_actions, print_option, allow_key_update, remark,
+                    designed_on, updated_on)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-                     $16, $17, $18, $19, $20, $21, $22)",
+                     $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)",
         )
         .bind(p.program_no.as_str())
         .bind(p.module.as_str())
@@ -166,26 +184,36 @@ impl ProgramRepository for PgStore {
         .bind(&r.run_command)
         .bind(&r.window_style)
         .bind(r.report_ext_mode.map(ReportExtMode::code))
-        .bind(&r.print_setting)
-        .bind(&r.print_default)
-        .bind(&r.quick_run_data)
+        .bind(&r.program_group)
+        .bind(&r.print_method)
+        .bind(&r.fixed_run_condition)
         .bind(r.help_enabled)
         .bind(r.log_errors)
         .bind(&p.created_by)
         .bind(&p.created_dept)
         .bind(&p.updated_by)
+        .bind(&p.other.default_actions)
+        .bind(p.other.print_option)
+        .bind(p.other.allow_key_update)
+        .bind(&p.other.remark)
+        .bind(p.designed_on)
+        .bind(p.updated_on)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
 
         for n in names {
-            sqlx::query("INSERT INTO program_name (program_no, lang, name) VALUES ($1, $2, $3)")
-                .bind(p.program_no.as_str())
-                .bind(&n.lang)
-                .bind(&n.name)
-                .execute(&mut *tx)
-                .await
-                .map_err(db_err)?;
+            sqlx::query(
+                "INSERT INTO program_name (program_no, lang, name, report_title)
+                 VALUES ($1, $2, $3, $4)",
+            )
+            .bind(p.program_no.as_str())
+            .bind(&n.lang)
+            .bind(&n.name)
+            .bind(&n.report_title)
+            .execute(&mut *tx)
+            .await
+            .map_err(db_err)?;
         }
         if let Some(class) = grant_to {
             sqlx::query(
@@ -208,8 +236,10 @@ impl ProgramRepository for PgStore {
                     idle_control = $5, idle_seconds = $6, idle_action = $7, pass_book_no = $8,
                     deferred_print_count = $9, current_print_count = $10, report_width = $11,
                     run_command = $12, window_style = $13, report_ext_mode = $14,
-                    print_setting = $15, print_default = $16, quick_run_data = $17,
-                    help_enabled = $18, log_errors = $19, updated_by = $20, updated_at = now()
+                    program_group = $15, print_method = $16, fixed_run_condition = $17,
+                    help_enabled = $18, log_errors = $19, updated_by = $20,
+                    default_actions = $21, print_option = $22, allow_key_update = $23,
+                    remark = $24, designed_on = $25, updated_on = $26, updated_at = now()
              WHERE program_no = $1",
         )
         .bind(p.program_no.as_str())
@@ -226,12 +256,18 @@ impl ProgramRepository for PgStore {
         .bind(&r.run_command)
         .bind(&r.window_style)
         .bind(r.report_ext_mode.map(ReportExtMode::code))
-        .bind(&r.print_setting)
-        .bind(&r.print_default)
-        .bind(&r.quick_run_data)
+        .bind(&r.program_group)
+        .bind(&r.print_method)
+        .bind(&r.fixed_run_condition)
         .bind(r.help_enabled)
         .bind(r.log_errors)
         .bind(&p.updated_by)
+        .bind(&p.other.default_actions)
+        .bind(p.other.print_option)
+        .bind(p.other.allow_key_update)
+        .bind(&p.other.remark)
+        .bind(p.designed_on)
+        .bind(p.updated_on)
         .execute(&self.pool)
         .await
         .map_err(db_err)?;
@@ -269,8 +305,9 @@ impl ProgramRepository for PgStore {
     }
 
     async fn names(&self, no: &ProgramNo) -> Result<Vec<ProgramName>, RepoError> {
-        let rows: Vec<(String, String)> = sqlx::query_as(
-            "SELECT lang, name FROM program_name WHERE program_no = $1 ORDER BY lang",
+        let rows: Vec<(String, String, Option<String>)> = sqlx::query_as(
+            "SELECT lang, name, report_title FROM program_name
+             WHERE program_no = $1 ORDER BY lang",
         )
         .bind(no.as_str())
         .fetch_all(&self.pool)
@@ -278,8 +315,29 @@ impl ProgramRepository for PgStore {
         .map_err(db_err)?;
         Ok(rows
             .into_iter()
-            .map(|(lang, name)| ProgramName { lang, name })
+            .map(|(lang, name, report_title)| ProgramName {
+                lang,
+                name,
+                report_title,
+            })
             .collect())
+    }
+
+    async fn set_name(&self, no: &ProgramNo, name: &ProgramName) -> Result<(), RepoError> {
+        sqlx::query(
+            "INSERT INTO program_name (program_no, lang, name, report_title)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (program_no, lang)
+             DO UPDATE SET name = EXCLUDED.name, report_title = EXCLUDED.report_title",
+        )
+        .bind(no.as_str())
+        .bind(&name.lang)
+        .bind(&name.name)
+        .bind(&name.report_title)
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(())
     }
 
     async fn grant(&self, permission_class: &str, no: &ProgramNo) -> Result<(), RepoError> {

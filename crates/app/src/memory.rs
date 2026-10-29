@@ -31,8 +31,8 @@ struct State {
     /// p_query 查詢定義代號（zai_file）
     query_definitions: HashSet<String>,
     programs: BTreeMap<ProgramNo, Program>,
-    /// (程式代號, 語系) → 名稱（gaz_file）
-    names: BTreeMap<(String, String), String>,
+    /// (程式代號, 語系) → (名稱, 報表抬頭)（gaz_file）
+    names: BTreeMap<(String, String), (String, Option<String>)>,
     /// (權限類別, 程式代號)（zy_file）
     permissions: HashSet<(String, String)>,
     audit: Vec<AuditEntry>,
@@ -176,7 +176,10 @@ impl ProgramRepository for InMemoryStore {
         s.programs
             .insert(program.program_no.clone(), program.clone());
         for n in names {
-            s.names.insert((no.clone(), n.lang.clone()), n.name.clone());
+            s.names.insert(
+                (no.clone(), n.lang.clone()),
+                (n.name.clone(), n.report_title.clone()),
+            );
         }
         if let Some(class) = grant_to {
             s.permissions.insert((class.to_owned(), no));
@@ -234,11 +237,20 @@ impl ProgramRepository for InMemoryStore {
             .names
             .iter()
             .filter(|((n, _), _)| n == no.as_str())
-            .map(|((_, lang), name)| ProgramName {
+            .map(|((_, lang), (name, report_title))| ProgramName {
                 lang: lang.clone(),
                 name: name.clone(),
+                report_title: report_title.clone(),
             })
             .collect())
+    }
+
+    async fn set_name(&self, no: &ProgramNo, name: &ProgramName) -> Result<(), RepoError> {
+        self.lock().names.insert(
+            (no.as_str().to_owned(), name.lang.clone()),
+            (name.name.clone(), name.report_title.clone()),
+        );
+        Ok(())
     }
 
     async fn grant(&self, permission_class: &str, no: &ProgramNo) -> Result<(), RepoError> {

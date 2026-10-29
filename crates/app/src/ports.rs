@@ -32,6 +32,8 @@ pub trait MasterDataRepository: Send + Sync {
 pub struct ProgramName {
     pub lang: String,
     pub name: String,
+    /// 報表抬頭（gaz06）
+    pub report_title: Option<String>,
 }
 
 /// 異動紀錄（TipTop: azo_file）
@@ -62,6 +64,8 @@ pub trait ProgramRepository: Send + Sync {
     /// 刪除程式並連帶刪除名稱、權限、選單，同時寫入異動紀錄
     async fn delete(&self, no: &ProgramNo, audit: &AuditEntry) -> Result<(), RepoError>;
     async fn names(&self, no: &ProgramNo) -> Result<Vec<ProgramName>, RepoError>;
+    /// 新增或更新某語系的名稱與報表抬頭
+    async fn set_name(&self, no: &ProgramNo, name: &ProgramName) -> Result<(), RepoError>;
     /// 授權（已存在則不變，同 p_zz_gen 的 upsert）
     async fn grant(&self, permission_class: &str, no: &ProgramNo) -> Result<(), RepoError>;
     async fn permission_classes(&self, no: &ProgramNo) -> Result<Vec<String>, RepoError>;

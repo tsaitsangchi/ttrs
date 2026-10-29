@@ -12,6 +12,7 @@ publish.workspace = true
 memory = []
 
 [dependencies]
+chrono.workspace = true
 ttrs-domain.workspace = true
 ttrs-shared.workspace = true
 async-trait.workspace = true

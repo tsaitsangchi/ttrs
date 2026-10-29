@@ -3,11 +3,13 @@
 
 use std::sync::Arc;
 
+use chrono::NaiveDate;
+
 use ttrs_domain::{
     DomainError,
     program::{
-        IdleAction, IdleControl, ModuleCode, Program, ProgramAttrs, ProgramNo, ReportExtMode,
-        ReportType, RuntimeSettings,
+        IdleAction, IdleControl, ModuleCode, OtherSettings, Program, ProgramAttrs, ProgramNo,
+        ReportExtMode, ReportType, RuntimeSettings,
     },
 };
 use ttrs_shared::{
@@ -48,20 +50,17 @@ impl ProgramService {
     pub async fn create(&self, actor: &Actor, input: ProgramInput) -> Result<ProgramDto, AppError> {
         let no = ProgramNo::parse(&input.program_no)?;
         let module = self.module(&input.module_code).await?;
-        let program = Program::new(no, module, attrs(&input), &actor.user_id, &actor.dept)?;
+        let program = Program::new(
+            no,
+            module,
+            attrs(&input),
+            &actor.user_id,
+            &actor.dept,
+            today(),
+        )?;
         self.check_query_definition(&program).await?;
 
-        let names: Vec<ProgramName> = input
-            .name
-            .as_deref()
-            .map(str::trim)
-            .filter(|n| !n.is_empty())
-            .map(|n| ProgramName {
-                lang: DEFAULT_LANG.to_owned(),
-                name: n.to_owned(),
-            })
-            .into_iter()
-            .collect();
+        let names: Vec<ProgramName> = default_name(&input).into_iter().collect();
         // 選單不是可執行程式，不授權
         let grant_to = (!program.module.is_menu() && !actor.permission_class.is_empty())
             .then_some(actor.permission_class.as_str());
@@ -96,9 +95,16 @@ impl ProgramService {
     ) -> Result<ProgramDto, AppError> {
         let mut program = self.load(&ProgramNo::parse(no)?).await?;
         let module = self.module(&input.module_code).await?;
-        program.update(module, attrs(&input), &actor.user_id)?;
+        program.update(module, attrs(&input), &actor.user_id, today())?;
         self.check_query_definition(&program).await?;
         self.repo.update(&program).await.map_err(infra)?;
+        // 名稱與報表抬頭（TipTop 另以 modify_program_name / modify_report_title 更新 gaz_file）
+        if let Some(name) = default_name(&input) {
+            self.repo
+                .set_name(&program.program_no, &name)
+                .await
+                .map_err(infra)?;
+        }
         self.to_dto(&program).await
     }
 
@@ -117,6 +123,7 @@ impl ProgramService {
         }
         program.program_no = new;
         program.updated_by = Some(actor.user_id.clone());
+        program.updated_on = today();
         self.repo.update(&program).await.map_err(infra)
     }
 
@@ -139,7 +146,7 @@ impl ProgramService {
         let to = ProgramNo::parse(to)?;
         let source = self.load(&from).await?;
         let names = self.repo.names(&from).await.map_err(infra)?;
-        let program = source.copy_as(to, &actor.user_id, &actor.dept);
+        let program = source.copy_as(to, &actor.user_id, &actor.dept, today());
         match self.repo.insert(&program, &names, None).await {
             Ok(()) => self.to_dto(&program).await,
             Err(RepoError::Conflict) => Err(DomainError::ProgramAlreadyExists.into()),
@@ -186,6 +193,7 @@ impl ProgramService {
             .map(|n| ProgramNameDto {
                 lang: n.lang,
                 name: n.name,
+                report_title: n.report_title,
             })
             .collect())
     }
@@ -235,11 +243,14 @@ impl ProgramService {
 
     async fn to_dto(&self, p: &Program) -> Result<ProgramDto, AppError> {
         let names = self.repo.names(&p.program_no).await.map_err(infra)?;
-        let name = names
+        let (name, report_title) = names
             .into_iter()
             .find(|n| n.lang == DEFAULT_LANG)
-            .map(|n| n.name);
+            .map_or((None, None), |n| {
+                (Some(n.name).filter(|s| !s.is_empty()), n.report_title)
+            });
         let r = &p.runtime;
+        let o = &p.other;
         Ok(ProgramDto {
             program_no: p.program_no.as_str().to_owned(),
             module_code: p.module.as_str().to_owned(),
@@ -256,14 +267,21 @@ impl ProgramService {
             run_command: r.run_command.clone(),
             window_style: r.window_style.clone(),
             report_ext_mode: r.report_ext_mode.map(report_ext_mode_dto),
-            print_setting: r.print_setting.clone(),
-            print_default: r.print_default.clone(),
-            quick_run_data: r.quick_run_data.clone(),
+            program_group: r.program_group.clone(),
+            print_method: r.print_method.clone(),
+            fixed_run_condition: r.fixed_run_condition.clone(),
             help_enabled: r.help_enabled,
             log_errors: r.log_errors,
+            default_actions: o.default_actions.clone(),
+            print_option: o.print_option,
+            allow_key_update: o.allow_key_update,
+            remark: o.remark.clone(),
+            report_title,
+            designed_on: p.designed_on,
             created_by: p.created_by.clone(),
             created_dept: p.created_dept.clone(),
             updated_by: p.updated_by.clone(),
+            updated_on: p.updated_on,
         })
     }
 }
@@ -287,13 +305,41 @@ fn attrs(i: &ProgramInput) -> ProgramAttrs {
             run_command: i.run_command.clone(),
             window_style: i.window_style.clone(),
             report_ext_mode: i.report_ext_mode.map(report_ext_mode),
-            print_setting: i.print_setting.clone(),
-            print_default: i.print_default.clone(),
-            quick_run_data: i.quick_run_data.clone(),
+            program_group: i.program_group.clone(),
+            print_method: i.print_method.clone(),
+            fixed_run_condition: i.fixed_run_condition.clone(),
             help_enabled: i.help_enabled,
             log_errors: i.log_errors,
         },
+        other: OtherSettings {
+            default_actions: i.default_actions.clone(),
+            print_option: i.print_option,
+            allow_key_update: i.allow_key_update,
+            remark: i.remark.clone(),
+        },
+        designed_on: i.designed_on,
     }
+}
+
+/// 系統日期（TipTop: g_today）
+fn today() -> NaiveDate {
+    chrono::Local::now().date_naive()
+}
+
+/// 預設語系的名稱與報表抬頭；兩者皆空白時不建立
+fn default_name(i: &ProgramInput) -> Option<ProgramName> {
+    let clean = |v: &Option<String>| {
+        v.as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+    };
+    let (name, report_title) = (clean(&i.name), clean(&i.report_title));
+    (name.is_some() || report_title.is_some()).then(|| ProgramName {
+        lang: DEFAULT_LANG.to_owned(),
+        name: name.unwrap_or_default(),
+        report_title,
+    })
 }
 
 /// 同名變體的雙向轉換（domain ↔ DTO）

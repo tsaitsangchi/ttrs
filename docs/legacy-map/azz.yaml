@@ -1,7 +1,7 @@
 # TipTop → TTRS 資料對照：系統管理 (azz)
 # 來源：tiptop/azz/4gl/p_zz.4gl、tiptop/azz/4fd/p_zz.4fd（尚無 schema 匯出，型別待補）
 # 新表：migrations/0003_program_registry.sql；列舉欄位沿用 TipTop 代碼（'1'、'2'…）
-# Genero 執行環境專屬欄位（zz06/08/10/21/22/25/26/27）：Q1 已確認全部保留、原樣儲存不套規則
+# Genero 執行環境專屬欄位（zz06/08/10/21/22/25/26/27）；中文名稱依 p_zz.4fd 畫面標籤：Q1 已確認全部保留、原樣儲存不套規則
 # verify: true 表示意義由程式碼推斷，需確認
 
 tables:
@@ -17,37 +17,37 @@ tables:
       - { legacy: zz01,   target: program_no,  note: 程式代號（鍵值，不可重複） }
       - { legacy: zz011,  target: module_code, note: 所屬模組；選項來自 gao_file，排除 SUB/CSUB/LIB/CLIB/QRY/CQRY，另加 MENU }
       - { legacy: zz03,   target: program_type, note: "程式類別 I輸入 M選單 O其他 P批次 Q查詢 R報表 S參數 T交易 U更新；a 開頭 7 碼代號取第 4 碼" }
-      - { legacy: zz04,   target: default_actions, note: 預設功能權限清單（新增權限時帶入 zy03）, verify: true }
-      - { legacy: zz05,   target: print_option, note: 列印選項 Y/N, verify: true }
-      - { legacy: zz06,   target: report_ext_mode, note: "報表副檔名 1固定(*.out) 2動態(*.xxr)；Genero 專屬，原樣保存" }
+      - { legacy: zz04,   target: default_actions, note: "可執行功能（4fd Executable Actions）；TipTop 新增權限時帶入 zy03。新系統先原樣保存文字，格式（s_act_define）待確認", verify: true }
+      - { legacy: zz05,   target: print_option, note: 列印選項 Y/N；新增預設 N（:790） }
+      - { legacy: zz06,   target: report_ext_mode, note: "報表副檔名 1固定(*.out) 2動態(*.xxr)；新增預設 1（:791）" }
       - { legacy: zz07,   target: deferred_print_count, note: 延後列印次數（Q4 確認）；新增時預設 0 }
       - { legacy: zz08,   target: run_command, note: "執行指令，如 $FGLRUN $AIMi/aimi100；可解析出實際程式名（transname）；含 p_query 者須有 zai_file 查詢定義（:973-982）；新增時 a 開頭 7 碼且未輸入者自動產生 $FGLRUN $<代號前 3 碼>i/<代號>（:917-926）；複製時重產為 $FGLRUN $<模組>i/<新代號>（:2045-2049）；僅採 Unix 格式" }
-      - { legacy: zz09,   target: registered_on, note: 新增時預設今天, verify: true }
-      - { legacy: zz10,   target: print_setting, note: 列印預設（開窗 q_gaw）；Genero 專屬，原樣保存, verify: true }
-      - { legacy: zz13,   target: allow_key_update, note: 維護作業可否修改鍵值 Y/N（畫面說明 Update Key Field Data）, verify: true }
+      - { legacy: zz09,   target: designed_on, note: 設計日期（4fd Design Date）；新增、複製時預設今天（:783、:2053） }
+      - { legacy: zz10,   target: program_group, note: "程式群組（4fd 標籤 Program Group，開窗 q_gaw）；原樣保存。0005 由 print_setting 更名", verify: true }
+      - { legacy: zz13,   target: allow_key_update, note: "維護作業可修改鍵值 Y/N；新增預設 N（:784）。TipTop 的 update_user 會同步到 zy04，新系統未搬" }
       - { legacy: zz14,   target: report_type, note: "報表類型 1憑證 2明細表 3統計表 4追蹤表 5無；必填；R 類不可為 5" }
       - { legacy: zz15,   target: pass_book_no, note: 傳遞帳別 Y/N；僅 AGL/CGL/GGL/CGGL 模組適用 }
       - { legacy: zz16,   target: current_print_count, note: "目前報表列印次數（Q4 確認）；新增、沿用(controlo :1019)時歸 0；複製時原樣帶過（SELECT * :2042）" }
       - { legacy: zz17,   target: report_width, note: 報表寬度（Q4 確認）；p_zz 自身報表以此取得列寬（:2352） }
-      - { legacy: zz21,   target: quick_run_data, note: 快速執行資料；Genero 專屬，原樣保存, verify: true }
-      - { legacy: zz22,   target: print_default, note: 列印預設；與 zz10 差異待確認, verify: true }
+      - { legacy: zz21,   target: fixed_run_condition, note: "固定執行條件（4fd 標籤 Fixed Executed Condition）；原樣保存。0005 由 quick_run_data 更名", verify: true }
+      - { legacy: zz22,   target: print_method, note: "列印方式（4fd 標籤 Print Method）；原樣保存。0005 由 print_default 更名", verify: true }
       - { legacy: zz25,   target: help_enabled, note: 說明開關 Y/N；Genero 專屬，原樣保存 }
       - { legacy: zz26,   target: log_errors, note: 錯誤訊息寫入 log 檔 Y/N；Genero 專屬，原樣保存 }
       - { legacy: zz27,   target: window_style, note: "Genero 專屬，原樣保存；視窗型態 sm1/sm2/sm3/popup/main/dialog/naked/viewer/report/err01/login/view" }
       - { legacy: zz28,   target: idle_control, note: "閒置控制 1不控制 2由程式設定 3依系統（預設 3）；必填" }
       - { legacy: zz29,   target: idle_action, note: "逾時處理 1僅警告 2警告後關閉 3直接關閉；僅 zz28=2 時有值" }
       - { legacy: zz30,   target: idle_seconds, note: 閒置時間；僅 zz28=2 時有值, verify: true }
-      - { legacy: zz31,   target: remark, note: 備註（多行）, verify: true }
+      - { legacy: zz31,   target: remark, note: 其他備註（多行） }
       - { legacy: zz32,   note: 單身權限預設，新增時 '0'；MOD-B80235 後不再寫入 zy07, verify: true }
       - { legacy: zzuser, target: created_by }
       - { legacy: zzgrup, target: created_dept }
       - { legacy: zzmodu, target: updated_by, note: 修改時帶目前使用者（MOD-B50035） }
-      - { legacy: zzdate, target: updated_on, note: 新增、修改時帶今天 }
+      - { legacy: zzdate, target: updated_on, note: 新增、修改、改代號、複製時帶今天 }
       # zz11 zz12 zz18 zz19 zz23 zz24：2004 年起 Genero 版已停用（MOD-4B0066、MOD-4B0183），不搬
 
   - legacy: gaz_file
     target: program_name
-    note: 程式名稱多語系；gaz01 程式代號、gaz02 語系、gaz03 名稱、gaz05 是否客製（Y 優先）、gaz06 報表抬頭
+    note: 程式名稱多語系；gaz01→program_no、gaz02→lang、gaz03→name、gaz06→report_title；gaz05 是否客製（Y 優先）未搬
     verify: true
 
   - legacy: zy_file

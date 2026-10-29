@@ -1,6 +1,7 @@
 //! API 契約：Axum 後端與 Dioxus 前端共用。
 //! 這裡只放純資料型別，不放業務邏輯，也不可依賴 tokio/sqlx 等非 wasm 套件。
 
+use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
 /// 料件狀態（對應 TipTop 料件確認碼，見 docs/legacy-map/aim.yaml）
@@ -168,11 +169,20 @@ pub struct ProgramInput {
     pub run_command: Option<String>,
     pub window_style: Option<String>,
     pub report_ext_mode: Option<ReportExtModeDto>,
-    pub print_setting: Option<String>,
-    pub print_default: Option<String>,
-    pub quick_run_data: Option<String>,
+    pub program_group: Option<String>,
+    pub print_method: Option<String>,
+    pub fixed_run_condition: Option<String>,
     pub help_enabled: bool,
     pub log_errors: bool,
+    // 其他設定：原樣保存
+    pub default_actions: Option<String>,
+    pub print_option: bool,
+    pub allow_key_update: bool,
+    pub remark: Option<String>,
+    /// 預設語系的報表抬頭（gaz06）
+    pub report_title: Option<String>,
+    /// 設計日期（zz09），未給時為今天
+    pub designed_on: Option<NaiveDate>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -192,14 +202,22 @@ pub struct ProgramDto {
     pub run_command: Option<String>,
     pub window_style: Option<String>,
     pub report_ext_mode: Option<ReportExtModeDto>,
-    pub print_setting: Option<String>,
-    pub print_default: Option<String>,
-    pub quick_run_data: Option<String>,
+    pub program_group: Option<String>,
+    pub print_method: Option<String>,
+    pub fixed_run_condition: Option<String>,
     pub help_enabled: bool,
     pub log_errors: bool,
+    pub default_actions: Option<String>,
+    pub print_option: bool,
+    pub allow_key_update: bool,
+    pub remark: Option<String>,
+    pub report_title: Option<String>,
+    pub designed_on: NaiveDate,
     pub created_by: String,
     pub created_dept: String,
     pub updated_by: Option<String>,
+    /// 最後建立/修改日期（zzdate）
+    pub updated_on: NaiveDate,
 }
 
 impl ProgramDto {
@@ -221,11 +239,17 @@ impl ProgramDto {
             run_command: self.run_command.clone(),
             window_style: self.window_style.clone(),
             report_ext_mode: self.report_ext_mode,
-            print_setting: self.print_setting.clone(),
-            print_default: self.print_default.clone(),
-            quick_run_data: self.quick_run_data.clone(),
+            program_group: self.program_group.clone(),
+            print_method: self.print_method.clone(),
+            fixed_run_condition: self.fixed_run_condition.clone(),
             help_enabled: self.help_enabled,
             log_errors: self.log_errors,
+            default_actions: self.default_actions.clone(),
+            print_option: self.print_option,
+            allow_key_update: self.allow_key_update,
+            remark: self.remark.clone(),
+            report_title: self.report_title.clone(),
+            designed_on: Some(self.designed_on),
         }
     }
 }
@@ -235,6 +259,7 @@ impl ProgramDto {
 pub struct ProgramNameDto {
     pub lang: String,
     pub name: String,
+    pub report_title: Option<String>,
 }
 
 /// 異動紀錄（azo_file）

@@ -2,6 +2,8 @@
 //! TipTop 對應：p_zz（程式資料建立）／ zz_file（名稱 gaz_file、權限 zy_file、選單 zm_file）
 //! 規格：specs/features/azz/program_registry.feature
 
+use chrono::NaiveDate;
+
 use crate::DomainError;
 
 /// 共用程式模組，不可作為作業程式的所屬模組（p_zz.4gl:254-268）
@@ -116,11 +118,21 @@ pub struct RuntimeSettings {
     pub run_command: Option<String>,
     pub window_style: Option<String>,
     pub report_ext_mode: Option<ReportExtMode>,
-    pub print_setting: Option<String>,
-    pub print_default: Option<String>,
-    pub quick_run_data: Option<String>,
+    pub program_group: Option<String>,
+    pub print_method: Option<String>,
+    pub fixed_run_condition: Option<String>,
     pub help_enabled: bool,
     pub log_errors: bool,
+}
+
+/// 其他設定：原樣保存、不套規則（zz04 可執行功能、zz05 列印選項、zz13 維護作業可修改鍵值、zz31 其他備註）
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct OtherSettings {
+    /// 可執行功能清單（格式待確認，見 legacy-map zz04）
+    pub default_actions: Option<String>,
+    pub print_option: bool,
+    pub allow_key_update: bool,
+    pub remark: Option<String>,
 }
 
 /// 使用者可輸入的欄位；`None` 表示套用 p_zz 預設值
@@ -136,6 +148,9 @@ pub struct ProgramAttrs {
     pub current_print_count: Option<i32>,
     pub report_width: Option<i32>,
     pub runtime: RuntimeSettings,
+    pub other: OtherSettings,
+    /// 設計日期（zz09），未給時為今天
+    pub designed_on: Option<NaiveDate>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -152,9 +167,13 @@ pub struct Program {
     pub current_print_count: i32,
     pub report_width: Option<i32>,
     pub runtime: RuntimeSettings,
+    pub other: OtherSettings,
+    pub designed_on: NaiveDate,
     pub created_by: String,
     pub created_dept: String,
     pub updated_by: Option<String>,
+    /// 最後建立/修改日期（zzdate）
+    pub updated_on: NaiveDate,
 }
 
 impl Program {
@@ -165,6 +184,7 @@ impl Program {
         attrs: ProgramAttrs,
         created_by: &str,
         created_dept: &str,
+        today: NaiveDate,
     ) -> Result<Self, DomainError> {
         let mut p = Self {
             program_no,
@@ -179,11 +199,14 @@ impl Program {
             current_print_count: 0,
             report_width: None,
             runtime: RuntimeSettings::default(),
+            other: OtherSettings::default(),
+            designed_on: today,
             created_by: created_by.to_owned(),
             created_dept: created_dept.to_owned(),
             updated_by: None,
+            updated_on: today,
         };
-        p.apply(attrs)?;
+        p.apply(attrs, today)?;
         Ok(p)
     }
 
@@ -193,23 +216,27 @@ impl Program {
         module: ModuleCode,
         attrs: ProgramAttrs,
         updated_by: &str,
+        today: NaiveDate,
     ) -> Result<(), DomainError> {
         let mut next = self.clone();
         next.module = module;
-        next.apply(attrs)?;
+        next.apply(attrs, today)?;
         next.updated_by = Some(updated_by.to_owned());
+        next.updated_on = today;
         *self = next;
         Ok(())
     }
 
-    /// 複製為新代號：建立者改為目前使用者，執行指令依新代號重產（p_zz.4gl:2045-2056）
-    pub fn copy_as(&self, new_no: ProgramNo, user: &str, dept: &str) -> Self {
+    /// 複製為新代號：建立者改為目前使用者，執行指令依新代號重產，日期改為今天（p_zz.4gl:2045-2056）
+    pub fn copy_as(&self, new_no: ProgramNo, user: &str, dept: &str, today: NaiveDate) -> Self {
         let mut p = self.clone();
         p.runtime.run_command = Some(standard_run_command(p.module.as_str(), new_no.as_str()));
         p.program_no = new_no;
         p.created_by = user.to_owned();
         p.created_dept = dept.to_owned();
         p.updated_by = Some(user.to_owned());
+        p.designed_on = today;
+        p.updated_on = today;
         p
     }
 
@@ -223,7 +250,7 @@ impl Program {
                 .is_some_and(|c| c.contains("p_query"))
     }
 
-    fn apply(&mut self, a: ProgramAttrs) -> Result<(), DomainError> {
+    fn apply(&mut self, a: ProgramAttrs, today: NaiveDate) -> Result<(), DomainError> {
         self.program_type = a
             .program_type
             .map(|t| t.trim().to_uppercase())
@@ -248,6 +275,10 @@ impl Program {
         self.report_width = a.report_width;
 
         self.runtime = a.runtime;
+        // 報表副檔名預設「固定」（p_zz.4gl:791）
+        self.runtime.report_ext_mode = self.runtime.report_ext_mode.or(Some(ReportExtMode::Fixed));
+        self.other = a.other;
+        self.designed_on = a.designed_on.unwrap_or(today);
         // 標準命名且未給執行指令時，自動產生（p_zz.4gl:917-926）
         if self
             .runtime
@@ -280,6 +311,7 @@ mod tests {
             attrs,
             "tiptop",
             "MIS",
+            NaiveDate::from_ymd_opt(2026, 10, 29).unwrap(),
         )
     }
 
