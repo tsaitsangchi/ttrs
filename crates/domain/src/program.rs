@@ -10,6 +10,34 @@ use crate::DomainError;
 const SHARED_MODULES: [&str; 6] = ["SUB", "CSUB", "LIB", "CLIB", "QRY", "CQRY"];
 /// 適用「傳遞帳別」的總帳模組（p_zz.4gl:932-938）
 const LEDGER_MODULES: [&str; 4] = ["AGL", "CGL", "GGL", "CGGL"];
+/// 欄位長度上限，取自 TipTop 資料表定義（tiptop/azz/sch/zz_file.sch、gaz_file.sch 的 varchar2 長度），
+/// 以字元計（TipTop 的長度語意為位元組或字元未定，取寬鬆者）
+pub mod max_len {
+    pub const PROGRAM_NO: usize = 20; // zz01
+    pub const MODULE_CODE: usize = 10; // zz011
+    pub const DEFAULT_ACTIONS: usize = 3000; // zz04
+    pub const RUN_COMMAND: usize = 60; // zz08
+    pub const PROGRAM_GROUP: usize = 10; // zz10
+    pub const FIXED_PRINT_CONDITION: usize = 80; // zz21
+    pub const FIXED_PRINT_METHOD: usize = 1; // zz22
+    pub const WINDOW_STYLE: usize = 20; // zz27
+    pub const REMARK: usize = 255; // zz31
+    pub const NAME: usize = 500; // gaz03
+    pub const REPORT_TITLE: usize = 255; // gaz06
+}
+
+/// 檢查文字長度（字元數）；`field` 為畫面欄位名稱，用於錯誤訊息
+pub fn check_length(
+    field: &'static str,
+    value: Option<&str>,
+    max: usize,
+) -> Result<(), DomainError> {
+    match value {
+        Some(v) if v.chars().count() > max => Err(DomainError::FieldTooLong { field, max }),
+        _ => Ok(()),
+    }
+}
+
 /// 選單不是模組資料，而是 TipTop p_zz 額外加入的固定選項
 pub const MENU_MODULE: &str = "MENU";
 
@@ -22,6 +50,11 @@ impl ProgramNo {
         let v = raw.trim();
         if v.is_empty() {
             return Err(DomainError::ProgramNoEmpty);
+        }
+        if v.chars().count() > max_len::PROGRAM_NO {
+            return Err(DomainError::ProgramNoTooLong {
+                max: max_len::PROGRAM_NO,
+            });
         }
         Ok(Self(v.to_owned()))
     }
@@ -57,6 +90,7 @@ impl ModuleCode {
         if v.is_empty() {
             return Err(DomainError::ModuleEmpty);
         }
+        check_length("模組代號", Some(&v), max_len::MODULE_CODE)?;
         if SHARED_MODULES.contains(&v.as_str()) {
             return Err(DomainError::ModuleNotAllowed(v));
         }
@@ -119,9 +153,9 @@ pub struct RuntimeSettings {
     pub window_style: Option<String>,
     pub report_ext_mode: Option<ReportExtMode>,
     pub program_group: Option<String>,
-    pub print_method: Option<String>,
-    pub fixed_run_condition: Option<String>,
-    pub help_enabled: bool,
+    pub fixed_print_method: Option<String>,
+    pub fixed_print_condition: Option<String>,
+    pub sql_explain: bool,
     pub log_errors: bool,
 }
 
@@ -130,7 +164,7 @@ pub struct RuntimeSettings {
 pub struct OtherSettings {
     /// 可執行功能清單（格式待確認，見 legacy-map zz04）
     pub default_actions: Option<String>,
-    pub print_option: bool,
+    pub print_conditions: bool,
     pub allow_key_update: bool,
     pub remark: Option<String>,
 }
@@ -251,6 +285,7 @@ impl Program {
     }
 
     fn apply(&mut self, a: ProgramAttrs, today: NaiveDate) -> Result<(), DomainError> {
+        check_lengths(&a)?;
         self.program_type = a
             .program_type
             .map(|t| t.trim().to_uppercase())
@@ -298,6 +333,39 @@ impl Program {
 /// Unix 格式的執行指令，如 `$FGLRUN $AIMi/aimi100`（Windows 格式不採用，見規格檔頭）
 fn standard_run_command(system: &str, program_no: &str) -> String {
     format!("$FGLRUN ${}i/{program_no}", system.to_uppercase())
+}
+
+fn check_lengths(a: &ProgramAttrs) -> Result<(), DomainError> {
+    let r = &a.runtime;
+    let o = &a.other;
+    for (field, value, max) in [
+        ("執行指令", r.run_command.as_deref(), max_len::RUN_COMMAND),
+        (
+            "程式群組",
+            r.program_group.as_deref(),
+            max_len::PROGRAM_GROUP,
+        ),
+        (
+            "固定列印條件",
+            r.fixed_print_condition.as_deref(),
+            max_len::FIXED_PRINT_CONDITION,
+        ),
+        (
+            "固定列印方式",
+            r.fixed_print_method.as_deref(),
+            max_len::FIXED_PRINT_METHOD,
+        ),
+        ("視窗型態", r.window_style.as_deref(), max_len::WINDOW_STYLE),
+        (
+            "可執行功能",
+            o.default_actions.as_deref(),
+            max_len::DEFAULT_ACTIONS,
+        ),
+        ("其他備註", o.remark.as_deref(), max_len::REMARK),
+    ] {
+        check_length(field, value, max)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

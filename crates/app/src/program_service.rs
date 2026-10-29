@@ -9,7 +9,7 @@ use ttrs_domain::{
     DomainError,
     program::{
         IdleAction, IdleControl, ModuleCode, OtherSettings, Program, ProgramAttrs, ProgramNo,
-        ReportExtMode, ReportType, RuntimeSettings,
+        ReportExtMode, ReportType, RuntimeSettings, check_length, max_len,
     },
 };
 use ttrs_shared::{
@@ -62,7 +62,7 @@ impl ProgramService {
         )?;
         self.check_query_definition(&program).await?;
 
-        let names: Vec<ProgramName> = default_name(&input).into_iter().collect();
+        let names: Vec<ProgramName> = default_name(&input)?.into_iter().collect();
         // 選單不是可執行程式，不授權
         let grant_to = (!program.module.is_menu() && !actor.permission_class.is_empty())
             .then_some(actor.permission_class.as_str());
@@ -133,6 +133,7 @@ impl ProgramService {
         program.program_no = new.clone();
         let module = self.module(&input.module_code).await?;
         program.update(module, attrs(&input), &actor.user_id, today())?;
+        let name = default_name(&input)?;
         self.check_query_definition(&program).await?;
 
         if new != old {
@@ -144,7 +145,7 @@ impl ProgramService {
         }
         self.repo.update(&program).await.map_err(infra)?;
         // 名稱與報表抬頭（TipTop 另以 modify_program_name / modify_report_title 更新 gaz_file）
-        if let Some(name) = default_name(&input) {
+        if let Some(name) = name {
             self.repo
                 .set_name(&program.program_no, &name)
                 .await
@@ -294,12 +295,12 @@ impl ProgramService {
             window_style: r.window_style.clone(),
             report_ext_mode: r.report_ext_mode.map(report_ext_mode_dto),
             program_group: r.program_group.clone(),
-            print_method: r.print_method.clone(),
-            fixed_run_condition: r.fixed_run_condition.clone(),
-            help_enabled: r.help_enabled,
+            fixed_print_method: r.fixed_print_method.clone(),
+            fixed_print_condition: r.fixed_print_condition.clone(),
+            sql_explain: r.sql_explain,
             log_errors: r.log_errors,
             default_actions: o.default_actions.clone(),
-            print_option: o.print_option,
+            print_conditions: o.print_conditions,
             allow_key_update: o.allow_key_update,
             remark: o.remark.clone(),
             report_title,
@@ -332,14 +333,14 @@ fn attrs(i: &ProgramInput) -> ProgramAttrs {
             window_style: i.window_style.clone(),
             report_ext_mode: i.report_ext_mode.map(report_ext_mode),
             program_group: i.program_group.clone(),
-            print_method: i.print_method.clone(),
-            fixed_run_condition: i.fixed_run_condition.clone(),
-            help_enabled: i.help_enabled,
+            fixed_print_method: i.fixed_print_method.clone(),
+            fixed_print_condition: i.fixed_print_condition.clone(),
+            sql_explain: i.sql_explain,
             log_errors: i.log_errors,
         },
         other: OtherSettings {
             default_actions: i.default_actions.clone(),
-            print_option: i.print_option,
+            print_conditions: i.print_conditions,
             allow_key_update: i.allow_key_update,
             remark: i.remark.clone(),
         },
@@ -352,8 +353,8 @@ fn today() -> NaiveDate {
     chrono::Local::now().date_naive()
 }
 
-/// 預設語系的名稱與報表抬頭；兩者皆空白時不建立
-fn default_name(i: &ProgramInput) -> Option<ProgramName> {
+/// 預設語系的名稱與報表抬頭（含長度檢核）；兩者皆空白時不建立
+fn default_name(i: &ProgramInput) -> Result<Option<ProgramName>, DomainError> {
     let clean = |v: &Option<String>| {
         v.as_deref()
             .map(str::trim)
@@ -361,11 +362,15 @@ fn default_name(i: &ProgramInput) -> Option<ProgramName> {
             .map(str::to_owned)
     };
     let (name, report_title) = (clean(&i.name), clean(&i.report_title));
-    (name.is_some() || report_title.is_some()).then(|| ProgramName {
-        lang: DEFAULT_LANG.to_owned(),
-        name: name.unwrap_or_default(),
-        report_title,
-    })
+    check_length("程式名稱", name.as_deref(), max_len::NAME)?;
+    check_length("報表抬頭", report_title.as_deref(), max_len::REPORT_TITLE)?;
+    Ok(
+        (name.is_some() || report_title.is_some()).then(|| ProgramName {
+            lang: DEFAULT_LANG.to_owned(),
+            name: name.unwrap_or_default(),
+            report_title,
+        }),
+    )
 }
 
 /// 同名變體的雙向轉換（domain ↔ DTO）
@@ -408,3 +413,30 @@ map_enum!(
     ReportExtMode,
     [Fixed, Dynamic]
 );
+
+#[cfg(test)]
+mod tests {
+    use ttrs_domain::program::max_len as d;
+    use ttrs_shared::program_max_len as s;
+
+    /// 畫面的 maxlength 必須與 domain 檢核一致
+    #[test]
+    fn shared_max_len_matches_domain() {
+        let pairs = [
+            (s::PROGRAM_NO, d::PROGRAM_NO),
+            (s::MODULE_CODE, d::MODULE_CODE),
+            (s::DEFAULT_ACTIONS, d::DEFAULT_ACTIONS),
+            (s::RUN_COMMAND, d::RUN_COMMAND),
+            (s::PROGRAM_GROUP, d::PROGRAM_GROUP),
+            (s::FIXED_PRINT_CONDITION, d::FIXED_PRINT_CONDITION),
+            (s::FIXED_PRINT_METHOD, d::FIXED_PRINT_METHOD),
+            (s::WINDOW_STYLE, d::WINDOW_STYLE),
+            (s::REMARK, d::REMARK),
+            (s::NAME, d::NAME),
+            (s::REPORT_TITLE, d::REPORT_TITLE),
+        ];
+        for (shared, domain) in pairs {
+            assert_eq!(shared, domain);
+        }
+    }
+}

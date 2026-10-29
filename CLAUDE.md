@@ -29,7 +29,9 @@ bdd：驗收測試，執行 specs/features/**/*.feature
 - **先查 `topcust/` 再查 `tiptop/`**：客製程式可能覆寫標準邏輯，以客製為準。
 - 一支作業通常要一起讀：`<模組>/4gl/<程式>.4gl`、`<模組>/4fd/<程式>.4fd`，
   以及它呼叫的 `lib/4gl/cl_*`、`sub/4gl/s_*`、`qry/4gl/q_*`。
-- 表結構看 `legacy/schema/`，錯誤訊息代碼看 `legacy/messages/`。
+- **表結構與欄位意義看 `<模組>/sch/<表名>.sch`**（Oracle DDL＋每欄中文說明，等同資料字典），
+  例如 `tiptop/azz/sch/zz_file.sch`；萃取規則前先讀相關表的 .sch，不要只靠 4gl/4fd 推敲欄位意義。
+  `legacy/schema/` 只放 .sch 沒有、另外從資料庫匯出的 DDL。錯誤訊息代碼看 `legacy/messages/`。
 
 ## 開發流程（每支 TipTop 程式都照做，不可跳步）
 

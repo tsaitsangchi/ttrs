@@ -32,6 +32,10 @@ pub enum DomainError {
     // Program Maintenance 程式維護
     #[error("程式代號不可空白")]
     ProgramNoEmpty,
+    #[error("程式代號長度不可超過 {max} 碼")]
+    ProgramNoTooLong { max: usize },
+    #[error("「{field}」長度不可超過 {max} 個字")]
+    FieldTooLong { field: &'static str, max: usize },
     #[error("程式已存在")]
     ProgramAlreadyExists,
     #[error("程式不存在")]
@@ -77,6 +81,8 @@ impl DomainError {
             Self::ItemHasTransactions => "ITEM_HAS_TRANSACTIONS",
             Self::InvalidItemTransition { .. } => "ITEM_INVALID_TRANSITION",
             Self::ProgramNoEmpty => "PROGRAM_NO_EMPTY",
+            Self::ProgramNoTooLong { .. } => "PROGRAM_NO_TOO_LONG",
+            Self::FieldTooLong { .. } => "FIELD_TOO_LONG",
             Self::ProgramAlreadyExists => "PROGRAM_ALREADY_EXISTS",
             Self::ProgramNotFound => "PROGRAM_NOT_FOUND",
             Self::ModuleEmpty => "MODULE_EMPTY",

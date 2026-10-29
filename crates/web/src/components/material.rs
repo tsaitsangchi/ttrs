@@ -76,6 +76,9 @@ pub fn TextField(
     #[props(default)] placeholder: String,
     #[props(default = "text".to_string())] input_type: String,
     #[props(default)] class: String,
+    /// 長度上限（字元），對應 TipTop 資料表定義
+    #[props(default)]
+    maxlength: Option<usize>,
     #[props(default)] oninput: EventHandler<String>,
 ) -> Element {
     rsx! {
@@ -87,6 +90,7 @@ pub fn TextField(
                 r#type: "{input_type}",
                 value: "{value}",
                 placeholder: "{placeholder}",
+                maxlength: maxlength.map(|n| n.to_string()),
                 readonly,
                 disabled,
                 oninput: move |e| oninput.call(e.value()),
@@ -102,6 +106,7 @@ pub fn TextArea(
     value: String,
     #[props(default = 4)] rows: i64,
     #[props(default)] readonly: bool,
+    #[props(default)] maxlength: Option<usize>,
     #[props(default)] oninput: EventHandler<String>,
 ) -> Element {
     rsx! {
@@ -112,6 +117,7 @@ pub fn TextArea(
                 class: "md-field__input",
                 rows,
                 readonly,
+                maxlength: maxlength.map(|n| n.to_string()),
                 value: "{value}",
                 oninput: move |e| oninput.call(e.value()),
             }

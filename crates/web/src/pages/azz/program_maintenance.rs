@@ -14,6 +14,8 @@ use ttrs_shared::{
     ReportExtModeDto, ReportTypeDto,
 };
 
+use ttrs_shared::program_max_len as max_len;
+
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, IconButton, Notification, NotificationKind, RadioGroup,
@@ -427,6 +429,7 @@ pub fn ProgramMaintenance() -> Element {
                             Q { field: "program_no", label: "程式代號", query: q, qbe,
                                 TextField {
                                     id: "zz01",
+                                    maxlength: Some(max_len::PROGRAM_NO),
                                     label: "程式代號",
                                     value: f.program_no.clone(),
                                     // 修改時也可改代號（:1124 g_chkey；Q2 一律允許），存檔時連動選單與權限
@@ -437,6 +440,7 @@ pub fn ProgramMaintenance() -> Element {
                             Q { field: "module_code", label: "模組代號", query: q, qbe,
                                 TextField {
                                     id: "zz011",
+                                    maxlength: Some(max_len::MODULE_CODE),
                                     label: "模組代號",
                                     value: f.module_code.clone(),
                                     readonly: ro,
@@ -446,6 +450,7 @@ pub fn ProgramMaintenance() -> Element {
                             Q { field: "name", label: "程式名稱", class: "span-2", query: q, qbe,
                                 TextField {
                                     id: "gaz03",
+                                    maxlength: Some(max_len::NAME),
                                     class: "span-2",
                                     label: "程式名稱",
                                     value: f.name.clone().unwrap_or_default(),
@@ -485,6 +490,7 @@ pub fn ProgramMaintenance() -> Element {
                                     // zz04 不可查詢（:292）
                                     TextArea {
                                         id: "zz04",
+                                        maxlength: Some(max_len::DEFAULT_ACTIONS),
                                         label: if q { "功能代碼（不可查詢）" } else { "功能代碼" },
                                         rows: 12,
                                         readonly: ro,
@@ -499,6 +505,7 @@ pub fn ProgramMaintenance() -> Element {
                                             Q { field: "program_group", label: "程式群組", query: q, qbe,
                                                 TextField {
                                                     id: "zz10",
+                                                    maxlength: Some(max_len::PROGRAM_GROUP),
                                                     label: "程式群組",
                                                     readonly: ro,
                                                     value: f.program_group.clone().unwrap_or_default(),
@@ -543,6 +550,7 @@ pub fn ProgramMaintenance() -> Element {
                                             Q { field: "run_command", label: "UNIX 指令", class: "span-all", query: q, qbe,
                                                 TextField {
                                                     id: "zz08",
+                                                    maxlength: Some(max_len::RUN_COMMAND),
                                                     class: "span-all mono",
                                                     label: "UNIX 指令",
                                                     placeholder: "標準代號自動產生",
@@ -551,14 +559,15 @@ pub fn ProgramMaintenance() -> Element {
                                                     oninput: move |v| form.write().run_command = non_empty(v),
                                                 }
                                             }
-                                            Q { field: "fixed_run_condition", label: "固定執行條件", class: "span-all", query: q, qbe,
+                                            Q { field: "fixed_print_condition", label: "固定列印條件", class: "span-all", query: q, qbe,
                                                 TextField {
                                                     id: "zz21",
+                                                    maxlength: Some(max_len::FIXED_PRINT_CONDITION),
                                                     class: "span-all",
-                                                    label: "固定執行條件",
+                                                    label: "固定列印條件",
                                                     readonly: ro,
-                                                    value: f.fixed_run_condition.clone().unwrap_or_default(),
-                                                    oninput: move |v| form.write().fixed_run_condition = non_empty(v),
+                                                    value: f.fixed_print_condition.clone().unwrap_or_default(),
+                                                    oninput: move |v| form.write().fixed_print_condition = non_empty(v),
                                                 }
                                             }
                                             if !q {
@@ -624,19 +633,21 @@ pub fn ProgramMaintenance() -> Element {
                                 if !q {
                                     TextField {
                                         id: "gaz06",
+                                        maxlength: Some(max_len::REPORT_TITLE),
                                         label: "報表抬頭",
                                         readonly: ro,
                                         value: f.report_title.clone().unwrap_or_default(),
                                         oninput: move |v| form.write().report_title = non_empty(v),
                                     }
                                 }
-                                Q { field: "print_method", label: "列印方式", query: q, qbe,
+                                Q { field: "fixed_print_method", label: "固定列印方式", query: q, qbe,
                                     TextField {
                                         id: "zz22",
-                                        label: "列印方式",
+                                        maxlength: Some(max_len::FIXED_PRINT_METHOD),
+                                        label: "固定列印方式",
                                         readonly: ro,
-                                        value: f.print_method.clone().unwrap_or_default(),
-                                        oninput: move |v| form.write().print_method = non_empty(v),
+                                        value: f.fixed_print_method.clone().unwrap_or_default(),
+                                        oninput: move |v| form.write().fixed_print_method = non_empty(v),
                                     }
                                 }
                                 Q { field: "report_ext_mode", label: "報表副檔名", hint: "固定|動態", query: q, qbe,
@@ -663,14 +674,14 @@ pub fn ProgramMaintenance() -> Element {
                                 Q { field: "deferred_print_count", label: "延後列印次數", hint: HINT_NUMBER, query: q, qbe,
                                     NumberField { id: "zz07", label: "延後列印次數", value: f.deferred_print_count, readonly: ro, onchange: move |v| form.write().deferred_print_count = v }
                                 }
-                                Q { field: "print_option", label: "列印選項", hint: HINT_FLAG, query: q, qbe,
+                                Q { field: "print_conditions", label: "報表結束時列印查詢條件", hint: HINT_FLAG, query: q, qbe,
                                     div { class: "span-all",
                                         Checkbox {
                                             id: "zz05",
-                                            label: "列印選項",
-                                            checked: f.print_option,
+                                            label: "報表結束時列印查詢條件",
+                                            checked: f.print_conditions,
                                             readonly: ro,
-                                            onchange: move |v| form.write().print_option = v,
+                                            onchange: move |v| form.write().print_conditions = v,
                                         }
                                     }
                                 }
@@ -746,13 +757,13 @@ pub fn ProgramMaintenance() -> Element {
                                                 onchange: move |v| form.write().allow_key_update = v,
                                             }
                                         }
-                                        Q { field: "help_enabled", label: "開啟說明", hint: HINT_FLAG, query: q, qbe,
+                                        Q { field: "sql_explain", label: "SQL 執行計畫（Set explain on）", hint: HINT_FLAG, query: q, qbe,
                                             Checkbox {
                                                 id: "zz25",
-                                                label: "開啟說明",
-                                                checked: f.help_enabled,
+                                                label: "SQL 執行計畫（Set explain on）",
+                                                checked: f.sql_explain,
                                                 readonly: ro,
-                                                onchange: move |v| form.write().help_enabled = v,
+                                                onchange: move |v| form.write().sql_explain = v,
                                             }
                                         }
                                     }
@@ -762,6 +773,7 @@ pub fn ProgramMaintenance() -> Element {
                                     Q { field: "remark", label: "備註", query: q, qbe,
                                         TextArea {
                                             id: "zz31",
+                                            maxlength: Some(max_len::REMARK),
                                             label: "備註",
                                             rows: 6,
                                             readonly: ro,

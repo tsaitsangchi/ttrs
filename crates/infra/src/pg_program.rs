@@ -35,12 +35,12 @@ struct ProgramRow {
     window_style: Option<String>,
     report_ext_mode: Option<String>,
     program_group: Option<String>,
-    print_method: Option<String>,
-    fixed_run_condition: Option<String>,
-    help_enabled: bool,
+    fixed_print_method: Option<String>,
+    fixed_print_condition: Option<String>,
+    sql_explain: bool,
     log_errors: bool,
     default_actions: Option<String>,
-    print_option: bool,
+    print_conditions: bool,
     allow_key_update: bool,
     remark: Option<String>,
     designed_on: NaiveDate,
@@ -96,14 +96,14 @@ impl TryFrom<ProgramRow> for Program {
                     ReportExtMode::from_code,
                 )?,
                 program_group: r.program_group,
-                print_method: r.print_method,
-                fixed_run_condition: r.fixed_run_condition,
-                help_enabled: r.help_enabled,
+                fixed_print_method: r.fixed_print_method,
+                fixed_print_condition: r.fixed_print_condition,
+                sql_explain: r.sql_explain,
                 log_errors: r.log_errors,
             },
             other: OtherSettings {
                 default_actions: r.default_actions,
-                print_option: r.print_option,
+                print_conditions: r.print_conditions,
                 allow_key_update: r.allow_key_update,
                 remark: r.remark,
             },
@@ -123,8 +123,8 @@ impl ProgramRepository for PgStore {
             "SELECT program_no, module_code, program_type, report_type, idle_control,
                     idle_seconds, idle_action, pass_book_no, deferred_print_count,
                     current_print_count, report_width, run_command, window_style,
-                    report_ext_mode, program_group, print_method, fixed_run_condition,
-                    help_enabled, log_errors, default_actions, print_option, allow_key_update,
+                    report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
+                    sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
                     remark, designed_on, created_by, created_dept, updated_by, updated_on
              FROM program WHERE program_no = $1",
         )
@@ -154,8 +154,8 @@ impl ProgramRepository for PgStore {
             "SELECT program_no, module_code, program_type, report_type, idle_control,
                     idle_seconds, idle_action, pass_book_no, deferred_print_count,
                     current_print_count, report_width, run_command, window_style,
-                    report_ext_mode, program_group, print_method, fixed_run_condition,
-                    help_enabled, log_errors, default_actions, print_option, allow_key_update,
+                    report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
+                    sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
                     remark, designed_on, created_by, created_dept, updated_by, updated_on
              FROM program p WHERE TRUE",
         );
@@ -181,8 +181,8 @@ impl ProgramRepository for PgStore {
             "SELECT program_no, module_code, program_type, report_type, idle_control,
                     idle_seconds, idle_action, pass_book_no, deferred_print_count,
                     current_print_count, report_width, run_command, window_style,
-                    report_ext_mode, program_group, print_method, fixed_run_condition,
-                    help_enabled, log_errors, default_actions, print_option, allow_key_update,
+                    report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
+                    sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
                     remark, designed_on, created_by, created_dept, updated_by, updated_on
              FROM program ORDER BY program_no",
         )
@@ -206,9 +206,9 @@ impl ProgramRepository for PgStore {
             "INSERT INTO program (program_no, module_code, program_type, report_type,
                     idle_control, idle_seconds, idle_action, pass_book_no,
                     deferred_print_count, current_print_count, report_width, run_command,
-                    window_style, report_ext_mode, program_group, print_method,
-                    fixed_run_condition, help_enabled, log_errors, created_by, created_dept,
-                    updated_by, default_actions, print_option, allow_key_update, remark,
+                    window_style, report_ext_mode, program_group, fixed_print_method,
+                    fixed_print_condition, sql_explain, log_errors, created_by, created_dept,
+                    updated_by, default_actions, print_conditions, allow_key_update, remark,
                     designed_on, updated_on)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
                      $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)",
@@ -228,15 +228,15 @@ impl ProgramRepository for PgStore {
         .bind(&r.window_style)
         .bind(r.report_ext_mode.map(ReportExtMode::code))
         .bind(&r.program_group)
-        .bind(&r.print_method)
-        .bind(&r.fixed_run_condition)
-        .bind(r.help_enabled)
+        .bind(&r.fixed_print_method)
+        .bind(&r.fixed_print_condition)
+        .bind(r.sql_explain)
         .bind(r.log_errors)
         .bind(&p.created_by)
         .bind(&p.created_dept)
         .bind(&p.updated_by)
         .bind(&p.other.default_actions)
-        .bind(p.other.print_option)
+        .bind(p.other.print_conditions)
         .bind(p.other.allow_key_update)
         .bind(&p.other.remark)
         .bind(p.designed_on)
@@ -279,9 +279,9 @@ impl ProgramRepository for PgStore {
                     idle_control = $5, idle_seconds = $6, idle_action = $7, pass_book_no = $8,
                     deferred_print_count = $9, current_print_count = $10, report_width = $11,
                     run_command = $12, window_style = $13, report_ext_mode = $14,
-                    program_group = $15, print_method = $16, fixed_run_condition = $17,
-                    help_enabled = $18, log_errors = $19, updated_by = $20,
-                    default_actions = $21, print_option = $22, allow_key_update = $23,
+                    program_group = $15, fixed_print_method = $16, fixed_print_condition = $17,
+                    sql_explain = $18, log_errors = $19, updated_by = $20,
+                    default_actions = $21, print_conditions = $22, allow_key_update = $23,
                     remark = $24, designed_on = $25, updated_on = $26, updated_at = now()
              WHERE program_no = $1",
         )
@@ -300,13 +300,13 @@ impl ProgramRepository for PgStore {
         .bind(&r.window_style)
         .bind(r.report_ext_mode.map(ReportExtMode::code))
         .bind(&r.program_group)
-        .bind(&r.print_method)
-        .bind(&r.fixed_run_condition)
-        .bind(r.help_enabled)
+        .bind(&r.fixed_print_method)
+        .bind(&r.fixed_print_condition)
+        .bind(r.sql_explain)
         .bind(r.log_errors)
         .bind(&p.updated_by)
         .bind(&p.other.default_actions)
-        .bind(p.other.print_option)
+        .bind(p.other.print_conditions)
         .bind(p.other.allow_key_update)
         .bind(&p.other.remark)
         .bind(p.designed_on)
@@ -469,21 +469,21 @@ fn column(field: &str) -> Option<(&'static str, bool)> {
         "window_style" => ("p.window_style", true),
         "program_type" => ("p.program_type", true),
         "run_command" => ("p.run_command", true),
-        "fixed_run_condition" => ("p.fixed_run_condition", true),
+        "fixed_print_condition" => ("p.fixed_print_condition", true),
         "designed_on" => ("p.designed_on", false),
-        "print_method" => ("p.print_method", true),
+        "fixed_print_method" => ("p.fixed_print_method", true),
         "report_type" => ("p.report_type", true),
         "report_ext_mode" => ("p.report_ext_mode", true),
         "report_width" => ("p.report_width", false),
         "current_print_count" => ("p.current_print_count", false),
         "deferred_print_count" => ("p.deferred_print_count", false),
-        "print_option" => ("p.print_option", false),
+        "print_conditions" => ("p.print_conditions", false),
         "idle_control" => ("p.idle_control", true),
         "idle_seconds" => ("p.idle_seconds", false),
         "idle_action" => ("p.idle_action", true),
         "log_errors" => ("p.log_errors", false),
         "allow_key_update" => ("p.allow_key_update", false),
-        "help_enabled" => ("p.help_enabled", false),
+        "sql_explain" => ("p.sql_explain", false),
         "remark" => ("p.remark", true),
         "created_by" => ("p.created_by", true),
         "updated_by" => ("p.updated_by", true),

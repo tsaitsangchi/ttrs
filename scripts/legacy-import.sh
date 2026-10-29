@@ -42,8 +42,8 @@ if [[ -z "$TOP_SRC" && -z "$CUST_SRC" ]]; then
     exit 2
 fi
 
-# 只匯入原始碼、畫面與 Genero 資源檔；42m/42f/42r 等編譯產物一律排除
-EXTS=(4gl 4fd per inc global 4ad 4st 4tb 4tm)
+# 只匯入原始碼、畫面、Genero 資源檔與資料表定義（.sch）；42m/42f/42r 等編譯產物一律排除
+EXTS=(4gl 4fd per inc global 4ad 4st 4tb 4tm sch)
 RSYNC_FILTER=(--include='*/')
 for e in "${EXTS[@]}"; do RSYNC_FILTER+=(--include="*.$e"); done
 RSYNC_FILTER+=(--exclude='*')

@@ -211,7 +211,7 @@ async fn create_with_runtime(w: &mut ErpWorld, step: &Step, no: String, module: 
                     &value,
                 ));
             }
-            "說明開關" => req.help_enabled = yes_no(&value),
+            "SQL 執行計畫" => req.sql_explain = yes_no(&value),
             "錯誤寫入記錄" => req.log_errors = yes_no(&value),
             other => panic!("未知欄位：{other}"),
         }
@@ -280,7 +280,7 @@ async fn program_fields(w: &mut ErpWorld, step: &Step, no: String) {
             "延後列印次數" => p.deferred_print_count.to_string(),
             "目前列印次數" => p.current_print_count.to_string(),
             "報表副檔名" => opt_label(p.report_ext_mode, ReportExtModeDto::label),
-            "列印選項" => yes_no_label(p.print_option).to_string(),
+            "列印查詢條件" => yes_no_label(p.print_conditions).to_string(),
             "維護作業可修改鍵值" => yes_no_label(p.allow_key_update).to_string(),
             "設計日期" => date_label(p.designed_on),
             "最後修改日期" => date_label(p.updated_on),
@@ -298,7 +298,7 @@ async fn runtime_fields(w: &mut ErpWorld, step: &Step, no: String) {
             "執行指令" => p.run_command.clone().unwrap_or_default(),
             "視窗型態" => p.window_style.clone().unwrap_or_default(),
             "報表副檔名" => opt_label(p.report_ext_mode, ReportExtModeDto::label),
-            "說明開關" => yes_no_label(p.help_enabled).to_string(),
+            "SQL 執行計畫" => yes_no_label(p.sql_explain).to_string(),
             "錯誤寫入記錄" => yes_no_label(p.log_errors).to_string(),
             other => panic!("未知欄位：{other}"),
         };
@@ -412,7 +412,7 @@ async fn create_with_other(w: &mut ErpWorld, step: &Step, no: String, module: St
     for (field, value) in field_rows(step) {
         match field.as_str() {
             "可執行功能" => req.default_actions = Some(value),
-            "列印選項" => req.print_option = yes_no(&value),
+            "列印查詢條件" => req.print_conditions = yes_no(&value),
             "維護作業可修改鍵值" => req.allow_key_update = yes_no(&value),
             "其他備註" => req.remark = Some(value),
             "報表抬頭" => req.report_title = Some(value),
@@ -428,7 +428,7 @@ async fn other_fields(w: &mut ErpWorld, step: &Step, no: String) {
     for (field, expected) in field_rows(step) {
         let actual = match field.as_str() {
             "可執行功能" => p.default_actions.clone().unwrap_or_default(),
-            "列印選項" => yes_no_label(p.print_option).to_string(),
+            "列印查詢條件" => yes_no_label(p.print_conditions).to_string(),
             "維護作業可修改鍵值" => yes_no_label(p.allow_key_update).to_string(),
             "其他備註" => p.remark.clone().unwrap_or_default(),
             "報表抬頭" => p.report_title.clone().unwrap_or_default(),
@@ -462,4 +462,31 @@ async fn updated_today(w: &mut ErpWorld, no: String) {
 #[then(expr = "程式 {string} 的設計日期應為今天")]
 async fn designed_today(w: &mut ErpWorld, no: String) {
     assert_eq!(date_label(program(w, &no).await.designed_on), "今天");
+}
+
+// ----- 欄位長度（zz_file.sch、gaz_file.sch） -----
+
+#[when(expr = "使用者新增程式 {string} 模組 {string}，{string} 為 {int} 個字元")]
+async fn create_with_length(
+    w: &mut ErpWorld,
+    no: String,
+    module: String,
+    field: String,
+    len: usize,
+) {
+    let v = Some("x".repeat(len));
+    let mut req = input(&no, &module);
+    match field.as_str() {
+        "程式名稱" => req.name = v,
+        "報表抬頭" => req.report_title = v,
+        "執行指令" => req.run_command = v,
+        "程式群組" => req.program_group = v,
+        "固定列印條件" => req.fixed_print_condition = v,
+        "固定列印方式" => req.fixed_print_method = v,
+        "視窗型態" => req.window_style = v,
+        "可執行功能" => req.default_actions = v,
+        "其他備註" => req.remark = v,
+        other => panic!("未知欄位：{other}"),
+    }
+    create(w, req).await;
 }

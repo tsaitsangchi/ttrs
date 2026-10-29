@@ -170,13 +170,13 @@ pub struct ProgramInput {
     pub window_style: Option<String>,
     pub report_ext_mode: Option<ReportExtModeDto>,
     pub program_group: Option<String>,
-    pub print_method: Option<String>,
-    pub fixed_run_condition: Option<String>,
-    pub help_enabled: bool,
+    pub fixed_print_method: Option<String>,
+    pub fixed_print_condition: Option<String>,
+    pub sql_explain: bool,
     pub log_errors: bool,
     // 其他設定：原樣保存
     pub default_actions: Option<String>,
-    pub print_option: bool,
+    pub print_conditions: bool,
     pub allow_key_update: bool,
     pub remark: Option<String>,
     /// 預設語系的報表抬頭（gaz06）
@@ -203,12 +203,12 @@ pub struct ProgramDto {
     pub window_style: Option<String>,
     pub report_ext_mode: Option<ReportExtModeDto>,
     pub program_group: Option<String>,
-    pub print_method: Option<String>,
-    pub fixed_run_condition: Option<String>,
-    pub help_enabled: bool,
+    pub fixed_print_method: Option<String>,
+    pub fixed_print_condition: Option<String>,
+    pub sql_explain: bool,
     pub log_errors: bool,
     pub default_actions: Option<String>,
-    pub print_option: bool,
+    pub print_conditions: bool,
     pub allow_key_update: bool,
     pub remark: Option<String>,
     pub report_title: Option<String>,
@@ -240,12 +240,12 @@ impl ProgramDto {
             window_style: self.window_style.clone(),
             report_ext_mode: self.report_ext_mode,
             program_group: self.program_group.clone(),
-            print_method: self.print_method.clone(),
-            fixed_run_condition: self.fixed_run_condition.clone(),
-            help_enabled: self.help_enabled,
+            fixed_print_method: self.fixed_print_method.clone(),
+            fixed_print_condition: self.fixed_print_condition.clone(),
+            sql_explain: self.sql_explain,
             log_errors: self.log_errors,
             default_actions: self.default_actions.clone(),
-            print_option: self.print_option,
+            print_conditions: self.print_conditions,
             allow_key_update: self.allow_key_update,
             remark: self.remark.clone(),
             report_title: self.report_title.clone(),
@@ -318,4 +318,20 @@ pub struct Page<T> {
     pub total: u64,
     pub page: u32,
     pub page_size: u32,
+}
+
+/// 程式維護欄位長度上限（字元），供畫面 maxlength 使用。
+/// 來源與檢核在 `ttrs_domain::program::max_len`；兩者由 ttrs-app 的單元測試保證一致。
+pub mod program_max_len {
+    pub const PROGRAM_NO: usize = 20;
+    pub const MODULE_CODE: usize = 10;
+    pub const DEFAULT_ACTIONS: usize = 3000;
+    pub const RUN_COMMAND: usize = 60;
+    pub const PROGRAM_GROUP: usize = 10;
+    pub const FIXED_PRINT_CONDITION: usize = 80;
+    pub const FIXED_PRINT_METHOD: usize = 1;
+    pub const WINDOW_STYLE: usize = 20;
+    pub const REMARK: usize = 255;
+    pub const NAME: usize = 500;
+    pub const REPORT_TITLE: usize = 255;
 }
