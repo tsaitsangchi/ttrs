@@ -33,8 +33,8 @@ make web                      # 啟動前端 http://127.0.0.1:8765（/api 由 dx
 ```bash
 # 以 postgres 管理者建立角色與資料庫
 sudo -u postgres createuser -d ttrs -P      # 密碼設為 ttrs
-createdb -U ttrs -h localhost ttrs_dev
-createdb -U ttrs -h localhost ttrs_test
+createdb -U ttrs -h localhost ttrs        # 開發用（DATABASE_URL）
+createdb -U ttrs -h localhost ttrs_test   # BDD 用，每個場景會清空資料表，勿與 ttrs 共用
 cp .env.example .env && set -a && . ./.env && set +a
 make bdd-pg                   # 同一份規格對 PostgreSQL 驗證
 make api                      # 啟動時自動執行 migration
