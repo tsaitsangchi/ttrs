@@ -1,6 +1,6 @@
-//! 程式登錄資料
+//! 程式維護資料（Program Maintenance）
 //! TipTop 對應：p_zz（程式資料建立）／ zz_file（名稱 gaz_file、權限 zy_file、選單 zm_file）
-//! 規格：specs/features/azz/program_registry.feature
+//! 規格：specs/features/azz/program_maintenance.feature
 
 use chrono::NaiveDate;
 
@@ -10,7 +10,7 @@ use crate::DomainError;
 const SHARED_MODULES: [&str; 6] = ["SUB", "CSUB", "LIB", "CLIB", "QRY", "CQRY"];
 /// 適用「傳遞帳別」的總帳模組（p_zz.4gl:932-938）
 const LEDGER_MODULES: [&str; 4] = ["AGL", "CGL", "GGL", "CGGL"];
-/// 選單不是模組資料，而是 p_zz 額外加入的固定選項
+/// 選單不是模組資料，而是 TipTop p_zz 額外加入的固定選項
 pub const MENU_MODULE: &str = "MENU";
 
 /// 程式代號：去除前後空白，保留大小寫（TipTop 程式代號為小寫，如 aimi100）。
@@ -135,7 +135,7 @@ pub struct OtherSettings {
     pub remark: Option<String>,
 }
 
-/// 使用者可輸入的欄位；`None` 表示套用 p_zz 預設值
+/// 使用者可輸入的欄位；`None` 表示套用預設值（比照 TipTop p_zz）
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ProgramAttrs {
     pub program_type: Option<String>,

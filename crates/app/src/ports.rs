@@ -46,7 +46,7 @@ pub struct AuditEntry {
     pub action: String,
 }
 
-/// 程式登錄（TipTop: zz_file、gaz_file、zy_file、zm_file、azo_file）。
+/// 程式維護（TipTop: zz_file、gaz_file、zy_file、zm_file、azo_file）。
 /// 需要連動多張表的方法（新增、改代號、刪除）必須在同一交易內完成。
 #[async_trait]
 pub trait ProgramRepository: Send + Sync {

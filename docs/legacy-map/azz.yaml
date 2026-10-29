@@ -7,11 +7,12 @@
 tables:
   - legacy: gao_file
     target: module
-    note: 模組；p_zz 另有固定選項 MENU（不在 gao_file），SUB/CSUB/LIB/CLIB/QRY/CQRY 不可選
+    note: 模組；TipTop p_zz 另有固定選項 MENU（不在 gao_file），SUB/CSUB/LIB/CLIB/QRY/CQRY 不可選
 
   - legacy: zz_file
     target: program
     program: p_zz
+    new_program: Program Maintenance（/azz/program-maintenance）
     note: 程式登錄檔；主鍵 zz01
     query: "Q.查詢 CONSTRUCT 27 欄位（p_zz.4gl :286-290，zz04 除外）→ ttrs_app::program_query；QBE 語法 → ttrs_domain::qbe；排序 zz01 位元組順序（COLLATE \"C\"）"
     columns:
@@ -29,7 +30,7 @@ tables:
       - { legacy: zz14,   target: report_type, note: "報表類型 1憑證 2明細表 3統計表 4追蹤表 5無；必填；R 類不可為 5" }
       - { legacy: zz15,   target: pass_book_no, note: 傳遞帳別 Y/N；僅 AGL/CGL/GGL/CGGL 模組適用 }
       - { legacy: zz16,   target: current_print_count, note: "目前報表列印次數（Q4 確認）；新增、沿用(controlo :1019)時歸 0；複製時原樣帶過（SELECT * :2042）" }
-      - { legacy: zz17,   target: report_width, note: 報表寬度（Q4 確認）；p_zz 自身報表以此取得列寬（:2352） }
+      - { legacy: zz17,   target: report_width, note: 報表寬度（Q4 確認）；TipTop p_zz 自身報表以此取得列寬（:2352） }
       - { legacy: zz21,   target: fixed_run_condition, note: "固定執行條件（4fd 標籤 Fixed Executed Condition）；原樣保存。0005 由 quick_run_data 更名", verify: true }
       - { legacy: zz22,   target: print_method, note: "列印方式（4fd 標籤 Print Method）；原樣保存。0005 由 print_default 更名", verify: true }
       - { legacy: zz25,   target: help_enabled, note: 說明開關 Y/N；Genero 專屬，原樣保存 }
@@ -67,7 +68,7 @@ tables:
 
   - legacy: zai_file
     target: query_definition
-    note: p_query 查詢定義；zai01 為查詢代號（= 衍生程式代號）。p_zz 只檢查存在與否（Q5）
+    note: p_query 查詢定義；zai01 為查詢代號（= 衍生程式代號）。TipTop p_zz 只檢查存在與否（Q5）
     verify: true
 
   - legacy: azo_file

@@ -5,7 +5,7 @@ mod components;
 mod pages;
 
 use dioxus::prelude::*;
-use pages::{aim::ItemList, azz::ProgramList, home::Home};
+use pages::{aim::ItemList, azz::ProgramMaintenance, home::Home};
 
 /// Material 3：色彩 token（自動產生）→ 元件樣式 → 版面，順序不可調換
 const M3_COLORS_CSS: Asset = asset!("/assets/material/m3-colors.css");
@@ -21,9 +21,9 @@ enum Route {
         /// aimi100 料件基本資料
         #[route("/aim/items")]
         ItemList {},
-        /// p_zz 程式登錄
-        #[route("/azz/programs")]
-        ProgramList {},
+        /// Program Maintenance 程式維護（TipTop p_zz）
+        #[route("/azz/program-maintenance")]
+        ProgramMaintenance {},
 }
 
 fn main() {
@@ -51,7 +51,7 @@ fn Shell() -> Element {
                 p { class: "group", "庫存管理 (aim)" }
                 Link { active_class: "active", to: Route::ItemList {}, "aimi100 料件基本資料" }
                 p { class: "group", "系統管理 (azz)" }
-                Link { active_class: "active", to: Route::ProgramList {}, "p_zz 程式資料建立" }
+                Link { active_class: "active", to: Route::ProgramMaintenance {}, title: "程式維護", "Program Maintenance" }
             }
             main { class: "content", Outlet::<Route> {} }
         }

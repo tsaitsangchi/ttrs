@@ -19,13 +19,13 @@
 #       必須已有同代號的查詢定義（zai_file，:973-982），否則錯誤 QUERY_DEFINITION_NOT_FOUND。
 #   Q6. ✅ 已確認（Key User）：不保留程式代號含「_行業別」時的提示（smb_file，:913,:2999）。
 #   Q7. ✅ 已確認（Key User）：p_link/p_base_act/p_base_per/p_help/p_zr 等開發工具連結（:453-565）
-#       之後會搬，但不在本規格範圍；各工具另立 feature，屆時再補 p_zz 的連結入口。
+#       之後會搬，但不在本規格範圍；各工具另立 feature，屆時再補程式維護的連結入口。
 #
 # 審核後新增（Key User 已同意）：
 #   - 複製程式時執行指令重產為「$FGLRUN $<模組>i/<新代號>」（:2045-2049）。
 #     TipTop 依作業系統分 Unix/Windows 兩種格式，草稿只採 Unix 格式。
 
-功能: 程式登錄資料維護
+功能: 程式維護（Program Maintenance）
   身為 系統管理員
   我想要 維護系統中每支作業程式的登錄資料
   以便 選單、權限與執行控制都能依此設定運作

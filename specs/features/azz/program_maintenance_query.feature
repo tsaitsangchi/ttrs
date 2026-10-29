@@ -3,10 +3,10 @@
 # 規則來源：
 #   - tiptop/azz/4gl/p_zz.4gl :281-359 p_zz_curs（CONSTRUCT 欄位、SQL 組法、排序、筆數）
 #   - tiptop/azz/4gl/p_zz.4gl :1154-1240 p_zz_q / p_zz_fetch（筆數顯示、F/P/N/L/跳筆）
-#   - QBE 條件語法：Genero BDL CONSTRUCT 的執行期行為，不在 p_zz 原始碼內，需 Key User 確認實際使用方式
+#   - QBE 條件語法：Genero BDL CONSTRUCT 的執行期行為，不在 TipTop p_zz 原始碼內，需 Key User 確認實際使用方式
 # 狀態：QBE1–QBE7 依草稿假設確認（2026-10-29），進入 Red
 #
-# 設計：QBE 解析器做成共用模組（之後各維護作業共用），p_zz 是第一個使用的作業。
+# 設計：QBE 解析器做成共用模組（之後各維護作業共用），Program Maintenance 是第一個使用的作業。
 #   每支作業宣告「可查詢欄位白名單」與欄位型別（文字/數字/日期/代碼）；條件一律以參數帶入 SQL。
 #
 # 畫面需求（不寫成 BDD 場景，由畫面實作）：
@@ -26,7 +26,7 @@
 #   QBE6. ✅ 可查詢欄位：比照 CONSTRUCT 的 27 個欄位（:286-290），zz04 可執行功能不可查（:292）。
 #   QBE7. ✅ 清單每頁筆數：預設 50 筆。
 
-功能: 程式登錄資料查詢（QBE）
+功能: 程式維護查詢（Program Maintenance，QBE）
   身為 系統管理員
   我想要 在欄位上輸入 TipTop 慣用的查詢條件
   以便 從大量程式中快速找到要維護的資料

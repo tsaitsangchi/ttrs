@@ -1,4 +1,4 @@
-//! p_zz 程式登錄 API 契約測試：HTTP 狀態碼與錯誤格式。業務規則由 BDD 涵蓋。
+//! Program Maintenance API 契約測試：HTTP 狀態碼與錯誤格式。業務規則由 BDD 涵蓋。
 
 use std::sync::Arc;
 

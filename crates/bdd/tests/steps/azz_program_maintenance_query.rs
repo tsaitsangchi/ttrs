@@ -1,4 +1,4 @@
-//! p_zz QBE 查詢 — specs/features/azz/program_query.feature
+//! Program Maintenance QBE 查詢 — specs/features/azz/program_maintenance_query.feature
 
 use cucumber::{gherkin::Step, given, then, when};
 use ttrs_shared::{ProgramInput, QbeCondition, QueryRequest, ReportTypeDto};

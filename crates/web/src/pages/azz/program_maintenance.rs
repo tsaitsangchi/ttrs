@@ -1,4 +1,4 @@
-//! p_zz 程式資料建立
+//! Program Maintenance 程式維護（TipTop p_zz 程式資料建立）
 //! 版面比照 tiptop/azz/4fd/p_zz.4fd，視覺採 Material 3（components::material）：
 //!   上方頁籤 pc700（基本資料 / 資料擁有者）＋ 下方頁籤 pc701（資料、權限設定 / 列印設定 / 閒置設定 / 其他設定）
 //!   ＋ 瀏覽清單（4fd 底部 cnt 筆數）。
@@ -63,7 +63,7 @@ enum Mode {
 type Qbe = Signal<BTreeMap<&'static str, String>>;
 
 #[component]
-pub fn ProgramList() -> Element {
+pub fn ProgramMaintenance() -> Element {
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
 
@@ -263,8 +263,8 @@ pub fn ProgramList() -> Element {
     rsx! {
         div { class: "page",
             div { class: "page-header",
-                div { class: "program-id", "系統管理 / p_zz" }
-                h2 { "程式資料建立" }
+                div { class: "program-id", "系統管理 / Program Maintenance" }
+                h2 { "程式維護" }
             }
 
             // ----- 動作列 -----

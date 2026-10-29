@@ -24,11 +24,11 @@ pub struct ErpWorld {
     pub backend: Backend,
     pub items: ItemService,
     pub programs: ProgramService,
-    /// 目前登入的使用者（p_zz 等需要記錄建立者/權限類別的作業）
+    /// 目前登入的使用者（程式維護等需要記錄建立者/權限類別的作業）
     pub actor: Actor,
     /// 最近一次「當」步驟的結果
     pub last: Option<Result<(), AppError>>,
-    /// 最近一次 p_zz 查詢的結果
+    /// 最近一次程式維護查詢的結果
     pub program_page: Option<Page<ProgramDto>>,
 }
 

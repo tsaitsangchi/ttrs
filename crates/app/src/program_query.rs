@@ -1,4 +1,4 @@
-//! p_zz 的 QBE 查詢欄位（p_zz.4gl :286-290 CONSTRUCT 的 27 個欄位；zz04 可執行功能不可查 :292）
+//! Program Maintenance 的 QBE 查詢欄位（p_zz.4gl :286-290 CONSTRUCT 的 27 個欄位；zz04 可執行功能不可查 :292）
 //!
 //! 欄位鍵值與 ProgramDto 欄位名稱相同；infra 依鍵值對應資料庫欄位，記憶體版用 `values` 取值比對。
 

@@ -1,5 +1,5 @@
-//! 程式登錄維護 use case（TipTop: p_zz）
-//! 規格：specs/features/azz/program_registry.feature
+//! Program Maintenance 程式維護 use case（TipTop: p_zz）
+//! 規格：specs/features/azz/program_maintenance.feature
 
 use std::sync::Arc;
 
@@ -28,7 +28,7 @@ pub const DEFAULT_LANG: &str = "zh-TW";
 /// 查詢每頁筆數上限
 const MAX_PAGE_SIZE: u32 = 500;
 /// 寫入異動紀錄時的作業代號
-const AUDIT_PROGRAM: &str = "p_zz";
+const AUDIT_PROGRAM: &str = "program-maintenance";
 
 /// 執行操作的使用者（TipTop: g_user / g_grup / 權限類別 g_clas）
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

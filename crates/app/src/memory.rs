@@ -24,7 +24,7 @@ struct State {
     units: HashSet<String>,
     items: BTreeMap<(PlantId, ItemNo), Item>,
     transactions: HashSet<(PlantId, ItemNo)>,
-    // p_zz
+    // Program Maintenance
     modules: HashSet<String>,
     permission_classes: HashSet<String>,
     /// (選單代號, 程式代號)（zm_file）

@@ -1,6 +1,6 @@
 //! QBE（Query By Example）條件解析與比對
 //! TipTop 對應：Genero BDL CONSTRUCT 的條件語法（各維護作業的 Q.查詢）
-//! 規格：specs/features/azz/program_query.feature（QBE1–QBE7）
+//! 規格：specs/features/azz/program_maintenance_query.feature（QBE1–QBE7）
 //!
 //! 語法（以 `|` 分隔多個選項，彼此為 OR）：
 //!   - `abc`        等於

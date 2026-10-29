@@ -160,13 +160,13 @@ async fn delete_item(
     Ok(StatusCode::NO_CONTENT)
 }
 
-// ----- p_zz 程式登錄 -----
+// ----- Program Maintenance 程式維護（TipTop p_zz） -----
 
 async fn list_programs(State(s): State<AppState>) -> ApiResult<Json<Vec<ProgramDto>>> {
     Ok(Json(s.programs.list().await?))
 }
 
-/// QBE 查詢（p_zz Q.查詢）；條件格式見 ttrs_domain::qbe
+/// QBE 查詢（比照 TipTop p_zz 的 Q.查詢）；條件格式見 ttrs_domain::qbe
 async fn query_programs(
     State(s): State<AppState>,
     Json(req): Json<QueryRequest>,

@@ -29,7 +29,7 @@ pub enum DomainError {
         action: &'static str,
     },
 
-    // p_zz 程式登錄
+    // Program Maintenance 程式維護
     #[error("程式代號不可空白")]
     ProgramNoEmpty,
     #[error("程式已存在")]

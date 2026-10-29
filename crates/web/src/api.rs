@@ -90,7 +90,7 @@ pub async fn delete_item(plant: &str, no: &str) -> Result<(), String> {
     }
 }
 
-// ----- p_zz 程式登錄 -----
+// ----- Program Maintenance 程式維護 -----
 
 fn program_url(no: &str, suffix: &str) -> String {
     url(&format!("/api/programs/{}{suffix}", urlencoding(no)))

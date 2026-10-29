@@ -1,4 +1,4 @@
-//! p_zz 程式登錄的 PostgreSQL 實作（migrations/0003_program_registry.sql）。
+//! Program Maintenance 程式維護的 PostgreSQL 實作（migrations/0003_program_registry.sql）。
 //! 子表以 ON UPDATE / ON DELETE CASCADE 連動，改代號與刪除只需操作 program 表。
 
 use async_trait::async_trait;

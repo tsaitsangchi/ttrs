@@ -50,7 +50,7 @@ pub struct ApiError {
 }
 
 // ---------------------------------------------------------------------------
-// p_zz 程式登錄（見 docs/legacy-map/azz.yaml）
+// Program Maintenance 程式維護（見 docs/legacy-map/azz.yaml）
 // ---------------------------------------------------------------------------
 
 /// 報表類型（zz14）
@@ -147,7 +147,7 @@ impl ReportExtModeDto {
     }
 }
 
-/// 新增/修改程式的輸入（未給的欄位套用 p_zz 預設值，JSON 可省略）
+/// 新增/修改程式的輸入（未給的欄位套用預設值，JSON 可省略）
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ProgramInput {
@@ -265,7 +265,7 @@ pub struct ProgramNameDto {
 /// 異動紀錄（azo_file）
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AuditEntryDto {
-    /// 執行的作業，如 "p_zz"
+    /// 執行的作業，如 "program-maintenance"
     pub program: String,
     pub user_id: String,
     pub key: String,

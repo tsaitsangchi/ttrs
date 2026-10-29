@@ -1,4 +1,4 @@
-//! p_zz 程式登錄 — specs/features/azz/program_registry.feature
+//! Program Maintenance 程式維護 — specs/features/azz/program_maintenance.feature
 
 use chrono::{Local, NaiveDate};
 use cucumber::{gherkin::Step, given, then, when};
@@ -399,7 +399,7 @@ async fn delete_audited(w: &mut ErpWorld, user: String, no: String) {
     let entries = w.programs.audit_entries(&no).await.unwrap();
     let hits = entries
         .iter()
-        .filter(|e| e.program == "p_zz" && e.user_id == user && e.action == "delete")
+        .filter(|e| e.program == "program-maintenance" && e.user_id == user && e.action == "delete")
         .count();
     assert_eq!(hits, 1, "異動紀錄：{entries:?}");
 }
