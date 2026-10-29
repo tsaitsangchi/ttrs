@@ -3,7 +3,10 @@
 //! API 位址：編譯時設定 `TTRS_API_URL` 則一律使用；否則 Web 版走同源 `/api`
 //! （開發由 dx proxy、正式由 nginx 轉發），桌面/行動版預設連本機 API。
 
-use ttrs_shared::{ApiError, CreateItemRequest, ItemDto};
+use ttrs_shared::{
+    ApiError, CreateItemRequest, GrantRequest, ItemDto, NewProgramNoRequest, ProgramDto,
+    ProgramInput,
+};
 
 fn base_url() -> String {
     if let Some(url) = option_env!("TTRS_API_URL") {
@@ -85,4 +88,113 @@ pub async fn delete_item(plant: &str, no: &str) -> Result<(), String> {
     } else {
         Err(error_message(res).await)
     }
+}
+
+// ----- p_zz 程式登錄 -----
+
+fn program_url(no: &str, suffix: &str) -> String {
+    url(&format!("/api/programs/{}{suffix}", urlencoding(no)))
+}
+
+/// 程式代號可能含 `_` 以外的符號，路徑參數一律編碼
+fn urlencoding(s: &str) -> String {
+    s.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (b as char).to_string()
+            }
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
+}
+
+async fn no_content(res: reqwest::Response) -> Result<(), String> {
+    if res.status().is_success() {
+        Ok(())
+    } else {
+        Err(error_message(res).await)
+    }
+}
+
+pub async fn list_programs() -> Result<Vec<ProgramDto>, String> {
+    let res = reqwest::Client::new()
+        .get(url("/api/programs"))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn create_program(req: &ProgramInput) -> Result<ProgramDto, String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/programs"))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn update_program(no: &str, req: &ProgramInput) -> Result<ProgramDto, String> {
+    let res = reqwest::Client::new()
+        .put(program_url(no, ""))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn delete_program(no: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(program_url(no, ""))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn rename_program(no: &str, new_no: &str) -> Result<ProgramDto, String> {
+    let res = reqwest::Client::new()
+        .post(program_url(no, "/rename"))
+        .json(&NewProgramNoRequest {
+            new_no: new_no.to_owned(),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn copy_program(no: &str, new_no: &str) -> Result<ProgramDto, String> {
+    let res = reqwest::Client::new()
+        .post(program_url(no, "/copy"))
+        .json(&NewProgramNoRequest {
+            new_no: new_no.to_owned(),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn program_permissions(no: &str) -> Result<Vec<String>, String> {
+    let res = reqwest::Client::new()
+        .get(program_url(no, "/permissions"))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn grant_permission(no: &str, class: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .post(program_url(no, "/permissions"))
+        .json(&GrantRequest {
+            permission_class: class.to_owned(),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
 }

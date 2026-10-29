@@ -1,10 +1,10 @@
-//! TTRS 前端入口。畫面依 TipTop 模組分資料夾：pages/aim（庫存/料件）、pages/axm（銷售）…
+//! TTRS 前端入口。畫面依 TipTop 模組分資料夾：pages/aim（庫存/料件）、pages/azz（系統管理）…
 
 mod api;
 mod pages;
 
 use dioxus::prelude::*;
-use pages::{aim::ItemList, home::Home};
+use pages::{aim::ItemList, azz::ProgramList, home::Home};
 
 const MAIN_CSS: Asset = asset!("/assets/main.css");
 
@@ -17,6 +17,9 @@ enum Route {
         /// aimi100 料件基本資料
         #[route("/aim/items")]
         ItemList {},
+        /// p_zz 程式登錄
+        #[route("/azz/programs")]
+        ProgramList {},
 }
 
 fn main() {
@@ -40,6 +43,8 @@ fn Shell() -> Element {
                 Link { to: Route::Home {}, "首頁" }
                 p { class: "group", "庫存管理 (aim)" }
                 Link { to: Route::ItemList {}, "aimi100 料件基本資料" }
+                p { class: "group", "系統管理 (azz)" }
+                Link { to: Route::ProgramList {}, "p_zz 程式資料建立" }
             }
             main { class: "content", Outlet::<Route> {} }
         }

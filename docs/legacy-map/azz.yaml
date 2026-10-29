@@ -1,9 +1,14 @@
 # TipTop → TTRS 資料對照：系統管理 (azz)
 # 來源：tiptop/azz/4gl/p_zz.4gl、tiptop/azz/4fd/p_zz.4fd（尚無 schema 匯出，型別待補）
-# keep: false 表示 Genero 執行環境專屬、草稿假設不搬（見 program_registry.feature Q1）
+# 新表：migrations/0003_program_registry.sql；列舉欄位沿用 TipTop 代碼（'1'、'2'…）
+# Genero 執行環境專屬欄位（zz06/08/10/21/22/25/26/27）：Q1 已確認全部保留、原樣儲存不套規則
 # verify: true 表示意義由程式碼推斷，需確認
 
 tables:
+  - legacy: gao_file
+    target: module
+    note: 模組；p_zz 另有固定選項 MENU（不在 gao_file），SUB/CSUB/LIB/CLIB/QRY/CQRY 不可選
+
   - legacy: zz_file
     target: program
     program: p_zz
@@ -14,21 +19,21 @@ tables:
       - { legacy: zz03,   target: program_type, note: "程式類別 I輸入 M選單 O其他 P批次 Q查詢 R報表 S參數 T交易 U更新；a 開頭 7 碼代號取第 4 碼" }
       - { legacy: zz04,   target: default_actions, note: 預設功能權限清單（新增權限時帶入 zy03）, verify: true }
       - { legacy: zz05,   target: print_option, note: 列印選項 Y/N, verify: true }
-      - { legacy: zz06,   keep: false, note: 報表副檔名 1固定(*.out) 2動態(*.xxr) }
-      - { legacy: zz07,   note: 預設 0，意義不明, verify: true }
-      - { legacy: zz08,   keep: false, note: "執行指令，如 $FGLRUN $AIMi/aimi100；可解析出實際程式名（transname）" }
+      - { legacy: zz06,   target: report_ext_mode, note: "報表副檔名 1固定(*.out) 2動態(*.xxr)；Genero 專屬，原樣保存" }
+      - { legacy: zz07,   target: deferred_print_count, note: 延後列印次數（Q4 確認）；新增時預設 0 }
+      - { legacy: zz08,   target: run_command, note: "執行指令，如 $FGLRUN $AIMi/aimi100；可解析出實際程式名（transname）；含 p_query 者須有 zai_file 查詢定義（:973-982）；新增時 a 開頭 7 碼且未輸入者自動產生 $FGLRUN $<代號前 3 碼>i/<代號>（:917-926）；複製時重產為 $FGLRUN $<模組>i/<新代號>（:2045-2049）；僅採 Unix 格式" }
       - { legacy: zz09,   target: registered_on, note: 新增時預設今天, verify: true }
-      - { legacy: zz10,   keep: false, note: 列印預設（開窗 q_gaw） }
+      - { legacy: zz10,   target: print_setting, note: 列印預設（開窗 q_gaw）；Genero 專屬，原樣保存, verify: true }
       - { legacy: zz13,   target: allow_key_update, note: 維護作業可否修改鍵值 Y/N（畫面說明 Update Key Field Data）, verify: true }
       - { legacy: zz14,   target: report_type, note: "報表類型 1憑證 2明細表 3統計表 4追蹤表 5無；必填；R 類不可為 5" }
       - { legacy: zz15,   target: pass_book_no, note: 傳遞帳別 Y/N；僅 AGL/CGL/GGL/CGGL 模組適用 }
-      - { legacy: zz16,   note: 預設 0，意義不明, verify: true }
-      - { legacy: zz17,   note: 意義不明, verify: true }
-      - { legacy: zz21,   keep: false, note: 快速執行資料 }
-      - { legacy: zz22,   keep: false, note: 列印預設 }
-      - { legacy: zz25,   keep: false, note: 說明開關 }
-      - { legacy: zz26,   keep: false, note: 錯誤訊息寫入 log 檔 }
-      - { legacy: zz27,   keep: false, note: "視窗型態 sm1/sm2/sm3/popup/main/dialog/naked/viewer/report/err01/login/view" }
+      - { legacy: zz16,   target: current_print_count, note: "目前報表列印次數（Q4 確認）；新增、沿用(controlo :1019)時歸 0；複製時原樣帶過（SELECT * :2042）" }
+      - { legacy: zz17,   target: report_width, note: 報表寬度（Q4 確認）；p_zz 自身報表以此取得列寬（:2352） }
+      - { legacy: zz21,   target: quick_run_data, note: 快速執行資料；Genero 專屬，原樣保存, verify: true }
+      - { legacy: zz22,   target: print_default, note: 列印預設；與 zz10 差異待確認, verify: true }
+      - { legacy: zz25,   target: help_enabled, note: 說明開關 Y/N；Genero 專屬，原樣保存 }
+      - { legacy: zz26,   target: log_errors, note: 錯誤訊息寫入 log 檔 Y/N；Genero 專屬，原樣保存 }
+      - { legacy: zz27,   target: window_style, note: "Genero 專屬，原樣保存；視窗型態 sm1/sm2/sm3/popup/main/dialog/naked/viewer/report/err01/login/view" }
       - { legacy: zz28,   target: idle_control, note: "閒置控制 1不控制 2由程式設定 3依系統（預設 3）；必填" }
       - { legacy: zz29,   target: idle_action, note: "逾時處理 1僅警告 2警告後關閉 3直接關閉；僅 zz28=2 時有值" }
       - { legacy: zz30,   target: idle_seconds, note: 閒置時間；僅 zz28=2 時有值, verify: true }
@@ -57,6 +62,11 @@ tables:
   - legacy: zm_file
     target: menu_item
     note: 選單；zm01 選單代號、zm04 子項程式代號
+    verify: true
+
+  - legacy: zai_file
+    target: query_definition
+    note: p_query 查詢定義；zai01 為查詢代號（= 衍生程式代號）。p_zz 只檢查存在與否（Q5）
     verify: true
 
   - legacy: azo_file

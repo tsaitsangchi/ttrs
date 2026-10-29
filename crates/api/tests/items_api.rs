@@ -7,14 +7,16 @@ use axum::{
     http::{Request, StatusCode},
 };
 use tower::ServiceExt;
-use ttrs_api::{AppState, router};
-use ttrs_app::{ItemService, memory::InMemoryStore};
+use ttrs_api::{AppState, actor_from_env, router};
+use ttrs_app::{ItemService, ProgramService, memory::InMemoryStore};
 use ttrs_shared::ApiError;
 
 fn app() -> axum::Router {
     let store = Arc::new(InMemoryStore::seeded());
     router(AppState {
-        items: ItemService::new(store.clone(), store),
+        items: ItemService::new(store.clone(), store.clone()),
+        programs: ProgramService::new(store),
+        actor: actor_from_env(),
     })
 }
 

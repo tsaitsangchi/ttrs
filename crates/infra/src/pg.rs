@@ -11,7 +11,7 @@ use ttrs_domain::{
 
 #[derive(Clone)]
 pub struct PgStore {
-    pool: PgPool,
+    pub(crate) pool: PgPool,
 }
 
 impl PgStore {
@@ -63,7 +63,7 @@ fn status_from_db(s: &str) -> Result<ItemStatus, RepoError> {
     }
 }
 
-fn db_err(e: sqlx::Error) -> RepoError {
+pub(crate) fn db_err(e: sqlx::Error) -> RepoError {
     match e.as_database_error() {
         Some(d) if d.is_unique_violation() => RepoError::Conflict,
         _ => RepoError::Other(e.to_string()),

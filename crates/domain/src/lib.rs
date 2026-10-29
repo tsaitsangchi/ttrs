@@ -4,5 +4,6 @@
 pub mod error;
 pub mod item;
 pub mod plant;
+pub mod program;
 
 pub use error::DomainError;

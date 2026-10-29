@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use tracing_subscriber::EnvFilter;
-use ttrs_api::{AppState, cors_from_env, router};
-use ttrs_app::{ItemService, memory::InMemoryStore};
+use ttrs_api::{AppState, actor_from_env, cors_from_env, router};
+use ttrs_app::{ItemService, ProgramService, memory::InMemoryStore};
 use ttrs_infra::PgStore;
 
 #[tokio::main]
@@ -14,25 +14,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     // 有 DATABASE_URL 就用 PostgreSQL（並自動 migrate），否則用記憶體資料方便前端開發
-    let items = match std::env::var("DATABASE_URL") {
+    let (items, programs) = match std::env::var("DATABASE_URL") {
         Ok(url) => {
             let pool = ttrs_infra::connect(&url).await?;
             ttrs_infra::migrate(&pool).await?;
             tracing::info!("using PostgreSQL");
             let store = Arc::new(PgStore::new(pool));
-            ItemService::new(store.clone(), store)
+            (
+                ItemService::new(store.clone(), store.clone()),
+                ProgramService::new(store),
+            )
         }
         Err(_) => {
             tracing::warn!("DATABASE_URL not set, using in-memory store");
             let store = Arc::new(InMemoryStore::seeded());
-            ItemService::new(store.clone(), store)
+            (
+                ItemService::new(store.clone(), store.clone()),
+                ProgramService::new(store),
+            )
         }
     };
 
     let addr = std::env::var("TTRS_API_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".into());
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("listening on http://{addr}");
-    let mut app = router(AppState { items });
+    let actor = actor_from_env();
+    tracing::info!(user = %actor.user_id, "acting as development user (no login yet)");
+    let mut app = router(AppState {
+        items,
+        programs,
+        actor,
+    });
     if let Some(cors) = cors_from_env() {
         tracing::info!("CORS enabled from TTRS_CORS_ORIGINS");
         app = app.layer(cors);

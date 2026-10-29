@@ -9,7 +9,7 @@ use std::{fmt, sync::Arc};
 
 use cucumber::World;
 use sqlx::PgPool;
-use ttrs_app::{AppError, ItemService, memory::InMemoryStore};
+use ttrs_app::{Actor, AppError, ItemService, ProgramService, memory::InMemoryStore};
 use ttrs_infra::PgStore;
 
 pub enum Backend {
@@ -22,6 +22,9 @@ pub enum Backend {
 pub struct ErpWorld {
     pub backend: Backend,
     pub items: ItemService,
+    pub programs: ProgramService,
+    /// 目前登入的使用者（p_zz 等需要記錄建立者/權限類別的作業）
+    pub actor: Actor,
     /// 最近一次「當」步驟的結果
     pub last: Option<Result<(), AppError>>,
 }
@@ -36,29 +39,38 @@ impl fmt::Debug for ErpWorld {
 
 impl ErpWorld {
     async fn init() -> Self {
-        let (backend, items) = match database_url() {
+        let (backend, items, programs) = match database_url() {
             Some(url) => {
                 let pool = ttrs_infra::connect(&url).await.expect("connect PostgreSQL");
                 ttrs_infra::migrate(&pool).await.expect("run migrations");
-                sqlx::query("TRUNCATE inventory_txn, item, unit, plant RESTART IDENTITY CASCADE")
+                sqlx::query("TRUNCATE audit_log, query_definition, menu_item, program_permission, program_name, \
+                     program, permission_class, module, inventory_txn, item, unit, plant \
+                     RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
                     .expect("truncate tables");
                 let store = Arc::new(PgStore::new(pool.clone()));
-                (Backend::Pg(pool), ItemService::new(store.clone(), store))
+                (
+                    Backend::Pg(pool),
+                    ItemService::new(store.clone(), store.clone()),
+                    ProgramService::new(store),
+                )
             }
             None => {
                 let store = InMemoryStore::new();
                 let shared = Arc::new(store.clone());
                 (
                     Backend::Memory(store),
-                    ItemService::new(shared.clone(), shared),
+                    ItemService::new(shared.clone(), shared.clone()),
+                    ProgramService::new(shared),
                 )
             }
         };
         Self {
             backend,
             items,
+            programs,
+            actor: Actor::default(),
             last: None,
         }
     }

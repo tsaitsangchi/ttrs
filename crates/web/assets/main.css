@@ -54,3 +54,30 @@ th { background: var(--bg); }
   .shell { flex-direction: column; }
   .sidebar { width: auto; border-right: 0; border-bottom: 1px solid var(--border); }
 }
+
+/* p_zz 等多欄位維護畫面 */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 0 0 16px;
+}
+.panel legend { font-weight: 600; padding: 0 4px; }
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px 16px;
+  margin-bottom: 12px;
+}
+.form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.form-grid label.check { flex-direction: row; align-items: center; color: var(--text); }
+details { margin-bottom: 12px; }
+summary { cursor: pointer; color: var(--muted); margin-bottom: 8px; }
+select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
+button.secondary { background: var(--muted); }
+tr.selected td { background: #eff6ff; }
+tbody tr { cursor: pointer; }
+td.mono { font-family: ui-monospace, monospace; font-size: 12px; }
+.notice { color: #15803d; }
+.muted { color: var(--muted); }

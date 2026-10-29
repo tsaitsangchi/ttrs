@@ -9,11 +9,12 @@ use async_trait::async_trait;
 use ttrs_domain::{
     item::{Item, ItemNo},
     plant::PlantId,
+    program::{ModuleCode, Program, ProgramNo},
 };
 
 use crate::{
     error::RepoError,
-    ports::{ItemRepository, MasterDataRepository},
+    ports::{AuditEntry, ItemRepository, MasterDataRepository, ProgramName, ProgramRepository},
 };
 
 #[derive(Default)]
@@ -22,6 +23,19 @@ struct State {
     units: HashSet<String>,
     items: BTreeMap<(PlantId, ItemNo), Item>,
     transactions: HashSet<(PlantId, ItemNo)>,
+    // p_zz
+    modules: HashSet<String>,
+    permission_classes: HashSet<String>,
+    /// (選單代號, 程式代號)（zm_file）
+    menu_items: HashSet<(String, String)>,
+    /// p_query 查詢定義代號（zai_file）
+    query_definitions: HashSet<String>,
+    programs: BTreeMap<ProgramNo, Program>,
+    /// (程式代號, 語系) → 名稱（gaz_file）
+    names: BTreeMap<(String, String), String>,
+    /// (權限類別, 程式代號)（zy_file）
+    permissions: HashSet<(String, String)>,
+    audit: Vec<AuditEntry>,
 }
 
 #[derive(Clone, Default)]
@@ -38,6 +52,10 @@ impl InMemoryStore {
         s.add_plant("TW01");
         s.add_unit("PCS");
         s.add_unit("KG");
+        for m in ["AIM", "AGL", "AZZ"] {
+            s.add_module(m);
+        }
+        s.add_permission_class("ADMIN");
         s
     }
 
@@ -51,6 +69,26 @@ impl InMemoryStore {
 
     pub fn add_transaction(&self, plant: &PlantId, no: &ItemNo) {
         self.lock().transactions.insert((plant.clone(), no.clone()));
+    }
+
+    /// 模組（gao_file）
+    pub fn add_module(&self, module: &str) {
+        self.lock().modules.insert(module.to_uppercase());
+    }
+
+    /// 權限類別（zw_file）
+    pub fn add_permission_class(&self, class: &str) {
+        self.lock().permission_classes.insert(class.to_string());
+    }
+
+    pub fn add_menu_item(&self, menu: &str, program: &str) {
+        self.lock()
+            .menu_items
+            .insert((menu.to_string(), program.to_string()));
+    }
+
+    pub fn add_query_definition(&self, query: &str) {
+        self.lock().query_definitions.insert(query.to_string());
     }
 
     fn lock(&self) -> std::sync::MutexGuard<'_, State> {
@@ -112,4 +150,151 @@ impl MasterDataRepository for InMemoryStore {
     async fn unit_exists(&self, unit: &str) -> Result<bool, RepoError> {
         Ok(self.lock().units.contains(&unit.to_uppercase()))
     }
+}
+
+#[async_trait]
+impl ProgramRepository for InMemoryStore {
+    async fn get(&self, no: &ProgramNo) -> Result<Option<Program>, RepoError> {
+        Ok(self.lock().programs.get(no).cloned())
+    }
+
+    async fn list(&self) -> Result<Vec<Program>, RepoError> {
+        Ok(self.lock().programs.values().cloned().collect())
+    }
+
+    async fn insert(
+        &self,
+        program: &Program,
+        names: &[ProgramName],
+        grant_to: Option<&str>,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.programs.contains_key(&program.program_no) {
+            return Err(RepoError::Conflict);
+        }
+        let no = program.program_no.as_str().to_owned();
+        s.programs
+            .insert(program.program_no.clone(), program.clone());
+        for n in names {
+            s.names.insert((no.clone(), n.lang.clone()), n.name.clone());
+        }
+        if let Some(class) = grant_to {
+            s.permissions.insert((class.to_owned(), no));
+        }
+        Ok(())
+    }
+
+    async fn update(&self, program: &Program) -> Result<(), RepoError> {
+        self.lock()
+            .programs
+            .insert(program.program_no.clone(), program.clone());
+        Ok(())
+    }
+
+    async fn change_no(&self, old: &ProgramNo, new: &ProgramNo) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.programs.contains_key(new) {
+            return Err(RepoError::Conflict);
+        }
+        let Some(mut p) = s.programs.remove(old) else {
+            return Ok(());
+        };
+        p.program_no = new.clone();
+        s.programs.insert(new.clone(), p);
+        let (old, new) = (old.as_str(), new.as_str());
+        s.names = std::mem::take(&mut s.names)
+            .into_iter()
+            .map(|((no, lang), name)| ((rename(no, old, new), lang), name))
+            .collect();
+        s.permissions = std::mem::take(&mut s.permissions)
+            .into_iter()
+            .map(|(class, no)| (class, rename(no, old, new)))
+            .collect();
+        s.menu_items = std::mem::take(&mut s.menu_items)
+            .into_iter()
+            .map(|(menu, no)| (menu, rename(no, old, new)))
+            .collect();
+        Ok(())
+    }
+
+    async fn delete(&self, no: &ProgramNo, audit: &AuditEntry) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        s.programs.remove(no);
+        let no = no.as_str();
+        s.names.retain(|(n, _), _| n != no);
+        s.permissions.retain(|(_, n)| n != no);
+        s.menu_items.retain(|(_, n)| n != no);
+        s.audit.push(audit.clone());
+        Ok(())
+    }
+
+    async fn names(&self, no: &ProgramNo) -> Result<Vec<ProgramName>, RepoError> {
+        Ok(self
+            .lock()
+            .names
+            .iter()
+            .filter(|((n, _), _)| n == no.as_str())
+            .map(|((_, lang), name)| ProgramName {
+                lang: lang.clone(),
+                name: name.clone(),
+            })
+            .collect())
+    }
+
+    async fn grant(&self, permission_class: &str, no: &ProgramNo) -> Result<(), RepoError> {
+        self.lock()
+            .permissions
+            .insert((permission_class.to_owned(), no.as_str().to_owned()));
+        Ok(())
+    }
+
+    async fn permission_classes(&self, no: &ProgramNo) -> Result<Vec<String>, RepoError> {
+        let mut v: Vec<String> = self
+            .lock()
+            .permissions
+            .iter()
+            .filter(|(_, n)| n == no.as_str())
+            .map(|(c, _)| c.clone())
+            .collect();
+        v.sort();
+        Ok(v)
+    }
+
+    async fn menus_containing(&self, no: &ProgramNo) -> Result<Vec<String>, RepoError> {
+        let mut v: Vec<String> = self
+            .lock()
+            .menu_items
+            .iter()
+            .filter(|(_, n)| n == no.as_str())
+            .map(|(m, _)| m.clone())
+            .collect();
+        v.sort();
+        Ok(v)
+    }
+
+    async fn audit_entries(&self, key: &str) -> Result<Vec<AuditEntry>, RepoError> {
+        Ok(self
+            .lock()
+            .audit
+            .iter()
+            .filter(|a| a.key == key)
+            .cloned()
+            .collect())
+    }
+
+    async fn module_exists(&self, module: &ModuleCode) -> Result<bool, RepoError> {
+        Ok(self.lock().modules.contains(module.as_str()))
+    }
+
+    async fn permission_class_exists(&self, class: &str) -> Result<bool, RepoError> {
+        Ok(self.lock().permission_classes.contains(class))
+    }
+
+    async fn query_definition_exists(&self, query: &str) -> Result<bool, RepoError> {
+        Ok(self.lock().query_definitions.contains(query))
+    }
+}
+
+fn rename(no: String, old: &str, new: &str) -> String {
+    if no == old { new.to_owned() } else { no }
 }

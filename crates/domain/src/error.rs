@@ -28,6 +28,28 @@ pub enum DomainError {
         from: &'static str,
         action: &'static str,
     },
+
+    // p_zz 程式登錄
+    #[error("程式代號不可空白")]
+    ProgramNoEmpty,
+    #[error("程式已存在")]
+    ProgramAlreadyExists,
+    #[error("程式不存在")]
+    ProgramNotFound,
+    #[error("所屬模組不可空白")]
+    ModuleEmpty,
+    #[error("模組不存在")]
+    ModuleNotFound,
+    #[error("共用程式模組 {0} 不可作為作業程式的所屬模組")]
+    ModuleNotAllowed(String),
+    #[error("報表程式必須指定報表類型")]
+    ReportTypeRequired,
+    #[error("選單不是可執行程式，不可設定權限")]
+    MenuHasNoPermission,
+    #[error("權限類別不存在")]
+    PermissionClassNotFound,
+    #[error("經由 p_query 執行的程式必須先建立查詢定義")]
+    QueryDefinitionNotFound,
 }
 
 impl DomainError {
@@ -44,6 +66,16 @@ impl DomainError {
             Self::UnitNotFound => "UNIT_NOT_FOUND",
             Self::ItemHasTransactions => "ITEM_HAS_TRANSACTIONS",
             Self::InvalidItemTransition { .. } => "ITEM_INVALID_TRANSITION",
+            Self::ProgramNoEmpty => "PROGRAM_NO_EMPTY",
+            Self::ProgramAlreadyExists => "PROGRAM_ALREADY_EXISTS",
+            Self::ProgramNotFound => "PROGRAM_NOT_FOUND",
+            Self::ModuleEmpty => "MODULE_EMPTY",
+            Self::ModuleNotFound => "MODULE_NOT_FOUND",
+            Self::ModuleNotAllowed(_) => "MODULE_NOT_ALLOWED",
+            Self::ReportTypeRequired => "REPORT_TYPE_REQUIRED",
+            Self::MenuHasNoPermission => "MENU_HAS_NO_PERMISSION",
+            Self::PermissionClassNotFound => "PERMISSION_CLASS_NOT_FOUND",
+            Self::QueryDefinitionNotFound => "QUERY_DEFINITION_NOT_FOUND",
         }
     }
 }
