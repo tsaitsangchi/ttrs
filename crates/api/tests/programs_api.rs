@@ -64,15 +64,16 @@ async fn rule_violation_returns_422() {
 }
 
 #[tokio::test]
-async fn rename_then_old_no_returns_404() {
+/// 改代號：PUT 原代號，內容帶新的 program_no
+async fn change_no_via_update_then_old_no_returns_404() {
     let app = app();
     app.clone().oneshot(create("aimi100")).await.unwrap();
     let res = app
         .clone()
         .oneshot(json(
-            "POST",
-            "/api/programs/aimi100/rename",
-            serde_json::json!({ "new_no": "aimi101" }),
+            "PUT",
+            "/api/programs/aimi100",
+            serde_json::json!({ "program_no": "aimi101", "module_code": "AIM" }),
         ))
         .await
         .unwrap();

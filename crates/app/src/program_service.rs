@@ -114,17 +114,34 @@ impl ProgramService {
         })
     }
 
-    /// 修改程式欄位（代號另用 `change_no`）
+    /// 修改程式（p_zz_u :1313-1407）。`input.program_no` 與原代號不同時一併改代號，
+    /// 連動名稱、選單與權限（:1388-1392；Q2：一律允許，TipTop 沒有獨立的改代號功能）。
     pub async fn update(
         &self,
         actor: &Actor,
         no: &str,
         input: ProgramInput,
     ) -> Result<ProgramDto, AppError> {
-        let mut program = self.load(&ProgramNo::parse(no)?).await?;
+        let old = ProgramNo::parse(no)?;
+        let mut program = self.load(&old).await?;
+        let new = if input.program_no.trim().is_empty() {
+            old.clone()
+        } else {
+            ProgramNo::parse(&input.program_no)?
+        };
+        // 先套用新代號再檢核，程式類別推導與 p_query 查詢定義都以新代號為準
+        program.program_no = new.clone();
         let module = self.module(&input.module_code).await?;
         program.update(module, attrs(&input), &actor.user_id, today())?;
         self.check_query_definition(&program).await?;
+
+        if new != old {
+            match self.repo.change_no(&old, &new).await {
+                Ok(()) => {}
+                Err(RepoError::Conflict) => return Err(DomainError::ProgramAlreadyExists.into()),
+                Err(e) => return Err(infra(e)),
+            }
+        }
         self.repo.update(&program).await.map_err(infra)?;
         // 名稱與報表抬頭（TipTop 另以 modify_program_name / modify_report_title 更新 gaz_file）
         if let Some(name) = default_name(&input) {
@@ -134,25 +151,6 @@ impl ProgramService {
                 .map_err(infra)?;
         }
         self.to_dto(&program).await
-    }
-
-    /// 修改程式代號，連動名稱、選單與權限（Q2：一律允許）
-    pub async fn change_no(&self, actor: &Actor, old: &str, new: &str) -> Result<(), AppError> {
-        let old = ProgramNo::parse(old)?;
-        let new = ProgramNo::parse(new)?;
-        let mut program = self.load(&old).await?;
-        if old == new {
-            return Ok(());
-        }
-        match self.repo.change_no(&old, &new).await {
-            Ok(()) => {}
-            Err(RepoError::Conflict) => return Err(DomainError::ProgramAlreadyExists.into()),
-            Err(e) => return Err(infra(e)),
-        }
-        program.program_no = new;
-        program.updated_by = Some(actor.user_id.clone());
-        program.updated_on = today();
-        self.repo.update(&program).await.map_err(infra)
     }
 
     /// 刪除程式，連帶刪除名稱、權限、選單並寫異動紀錄（Q3：一律連帶刪除）

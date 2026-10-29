@@ -219,9 +219,20 @@ async fn create_with_runtime(w: &mut ErpWorld, step: &Step, no: String, module: 
     create(w, req).await;
 }
 
+/// 比照 TipTop：在「修改」中直接變更程式代號欄位（沒有獨立的改代號功能）
 #[when(expr = "使用者將程式 {string} 的代號改為 {string}")]
 async fn change_program_no(w: &mut ErpWorld, old: String, new: String) {
-    w.last = Some(w.programs.change_no(&w.actor, &old, &new).await);
+    let result = match w.programs.get(&old).await {
+        Ok(p) => {
+            let req = ProgramInput {
+                program_no: new,
+                ..p.to_input()
+            };
+            w.programs.update(&w.actor, &old, req).await.map(|_| ())
+        }
+        Err(e) => Err(e),
+    };
+    w.last = Some(result);
 }
 
 #[when(expr = "使用者將程式 {string} 的模組改為 {string}")]

@@ -209,19 +209,6 @@ pub fn ProgramList() -> Element {
         });
     };
 
-    let rename = move |_| {
-        let Some(p) = current() else { return };
-        spawn(async move {
-            match api::rename_program(&p.program_no, &new_no()).await {
-                Ok(n) => {
-                    new_no.set(String::new());
-                    done(format!("{} 已改為 {}", p.program_no, n.program_no), Some(n));
-                }
-                Err(e) => error.set(Some(e)),
-            }
-        });
-    };
-
     let copy = move |_| {
         let Some(p) = current() else { return };
         spawn(async move {
@@ -342,7 +329,7 @@ pub fn ProgramList() -> Element {
                         div { class: "spacer" }
                         TextField {
                             id: "new-no",
-                            label: "新程式代號",
+                            label: "複製為新代號",
                             value: new_no(),
                             disabled: no_cur,
                             oninput: move |v| new_no.set(v),
@@ -352,12 +339,6 @@ pub fn ProgramList() -> Element {
                             disabled: no_cur,
                             onclick: copy,
                             "複製"
-                        }
-                        Button {
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: rename,
-                            "改代號"
                         }
                     },
                 }
@@ -448,7 +429,8 @@ pub fn ProgramList() -> Element {
                                     id: "zz01",
                                     label: "程式代號",
                                     value: f.program_no.clone(),
-                                    readonly: mode() != Mode::New,
+                                    // 修改時也可改代號（:1124 g_chkey；Q2 一律允許），存檔時連動選單與權限
+                                    readonly: ro,
                                     oninput: move |v| form.write().program_no = v,
                                 }
                             }

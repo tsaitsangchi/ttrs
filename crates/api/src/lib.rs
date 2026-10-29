@@ -50,7 +50,6 @@ pub fn router(state: AppState) -> Router {
             "/api/programs/{no}",
             get(get_program).put(update_program).delete(delete_program),
         )
-        .route("/api/programs/{no}/rename", post(rename_program))
         .route("/api/programs/{no}/copy", post(copy_program))
         .route(
             "/api/programs/{no}/permissions",
@@ -206,15 +205,6 @@ async fn delete_program(
 ) -> ApiResult<StatusCode> {
     s.programs.delete(&s.actor, &no).await?;
     Ok(StatusCode::NO_CONTENT)
-}
-
-async fn rename_program(
-    State(s): State<AppState>,
-    Path(no): Path<String>,
-    Json(req): Json<NewProgramNoRequest>,
-) -> ApiResult<Json<ProgramDto>> {
-    s.programs.change_no(&s.actor, &no, &req.new_no).await?;
-    Ok(Json(s.programs.get(&req.new_no).await?))
 }
 
 async fn copy_program(

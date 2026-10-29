@@ -273,7 +273,7 @@ pub struct AuditEntryDto {
     pub action: String,
 }
 
-/// 改代號、複製時指定新代號
+/// 複製時指定新代號
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct NewProgramNoRequest {
     pub new_no: String,

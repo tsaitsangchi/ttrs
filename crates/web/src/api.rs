@@ -137,6 +137,7 @@ pub async fn create_program(req: &ProgramInput) -> Result<ProgramDto, String> {
     into_result(res).await
 }
 
+/// 修改；`req.program_no` 與 `no` 不同時一併改代號
 pub async fn update_program(no: &str, req: &ProgramInput) -> Result<ProgramDto, String> {
     let res = reqwest::Client::new()
         .put(program_url(no, ""))
@@ -154,18 +155,6 @@ pub async fn delete_program(no: &str) -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())?;
     no_content(res).await
-}
-
-pub async fn rename_program(no: &str, new_no: &str) -> Result<ProgramDto, String> {
-    let res = reqwest::Client::new()
-        .post(program_url(no, "/rename"))
-        .json(&NewProgramNoRequest {
-            new_no: new_no.to_owned(),
-        })
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    into_result(res).await
 }
 
 pub async fn copy_program(no: &str, new_no: &str) -> Result<ProgramDto, String> {
