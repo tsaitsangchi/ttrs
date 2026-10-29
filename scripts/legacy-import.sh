@@ -128,6 +128,13 @@ echo "==> 產生 import-report.txt"
 } >"$DEST/import-report.txt"
 
 cat "$DEST/import-report.txt"
+
+# 資料表定義目錄（legacy/catalog/），只在匯入到專案的 legacy/ 時重建
+if [[ "$DEST" == "$ROOT/legacy" ]]; then
+    echo
+    echo "==> 重建資料目錄"
+    python3 "$ROOT/scripts/tiptop/sch_catalog.py" build
+fi
 if [[ ${#lossy[@]} -gt 0 ]]; then
     echo
     echo "注意：有 ${#lossy[@]} 個檔案含無法轉換的字元，請檢查後考慮改用 --encoding 其他編碼（例如 CP950）。" >&2

@@ -13,6 +13,8 @@ legacy/
 │   └── topcust/        $CUST 客製程式 — 萃取規則時優先查這裡
 ├── utf8/            與 src/ 同結構的 UTF-8 版本，給 AI 與人閱讀
 ├── schema/          （選用）從資料庫另外匯出的 DDL；資料表定義以 src/<層>/<模組>/sch/*.sch 為主
+├── data/            從 TipTop TOPTEST 匯出的樣本資料（CSV，scripts/tiptop/tiptop.py export）
+├── catalog/         由 .sch 解析的資料目錄（scripts/tiptop/sch_catalog.py build，匯入時自動重建）
 ├── messages/        錯誤訊息檔 p_ze 匯出（手動匯出）
 ├── INDEX.tsv        程式代號 → 檔案路徑索引（匯入腳本產生）
 └── import-report.txt 最近一次匯入的摘要與轉碼失敗清單
@@ -42,9 +44,30 @@ scripts/legacy-import.sh --top tiptop@erp-host:/u1/topprod/tiptop --cust tiptop@
 
 TipTop 每個模組的 `sch/<表名>.sch` 是該模組資料表的 Oracle DDL，
 每個欄位後面有中文說明（即資料字典），例如 `tiptop/azz/sch/zz_file.sch`。
-找某張表：`find legacy/src -name '<表名>.sch'`（先查 topcust/ 再查 tiptop/）。
+解析成資料目錄後查詢最方便（topcust 自動覆蓋 tiptop）：
+
+```bash
+python3 scripts/tiptop/sch_catalog.py build            # 產生 legacy/catalog/
+python3 scripts/tiptop/sch_catalog.py show zz_file --notes
+python3 scripts/tiptop/sch_catalog.py search 程式代號
+```
+
+`legacy/catalog/columns.tsv` 一欄一列，也可以直接 grep。
 
 `schema/`、`messages/` 需從資料庫手動匯出，例如：
 
-- `schema/<表名>.sql`：.sch 沒有的表，可用 Oracle `DBMS_METADATA.GET_DDL` 或 `ora2pg -t TABLE` 補
+- `schema/<表名>.sql`：.sch 沒有的表，用 `scripts/tiptop/tiptop.py ddl <表名>` 匯出（DBMS_METADATA）
+
+## 直接查 TipTop 資料庫（唯讀）
+
+`scripts/tiptop/tiptop.py`：python-oracledb thin 模式（不需 Oracle Client），只能執行單一 SELECT，
+連線後設為唯讀交易、從不 commit。只連 TOPTEST，請用唯讀帳號。
+
+```bash
+python3 -m venv .venv-tiptop && .venv-tiptop/bin/pip install -r scripts/tiptop/requirements.txt
+# .env 設定 TIPTOP_ORACLE_DSN / USER / PASSWORD（見 .env.example）
+.venv-tiptop/bin/python scripts/tiptop/tiptop.py ping
+.venv-tiptop/bin/python scripts/tiptop/tiptop.py describe zz_file
+.venv-tiptop/bin/python scripts/tiptop/tiptop.py export zz_file --where "zz011 = 'AIM'" --limit 200
+```
 - `messages/ze.tsv`：錯誤代碼、語系、訊息內容

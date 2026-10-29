@@ -31,11 +31,15 @@ bdd：驗收測試，執行 specs/features/**/*.feature
   以及它呼叫的 `lib/4gl/cl_*`、`sub/4gl/s_*`、`qry/4gl/q_*`。
 - **表結構與欄位意義看 `<模組>/sch/<表名>.sch`**（Oracle DDL＋每欄中文說明，等同資料字典），
   例如 `tiptop/azz/sch/zz_file.sch`；萃取規則前先讀相關表的 .sch，不要只靠 4gl/4fd 推敲欄位意義。
+  查詢用資料目錄：`python3 scripts/tiptop/sch_catalog.py show <表> --notes`、`search <關鍵字>`
+  （先 `build`；客製 topcust 自動覆蓋標準 tiptop）。
   `legacy/schema/` 只放 .sch 沒有、另外從資料庫匯出的 DDL。錯誤訊息代碼看 `legacy/messages/`。
+- 需要 TipTop 實際資料或 .sch 沒有的表時，用 `scripts/tiptop/tiptop.py`（唯讀，只連 TOPTEST），
+  匯出到 `legacy/data/`、`legacy/schema/`。**TTRS 本身（api/app/infra）不可連 TipTop 資料庫。**
 
 ## 開發流程（每支 TipTop 程式都照做，不可跳步）
 
-1. **萃取**：讀 `legacy/utf8/` 下的 4gl/4fd 與資料表，整理業務規則，
+1. **萃取**：用資料目錄看相關資料表（`sch_catalog.py show`），再讀 `legacy/utf8/` 下的 4gl/4fd，整理業務規則，
    feature 檔頭以 `規則來源：tiptop/aim/4gl/aimi100.4gl:行號` 註明出處。
 2. **規格**：寫 `specs/features/<模組>/<名稱>.feature`（`# language: zh-TW`），
    檔頭註明 TipTop 程式代號、資料表、規則來源。**規格未經使用者確認前不寫實作。**

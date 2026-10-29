@@ -2,6 +2,9 @@
 /crates/*/target
 /crates/web/dist
 .env
+# TipTop Oracle 唯讀工具的 Python 環境（scripts/tiptop/）
+/.venv-tiptop
 # TipTop 原始碼與客戶資料不進版控（授權與資料保護）
 /legacy/*
 !/legacy/README.md
+__pycache__/
