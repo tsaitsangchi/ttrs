@@ -41,6 +41,8 @@ pub fn ItemList() -> Element {
     };
 
     rsx! {
+        // 尚未改用 Carbon 元件，沿用舊樣式（main.css .classic）
+        div { class: "classic",
         h2 { "aimi100 料件基本資料" }
 
         div { class: "form-row",
@@ -136,6 +138,7 @@ pub fn ItemList() -> Element {
                     }
                 }
             },
+        }
         }
     }
 }

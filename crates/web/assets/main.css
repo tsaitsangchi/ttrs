@@ -1,127 +1,191 @@
+/* TTRS 樣式。載入順序：carbon/carbon-*.min.css → 本檔。
+ * 顏色一律用 Carbon token（--cds-*），不寫死色碼；主題由根元素的 cds--g10 / cds--g100 決定。 */
+
+/* Carbon 編譯後的 CSS 只把「顏色」token 放在主題類別（cds--g10…）上，
+ * 間距與字級 token 不是全域變數，這裡依 Carbon 規格補上（@carbon/layout、@carbon/type）。 */
 :root {
-  --bg: #f6f7f9;
-  --panel: #ffffff;
-  --text: #1f2328;
-  --muted: #6b7280;
-  --accent: #2563eb;
-  --danger: #dc2626;
-  --border: #d0d7de;
-  font-family: system-ui, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
-  color: var(--text);
-  background: var(--bg);
+  --cds-spacing-01: 0.125rem;
+  --cds-spacing-02: 0.25rem;
+  --cds-spacing-03: 0.5rem;
+  --cds-spacing-04: 0.75rem;
+  --cds-spacing-05: 1rem;
+  --cds-spacing-06: 1.5rem;
+  --cds-spacing-07: 2rem;
+  --cds-spacing-08: 2.5rem;
+  --cds-spacing-09: 3rem;
+  --cds-spacing-10: 4rem;
+  --cds-heading-compact-01-font-size: 0.875rem;
+  --cds-heading-compact-02-font-size: 1rem;
+  --cds-heading-04-font-size: 1.75rem;
 }
 
-body { margin: 0; }
+/* 中文：Carbon 只指定 IBM Plex Sans，補上中文字型（IBM Plex 字型檔未內附，會落到 Noto Sans TC / 正黑體） */
+body,
+.cds--g10,
+.cds--g100 {
+  font-family: "IBM Plex Sans", "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", system-ui, sans-serif;
+}
 
-.shell { display: flex; min-height: 100vh; }
+body {
+  margin: 0;
+  background: var(--cds-background);
+  color: var(--cds-text-primary);
+}
+
+/* ----- 外框：側邊欄 + 內容 ----- */
+
+.shell { display: flex; min-height: 100vh; background: var(--cds-background); color: var(--cds-text-primary); }
 
 .sidebar {
-  width: 240px;
-  background: var(--panel);
-  border-right: 1px solid var(--border);
-  padding: 16px;
+  width: 16rem;
+  flex-shrink: 0;
+  background: var(--cds-layer-01);
+  border-right: 1px solid var(--cds-border-subtle-01);
+  padding: var(--cds-spacing-05) 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
-.sidebar h1 { font-size: 18px; margin: 0 0 12px; }
-.sidebar a { color: var(--text); text-decoration: none; padding: 4px 6px; border-radius: 4px; }
-.sidebar a:hover { background: var(--bg); }
-.sidebar .group { color: var(--muted); font-size: 12px; margin: 12px 0 0; }
+.sidebar h1 {
+  font-size: var(--cds-heading-compact-02-font-size, 1rem);
+  font-weight: 600;
+  padding: 0 var(--cds-spacing-05) var(--cds-spacing-05);
+  margin: 0;
+}
+.sidebar a {
+  color: var(--cds-text-secondary);
+  text-decoration: none;
+  padding: var(--cds-spacing-03) var(--cds-spacing-05);
+  font-size: 0.875rem;
+  border-left: 3px solid transparent;
+}
+.sidebar a:hover { background: var(--cds-layer-hover-01); color: var(--cds-text-primary); }
+.sidebar a.active {
+  background: var(--cds-layer-selected-01);
+  color: var(--cds-text-primary);
+  border-left-color: var(--cds-border-interactive);
+  font-weight: 600;
+}
+.sidebar .group {
+  color: var(--cds-text-helper);
+  font-size: 0.75rem;
+  letter-spacing: 0.32px;
+  margin: var(--cds-spacing-05) var(--cds-spacing-05) var(--cds-spacing-02);
+}
 
-.content { flex: 1; padding: 24px; overflow-x: auto; }
+.content { flex: 1; min-width: 0; padding: var(--cds-spacing-06) var(--cds-spacing-07); }
 
-.form-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-input { padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; }
-button {
+@media (max-width: 672px) {
+  .shell { flex-direction: column; }
+  .sidebar { width: auto; border-right: 0; border-bottom: 1px solid var(--cds-border-subtle-01); }
+  .content { padding: var(--cds-spacing-05); }
+}
+
+/* ----- 作業畫面（Carbon 版面輔助） ----- */
+
+.page-header { margin-bottom: var(--cds-spacing-06); }
+.page-header .program-id {
+  font-size: 0.75rem;
+  color: var(--cds-text-helper);
+  letter-spacing: 0.32px;
+}
+.page-header h2 {
+  font-size: var(--cds-heading-04-font-size, 1.75rem);
+  font-weight: 400;
+  line-height: 1.28572;
+  margin: var(--cds-spacing-02) 0 0;
+}
+
+/* 動作列：左側主要動作，右側代號相關動作 */
+.action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--cds-spacing-03);
+  margin-bottom: var(--cds-spacing-05);
+}
+.action-bar .spacer { flex: 1; }
+.action-bar .cds--form-item { flex: 0 0 12rem; }
+
+/* 頁籤內容區：Carbon contained tabs 下方的面板。
+ * 面板是 layer-01（白），內容加 cds--layer-two，欄位才會用 field-02（淺灰）而不是與面板同色 */
+.tab-panel {
+  background: var(--cds-layer-01);
+  padding: var(--cds-spacing-06) var(--cds-spacing-05);
+  margin-bottom: var(--cds-spacing-06);
+}
+
+/* 表單格線：依 4fd 的欄位位置排成 2 或 4 欄，標籤在上（Carbon 標準） */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cds-spacing-05) var(--cds-spacing-06);
+}
+.form-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.form-grid .span-2 { grid-column: span 2; }
+.form-grid .span-all { grid-column: 1 / -1; }
+
+/* 4fd 的 Group：左右分欄，群組間用間距而非框線區隔 */
+.group-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--cds-spacing-07);
+}
+.form-section + .form-section { margin-top: var(--cds-spacing-07); }
+.form-section-title {
+  font-size: var(--cds-heading-compact-01-font-size, 0.875rem);
+  font-weight: 600;
+  color: var(--cds-text-primary);
+  margin: 0 0 var(--cds-spacing-05);
+  padding-bottom: var(--cds-spacing-03);
+  border-bottom: 1px solid var(--cds-border-subtle-01);
+}
+.check-list { display: flex; flex-direction: column; gap: var(--cds-spacing-03); }
+.inline-items { display: flex; flex-wrap: wrap; align-items: center; gap: var(--cds-spacing-03); }
+
+.mono input { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.muted { color: var(--cds-text-helper); }
+
+/* 資料表格：可點選的列 */
+.cds--data-table tbody tr.clickable { cursor: pointer; }
+.cds--data-table td.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.75rem; }
+.cds--data-table td.num, .cds--data-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.cds--inline-notification { max-inline-size: none; margin-bottom: var(--cds-spacing-05); }
+
+@media (max-width: 1056px) {
+  .form-grid.cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .group-columns { grid-template-columns: 1fr; }
+}
+@media (max-width: 672px) {
+  .form-grid, .form-grid.cols-4 { grid-template-columns: 1fr; }
+  .form-grid .span-2 { grid-column: auto; }
+}
+
+/* ----- 尚未改用 Carbon 的舊畫面（aimi100），樣式限定在 .classic 內 ----- */
+
+.classic h2 { font-size: 1.5rem; margin: 0 0 1rem; }
+.classic .form-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.classic input {
+  padding: 6px 8px;
+  border: 1px solid var(--cds-border-strong-01);
+  border-radius: 4px;
+  background: var(--cds-field-01);
+  color: var(--cds-text-primary);
+}
+.classic button {
   padding: 6px 12px;
   border: 0;
   border-radius: 4px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--cds-button-primary);
+  color: var(--cds-text-on-color);
   cursor: pointer;
   margin-right: 4px;
 }
-button.danger { background: var(--danger); }
-
-table { border-collapse: collapse; width: 100%; background: var(--panel); }
-th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
-th { background: var(--bg); }
-
-.error { color: var(--danger); }
-
-@media (max-width: 640px) {
-  .shell { flex-direction: column; }
-  .sidebar { width: auto; border-right: 0; border-bottom: 1px solid var(--border); }
-}
-
-/* p_zz 等多欄位維護畫面 */
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 12px 16px;
-  margin: 0 0 16px;
-}
-.panel legend { font-weight: 600; padding: 0 4px; }
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 10px 16px;
-  margin-bottom: 12px;
-}
-.form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
-.form-grid label.check { flex-direction: row; align-items: center; color: var(--text); }
-details { margin-bottom: 12px; }
-summary { cursor: pointer; color: var(--muted); margin-bottom: 8px; }
-select { padding: 6px 8px; border: 1px solid var(--border); border-radius: 4px; background: #fff; }
-button.secondary { background: var(--muted); }
-tr.selected td { background: #eff6ff; }
-tbody tr { cursor: pointer; }
-td.mono { font-family: ui-monospace, monospace; font-size: 12px; }
-.notice { color: #15803d; }
-.muted { color: var(--muted); }
-
-/* 4fd 版面：頁籤、群組、標籤-欄位格線 */
-.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 12px; }
-.toolbar .sep { width: 12px; }
-button:disabled { opacity: 0.45; cursor: default; }
-input.short { width: 140px; }
-.tabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--border); }
-.tab {
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-bottom: 0;
-  border-radius: 6px 6px 0 0;
-  margin: 0;
-}
-.tab.active { background: var(--panel); font-weight: 600; position: relative; top: 1px; }
-.tab-body {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-top: 0;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-}
-.fd-grid {
-  display: grid;
-  grid-template-columns: max-content minmax(160px, 1fr);
-  gap: 8px 12px;
-  align-items: center;
-}
-.fd-grid.cols-4 { grid-template-columns: max-content minmax(160px, 1fr) max-content minmax(160px, 1fr); }
-.fd-grid > label { color: var(--muted); font-size: 13px; text-align: right; }
-.fd-grid .span-3 { grid-column: span 3; }
-.fd-columns { display: grid; grid-template-columns: minmax(200px, 1fr) 2fr; gap: 12px; }
-fieldset.group { border: 1px solid var(--border); border-radius: 4px; margin: 0 0 10px; padding: 8px 12px; }
-fieldset.group legend { font-size: 13px; color: var(--muted); padding: 0 4px; }
-label.check { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
-textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 4px; padding: 6px; font: inherit; }
-input:disabled, select:disabled, textarea:disabled { background: #f3f4f6; color: var(--text); }
-input.mono { font-family: ui-monospace, monospace; }
-@media (max-width: 760px) {
-  .fd-columns { grid-template-columns: 1fr; }
-  .fd-grid.cols-4 { grid-template-columns: max-content 1fr; }
-  .fd-grid .span-3 { grid-column: auto; }
-}
+.classic button.danger { background: var(--cds-button-danger-primary); }
+.classic table { border-collapse: collapse; width: 100%; background: var(--cds-layer-01); }
+.classic th, .classic td { border: 1px solid var(--cds-border-subtle-01); padding: 6px 10px; text-align: left; }
+.classic th { background: var(--cds-layer-accent-01); font-weight: 600; }
+.classic p { margin: 0.5rem 0; }
+.classic .error { color: var(--cds-text-error); }
+.grant-bar { margin-top: var(--cds-spacing-05); margin-bottom: 0; }
+.cds--text-area__wrapper, .cds--text-area { inline-size: 100%; }
