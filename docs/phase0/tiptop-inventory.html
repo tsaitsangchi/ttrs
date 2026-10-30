@@ -1,0 +1,238 @@
+<title>TipTop 盤點報告</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: report column up to 1100px; prose limited to ~72ch; wide tables scroll in their own containers. Same palette as the TTRS roadmap. */
+:root {
+  --paper: #f5f7fa; --surface: #ffffff; --ink: #1b2330; --ink-soft: #4a5566; --line: #d8dee6;
+  --rust: #b0451b; --rust-soft: #f6e3da; --steel: #1f6874; --steel-soft: #dcecee; --track: #e9edf2;
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark; --paper: #11151b; --surface: #181d25; --ink: #e5e9ef; --ink-soft: #a6b0bf; --line: #2c3440;
+    --rust: #e07a4b; --rust-soft: #3a2419; --steel: #5fb6c1; --steel-soft: #17323a; --track: #232a34;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark; --paper: #11151b; --surface: #181d25; --ink: #e5e9ef; --ink-soft: #a6b0bf; --line: #2c3440;
+  --rust: #e07a4b; --rust-soft: #3a2419; --steel: #5fb6c1; --steel-soft: #17323a; --track: #232a34;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font-body); line-height: 1.75;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.page { max-width: 1100px; margin: 0 auto; padding-block: 48px 96px; display: flex; flex-direction: column; gap: 52px; }
+.prose { max-width: 72ch; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; line-height: 1.3; margin: 0; }
+h1 { font-size: 2.125rem; } h2 { font-size: 1.5rem; }
+p, ul, ol { margin: 0; }
+ul, ol { padding-left: 1.3em; display: flex; flex-direction: column; gap: 6px; }
+section { display: flex; flex-direction: column; gap: 18px; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.8125rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--rust); }
+header.cover { display: flex; flex-direction: column; gap: 14px; border-bottom: 2px solid var(--ink); padding-bottom: 26px; }
+.lede { font-size: 1.1875rem; color: var(--ink-soft); max-width: 64ch; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.fact b { font-family: var(--font-mono); font-size: 1.5rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.fact span { color: var(--ink-soft); font-size: 0.8125rem; }
+.note { font-size: 0.8125rem; color: var(--ink-soft); }
+code, .mono { font-family: var(--font-mono); font-size: 0.875em; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9375rem; }
+th, td { text-align: left; vertical-align: top; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+th { font-weight: 500; color: var(--ink-soft); font-size: 0.8125rem; background: var(--paper); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.types { font-size: 0.8125rem; color: var(--ink-soft); min-width: 16rem; }
+.hbars { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; }
+.hbar-row { display: grid; grid-template-columns: 8.5rem 1fr 4rem; gap: 12px; align-items: center; font-size: 0.9375rem; }
+.hbar-track, .mini-track { background: var(--track); border-radius: 3px; height: 14px; display: block; }
+.hbar { display: block; height: 100%; background: var(--steel); border-radius: 3px; }
+.hbar-val { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.mini-track { width: 9rem; height: 10px; }
+.mini { display: block; height: 100%; background: var(--steel); border-radius: 3px; }
+.callout { border: 1px solid var(--rust); background: var(--surface); border-radius: 8px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+.callout strong { color: var(--rust); }
+.scen td:first-child { white-space: nowrap; font-weight: 500; }
+footer { border-top: 1px solid var(--line); padding-top: 18px; font-size: 0.8125rem; color: var(--ink-soft); }
+:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+@media (max-width: 560px) { .hbar-row { grid-template-columns: 6.5rem 1fr 3.2rem; } }
+</style>
+
+<div class="page">
+
+<header class="cover">
+  <div class="eyebrow">TTRS 移轉 · Phase 0 盤點 · 2026-10-30</div>
+  <h1>TipTop 盤點報告</h1>
+  <p class="lede">從 TipTop 主機（TRY-TIPTOPGP，/u1/topprod）唯讀匯入完整原始碼後的程式、客製與資料表統計，用來決定移植範圍與順序。</p>
+  <div class="facts">
+    <div class="fact"><b>3,516</b><span>標準主程式</span></div>
+    <div class="fact"><b>522</b><span>客製程式（覆寫 363、新增 159）</span></div>
+    <div class="fact"><b>1,977</b><span>資料表（38,981 欄位）</span></div>
+    <div class="fact"><b>443 萬</b><span>標準主程式 4GL 行數</span></div>
+  </div>
+</header>
+
+<section class="callout">
+  <div class="eyebrow">結論</div>
+  <h2>全部移植約需 676 人月，必須依使用率縮小範圍</h2>
+  <p class="prose">依程式類型與大小估算，3,516 支標準主程式全部移植約 <strong>14,202 人天（約 676 人月）</strong>。移轉藍圖假設 24 個月、4–6 人，約 100–140 人月。要守住這個時程，需要同時做到三件事：只移植實際在用的程式、報表改由報表框架與自然語言查詢涵蓋，以及生產線成熟後 AI 再把速度提升一倍。哪些程式在用，要等 DBA 回覆使用紀錄才能確定。</p>
+</section>
+
+<section>
+  <div class="eyebrow">工時情境</div>
+  <h2>三種範圍的估算</h2>
+  <div class="scroll">
+    <table class="scen">
+      <thead><tr><th>情境</th><th>假設</th><th class="num">人天</th><th class="num">人月</th><th class="num">5 人需要</th></tr></thead>
+      <tbody>
+        <tr><td>A 全部移植</td><td>所有標準主程式逐支移植</td><td class="num">14,202</td><td class="num">676</td><td class="num">135 個月</td></tr>
+        <tr><td>B 依使用率</td><td>只移植使用中的 40%；其中 70% 的報表與查詢改由報表框架、自然語言查詢涵蓋</td><td class="num">4,926</td><td class="num">235</td><td class="num">47 個月</td></tr>
+        <tr><td>C 依使用率＋AI 加速</td><td>B 的範圍，生產線成熟後速度再提升一倍</td><td class="num">2,463</td><td class="num">117</td><td class="num">23 個月</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">單支人天沿用移轉藍圖：維護 3–20、交易單據 7–40、批次 5–40、報表與查詢 1.5–10（依 S/M/L/XL）。40%、70% 是暫定比例，拿到使用紀錄後以實際數字取代；客製覆寫的額外工作尚未計入。</p>
+</section>
+
+<section>
+  <div class="eyebrow">程式類型</div>
+  <h2>報表佔 37%，是最大宗</h2>
+  <p class="prose">類型依程式代號第 4 碼判斷（例如 aimi100 的 i 為維護作業）。報表與查詢合計 1,687 支，工時雖短但數量多，最適合改用共用報表框架與自然語言查詢；交易單據與批次處理數量較少，卻是業務規則最集中、最需要新舊比對的部分。</p>
+  <div class="hbars" role="img" aria-label="各類型主程式數">
+<div class="hbar-row"><span class="hbar-label">報表（r）</span><span class="hbar-track"><span class="hbar" style="width:100.0%"></span></span><span class="hbar-val">1,318</span></div>
+<div class="hbar-row"><span class="hbar-label">維護（i）</span><span class="hbar-track"><span class="hbar" style="width:58.4%"></span></span><span class="hbar-val">770</span></div>
+<div class="hbar-row"><span class="hbar-label">批次處理（p）</span><span class="hbar-track"><span class="hbar" style="width:40.6%"></span></span><span class="hbar-val">535</span></div>
+<div class="hbar-row"><span class="hbar-label">交易單據（t）</span><span class="hbar-track"><span class="hbar" style="width:31.3%"></span></span><span class="hbar-val">413</span></div>
+<div class="hbar-row"><span class="hbar-label">查詢（q）</span><span class="hbar-track"><span class="hbar" style="width:28.0%"></span></span><span class="hbar-val">369</span></div>
+<div class="hbar-row"><span class="hbar-label">參數設定（s）</span><span class="hbar-track"><span class="hbar" style="width:6.4%"></span></span><span class="hbar-val">85</span></div>
+<div class="hbar-row"><span class="hbar-label">更新（u）</span><span class="hbar-track"><span class="hbar" style="width:2.0%"></span></span><span class="hbar-val">26</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">程式大小</div>
+  <h2>八成是小程式，少數巨型單據要特別規劃</h2>
+  <div class="facts"><div class="fact"><b>2,825</b><span>S 小於 1,500 行（80%）</span></div><div class="fact"><b>606</b><span>M 1,500–5,000 行（17%）</span></div><div class="fact"><b>67</b><span>L 5,000–15,000 行（2%）</span></div><div class="fact"><b>18</b><span>XL 15,000 行以上（1%）</span></div></div>
+  <p class="prose">行數含主程式與其輔助檔（例如 <code>s</code> 開頭的子程式、<code>_sub</code>）。最大的幾支是核心交易單據，單支就有數萬行，應拆成多份規格分批移植。</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>程式</th><th>模組</th><th>類型</th><th class="num">行數</th></tr></thead>
+      <tbody>
+<tr><td class="mono">axmt400</td><td class="mono">axm</td><td>交易單據（t）</td><td class="num">70,605</td></tr>
+<tr><td class="mono">apmt540</td><td class="mono">apm</td><td>交易單據（t）</td><td class="num">63,801</td></tr>
+<tr><td class="mono">aapt110</td><td class="mono">aap</td><td>交易單據（t）</td><td class="num">43,454</td></tr>
+<tr><td class="mono">asfi301</td><td class="mono">asf</td><td>維護（i）</td><td class="num">37,599</td></tr>
+<tr><td class="mono">apmt420</td><td class="mono">apm</td><td>交易單據（t）</td><td class="num">36,524</td></tr>
+<tr><td class="mono">apmt110</td><td class="mono">apm</td><td>交易單據（t）</td><td class="num">30,913</td></tr>
+<tr><td class="mono">aimi100</td><td class="mono">aim</td><td>維護（i）</td><td class="num">25,390</td></tr>
+<tr><td class="mono">asft620</td><td class="mono">asf</td><td>交易單據（t）</td><td class="num">21,563</td></tr>
+<tr><td class="mono">aqct110</td><td class="mono">aqc</td><td>交易單據（t）</td><td class="num">20,846</td></tr>
+<tr><td class="mono">aimt370</td><td class="mono">aim</td><td>交易單據（t）</td><td class="num">20,283</td></tr>
+<tr><td class="mono">axrt300</td><td class="mono">axr</td><td>交易單據（t）</td><td class="num">19,868</td></tr>
+<tr><td class="mono">aimt324</td><td class="mono">aim</td><td>交易單據（t）</td><td class="num">18,862</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">模組</div>
+  <h2>46 個標準模組</h2>
+  <p class="prose">依主程式數排序。客製欄是 topcust 對應模組（如 cxm 對應 axm）的程式數，含覆寫與新增。模組中文名稱只列確定者，其餘待依模組資料（gao_file）補上。</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>代碼</th><th>名稱</th><th class="num">主程式</th><th></th><th class="num">行數</th><th class="num">資料表</th><th class="num">客製</th><th>類型分布</th></tr></thead>
+      <tbody>
+<tr><td class="mono">agl</td><td>總帳</td><td class="num">269</td><td><span class="mini-track"><span class="mini" style="width:100.0%"></span></span></td><td class="num">364,763</td><td class="num">119</td><td class="num"></td><td class="types">報表 107、維護 68、批次 36、查詢 35、交易 15、更新 5、參數 3</td></tr>
+<tr><td class="mono">axm</td><td>訂單與銷售</td><td class="num">248</td><td><span class="mini-track"><span class="mini" style="width:92.2%"></span></span></td><td class="num">412,078</td><td class="num">126</td><td class="num">43</td><td class="types">報表 70、維護 61、批次 50、交易 33、查詢 28、參數 6</td></tr>
+<tr><td class="mono">apy</td><td>—</td><td class="num">218</td><td><span class="mini-track"><span class="mini" style="width:81.0%"></span></span></td><td class="num">205,394</td><td class="num">108</td><td class="num"></td><td class="types">報表 77、維護 53、批次 35、交易 33、參數 11、查詢 9</td></tr>
+<tr><td class="mono">anm</td><td>—</td><td class="num">217</td><td><span class="mini-track"><span class="mini" style="width:80.7%"></span></span></td><td class="num">252,321</td><td class="num">109</td><td class="num">45</td><td class="types">報表 95、交易 36、維護 33、批次 27、查詢 17、更新 5、參數 4</td></tr>
+<tr><td class="mono">aim</td><td>庫存與料件</td><td class="num">201</td><td><span class="mini-track"><span class="mini" style="width:74.7%"></span></span></td><td class="num">297,152</td><td class="num">49</td><td class="num">48</td><td class="types">報表 82、交易 36、維護 30、查詢 27、批次 24、參數 1、更新 1</td></tr>
+<tr><td class="mono">apm</td><td>採購</td><td class="num">197</td><td><span class="mini-track"><span class="mini" style="width:73.2%"></span></span></td><td class="num">382,807</td><td class="num">78</td><td class="num">76</td><td class="types">報表 68、批次 46、維護 31、交易 29、查詢 21、參數 1、更新 1</td></tr>
+<tr><td class="mono">afa</td><td>固定資產</td><td class="num">175</td><td><span class="mini-track"><span class="mini" style="width:65.1%"></span></span></td><td class="num">207,877</td><td class="num">70</td><td class="num">62</td><td class="types">報表 73、批次 44、維護 28、交易 23、查詢 6、參數 1</td></tr>
+<tr><td class="mono">axc</td><td>成本</td><td class="num">169</td><td><span class="mini-track"><span class="mini" style="width:62.8%"></span></span></td><td class="num">206,318</td><td class="num">69</td><td class="num">52</td><td class="types">報表 80、批次 34、交易 26、維護 19、查詢 8、參數 2</td></tr>
+<tr><td class="mono">asf</td><td>生產管理</td><td class="num">137</td><td><span class="mini-track"><span class="mini" style="width:50.9%"></span></span></td><td class="num">210,818</td><td class="num">57</td><td class="num">10</td><td class="types">報表 67、批次 25、交易 22、查詢 12、維護 11</td></tr>
+<tr><td class="mono">aap</td><td>應付帳款</td><td class="num">128</td><td><span class="mini-track"><span class="mini" style="width:47.6%"></span></span></td><td class="num">189,254</td><td class="num">37</td><td class="num">54</td><td class="types">報表 60、交易 22、批次 19、查詢 14、維護 12、參數 1</td></tr>
+<tr><td class="mono">abm</td><td>產品結構 BOM</td><td class="num">119</td><td><span class="mini-track"><span class="mini" style="width:44.2%"></span></span></td><td class="num">163,194</td><td class="num">45</td><td class="num">8</td><td class="types">報表 41、維護 39、批次 23、查詢 16</td></tr>
+<tr><td class="mono">atm</td><td>—</td><td class="num">113</td><td><span class="mini-track"><span class="mini" style="width:42.0%"></span></span></td><td class="num">156,104</td><td class="num">118</td><td class="num"></td><td class="types">維護 49、報表 36、交易 14、查詢 8、批次 6</td></tr>
+<tr><td class="mono">aco</td><td>—</td><td class="num">105</td><td><span class="mini-track"><span class="mini" style="width:39.0%"></span></span></td><td class="num">105,342</td><td class="num">72</td><td class="num"></td><td class="types">報表 33、維護 27、批次 18、交易 16、查詢 9、參數 2</td></tr>
+<tr><td class="mono">abx</td><td>保稅管理</td><td class="num">102</td><td><span class="mini-track"><span class="mini" style="width:37.9%"></span></span></td><td class="num">78,795</td><td class="num">48</td><td class="num">35</td><td class="types">報表 57、維護 22、批次 14、交易 6、參數 3</td></tr>
+<tr><td class="mono">aqc</td><td>品質管理</td><td class="num">96</td><td><span class="mini-track"><span class="mini" style="width:35.7%"></span></span></td><td class="num">108,927</td><td class="num">31</td><td class="num">1</td><td class="types">查詢 37、報表 34、維護 13、交易 11、參數 1</td></tr>
+<tr><td class="mono">aps</td><td>APS 排程</td><td class="num">91</td><td><span class="mini-track"><span class="mini" style="width:33.8%"></span></span></td><td class="num">88,846</td><td class="num">118</td><td class="num"></td><td class="types">維護 39、查詢 20、批次 14、交易 10、參數 7、報表 1</td></tr>
+<tr><td class="mono">axr</td><td>應收帳款</td><td class="num">88</td><td><span class="mini-track"><span class="mini" style="width:32.7%"></span></span></td><td class="num">131,239</td><td class="num">19</td><td class="num">37</td><td class="types">報表 50、批次 14、查詢 9、維護 7、交易 7、參數 1</td></tr>
+<tr><td class="mono">ggl</td><td>—</td><td class="num">75</td><td><span class="mini-track"><span class="mini" style="width:27.9%"></span></span></td><td class="num">94,978</td><td class="num">7</td><td class="num"></td><td class="types">報表 37、查詢 28、批次 7、交易 2、維護 1</td></tr>
+<tr><td class="mono">aic</td><td>—</td><td class="num">68</td><td><span class="mini-track"><span class="mini" style="width:25.3%"></span></span></td><td class="num">74,783</td><td class="num">43</td><td class="num"></td><td class="types">維護 20、報表 20、批次 10、查詢 10、交易 7、參數 1</td></tr>
+<tr><td class="mono">aoo</td><td>共用基本資料</td><td class="num">68</td><td><span class="mini-track"><span class="mini" style="width:25.3%"></span></span></td><td class="num">62,873</td><td class="num">56</td><td class="num">9</td><td class="types">維護 37、更新 11、查詢 8、參數 8、批次 3、報表 1</td></tr>
+<tr><td class="mono">abg</td><td>—</td><td class="num">59</td><td><span class="mini-track"><span class="mini" style="width:21.9%"></span></span></td><td class="num">61,187</td><td class="num">28</td><td class="num"></td><td class="types">維護 24、報表 23、批次 9、參數 3</td></tr>
+<tr><td class="mono">apj</td><td>—</td><td class="num">52</td><td><span class="mini-track"><span class="mini" style="width:19.3%"></span></span></td><td class="num">47,614</td><td class="num">33</td><td class="num">3</td><td class="types">交易 20、報表 10、維護 9、批次 8、查詢 4、參數 1</td></tr>
+<tr><td class="mono">amr</td><td>物料需求規劃 MRP</td><td class="num">49</td><td><span class="mini-track"><span class="mini" style="width:18.2%"></span></span></td><td class="num">43,647</td><td class="num">21</td><td class="num"></td><td class="types">報表 21、維護 15、批次 7、查詢 6</td></tr>
+<tr><td class="mono">arm</td><td>—</td><td class="num">43</td><td><span class="mini-track"><span class="mini" style="width:16.0%"></span></span></td><td class="num">45,977</td><td class="num">22</td><td class="num"></td><td class="types">交易 16、報表 15、批次 6、維護 4、查詢 1、參數 1</td></tr>
+<tr><td class="mono">asd</td><td>—</td><td class="num">43</td><td><span class="mini-track"><span class="mini" style="width:16.0%"></span></span></td><td class="num">26,561</td><td class="num">25</td><td class="num"></td><td class="types">報表 27、維護 7、批次 6、查詢 3</td></tr>
+<tr><td class="mono">aec</td><td>—</td><td class="num">38</td><td><span class="mini-track"><span class="mini" style="width:14.1%"></span></span></td><td class="num">73,038</td><td class="num">35</td><td class="num"></td><td class="types">維護 28、報表 4、更新 3、查詢 2、交易 1</td></tr>
+<tr><td class="mono">asr</td><td>—</td><td class="num">34</td><td><span class="mini-track"><span class="mini" style="width:12.6%"></span></span></td><td class="num">30,754</td><td class="num">17</td><td class="num">1</td><td class="types">報表 15、交易 9、維護 8、批次 1、查詢 1</td></tr>
+<tr><td class="mono">amd</td><td>—</td><td class="num">32</td><td><span class="mini-track"><span class="mini" style="width:11.9%"></span></span></td><td class="num">42,547</td><td class="num">6</td><td class="num">17</td><td class="types">報表 21、批次 6、維護 5</td></tr>
+<tr><td class="mono">asm</td><td>—</td><td class="num">32</td><td><span class="mini-track"><span class="mini" style="width:11.9%"></span></span></td><td class="num">21,000</td><td class="num">20</td><td class="num">2</td><td class="types">參數 18、批次 5、查詢 4、維護 3、報表 2</td></tr>
+<tr><td class="mono">ams</td><td>—</td><td class="num">31</td><td><span class="mini-track"><span class="mini" style="width:11.5%"></span></span></td><td class="num">23,411</td><td class="num">17</td><td class="num"></td><td class="types">報表 12、查詢 8、維護 5、批次 5、參數 1</td></tr>
+<tr><td class="mono">aem</td><td>—</td><td class="num">26</td><td><span class="mini-track"><span class="mini" style="width:9.7%"></span></span></td><td class="num">33,981</td><td class="num">37</td><td class="num"></td><td class="types">維護 18、批次 3、查詢 3、交易 2</td></tr>
+<tr><td class="mono">gpy</td><td>—</td><td class="num">26</td><td><span class="mini-track"><span class="mini" style="width:9.7%"></span></span></td><td class="num">24,089</td><td class="num">6</td><td class="num"></td><td class="types">維護 9、報表 7、參數 5、交易 3、批次 1、查詢 1</td></tr>
+<tr><td class="mono">acs</td><td>—</td><td class="num">23</td><td><span class="mini-track"><span class="mini" style="width:8.6%"></span></span></td><td class="num">22,863</td><td class="num">7</td><td class="num"></td><td class="types">報表 11、維護 4、批次 4、交易 3、查詢 1</td></tr>
+<tr><td class="mono">adm</td><td>—</td><td class="num">23</td><td><span class="mini-track"><span class="mini" style="width:8.6%"></span></span></td><td class="num">12,147</td><td class="num">3</td><td class="num"></td><td class="types">報表 20、維護 3</td></tr>
+<tr><td class="mono">amm</td><td>—</td><td class="num">22</td><td><span class="mini-track"><span class="mini" style="width:8.2%"></span></span></td><td class="num">21,498</td><td class="num">14</td><td class="num"></td><td class="types">報表 9、批次 5、交易 3、維護 2、查詢 2、參數 1</td></tr>
+<tr><td class="mono">ask</td><td>—</td><td class="num">18</td><td><span class="mini-track"><span class="mini" style="width:6.7%"></span></span></td><td class="num">33,297</td><td class="num">30</td><td class="num"></td><td class="types">維護 12、交易 4、批次 1、參數 1</td></tr>
+<tr><td class="mono">gis</td><td>—</td><td class="num">15</td><td><span class="mini-track"><span class="mini" style="width:5.6%"></span></span></td><td class="num">9,406</td><td class="num">6</td><td class="num"></td><td class="types">報表 6、批次 5、維護 2、參數 1、交易 1</td></tr>
+<tr><td class="mono">gap</td><td>—</td><td class="num">14</td><td><span class="mini-track"><span class="mini" style="width:5.2%"></span></span></td><td class="num">18,616</td><td class="num">0</td><td class="num">2</td><td class="types">查詢 5、報表 5、維護 2、批次 2</td></tr>
+<tr><td class="mono">gnm</td><td>—</td><td class="num">13</td><td><span class="mini-track"><span class="mini" style="width:4.8%"></span></span></td><td class="num">10,131</td><td class="num">0</td><td class="num">2</td><td class="types">批次 6、報表 4、查詢 3</td></tr>
+<tr><td class="mono">axs</td><td>—</td><td class="num">10</td><td><span class="mini-track"><span class="mini" style="width:3.7%"></span></span></td><td class="num">9,993</td><td class="num">3</td><td class="num"></td><td class="types">報表 8、維護 2</td></tr>
+<tr><td class="mono">gxc</td><td>—</td><td class="num">9</td><td><span class="mini-track"><span class="mini" style="width:3.3%"></span></span></td><td class="num">5,360</td><td class="num">0</td><td class="num"></td><td class="types">報表 5、查詢 2、批次 1、交易 1</td></tr>
+<tr><td class="mono">aws</td><td>Web 服務</td><td class="num">8</td><td><span class="mini-track"><span class="mini" style="width:3.0%"></span></span></td><td class="num">9,652</td><td class="num">45</td><td class="num"></td><td class="types">維護 8</td></tr>
+<tr><td class="mono">gxr</td><td>—</td><td class="num">7</td><td><span class="mini-track"><span class="mini" style="width:2.6%"></span></span></td><td class="num">6,103</td><td class="num">2</td><td class="num">1</td><td class="types">批次 4、報表 2、查詢 1</td></tr>
+<tr><td class="mono">gfa</td><td>—</td><td class="num">3</td><td><span class="mini-track"><span class="mini" style="width:1.1%"></span></span></td><td class="num">6,665</td><td class="num">4</td><td class="num">1</td><td class="types">交易 2、報表 1</td></tr>
+<tr><td class="mono">azz</td><td>系統管理</td><td class="num">1</td><td><span class="mini-track"><span class="mini" style="width:0.4%"></span></span></td><td class="num">466</td><td class="num">161</td><td class="num">1</td><td class="types">報表 1</td></tr>
+<tr><td class="mono">gpm</td><td>—</td><td class="num">1</td><td><span class="mini-track"><span class="mini" style="width:0.4%"></span></span></td><td class="num">707</td><td class="num">0</td><td class="num"></td><td class="types">批次 1</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">其他程式</div>
+  <h2>共用程式、系統工具與客製</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>類別</th><th class="num">數量</th><th>移植方式</th></tr></thead>
+      <tbody>
+        <tr><td>共用程式 lib（cl_*）</td><td class="num">171</td><td>不單獨移植；萃取規則時一併讀，改寫為 TTRS 的共用服務與元件</td></tr>
+        <tr><td>共用子程式 sub（s_*）</td><td class="num">350</td><td>同上，多為共用計算與檢核，依呼叫需要移植</td></tr>
+        <tr><td>開窗查詢 qry（q_*）</td><td class="num">186</td><td>改為通用的查詢開窗元件，依資料表設定，不逐支移植</td></tr>
+        <tr><td>系統工具 p_*</td><td class="num">147</td><td>系統管理工具（p_zz、p_zta 已完成）；DDL、同步類工具不移植</td></tr>
+        <tr><td>Web 服務 aws_*</td><td class="num">259</td><td>依實際對接的外部系統重做為 API，未使用者不移植</td></tr>
+        <tr><td>客製覆寫標準程式</td><td class="num">363</td><td>萃取時以 topcust 版本為準；逐支評估能否改回標準流程</td></tr>
+        <tr><td>客製新增程式</td><td class="num">159</td><td>依使用率逐支評估</td></tr>
+        <tr><td>未分類檔案</td><td class="num">219</td><td>命名不符慣例的輔助檔，移植對應作業時再檢視</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">下一步</div>
+  <h2>決定範圍前還需要的資料與決定</h2>
+  <ol class="prose">
+    <li>DBA 回覆使用紀錄（程式執行次數、異動筆數、授權人數、資料量），把情境 B 的 40% 換成實際清單。</li>
+    <li>產品負責人依使用率決定不移植清單，並確認第一批：azz 系統管理核心（使用者、權限、選單）與 aoo 共用基本資料。</li>
+    <li>把 TipTop 對照目錄的英文命名從 azz 的 161 張表擴大到全部 1,977 張表。</li>
+    <li>決定報表策略：先建報表框架與自然語言查詢，再挑使用率高的報表逐支重建。</li>
+    <li>依實際範圍重排移轉藍圖的時程（v2）。</li>
+  </ol>
+</section>
+
+<footer>
+  來源：legacy/INDEX.tsv（scripts/legacy-import.sh）、legacy/catalog/tables.json（sch_catalog.py）、legacy/inventory/summary.json（scripts/tiptop/inventory.py）。逐支明細在 legacy/inventory/programs.tsv（不進版控）。分類依目錄與命名慣例推定。
+</footer>
+
+</div>

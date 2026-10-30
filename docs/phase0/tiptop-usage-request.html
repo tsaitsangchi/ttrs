@@ -1,0 +1,198 @@
+<title>TipTop 使用紀錄匯出需求</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one memo column (~70ch); SQL block and output table scroll horizontally in their own containers. Same palette as the TTRS roadmap. */
+:root {
+  --paper: #f5f7fa;
+  --surface: #ffffff;
+  --ink: #1b2330;
+  --ink-soft: #4a5566;
+  --line: #d8dee6;
+  --rust: #b0451b;
+  --code-bg: #eef1f5;
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #11151b; --surface: #181d25; --ink: #e5e9ef; --ink-soft: #a6b0bf;
+    --line: #2c3440; --rust: #e07a4b; --code-bg: #1e242e;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #11151b; --surface: #181d25; --ink: #e5e9ef; --ink-soft: #a6b0bf;
+  --line: #2c3440; --rust: #e07a4b; --code-bg: #1e242e;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink); font-family: var(--font-body); line-height: 1.75; font-size: 1rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.memo { max-width: 860px; margin: 0 auto; padding-block: 48px 80px; display: flex; flex-direction: column; gap: 36px; }
+.prose { max-width: 70ch; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; line-height: 1.3; margin: 0; }
+h1 { font-size: 2rem; }
+h2 { font-size: 1.3rem; }
+p, ul, ol { margin: 0; }
+ul, ol { padding-left: 1.3em; display: flex; flex-direction: column; gap: 6px; }
+section { display: flex; flex-direction: column; gap: 14px; }
+header { display: flex; flex-direction: column; gap: 12px; border-bottom: 2px solid var(--ink); padding-bottom: 24px; }
+.meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: 0.9375rem; }
+.meta dt { color: var(--ink-soft); }
+.meta dd { margin: 0; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.8125rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--rust); }
+code { font-family: var(--font-mono); font-size: 0.875em; background: var(--code-bg); padding: 0.05em 0.35em; border-radius: 4px; }
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9375rem; }
+th, td { text-align: left; vertical-align: top; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+th { font-weight: 500; color: var(--ink-soft); font-size: 0.8125rem; background: var(--paper); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+td.mono { font-family: var(--font-mono); font-size: 0.8125rem; white-space: nowrap; }
+pre { margin: 0; padding: 16px 18px; font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.6; background: var(--code-bg); color: var(--ink); white-space: pre; }
+.callout { border: 1px solid var(--rust); border-radius: 8px; padding: 14px 18px; background: var(--surface); }
+footer { font-size: 0.8125rem; color: var(--ink-soft); border-top: 1px solid var(--line); padding-top: 16px; }
+:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+</style>
+
+<div class="memo">
+
+<header>
+  <div class="eyebrow">TTRS 移轉 · Phase 0 盤點</div>
+  <h1>TipTop 使用紀錄匯出需求</h1>
+  <dl class="meta">
+    <dt>對象</dt><dd>TipTop 資料庫管理員（DBA）</dd>
+    <dt>用途</dt><dd>決定新系統的移植範圍與先後順序</dd>
+    <dt>性質</dt><dd>只執行 SELECT，不修改任何資料；結果只含彙總數字</dd>
+    <dt>希望完成</dt><dd>一週內，建議於離峰時段執行</dd>
+  </dl>
+</header>
+
+<section>
+  <h2>為什麼需要這些資料</h2>
+  <p class="prose">TipTop 標準程式約一萬支、客製程式約一千兩百支，實際在用的只是其中一部分。我們要依「哪些程式真的有人在用、用得多頻繁、資料量多大」排出移植順序，並決定哪些程式不移植。這些紀錄只在正式區，新系統依規定只連測試區（TOPTEST），所以需要請您代為匯出。</p>
+</section>
+
+<section>
+  <h2>請執行的查詢</h2>
+  <p class="prose">完整 SQL 附在本頁最後，也可以直接使用專案檔案 <code>scripts/tiptop/usage_export.sql</code>。每段查詢的結果請存成 UTF-8、含標題列的 CSV，檔名如下：</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>查詢</th><th>內容</th><th>執行位置</th><th>檔名</th></tr></thead>
+      <tbody>
+        <tr><td>Q1</td><td>營運中心清單（代碼、名稱、資料庫）</td><td>系統資料庫（預設 ds）</td><td class="mono">q1_plants.csv</td></tr>
+        <tr><td>Q2</td><td>程式登錄清單（模組、類別、名稱、客製碼）</td><td>系統資料庫</td><td class="mono">q2_programs.csv</td></tr>
+        <tr><td>Q3</td><td>近 12 個月各程式執行次數、使用人數、使用月數、總分鐘數（zu_file）</td><td>系統資料庫</td><td class="mono">q3_program_runs.csv<br>q3_check.csv</td></tr>
+        <tr><td>Q4</td><td>近 12 個月各程式異動資料筆數（azo_file）</td><td>每個營運中心各執行一次</td><td class="mono">q4_changes_&lt;schema&gt;.csv</td></tr>
+        <tr><td>Q5</td><td>有效使用者被授權的程式與人數（zy_file、zxw_file）</td><td>系統資料庫</td><td class="mono">q5_granted.csv</td></tr>
+        <tr><td>Q6</td><td>各資料表筆數（統計資訊估計值）</td><td>可讀 all_tables 的帳號，列入所有營運中心 schema</td><td class="mono">q6_table_rows.csv</td></tr>
+        <tr><td>Q7</td><td>各部門有效使用者人數</td><td>系統資料庫</td><td class="mono">q7_active_users.csv</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>資料保護</h2>
+  <ul class="prose">
+    <li>所有查詢都是彙總（COUNT、MAX），不匯出使用者代號、姓名或任何業務資料內容。</li>
+    <li>Q6 只讀資料庫統計資訊（num_rows），不會掃描業務資料表。</li>
+    <li>匯出檔只供移轉專案規劃使用，不進版控。</li>
+  </ul>
+</section>
+
+<section class="callout">
+  <h2>另外想請您確認三件事</h2>
+  <ol class="prose">
+    <li>zu_file 是否有持續寫入？若 <code>q3_check.csv</code> 的最新日期很舊或筆數為 0，我們會改用 Q4、Q5 判斷使用情況。</li>
+    <li>測試區 TOPTEST 最近一次從正式區複製是什麼時候？若是近期複製，之後的資料分析可直接在測試區進行。</li>
+    <li>從開發環境連 GSMC_TOPTEST 時，TCP 可連但沒有 TNS 回應，是否有防火牆或監聽設定需要調整？</li>
+  </ol>
+</section>
+
+<section>
+  <h2>完整 SQL</h2>
+  <div class="scroll"><pre>-- Q1 營運中心清單 → q1_plants.csv
+SELECT azp01 AS plant, azp02 AS plant_name, azp03 AS db_schema, azp053 AS is_erp_db
+FROM azp_file
+ORDER BY azp01;
+
+-- Q2 程式登錄清單 → q2_programs.csv
+SELECT zz01 AS program, zz011 AS module, zz03 AS program_type, gaz03 AS name_zh_tw, gaz05 AS custom_code
+FROM zz_file
+LEFT JOIN gaz_file ON gaz01 = zz01 AND gaz02 = '0'
+ORDER BY zz01;
+
+-- Q3 近 12 個月程式執行次數 → q3_program_runs.csv
+SELECT zu01                             AS program,
+       COUNT(*)                         AS runs,
+       COUNT(DISTINCT zu04)             AS users,
+       COUNT(DISTINCT TO_CHAR(zu02, 'YYYYMM')) AS active_months,
+       ROUND(SUM(zu05), 1)              AS total_minutes,
+       MIN(zu02)                        AS first_run,
+       MAX(zu02)                        AS last_run
+FROM zu_file
+WHERE zu02 >= ADD_MONTHS(TRUNC(SYSDATE), -12)
+GROUP BY zu01
+ORDER BY runs DESC;
+
+-- Q3 檢查 zu_file 是否有寫入 → q3_check.csv
+SELECT COUNT(*) AS total_rows, MIN(zu02) AS earliest, MAX(zu02) AS latest FROM zu_file;
+
+-- Q4 近 12 個月各程式異動筆數（每個營運中心 schema 各執行一次）→ q4_changes_&lt;schema&gt;.csv
+SELECT azo01                AS program,
+       COUNT(*)             AS changes,
+       COUNT(DISTINCT azo02) AS users,
+       MAX(azo03)           AS last_change
+FROM azo_file
+WHERE azo03 >= ADD_MONTHS(TRUNC(SYSDATE), -12)
+GROUP BY azo01
+ORDER BY changes DESC;
+
+-- Q5 有效使用者被授權的程式 → q5_granted.csv
+WITH active_users AS (
+    SELECT zx01, zx04 FROM zx_file
+    WHERE zxacti = 'Y' AND (zx18 IS NULL OR zx18 >= TRUNC(SYSDATE))
+),
+user_classes AS (
+    SELECT zx01, zx04 AS class_code FROM active_users
+    UNION
+    SELECT w.zxw01, w.zxw04 FROM zxw_file w
+    JOIN active_users u ON u.zx01 = w.zxw01
+    WHERE w.zxw03 = '1'
+),
+grants AS (
+    SELECT c.zx01, y.zy02 AS program FROM user_classes c
+    JOIN zy_file y ON y.zy01 = c.class_code
+    UNION
+    SELECT w.zxw01, w.zxw04 FROM zxw_file w
+    JOIN active_users u ON u.zx01 = w.zxw01
+    WHERE w.zxw03 = '2'
+)
+SELECT program, COUNT(DISTINCT zx01) AS active_users
+FROM grants
+GROUP BY program
+ORDER BY active_users DESC;
+
+-- Q6 各資料表筆數（IN 清單請換成 Q1 所有營運中心的 db_schema，大寫）→ q6_table_rows.csv
+SELECT owner, table_name, num_rows, last_analyzed
+FROM all_tables
+WHERE owner IN ('DS' /* , 'DS1', 'DS2' ... */)
+ORDER BY owner, num_rows DESC NULLS LAST;
+
+-- Q7 各部門有效使用者人數 → q7_active_users.csv
+SELECT zx03 AS dept, COUNT(*) AS active_users
+FROM zx_file
+WHERE zxacti = 'Y' AND (zx18 IS NULL OR zx18 >= TRUNC(SYSDATE))
+GROUP BY zx03
+ORDER BY active_users DESC;</pre></div>
+</section>
+
+<footer>欄位依據 TipTop 資料表定義：zu、zz、zx、zy、zxw、gaz（azz 模組）與 azo、azp（aoo 模組）的 .sch 檔。如有欄位不符或查詢太慢，請告知，我們再調整。</footer>
+
+</div>

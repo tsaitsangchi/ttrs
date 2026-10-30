@@ -38,6 +38,7 @@ scripts/legacy-import.sh --top tiptop@erp-host:/u1/topprod/tiptop --cust tiptop@
 
 | 日期         | TipTop 版本 | 來源 | 匯入者 | 備註 |
 | ------------ | ----------- | ---- | ------ | ---- |
+| 2026-10-30   | TipTop GP 5.x（utf8 正式區） | TRY-TIPTOPGP:/u1/topprod/{tiptop,topcust} | Claude（使用者授權） | 55,885 檔；標準主程式 3,516、客製 522；1,977 表；3 個 4fd 含無法轉換字元 |
 | （尚未匯入） |             |      |        |      |
 
 ## 資料表定義（.sch）
