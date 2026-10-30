@@ -14,9 +14,14 @@ use crate::components::material::{
     Button, ButtonVariant, Card, Notification, NotificationKind, Select, Tabs, TextField,
 };
 use crate::components::multilingual::{LangField, LangValues, MultilingualField};
-use crate::i18n::{self, UiLang};
+use crate::i18n::{self, UiLang, tf};
 
-const DETAIL_TABS: [&str; 4] = ["欄位", "索引", "限制", "變更紀錄"];
+const DETAIL_TABS: [&str; 4] = [
+    "dictionary-tab-columns",
+    "dictionary-tab-indexes",
+    "dictionary-tab-constraints",
+    "dictionary-tab-history",
+];
 
 #[component]
 pub fn DataDictionary() -> Element {
@@ -44,11 +49,11 @@ pub fn DataDictionary() -> Element {
     rsx! {
         div { class: "page",
             div { class: "page-header",
-                div { class: "program-id", "系統管理 / Data Dictionary" }
-                h2 { "資料字典維護" }
+                div { class: "program-id", {i18n::t("dictionary-breadcrumb")} }
+                h2 { {i18n::t("dictionary-title")} }
             }
             p { class: "query-hint",
-                "維護資料表與欄位的名稱與多語言說明。欄位、索引、限制取自資料庫實際結構（唯讀）；結構變更請透過 migration。"
+                {i18n::t("dictionary-hint")}
             }
             if let Some(msg) = error() {
                 Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }
@@ -61,12 +66,12 @@ pub fn DataDictionary() -> Element {
                 // ----- 左：資料庫中的資料表 -----
                 Card {
                     div { class: "card-body dict-list",
-                        TextField { id: "dict-filter", label: "篩選資料表", value: filter(), oninput: move |v| filter.set(v) }
+                        TextField { id: "dict-filter", label: i18n::t("dictionary-field-filter"), value: filter(), oninput: move |v| filter.set(v) }
                         match &*tables.read() {
-                            None => rsx! { p { class: "muted", "載入中…" } },
+                            None => rsx! { p { class: "muted", {i18n::t("common-msg-loading")} } },
                             Some(Err(e)) => rsx! { p { class: "muted", "{e}" } },
                             Some(Ok(list)) if list.is_empty() => rsx! {
-                                p { class: "muted", "沒有可顯示的資料表（記憶體模式沒有實際資料庫結構，請設定 DATABASE_URL）" }
+                                p { class: "muted", {i18n::t("dictionary-msg-no-tables")} }
                             },
                             Some(Ok(list)) => rsx! {
                                 ul { class: "dict-tables",
@@ -84,7 +89,7 @@ pub fn DataDictionary() -> Element {
                                             },
                                             span { class: "mono", "{t}" }
                                             if documented.contains(&t) {
-                                                span { class: "md-chip dict-chip", "已建字典" }
+                                                span { class: "md-chip dict-chip", {i18n::t("dictionary-chip-documented")} }
                                             }
                                         }
                                     }
@@ -94,7 +99,7 @@ pub fn DataDictionary() -> Element {
                         Button {
                             variant: ButtonVariant::Text,
                             onclick: move |_| { tables.restart(); dictionaries.restart(); },
-                            "重新整理"
+                            {i18n::t("dictionary-action-refresh")}
                         }
                     }
                 }
@@ -102,7 +107,7 @@ pub fn DataDictionary() -> Element {
                 // ----- 右：明細 -----
                 div {
                     match selected() {
-                        None => rsx! { Card { div { class: "card-body muted", "請從左側選擇資料表" } } },
+                        None => rsx! { Card { div { class: "card-body muted", {i18n::t("dictionary-msg-select-table")} } } },
                         Some(t) => rsx! {
                             TableDetail {
                                 key: "{t}",
@@ -134,7 +139,7 @@ fn TableDetail(
     let loaded = dict.read().clone();
     rsx! {
         match loaded {
-            None => rsx! { Card { div { class: "card-body muted", "載入中…" } } },
+            None => rsx! { Card { div { class: "card-body muted", {i18n::t("common-msg-loading")} } } },
             Some(Err(e)) => rsx! { Card { div { class: "card-body muted", "{e}" } } },
             Some(Ok(None)) => rsx! {
                 CreateForm {
@@ -158,7 +163,7 @@ fn TableDetail(
                     }
                 }
                 Card {
-                    Tabs { tabs: DETAIL_TABS.iter().map(|s| s.to_string()).collect::<Vec<_>>(), active: detail_tab }
+                    Tabs { tabs: DETAIL_TABS.iter().map(|s| i18n::t(s)).collect::<Vec<_>>(), active: detail_tab }
                     div { class: "card-body",
                         match detail_tab() {
                             0 => rsx! {
@@ -176,12 +181,12 @@ fn TableDetail(
 }
 
 fn type_options() -> Vec<(String, String)> {
-    std::iter::once((String::new(), "（未指定）".to_owned()))
+    std::iter::once((String::new(), i18n::t("dictionary-opt-type-none")))
         .chain(
             TableTypeDto::ALL
                 .iter()
                 .enumerate()
-                .map(|(i, t)| (i.to_string(), t.label().to_owned())),
+                .map(|(i, k)| (i.to_string(), i18n::t(type_id(*k)))),
         )
         .collect()
 }
@@ -256,10 +261,10 @@ fn CreateForm(
     rsx! {
         Card {
             div { class: "card-body",
-                h3 { class: "form-section-title", "{table}：尚未建立字典" }
+                h3 { class: "form-section-title", {tf("dictionary-msg-not-documented", &[("table", table.as_str())])} }
                 div { class: "form-grid",
-                    TextField { id: "new-module", label: "模組", value: module(), oninput: move |v| module.set(v) }
-                    Select { id: "new-type", label: "類型", options: type_options(), value: kind(), onchange: move |v| kind.set(v) }
+                    TextField { id: "new-module", label: i18n::t("dictionary-field-module"), value: module(), oninput: move |v| module.set(v) }
+                    Select { id: "new-type", label: i18n::t("dictionary-field-type"), options: type_options(), value: kind(), onchange: move |v| kind.set(v) }
                 }
                 div { class: "action-bar grant-bar",
                     Button {
@@ -272,12 +277,12 @@ fn CreateForm(
                             };
                             spawn(async move {
                                 match api::create_dictionary(&req).await {
-                                    Ok(d) => on_created.call(format!("已建立 {} 的資料字典", d.table_name)),
+                                    Ok(d) => on_created.call(tf("dictionary-msg-created", &[("table", d.table_name.as_str())])),
                                     Err(e) => on_error.call(e),
                                 }
                             });
                         },
-                        "建立字典"
+                        {i18n::t("dictionary-action-create")}
                     }
                 }
             }
@@ -302,12 +307,12 @@ fn HeaderForm(
         Card {
             div { class: "card-body",
                 div { class: "form-grid cols-4",
-                    TextField { id: "zta01", label: "資料表代碼", value: dict.table_name.clone(), readonly: true }
-                    TextField { id: "gat06", label: "模組", value: module(), oninput: move |v| module.set(v) }
-                    Select { id: "gat07", label: "類型", options: type_options(), value: kind(), onchange: move |v| kind.set(v) }
-                    TextField { id: "zta05", label: "建立者／日期", value: format!("{} / {}", dict.created_by, dict.created_on), readonly: true }
-                    TextField { id: "zta11", class: "span-2", label: "上游檔案", maxlength: 80, value: upstream(), oninput: move |v| upstream.set(v) }
-                    TextField { id: "zta12", class: "span-2", label: "下游檔案", maxlength: 60, value: downstream(), oninput: move |v| downstream.set(v) }
+                    TextField { id: "zta01", label: i18n::t("dictionary-field-table-name"), value: dict.table_name.clone(), readonly: true }
+                    TextField { id: "gat06", label: i18n::t("dictionary-field-module"), value: module(), oninput: move |v| module.set(v) }
+                    Select { id: "gat07", label: i18n::t("dictionary-field-type"), options: type_options(), value: kind(), onchange: move |v| kind.set(v) }
+                    TextField { id: "zta05", label: i18n::t("dictionary-field-created"), value: format!("{} / {}", dict.created_by, dict.created_on), readonly: true }
+                    TextField { id: "zta11", class: "span-2", label: i18n::t("dictionary-field-upstream"), maxlength: 80, value: upstream(), oninput: move |v| upstream.set(v) }
+                    TextField { id: "zta12", class: "span-2", label: i18n::t("dictionary-field-downstream"), maxlength: 60, value: downstream(), oninput: move |v| downstream.set(v) }
                 }
                 div { class: "action-bar grant-bar",
                     Button {
@@ -322,12 +327,12 @@ fn HeaderForm(
                             let t = table.clone();
                             spawn(async move {
                                 match api::update_dictionary(&t, &req).await {
-                                    Ok(_) => on_saved.call(format!("已儲存 {t}")),
+                                    Ok(_) => on_saved.call(tf("dictionary-msg-saved", &[("table", t.as_str())])),
                                     Err(e) => on_error.call(e),
                                 }
                             });
                         },
-                        "儲存"
+                        {i18n::t("dictionary-action-save")}
                     }
                     Button {
                         variant: ButtonVariant::Error,
@@ -335,12 +340,12 @@ fn HeaderForm(
                             let t = table2.clone();
                             spawn(async move {
                                 match api::delete_dictionary(&t).await {
-                                    Ok(()) => on_saved.call(format!("已刪除 {t} 的資料字典（含多語言說明；資料表本身不受影響）")),
+                                    Ok(()) => on_saved.call(tf("dictionary-msg-deleted", &[("table", t.as_str())])),
                                     Err(e) => on_error.call(e),
                                 }
                             });
                         },
-                        "刪除字典"
+                        {i18n::t("dictionary-action-delete")}
                     }
                 }
             }
@@ -359,13 +364,13 @@ fn TableTextForm(
     let mut loaded = use_signal(|| table_values(&texts));
     rsx! {
         div { class: "card-body",
-            h3 { class: "form-section-title", "表名稱與目的" }
+            h3 { class: "form-section-title", {i18n::t("dictionary-section-table-text")} }
             MultilingualField {
                 id: "gat",
                 fields: vec![
-                    LangField::text("name", "表名稱".into(), 120),
-                    LangField::area("purpose", "表目的".into(), 255, 2),
-                    LangField::text("remark", "備註".into(), 255),
+                    LangField::text("name", i18n::t("dictionary-field-text-name"), 120),
+                    LangField::area("purpose", i18n::t("dictionary-field-text-purpose"), 255, 2),
+                    LangField::text("remark", i18n::t("dictionary-field-text-remark"), 255),
                 ],
                 values,
             }
@@ -391,10 +396,10 @@ fn TableTextForm(
                                 }
                             }
                             loaded.set(now);
-                            on_ok.call(format!("已儲存 {t} 的表說明"));
+                            on_ok.call(tf("dictionary-msg-table-text-saved", &[("table", t.as_str())]));
                         });
                     },
-                    "儲存表說明"
+                    {i18n::t("dictionary-action-save-table-text")}
                 }
             }
         }
@@ -432,18 +437,18 @@ fn ColumnsTab(
 
     rsx! {
         div { class: "action-bar",
-            span { class: "muted", "點選欄位以編輯各語系說明" }
+            span { class: "muted", {i18n::t("dictionary-hint-columns")} }
             div { class: "spacer" }
-            a { class: "md-button md-button--outlined md-state", href: "{export_href}", "匯出 CSV" }
+            a { class: "md-button md-button--outlined md-state", href: "{export_href}", {i18n::t("dictionary-action-export")} }
         }
         match &*columns.read() {
-            None => rsx! { p { class: "muted", "載入中…" } },
+            None => rsx! { p { class: "muted", {i18n::t("common-msg-loading")} } },
             Some(Err(e)) => rsx! { p { class: "muted", "{e}" } },
             Some(Ok(cols)) => rsx! {
                 div { class: "table-scroll",
                     table { class: "md-table",
                         thead { tr {
-                            for h in ["欄位代碼", "型別", "不可空白", "主鍵", "預設值", "名稱", "說明"] { th { key: "{h}", "{h}" } }
+                            for h in ["dictionary-col-column", "dictionary-col-type", "dictionary-col-not-null", "dictionary-col-pk", "dictionary-col-default", "dictionary-col-name", "dictionary-col-description"] { th { key: "{h}", {i18n::t(h)} } }
                         } }
                         tbody {
                             for c in cols.iter().cloned() {
@@ -479,13 +484,13 @@ fn ColumnsTab(
         }
         if let Some(col) = editing() {
             section { class: "form-section",
-                h3 { class: "form-section-title", "欄位說明：{col}" }
+                h3 { class: "form-section-title", {tf("dictionary-section-column-text", &[("column", col.as_str())])} }
                 MultilingualField {
                     id: "gaq",
                     fields: vec![
-                        LangField::text("name", "欄位名稱".into(), 255),
-                        LangField::text("description", "欄位說明".into(), 500),
-                        LangField::area("extra", "額外說明".into(), 2000, 2),
+                        LangField::text("name", i18n::t("dictionary-field-column-name"), 255),
+                        LangField::text("description", i18n::t("dictionary-field-column-description"), 500),
+                        LangField::area("extra", i18n::t("dictionary-field-column-extra"), 2000, 2),
                     ],
                     values,
                 }
@@ -512,13 +517,13 @@ fn ColumnsTab(
                                     }
                                 }
                                 loaded.set(now);
-                                on_ok.call(format!("已儲存欄位 {col} 的說明"));
+                                on_ok.call(tf("dictionary-msg-column-text-saved", &[("column", col.as_str())]));
                                 texts.restart();
                             });
                         },
-                        "儲存欄位說明"
+                        {i18n::t("dictionary-action-save-column-text")}
                     }
-                    Button { variant: ButtonVariant::Text, onclick: move |_| editing.set(None), "取消" }
+                    Button { variant: ButtonVariant::Text, onclick: move |_| editing.set(None), {i18n::t("common-action-cancel")} }
                 }
             }
         }
@@ -533,12 +538,12 @@ fn IndexesTab(table: String) -> Element {
     });
     rsx! {
         match &*indexes.read() {
-            None => rsx! { p { class: "muted", "載入中…" } },
+            None => rsx! { p { class: "muted", {i18n::t("common-msg-loading")} } },
             Some(Err(e)) => rsx! { p { class: "muted", "{e}" } },
-            Some(Ok(list)) if list.is_empty() => rsx! { p { class: "muted", "沒有一般索引（主鍵、唯一限制的索引列在「限制」）" } },
+            Some(Ok(list)) if list.is_empty() => rsx! { p { class: "muted", {i18n::t("dictionary-msg-no-indexes")} } },
             Some(Ok(list)) => rsx! {
                 table { class: "md-table",
-                    thead { tr { th { "索引名稱" } th { "唯一" } th { "欄位" } } }
+                    thead { tr { th { {i18n::t("dictionary-col-index-name")} } th { {i18n::t("dictionary-col-unique")} } th { {i18n::t("dictionary-col-columns")} } } }
                     tbody {
                         for i in list.iter().cloned() {
                             tr { key: "{i.name}",
@@ -562,22 +567,22 @@ fn ConstraintsTab(table: String) -> Element {
     });
     rsx! {
         match &*constraints.read() {
-            None => rsx! { p { class: "muted", "載入中…" } },
+            None => rsx! { p { class: "muted", {i18n::t("common-msg-loading")} } },
             Some(Err(e)) => rsx! { p { class: "muted", "{e}" } },
             Some(Ok(list)) => rsx! {
                 table { class: "md-table",
-                    thead { tr { th { "限制名稱" } th { "類型" } th { "欄位" } th { "參照" } th { "條件" } } }
+                    thead { tr { th { {i18n::t("dictionary-col-constraint-name")} } th { {i18n::t("dictionary-col-constraint-kind")} } th { {i18n::t("dictionary-col-columns")} } th { {i18n::t("dictionary-col-references")} } th { {i18n::t("dictionary-col-check")} } } }
                     tbody {
                         for c in list.iter().cloned() {
                             tr { key: "{c.name}",
                                 td { class: "mono", "{c.name}" }
                                 td {
-                                    match c.kind {
-                                        ConstraintKindDto::PrimaryKey => "主鍵",
-                                        ConstraintKindDto::ForeignKey => "外鍵",
-                                        ConstraintKindDto::Unique => "唯一",
-                                        ConstraintKindDto::Check => "檢查",
-                                    }
+                                    {i18n::t(match c.kind {
+                                        ConstraintKindDto::PrimaryKey => "dictionary-opt-kind-pk",
+                                        ConstraintKindDto::ForeignKey => "dictionary-opt-kind-fk",
+                                        ConstraintKindDto::Unique => "dictionary-opt-kind-unique",
+                                        ConstraintKindDto::Check => "dictionary-opt-kind-check",
+                                    })}
                                 }
                                 td { class: "mono", {c.columns.join(", ")} }
                                 td { class: "mono",
@@ -601,12 +606,12 @@ fn HistoryTab(table: String) -> Element {
     });
     rsx! {
         match &*history.read() {
-            None => rsx! { p { class: "muted", "載入中…" } },
+            None => rsx! { p { class: "muted", {i18n::t("common-msg-loading")} } },
             Some(Err(e)) => rsx! { p { class: "muted", "{e}" } },
             Some(Ok(list)) => rsx! {
-                p { class: "muted", "內容涉及此資料表的 migration（結構變更紀錄）" }
+                p { class: "muted", {i18n::t("dictionary-hint-history")} }
                 table { class: "md-table",
-                    thead { tr { th { "版本" } th { "說明" } } }
+                    thead { tr { th { {i18n::t("dictionary-col-version")} } th { {i18n::t("dictionary-col-migration")} } } }
                     tbody {
                         for m in list.iter().cloned() {
                             tr { key: "{m.version}",
@@ -618,5 +623,15 @@ fn HistoryTab(table: String) -> Element {
                 }
             },
         }
+    }
+}
+
+fn type_id(k: TableTypeDto) -> &'static str {
+    match k {
+        TableTypeDto::Parameter => "dictionary-opt-type-parameter",
+        TableTypeDto::Master => "dictionary-opt-type-master",
+        TableTypeDto::Transaction => "dictionary-opt-type-transaction",
+        TableTypeDto::Statistics => "dictionary-opt-type-statistics",
+        TableTypeDto::Base => "dictionary-opt-type-base",
     }
 }

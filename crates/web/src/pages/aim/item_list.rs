@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 use ttrs_shared::{CreateItemRequest, ItemStatusDto};
 
 use crate::api;
+use crate::i18n::{t, tf};
 
 // TODO: 登入後改由使用者所屬營運中心帶入
 const PLANT: &str = "TW01";
@@ -43,14 +44,14 @@ pub fn ItemList() -> Element {
     rsx! {
         // 尚未改用 Carbon 元件，沿用舊樣式（main.css .classic）
         div { class: "classic",
-        h2 { "aimi100 料件基本資料" }
+        h2 { {t("item-title")} }
 
         div { class: "form-row",
-            input { placeholder: "料件編號", value: "{item_no}", oninput: move |e| item_no.set(e.value()) }
-            input { placeholder: "品名", value: "{name}", oninput: move |e| name.set(e.value()) }
-            input { placeholder: "規格", value: "{spec}", oninput: move |e| spec.set(e.value()) }
-            input { placeholder: "庫存單位", value: "{unit}", oninput: move |e| unit.set(e.value()) }
-            button { onclick: create, "新增" }
+            input { placeholder: t("item-field-item-no"), value: "{item_no}", oninput: move |e| item_no.set(e.value()) }
+            input { placeholder: t("item-field-name"), value: "{name}", oninput: move |e| name.set(e.value()) }
+            input { placeholder: t("item-field-spec"), value: "{spec}", oninput: move |e| spec.set(e.value()) }
+            input { placeholder: t("item-field-stock-unit"), value: "{unit}", oninput: move |e| unit.set(e.value()) }
+            button { onclick: create, {t("common-action-new")} }
         }
 
         if let Some(msg) = error() {
@@ -58,18 +59,18 @@ pub fn ItemList() -> Element {
         }
 
         match &*items.read() {
-            None => rsx! { p { "載入中…" } },
-            Some(Err(e)) => rsx! { p { class: "error", "無法載入料件：{e}" } },
-            Some(Ok(list)) if list.is_empty() => rsx! { p { "尚無料件資料" } },
+            None => rsx! { p { {t("common-msg-loading")} } },
+            Some(Err(e)) => rsx! { p { class: "error", {tf("item-msg-load-failed", &[("error", e.as_str())])} } },
+            Some(Ok(list)) if list.is_empty() => rsx! { p { {t("item-msg-empty")} } },
             Some(Ok(list)) => rsx! {
                 table {
                     thead {
                         tr {
-                            th { "料件編號" }
-                            th { "品名" }
-                            th { "規格" }
-                            th { "單位" }
-                            th { "狀態" }
+                            th { {t("item-field-item-no")} }
+                            th { {t("item-field-name")} }
+                            th { {t("item-field-spec")} }
+                            th { {t("item-col-unit")} }
+                            th { {t("item-col-status")} }
                             th { "" }
                         }
                     }
@@ -80,7 +81,7 @@ pub fn ItemList() -> Element {
                                 td { "{it.name}" }
                                 td { {it.spec.clone().unwrap_or_default()} }
                                 td { "{it.stock_unit}" }
-                                td { {it.status.label()} }
+                                td { {t(status_id(it.status))} }
                                 td {
                                     if it.status == ItemStatusDto::Unconfirmed {
                                         button {
@@ -96,7 +97,7 @@ pub fn ItemList() -> Element {
                                                     });
                                                 }
                                             },
-                                            "確認"
+                                            {t("item-action-confirm")}
                                         }
                                     }
                                     if it.status == ItemStatusDto::Confirmed {
@@ -113,7 +114,7 @@ pub fn ItemList() -> Element {
                                                     });
                                                 }
                                             },
-                                            "取消確認"
+                                            {t("item-action-unconfirm")}
                                         }
                                     }
                                     button {
@@ -130,7 +131,7 @@ pub fn ItemList() -> Element {
                                                 });
                                             }
                                         },
-                                        "刪除"
+                                        {t("common-action-delete")}
                                     }
                                 }
                             }
@@ -140,5 +141,13 @@ pub fn ItemList() -> Element {
             },
         }
         }
+    }
+}
+
+fn status_id(s: ItemStatusDto) -> &'static str {
+    match s {
+        ItemStatusDto::Unconfirmed => "item-status-unconfirmed",
+        ItemStatusDto::Confirmed => "item-status-confirmed",
+        ItemStatusDto::Voided => "item-status-voided",
     }
 }
