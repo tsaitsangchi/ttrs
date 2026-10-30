@@ -12,6 +12,7 @@ use crate::{
 };
 
 pub use crate::lang::{LANGS, Lang};
+use crate::lang::{LangText, normalize_text as clean};
 
 /// 長度上限（D8）：資料表代碼依 PostgreSQL 識別字上限，其餘依 gat_file.sch、gaq_file.sch、zta_file.sch
 pub mod max_len {
@@ -206,8 +207,16 @@ impl ColumnText {
     }
 }
 
-fn clean(v: Option<String>) -> Option<String> {
-    v.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty())
+impl LangText for TableText {
+    fn lang(&self) -> &Lang {
+        &self.lang
+    }
+}
+
+impl LangText for ColumnText {
+    fn lang(&self) -> &Lang {
+        &self.lang
+    }
 }
 
 /// migration 的 SQL 是否涉及某資料表（D5）。

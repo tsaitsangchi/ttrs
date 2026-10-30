@@ -213,6 +213,11 @@ async fn export(w: &mut ErpWorld, lang: String, table: String) {
 
 // ----- 那麼 -----
 
+#[when(expr = "使用者以語系 {string} 查看資料表 {string} 的字典")]
+async fn view_dictionary_in(w: &mut ErpWorld, lang: String, table: String) {
+    w.displayed_dict = Some(w.dictionary.get_localized(&table, &lang).await.unwrap());
+}
+
 #[then(expr = "資料表 {string} 的字典應為:")]
 async fn dictionary_fields(w: &mut ErpWorld, step: &Step, table: String) {
     let d = w.dictionary.get(&table).await.unwrap();
@@ -361,4 +366,16 @@ fn history_excludes(w: &mut ErpWorld, version: String) {
 fn export_contains(w: &mut ErpWorld, line: String) {
     let csv = w.dict_export.as_ref().expect("尚未匯出");
     assert!(csv.lines().any(|l| l == line), "匯出內容：\n{csv}");
+}
+
+#[then(expr = "顯示的表名稱應為 {string}")]
+fn displayed_table_name(w: &mut ErpWorld, name: String) {
+    let d = w.displayed_dict.as_ref().expect("尚未查看字典");
+    assert_eq!(d.name.as_deref().unwrap_or(""), name);
+}
+
+#[then(expr = "字典應附 {int} 個語系的說明")]
+fn displayed_text_count(w: &mut ErpWorld, n: usize) {
+    let d = w.displayed_dict.as_ref().expect("尚未查看字典");
+    assert_eq!(d.texts.len(), n, "說明：{:?}", d.texts);
 }

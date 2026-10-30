@@ -13,6 +13,7 @@ use ttrs_domain::{
         ColumnText, Lang, TableDictionary, TableDictionaryAttrs, TableText, TableType,
         migration_touches,
     },
+    lang::{DEFAULT_LANG, localized},
     program::ModuleCode,
 };
 use ttrs_shared::{
@@ -48,7 +49,7 @@ impl DataDictionaryService {
         let dict = TableDictionary::new(&name, module, attrs(&input), &actor.user_id, today())?;
         self.schema_table(&dict.table_name).await?;
         match self.repo.insert(&dict).await {
-            Ok(()) => Ok(to_dto(&dict)),
+            Ok(()) => self.to_dto(&dict, &Lang::default_lang()).await,
             Err(RepoError::Conflict) => Err(DomainError::DictAlreadyExists.into()),
             Err(e) => Err(infra(e)),
         }
@@ -64,16 +65,35 @@ impl DataDictionaryService {
         let module = self.module(&input.module_code).await?;
         dict.update(module, attrs(&input))?;
         self.repo.update(&dict).await.map_err(infra)?;
-        Ok(to_dto(&dict))
+        self.to_dto(&dict, &Lang::default_lang()).await
     }
 
     pub async fn get(&self, table: &str) -> Result<TableDictionaryDto, AppError> {
-        Ok(to_dto(&self.load(table).await?))
+        self.get_localized(table, DEFAULT_LANG).await
+    }
+
+    /// 以指定語系顯示名稱與目的；該語系無資料時退回繁中（ADR 0005）
+    pub async fn get_localized(
+        &self,
+        table: &str,
+        lang: &str,
+    ) -> Result<TableDictionaryDto, AppError> {
+        let lang = Lang::parse(lang)?;
+        self.to_dto(&self.load(table).await?, &lang).await
     }
 
     pub async fn list(&self) -> Result<Vec<TableDictionaryDto>, AppError> {
+        self.list_localized(DEFAULT_LANG).await
+    }
+
+    pub async fn list_localized(&self, lang: &str) -> Result<Vec<TableDictionaryDto>, AppError> {
+        let lang = Lang::parse(lang)?;
         let list = self.repo.list().await.map_err(infra)?;
-        Ok(list.iter().map(to_dto).collect())
+        let mut out = Vec::with_capacity(list.len());
+        for d in &list {
+            out.push(self.to_dto(d, &lang).await?);
+        }
+        Ok(out)
     }
 
     /// 資料庫中的所有資料表（含尚未建立字典者）
@@ -100,15 +120,7 @@ impl DataDictionaryService {
     pub async fn table_texts(&self, table: &str) -> Result<Vec<TableTextDto>, AppError> {
         let table = TableDictionary::parse_name(table)?;
         let texts = self.repo.table_texts(&table).await.map_err(infra)?;
-        Ok(texts
-            .into_iter()
-            .map(|t| TableTextDto {
-                lang: t.lang.as_str().to_owned(),
-                name: t.name,
-                purpose: t.purpose,
-                remark: t.remark,
-            })
-            .collect())
+        Ok(texts.iter().map(table_text_dto).collect())
     }
 
     /// 維護某語系的欄位名稱、說明、額外說明（gaq03/gaq04/gaq05；鍵值為資料表＋欄位，D2）
@@ -207,11 +219,16 @@ impl DataDictionaryService {
             .collect())
     }
 
-    /// 匯出 CSV（D6，比照 p_zta_exp2excel）：欄位代碼、型別、名稱、額外說明
+    /// 匯出 CSV（D6，比照 p_zta_exp2excel）：欄位代碼、型別、名稱、額外說明；
+    /// 名稱與額外說明各自依語系退回繁中（ADR 0005）
     pub async fn export_csv(&self, table: &str, lang: &str) -> Result<String, AppError> {
         let lang = Lang::parse(lang)?;
         let columns = self.columns(table).await?;
-        let texts = self.column_texts(table).await?;
+        let texts = self
+            .repo
+            .column_texts(&TableDictionary::parse_name(table)?)
+            .await
+            .map_err(infra)?;
         let header = match lang.as_str() {
             "en" => ["Column", "Type", "Name", "Extra"],
             "zh-CN" => ["栏位代码", "类型", "名称", "额外说明"],
@@ -219,11 +236,9 @@ impl DataDictionaryService {
         };
         let mut out = csv_line(&header);
         for c in &columns {
-            let text = texts
-                .iter()
-                .find(|t| t.column_name == c.name && t.lang == lang.as_str());
-            let name = text.and_then(|t| t.name.clone()).unwrap_or_default();
-            let extra = text.and_then(|t| t.extra.clone()).unwrap_or_default();
+            let own: Vec<&ColumnText> = texts.iter().filter(|t| t.column_name == c.name).collect();
+            let name = localized(&own, &lang, |t| t.name.clone()).unwrap_or_default();
+            let extra = localized(&own, &lang, |t| t.extra.clone()).unwrap_or_default();
             out.push_str(&csv_line(&[&c.name, &c.data_type, &name, &extra]));
         }
         Ok(out)
@@ -233,6 +248,26 @@ impl DataDictionaryService {
     pub async fn table_exists(&self, table: &str) -> Result<bool, AppError> {
         let table = TableDictionary::parse_name(table)?;
         Ok(self.schema.table(&table).await.map_err(infra)?.is_some())
+    }
+
+    async fn to_dto(
+        &self,
+        d: &TableDictionary,
+        lang: &Lang,
+    ) -> Result<TableDictionaryDto, AppError> {
+        let texts = self.repo.table_texts(&d.table_name).await.map_err(infra)?;
+        Ok(TableDictionaryDto {
+            table_name: d.table_name.clone(),
+            module_code: d.module.as_str().to_owned(),
+            table_type: d.table_type.map(table_type_dto),
+            upstream: d.upstream.clone(),
+            downstream: d.downstream.clone(),
+            created_by: d.created_by.clone(),
+            created_on: d.created_on,
+            name: localized(&texts, lang, |t| t.name.clone()),
+            purpose: localized(&texts, lang, |t| t.purpose.clone()),
+            texts: texts.iter().map(table_text_dto).collect(),
+        })
     }
 
     async fn load(&self, table: &str) -> Result<TableDictionary, AppError> {
@@ -299,15 +334,12 @@ fn table_type_dto(t: TableType) -> TableTypeDto {
     }
 }
 
-fn to_dto(d: &TableDictionary) -> TableDictionaryDto {
-    TableDictionaryDto {
-        table_name: d.table_name.clone(),
-        module_code: d.module.as_str().to_owned(),
-        table_type: d.table_type.map(table_type_dto),
-        upstream: d.upstream.clone(),
-        downstream: d.downstream.clone(),
-        created_by: d.created_by.clone(),
-        created_on: d.created_on,
+fn table_text_dto(t: &TableText) -> TableTextDto {
+    TableTextDto {
+        lang: t.lang.as_str().to_owned(),
+        name: t.name.clone(),
+        purpose: t.purpose.clone(),
+        remark: t.remark.clone(),
     }
 }
 

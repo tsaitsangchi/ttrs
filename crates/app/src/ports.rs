@@ -29,14 +29,8 @@ pub trait MasterDataRepository: Send + Sync {
     async fn unit_exists(&self, unit: &str) -> Result<bool, RepoError>;
 }
 
-/// 程式名稱（TipTop: gaz_file）
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProgramName {
-    pub lang: String,
-    pub name: String,
-    /// 報表抬頭（gaz06）
-    pub report_title: Option<String>,
-}
+/// 程式名稱（TipTop: gaz_file）；定義在 domain，多語言規則共用（ADR 0005）
+pub use ttrs_domain::program::ProgramName;
 
 /// 異動紀錄（TipTop: azo_file）
 #[derive(Debug, Clone, PartialEq, Eq)]

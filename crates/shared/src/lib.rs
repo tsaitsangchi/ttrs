@@ -401,6 +401,15 @@ pub struct TableDictionaryDto {
     pub downstream: Option<String>,
     pub created_by: String,
     pub created_on: NaiveDate,
+    /// 顯示語系（`?lang=`）的表名稱；無則退回繁中（ADR 0005）
+    #[serde(default)]
+    pub name: Option<String>,
+    /// 顯示語系的目的；無則退回繁中
+    #[serde(default)]
+    pub purpose: Option<String>,
+    /// 所有語系的說明
+    #[serde(default)]
+    pub texts: Vec<TableTextDto>,
 }
 
 /// 表名稱、目的、備註（某一語系；gat03/gat04/gat05）

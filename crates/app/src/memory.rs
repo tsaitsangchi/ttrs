@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use ttrs_domain::{
     dictionary::{ColumnText, TableDictionary, TableText},
     item::{Item, ItemNo},
+    lang::Lang,
     plant::PlantId,
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
@@ -37,7 +38,7 @@ struct State {
     query_definitions: HashSet<String>,
     programs: BTreeMap<ProgramNo, Program>,
     /// (程式代號, 語系) → (名稱, 報表抬頭)（gaz_file）
-    names: BTreeMap<(String, String), (String, Option<String>)>,
+    names: BTreeMap<(String, Lang), (String, Option<String>)>,
     /// (權限類別, 程式代號)（zy_file）
     permissions: HashSet<(String, String)>,
     audit: Vec<AuditEntry>,

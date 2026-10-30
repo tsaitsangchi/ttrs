@@ -9,6 +9,7 @@ use ttrs_app::{
     ports::{AuditEntry, ProgramName, ProgramRepository},
 };
 use ttrs_domain::{
+    lang::Lang,
     program::{
         IdleAction, IdleControl, ModuleCode, OtherSettings, Program, ProgramNo, ReportExtMode,
         ReportType, RuntimeSettings,
@@ -251,7 +252,7 @@ impl ProgramRepository for PgStore {
                  VALUES ($1, $2, $3, $4)",
             )
             .bind(p.program_no.as_str())
-            .bind(&n.lang)
+            .bind(n.lang.as_str())
             .bind(&n.name)
             .bind(&n.report_title)
             .execute(&mut *tx)
@@ -356,14 +357,16 @@ impl ProgramRepository for PgStore {
         .fetch_all(&self.pool)
         .await
         .map_err(db_err)?;
-        Ok(rows
-            .into_iter()
-            .map(|(lang, name, report_title)| ProgramName {
-                lang,
-                name,
-                report_title,
+        rows.into_iter()
+            .map(|(lang, name, report_title)| {
+                Ok(ProgramName {
+                    lang: Lang::parse(&lang)
+                        .map_err(|_| RepoError::Other(format!("資料庫內容不合法：lang={lang}")))?,
+                    name,
+                    report_title,
+                })
             })
-            .collect())
+            .collect()
     }
 
     async fn set_name(&self, no: &ProgramNo, name: &ProgramName) -> Result<(), RepoError> {
@@ -374,7 +377,7 @@ impl ProgramRepository for PgStore {
              DO UPDATE SET name = EXCLUDED.name, report_title = EXCLUDED.report_title",
         )
         .bind(no.as_str())
-        .bind(&name.lang)
+        .bind(name.lang.as_str())
         .bind(&name.name)
         .bind(&name.report_title)
         .execute(&self.pool)

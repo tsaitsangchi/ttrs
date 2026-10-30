@@ -7,10 +7,10 @@ use chrono::NaiveDate;
 
 use ttrs_domain::{
     DomainError,
-    lang::Lang,
+    lang::{Lang, localized, non_empty},
     program::{
         IdleAction, IdleControl, ModuleCode, OtherSettings, Program, ProgramAttrs, ProgramNo,
-        ReportExtMode, ReportType, RuntimeSettings, check_length, max_len,
+        ReportExtMode, ReportType, RuntimeSettings,
     },
 };
 use ttrs_shared::{
@@ -25,7 +25,7 @@ use crate::{
 };
 
 /// 程式名稱的預設語系（輸入畫面上的「程式名稱」）
-pub const DEFAULT_LANG: &str = "zh-TW";
+pub use ttrs_domain::lang::DEFAULT_LANG;
 /// 查詢每頁筆數上限
 const MAX_PAGE_SIZE: u32 = 500;
 /// 寫入異動紀錄時的作業代號
@@ -222,13 +222,7 @@ impl ProgramService {
         name: ProgramNameDto,
     ) -> Result<(), AppError> {
         let program = self.load(&ProgramNo::parse(no)?).await?;
-        let lang = Lang::parse(&name.lang)?;
-        let entry =
-            program_name(&lang, Some(name.name), name.report_title)?.unwrap_or(ProgramName {
-                lang: lang.as_str().to_owned(),
-                name: String::new(),
-                report_title: None,
-            });
+        let entry = ProgramName::new(&name.lang, Some(name.name), name.report_title)?;
         self.repo
             .set_name(&program.program_no, &entry)
             .await
@@ -245,14 +239,7 @@ impl ProgramService {
     pub async fn names(&self, no: &str) -> Result<Vec<ProgramNameDto>, AppError> {
         let no = ProgramNo::parse(no)?;
         let names = self.repo.names(&no).await.map_err(infra)?;
-        Ok(names
-            .into_iter()
-            .map(|n| ProgramNameDto {
-                lang: n.lang,
-                name: n.name,
-                report_title: n.report_title,
-            })
-            .collect())
+        Ok(names.into_iter().map(|n| name_dto(&n)).collect())
     }
 
     pub async fn audit_entries(&self, key: &str) -> Result<Vec<AuditEntryDto>, AppError> {
@@ -299,33 +286,16 @@ impl ProgramService {
     }
 
     async fn to_dto(&self, p: &Program) -> Result<ProgramDto, AppError> {
-        let lang = Lang::parse(DEFAULT_LANG)?;
-        self.to_dto_in(p, &lang).await
+        self.to_dto_in(p, &Lang::default_lang()).await
     }
 
     /// 依語系組出 DTO；該語系沒有名稱或報表抬頭時退回繁中（L2）
     async fn to_dto_in(&self, p: &Program, lang: &Lang) -> Result<ProgramDto, AppError> {
         let names = self.repo.names(&p.program_no).await.map_err(infra)?;
-        let pick = |l: &str| names.iter().find(|n| n.lang == l);
-        let name = pick(lang.as_str())
-            .map(|n| n.name.clone())
-            .filter(|s| !s.is_empty())
-            .or_else(|| {
-                pick(DEFAULT_LANG)
-                    .map(|n| n.name.clone())
-                    .filter(|s| !s.is_empty())
-            });
-        let report_title = pick(lang.as_str())
-            .and_then(|n| n.report_title.clone())
-            .or_else(|| pick(DEFAULT_LANG).and_then(|n| n.report_title.clone()));
-        let all_names = names
-            .iter()
-            .map(|n| ProgramNameDto {
-                lang: n.lang.clone(),
-                name: n.name.clone(),
-                report_title: n.report_title.clone(),
-            })
-            .collect();
+        // 名稱與報表抬頭各自退回
+        let name = localized(&names, lang, |n| non_empty(&n.name));
+        let report_title = localized(&names, lang, |n| n.report_title.clone());
+        let all_names = names.iter().map(name_dto).collect();
         let r = &p.runtime;
         let o = &p.other;
         Ok(ProgramDto {
@@ -406,27 +376,20 @@ fn today() -> NaiveDate {
 
 /// 輸入畫面上的名稱與報表抬頭（語系為 `input.lang`，未給為繁中）
 fn input_name(i: &ProgramInput) -> Result<Option<ProgramName>, DomainError> {
-    let lang = Lang::parse(i.lang.as_deref().unwrap_or(DEFAULT_LANG))?;
-    program_name(&lang, i.name.clone(), i.report_title.clone())
+    let n = ProgramName::new(
+        i.lang.as_deref().unwrap_or(DEFAULT_LANG),
+        i.name.clone(),
+        i.report_title.clone(),
+    )?;
+    Ok((!n.is_blank()).then_some(n))
 }
 
-/// 某語系的名稱與報表抬頭（含長度檢核，各語系各自檢核）；兩者皆空白時回傳 None
-fn program_name(
-    lang: &Lang,
-    name: Option<String>,
-    report_title: Option<String>,
-) -> Result<Option<ProgramName>, DomainError> {
-    let clean = |v: Option<String>| v.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty());
-    let (name, report_title) = (clean(name), clean(report_title));
-    check_length("程式名稱", name.as_deref(), max_len::NAME)?;
-    check_length("報表抬頭", report_title.as_deref(), max_len::REPORT_TITLE)?;
-    Ok(
-        (name.is_some() || report_title.is_some()).then(|| ProgramName {
-            lang: lang.as_str().to_owned(),
-            name: name.unwrap_or_default(),
-            report_title,
-        }),
-    )
+fn name_dto(n: &ProgramName) -> ProgramNameDto {
+    ProgramNameDto {
+        lang: n.lang.as_str().to_owned(),
+        name: n.name.clone(),
+        report_title: n.report_title.clone(),
+    }
 }
 
 /// 同名變體的雙向轉換（domain ↔ DTO）

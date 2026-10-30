@@ -14,7 +14,9 @@ use ttrs_app::{
     Actor, AppError, DataDictionaryService, ItemService, ProgramService, memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
-use ttrs_shared::{ColumnInfoDto, ConstraintDto, MigrationDto, Page, ProgramDto};
+use ttrs_shared::{
+    ColumnInfoDto, ConstraintDto, MigrationDto, Page, ProgramDto, TableDictionaryDto,
+};
 
 pub enum Backend {
     Memory(InMemoryStore),
@@ -39,6 +41,8 @@ pub struct ErpWorld {
     pub dict_constraints: Option<Vec<ConstraintDto>>,
     pub dict_history: Option<Vec<MigrationDto>>,
     pub dict_export: Option<String>,
+    /// 資料字典多語言：最近一次依語系查看的字典（D9）
+    pub displayed_dict: Option<TableDictionaryDto>,
     /// 程式維護多語言：最近一次依語系查看的程式
     pub displayed_program: Option<ProgramDto>,
 }
@@ -95,6 +99,7 @@ impl ErpWorld {
             dict_constraints: None,
             dict_history: None,
             dict_export: None,
+            displayed_dict: None,
             displayed_program: None,
         }
     }

@@ -12,7 +12,10 @@ use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
-use ttrs_app::{Actor, AppError, DataDictionaryService, ItemService, ProgramService};
+use ttrs_app::{
+    Actor, AppError, DataDictionaryService, ItemService, ProgramService,
+    program_service::DEFAULT_LANG,
+};
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
     IndexDto, ItemDto, MigrationDto, NewProgramNoRequest, Page, ProgramDto, ProgramInput,
@@ -291,8 +294,13 @@ async fn schema_tables(State(s): State<AppState>) -> ApiResult<Json<Vec<String>>
     Ok(Json(s.dictionary.schema_tables().await?))
 }
 
-async fn list_dictionaries(State(s): State<AppState>) -> ApiResult<Json<Vec<TableDictionaryDto>>> {
-    Ok(Json(s.dictionary.list().await?))
+/// `?lang=` 決定顯示語系（ADR 0005）；回應的 `texts` 含所有語系
+async fn list_dictionaries(
+    State(s): State<AppState>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<TableDictionaryDto>>> {
+    let lang = q.lang.as_deref().unwrap_or(DEFAULT_LANG);
+    Ok(Json(s.dictionary.list_localized(lang).await?))
 }
 
 async fn create_dictionary(
@@ -308,8 +316,10 @@ async fn create_dictionary(
 async fn get_dictionary(
     State(s): State<AppState>,
     Path(table): Path<String>,
+    Query(q): Query<LangQuery>,
 ) -> ApiResult<Json<TableDictionaryDto>> {
-    Ok(Json(s.dictionary.get(&table).await?))
+    let lang = q.lang.as_deref().unwrap_or(DEFAULT_LANG);
+    Ok(Json(s.dictionary.get_localized(&table, lang).await?))
 }
 
 async fn update_dictionary(
@@ -399,7 +409,7 @@ async fn export_dictionary(
     Path(table): Path<String>,
     Query(q): Query<LangQuery>,
 ) -> ApiResult<Response> {
-    let lang = q.lang.unwrap_or_else(|| "zh-TW".to_owned());
+    let lang = q.lang.unwrap_or_else(|| DEFAULT_LANG.to_owned());
     let csv = s.dictionary.export_csv(&table, &lang).await?;
     let filename = format!("attachment; filename=\"{table}_{lang}.csv\"");
     Ok((

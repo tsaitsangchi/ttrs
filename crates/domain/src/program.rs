@@ -4,7 +4,10 @@
 
 use chrono::NaiveDate;
 
-use crate::DomainError;
+use crate::{
+    DomainError,
+    lang::{Lang, LangText, non_empty, normalize_text},
+};
 
 /// 共用程式模組，不可作為作業程式的所屬模組（p_zz.4gl:254-268）
 const SHARED_MODULES: [&str; 6] = ["SUB", "CSUB", "LIB", "CLIB", "QRY", "CQRY"];
@@ -366,6 +369,43 @@ fn check_lengths(a: &ProgramAttrs) -> Result<(), DomainError> {
         check_length(field, value, max)?;
     }
     Ok(())
+}
+
+/// 某語系的程式名稱與報表抬頭（TipTop gaz_file：gaz03、gaz06）；名稱可空白（L1）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProgramName {
+    pub lang: Lang,
+    pub name: String,
+    pub report_title: Option<String>,
+}
+
+impl ProgramName {
+    /// 含語系與長度檢核（各語系各自檢核）
+    pub fn new(
+        lang: &str,
+        name: Option<String>,
+        report_title: Option<String>,
+    ) -> Result<Self, DomainError> {
+        let n = Self {
+            lang: Lang::parse(lang)?,
+            name: normalize_text(name).unwrap_or_default(),
+            report_title: normalize_text(report_title),
+        };
+        check_length("程式名稱", non_empty(&n.name).as_deref(), max_len::NAME)?;
+        check_length("報表抬頭", n.report_title.as_deref(), max_len::REPORT_TITLE)?;
+        Ok(n)
+    }
+
+    /// 名稱與報表抬頭皆空白
+    pub fn is_blank(&self) -> bool {
+        self.name.is_empty() && self.report_title.is_none()
+    }
+}
+
+impl LangText for ProgramName {
+    fn lang(&self) -> &Lang {
+        &self.lang
+    }
 }
 
 #[cfg(test)]
