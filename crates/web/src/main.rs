@@ -80,8 +80,8 @@ fn Shell() -> Element {
                 p { class: "group", {t("shell-group-aim")} }
                 Link { active_class: "active", to: Route::ItemList {}, {t("shell-nav-aimi100")} }
                 p { class: "group", {t("shell-group-azz")} }
-                Link { active_class: "active", to: Route::ProgramMaintenance {}, title: t("program-title"), "Program Maintenance" }
-                Link { active_class: "active", to: Route::DataDictionary {}, title: t("shell-nav-dictionary"), "Data Dictionary" }
+                Link { active_class: "active", to: Route::ProgramMaintenance {}, {t("shell-nav-program")} }
+                Link { active_class: "active", to: Route::DataDictionary {}, {t("shell-nav-dictionary")} }
             }
             // 以語系為 key：切換語系時重新載入畫面，所有文字改用新語系
             for l in [current] {

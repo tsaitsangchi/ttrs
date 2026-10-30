@@ -5,6 +5,7 @@ shell-nav-home = 首页
 shell-group-aim = 库存管理 (aim)
 shell-nav-aimi100 = aimi100 料件基本资料
 shell-group-azz = 系统管理 (azz)
+shell-nav-program = 程序维护
 shell-nav-dictionary = 数据字典维护
 shell-language = 语言
 common-action-ok = 确定
