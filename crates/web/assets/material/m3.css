@@ -331,3 +331,35 @@ textarea.md-field__input:focus { padding: 9px 15px; }
   .md-multilingual__lang { flex-direction: row; gap: 8px; padding-top: 0; }
   .md-multilingual__inputs { grid-template-columns: 1fr !important; }
 }
+
+/* ----- Menu（MenuButton 的下拉選單） ----- */
+.md-menu-anchor { position: relative; }
+.md-icon-button--selected { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.md-menu-scrim { position: fixed; inset: 0; z-index: 10; }
+.md-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 11;
+  min-width: 10rem;
+  margin: 0;
+  padding: 8px 0;
+  list-style: none;
+  background: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface);
+  border-radius: var(--md-sys-shape-corner-extra-small, 4px);
+  box-shadow: 0 2px 6px 2px rgb(0 0 0 / 15%), 0 1px 2px rgb(0 0 0 / 30%);
+}
+.md-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 48px;
+  padding: 0 16px 0 12px;
+  font: 400 0.875rem/1.25rem var(--md-font);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.md-menu__item:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
+.md-menu__item--selected { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.md-menu__check { display: inline-flex; width: 18px; }

@@ -335,10 +335,70 @@ pub fn IconButton(
     }
 }
 
+/// 圖示按鈕＋下拉選單（M3 Menu）；`items` 為 (值, 顯示文字)，目前值打勾。
+/// 點選項目或選單外即關閉。
+#[component]
+pub fn MenuButton(
+    label: String,
+    path: &'static str,
+    items: Vec<(String, String)>,
+    selected: String,
+    onselect: EventHandler<String>,
+) -> Element {
+    let mut open = use_signal(|| false);
+    rsx! {
+        div { class: "md-menu-anchor",
+            button {
+                r#type: "button",
+                class: "md-icon-button md-state",
+                class: if open() { "md-icon-button--selected" },
+                title: "{label}",
+                aria_label: "{label}",
+                aria_haspopup: "menu",
+                aria_expanded: open(),
+                onclick: move |_| open.toggle(),
+                svg { width: "24", height: "24", view_box: "0 0 24 24", fill: "currentColor",
+                    path { d: path }
+                }
+            }
+            if open() {
+                // 點選單外關閉
+                div { class: "md-menu-scrim", onclick: move |_| open.set(false) }
+                ul { class: "md-menu", role: "menu", aria_label: "{label}",
+                    for (value, text) in items {
+                        li {
+                            key: "{value}",
+                            role: "menuitemradio",
+                            aria_checked: value == selected,
+                            class: "md-menu__item md-state",
+                            class: if value == selected { "md-menu__item--selected" },
+                            onclick: move |_| {
+                                open.set(false);
+                                onselect.call(value.clone());
+                            },
+                            span { class: "md-menu__check",
+                                if value == selected {
+                                    svg { width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor",
+                                        path { d: icons::CHECK }
+                                    }
+                                }
+                            }
+                            span { "{text}" }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Material Symbols 的路徑（Apache-2.0）
 pub mod icons {
     pub const FIRST_PAGE: &str = "M18.41 16.59L13.82 12l4.59-4.59L17 6l-6 6 6 6zM6 6h2v12H6z";
     pub const CHEVRON_LEFT: &str = "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z";
     pub const CHEVRON_RIGHT: &str = "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z";
     pub const LAST_PAGE: &str = "M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6zM16 6h2v12h-2z";
+    pub const CHECK: &str = "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z";
+    /// 地球（language）：切換介面語系
+    pub const LANGUAGE: &str = "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm6.93 6h-2.95c-.32-1.25-.78-2.45-1.38-3.56 1.84.63 3.37 1.91 4.33 3.56zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2s.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56-1.84-.63-3.37-1.9-4.33-3.56zm2.95-8H5.08c.96-1.66 2.49-2.93 4.33-3.56C8.81 5.55 8.35 6.75 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2s.07-1.35.16-2h4.68c.09.65.16 1.32.16 2s-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95c-.96 1.65-2.49 2.93-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2s-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z";
 }

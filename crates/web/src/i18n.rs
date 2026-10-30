@@ -40,7 +40,6 @@ impl UiLang {
         }
     }
 
-    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
     pub fn from_code(code: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|l| l.code() == code)
     }
