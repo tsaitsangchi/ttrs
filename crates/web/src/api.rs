@@ -272,10 +272,6 @@ pub async fn delete_dictionary(table: &str) -> Result<(), String> {
     no_content(res).await
 }
 
-pub async fn table_texts(table: &str) -> Result<Vec<TableTextDto>, String> {
-    get_json(dict_url(table, "/texts")).await
-}
-
 pub async fn set_table_text(table: &str, text: &TableTextDto) -> Result<(), String> {
     put_json(dict_url(table, "/texts"), text).await
 }

@@ -5,16 +5,17 @@
 
 use dioxus::prelude::*;
 use ttrs_shared::{
-    ColumnTextDto, ConstraintKindDto, DICTIONARY_LANGS, TableDictionaryDto, TableDictionaryInput,
-    TableTextDto, TableTypeDto,
+    ColumnTextDto, ConstraintKindDto, TableDictionaryDto, TableDictionaryInput, TableTextDto,
+    TableTypeDto,
 };
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Notification, NotificationKind, Select, Tabs, TextArea, TextField,
+    Button, ButtonVariant, Card, Notification, NotificationKind, Select, Tabs, TextField,
 };
+use crate::components::multilingual::{LangField, LangValues, MultilingualField};
+use crate::i18n::{self, UiLang};
 
-const LANG_TABS: [&str; 3] = ["繁體中文", "English", "简体中文"];
 const DETAIL_TABS: [&str; 4] = ["欄位", "索引", "限制", "變更紀錄"];
 
 #[component]
@@ -128,7 +129,6 @@ fn TableDetail(
         let t = t.clone();
         async move { api::get_dictionary(&t).await }
     });
-    let lang_tab = use_signal(|| 0usize);
     let detail_tab = use_signal(|| 0usize);
 
     let loaded = dict.read().clone();
@@ -150,16 +150,11 @@ fn TableDetail(
                     on_error,
                 }
                 Card {
-                    Tabs { tabs: LANG_TABS.iter().map(|s| s.to_string()).collect::<Vec<_>>(), active: lang_tab }
-                    // 以語系為 key：切換語系時重新載入該語系的說明
-                    for l in [lang_tab()] {
-                        TableTextForm {
-                            key: "{l}",
-                            table: table.clone(),
-                            lang: DICTIONARY_LANGS[l].to_owned(),
-                            on_ok,
-                            on_error,
-                        }
+                    TableTextForm {
+                        table: table.clone(),
+                        texts: d.texts.clone(),
+                        on_ok,
+                        on_error,
                     }
                 }
                 Card {
@@ -167,7 +162,7 @@ fn TableDetail(
                     div { class: "card-body",
                         match detail_tab() {
                             0 => rsx! {
-                                ColumnsTab { table: table.clone(), lang: DICTIONARY_LANGS[lang_tab()].to_owned(), on_ok, on_error }
+                                ColumnsTab { table: table.clone(), on_ok, on_error }
                             },
                             1 => rsx! { IndexesTab { table: table.clone() } },
                             2 => rsx! { ConstraintsTab { table: table.clone() } },
@@ -203,6 +198,50 @@ fn parse_type(v: &str) -> Option<TableTypeDto> {
 
 fn opt(v: String) -> Option<String> {
     Some(v).filter(|s| !s.trim().is_empty())
+}
+
+/// gat03/gat04/gat05 表名稱、目的、備註（各語系）
+fn table_values(texts: &[TableTextDto]) -> LangValues {
+    LangValues::from_rows(
+        texts,
+        |x| &x.lang,
+        &[
+            ("name", |x| x.name.clone()),
+            ("purpose", |x| x.purpose.clone()),
+            ("remark", |x| x.remark.clone()),
+        ],
+    )
+}
+
+/// gaq03/gaq04/gaq05 欄位名稱、說明、額外說明（某欄位的各語系）
+fn column_values(texts: &[ColumnTextDto], column: &str) -> LangValues {
+    let own: Vec<&ColumnTextDto> = texts.iter().filter(|x| x.column_name == column).collect();
+    LangValues::from_rows(
+        &own,
+        |x| &x.lang,
+        &[
+            ("name", |x| x.name.clone()),
+            ("description", |x| x.description.clone()),
+            ("extra", |x| x.extra.clone()),
+        ],
+    )
+}
+
+/// 欄位說明在介面語系的顯示文字；無則退回繁中（ADR 0005）
+fn column_display(
+    texts: &[ColumnTextDto],
+    column: &str,
+    get: fn(&ColumnTextDto) -> Option<String>,
+) -> String {
+    let pick = |lang: &str| {
+        texts
+            .iter()
+            .find(|x| x.column_name == column && x.lang == lang)
+            .and_then(get)
+    };
+    pick(i18n::current().code())
+        .or_else(|| pick(UiLang::ZhTw.code()))
+        .unwrap_or_default()
 }
 
 #[component]
@@ -312,50 +351,47 @@ fn HeaderForm(
 #[component]
 fn TableTextForm(
     table: String,
-    lang: String,
+    texts: Vec<TableTextDto>,
     on_ok: EventHandler<String>,
     on_error: EventHandler<String>,
 ) -> Element {
-    let t = table.clone();
-    let l = lang.clone();
-    let texts = use_resource(move || {
-        let (t, l) = (t.clone(), l.clone());
-        async move {
-            api::table_texts(&t)
-                .await
-                .map(|v| v.into_iter().find(|x| x.lang == l).unwrap_or_default())
-        }
-    });
-    let mut name = use_signal(String::new);
-    let mut purpose = use_signal(String::new);
-    let mut remark = use_signal(String::new);
-    use_effect(move || {
-        if let Some(Ok(x)) = &*texts.read() {
-            name.set(x.name.clone().unwrap_or_default());
-            purpose.set(x.purpose.clone().unwrap_or_default());
-            remark.set(x.remark.clone().unwrap_or_default());
-        }
-    });
+    let values = use_signal(|| table_values(&texts));
+    let mut loaded = use_signal(|| table_values(&texts));
     rsx! {
         div { class: "card-body",
-            div { class: "form-grid",
-                TextField { id: "gat03", label: "表名稱", maxlength: 120, value: name(), oninput: move |v| name.set(v) }
-                TextField { id: "gat05", label: "備註", maxlength: 255, value: remark(), oninput: move |v| remark.set(v) }
-                div { class: "span-all",
-                    TextArea { id: "gat04", label: "表目的", rows: 2, maxlength: 255, value: purpose(), oninput: move |v| purpose.set(v) }
-                }
+            h3 { class: "form-section-title", "表名稱與目的" }
+            MultilingualField {
+                id: "gat",
+                fields: vec![
+                    LangField::text("name", "表名稱".into(), 120),
+                    LangField::area("purpose", "表目的".into(), 255, 2),
+                    LangField::text("remark", "備註".into(), 255),
+                ],
+                values,
             }
             div { class: "action-bar grant-bar",
                 Button {
                     variant: ButtonVariant::Tonal,
                     onclick: move |_| {
-                        let text = TableTextDto { lang: lang.clone(), name: opt(name()), purpose: opt(purpose()), remark: opt(remark()) };
+                        let now = values();
+                        let langs = now.changed(&loaded());
                         let t = table.clone();
                         spawn(async move {
-                            match api::set_table_text(&t, &text).await {
-                                Ok(()) => on_ok.call(format!("已儲存 {t} 的 {} 說明", text.lang)),
-                                Err(e) => on_error.call(e),
+                            // 每個有異動的語系各存一次（PUT …/texts 一次一個語系）
+                            for l in langs {
+                                let text = TableTextDto {
+                                    lang: l.code().to_owned(),
+                                    name: now.opt(l, "name"),
+                                    purpose: now.opt(l, "purpose"),
+                                    remark: now.opt(l, "remark"),
+                                };
+                                if let Err(e) = api::set_table_text(&t, &text).await {
+                                    on_error.call(e);
+                                    return;
+                                }
                             }
+                            loaded.set(now);
+                            on_ok.call(format!("已儲存 {t} 的表說明"));
                         });
                     },
                     "儲存表說明"
@@ -368,7 +404,6 @@ fn TableTextForm(
 #[component]
 fn ColumnsTab(
     table: String,
-    lang: String,
     on_ok: EventHandler<String>,
     on_error: EventHandler<String>,
 ) -> Element {
@@ -383,29 +418,21 @@ fn ColumnsTab(
         async move { api::column_texts(&t).await }
     });
     let mut editing = use_signal(|| None::<String>);
-    let mut name = use_signal(String::new);
-    let mut description = use_signal(String::new);
-    let mut extra = use_signal(String::new);
+    let mut values = use_signal(LangValues::default);
+    let mut loaded = use_signal(LangValues::default);
 
-    let export_href = api::export_url(&table, &lang);
+    // 匯出與清單顯示都用介面語系（無說明時退回繁中）
+    let export_href = api::export_url(&table, i18n::current().code());
     let text_list: Vec<ColumnTextDto> = texts
         .read()
         .as_ref()
         .and_then(|r| r.as_ref().ok())
         .cloned()
         .unwrap_or_default();
-    let l = lang.clone();
-    let text_of = move |col: &str| {
-        text_list
-            .iter()
-            .find(|x| x.column_name == col && x.lang == l)
-            .cloned()
-            .unwrap_or_default()
-    };
 
     rsx! {
         div { class: "action-bar",
-            span { class: "muted", "語系：{lang}　點選欄位以編輯說明" }
+            span { class: "muted", "點選欄位以編輯各語系說明" }
             div { class: "spacer" }
             a { class: "md-button md-button--outlined md-state", href: "{export_href}", "匯出 CSV" }
         }
@@ -421,29 +448,26 @@ fn ColumnsTab(
                         tbody {
                             for c in cols.iter().cloned() {
                                 {
-                                    let x = text_of(&c.name);
                                     let col = c.name.clone();
+                                    let all = text_list.clone();
                                     rsx! {
                                         tr {
                                             key: "{c.name}",
                                             class: "md-table__row--clickable",
                                             class: if editing().as_deref() == Some(c.name.as_str()) { "md-table__row--selected" },
-                                            onclick: {
-                                                let x = x.clone();
-                                                move |_| {
-                                                    editing.set(Some(col.clone()));
-                                                    name.set(x.name.clone().unwrap_or_default());
-                                                    description.set(x.description.clone().unwrap_or_default());
-                                                    extra.set(x.extra.clone().unwrap_or_default());
-                                                }
+                                            onclick: move |_| {
+                                                let v = column_values(&all, &col);
+                                                values.set(v.clone());
+                                                loaded.set(v);
+                                                editing.set(Some(col.clone()));
                                             },
                                             td { class: "mono", "{c.name}" }
                                             td { class: "mono", "{c.data_type}" }
                                             td { if c.not_null { "✓" } }
                                             td { if c.primary_key { "PK" } }
                                             td { class: "mono", {c.default.clone().unwrap_or_default()} }
-                                            td { {x.name.clone().unwrap_or_default()} }
-                                            td { {x.description.clone().unwrap_or_default()} }
+                                            td { {column_display(&text_list, &c.name, |x| x.name.clone())} }
+                                            td { {column_display(&text_list, &c.name, |x| x.description.clone())} }
                                         }
                                     }
                                 }
@@ -455,31 +479,41 @@ fn ColumnsTab(
         }
         if let Some(col) = editing() {
             section { class: "form-section",
-                h3 { class: "form-section-title", "欄位說明：{col}（{lang}）" }
-                div { class: "form-grid",
-                    TextField { id: "gaq03", label: "欄位名稱", maxlength: 255, value: name(), oninput: move |v| name.set(v) }
-                    TextField { id: "gaq04", label: "欄位說明", maxlength: 500, value: description(), oninput: move |v| description.set(v) }
-                    div { class: "span-all",
-                        TextArea { id: "gaq05", label: "額外說明", rows: 3, maxlength: 2000, value: extra(), oninput: move |v| extra.set(v) }
-                    }
+                h3 { class: "form-section-title", "欄位說明：{col}" }
+                MultilingualField {
+                    id: "gaq",
+                    fields: vec![
+                        LangField::text("name", "欄位名稱".into(), 255),
+                        LangField::text("description", "欄位說明".into(), 500),
+                        LangField::area("extra", "額外說明".into(), 2000, 2),
+                    ],
+                    values,
                 }
                 div { class: "action-bar grant-bar",
                     Button {
                         variant: ButtonVariant::Tonal,
                         onclick: move |_| {
-                            let text = ColumnTextDto {
-                                column_name: col.clone(),
-                                lang: lang.clone(),
-                                name: opt(name()),
-                                description: opt(description()),
-                                extra: opt(extra()),
-                            };
-                            let t = table.clone();
+                            let now = values();
+                            let langs = now.changed(&loaded());
+                            let (t, col) = (table.clone(), col.clone());
                             spawn(async move {
-                                match api::set_column_text(&t, &text).await {
-                                    Ok(()) => { on_ok.call(format!("已儲存欄位 {} 的說明", text.column_name)); texts.restart(); }
-                                    Err(e) => on_error.call(e),
+                                for l in langs {
+                                    let text = ColumnTextDto {
+                                        column_name: col.clone(),
+                                        lang: l.code().to_owned(),
+                                        name: now.opt(l, "name"),
+                                        description: now.opt(l, "description"),
+                                        extra: now.opt(l, "extra"),
+                                    };
+                                    if let Err(e) = api::set_column_text(&t, &text).await {
+                                        on_error.call(e);
+                                        texts.restart();
+                                        return;
+                                    }
                                 }
+                                loaded.set(now);
+                                on_ok.call(format!("已儲存欄位 {col} 的說明"));
+                                texts.restart();
                             });
                         },
                         "儲存欄位說明"

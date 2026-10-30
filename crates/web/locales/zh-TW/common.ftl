@@ -37,3 +37,4 @@ query-hint = 查詢模式：在欄位輸入條件後按「確定」。例：aim*
 qbe-hint-flag = Y 或 N
 qbe-hint-number = 例：132、100:200、>80
 qbe-hint-date = 2026/10/29 或 2026/10/01:2026/10/31
+common-lang-default = 預設

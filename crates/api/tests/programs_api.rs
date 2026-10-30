@@ -187,3 +187,53 @@ async fn names_per_language_and_localized_get() {
     assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(body::<ApiError>(res).await.code, "LANGUAGE_NOT_SUPPORTED");
 }
+
+/// MultilingualField：新增/修改時以 `names` 一次儲存各語系；任一語系不合法則整筆不寫入
+#[tokio::test]
+async fn names_saved_together_on_create_and_update() {
+    let app = app();
+    let res = app
+        .clone()
+        .oneshot(json(
+            "POST",
+            "/api/programs",
+            serde_json::json!({ "program_no": "aimi100", "module_code": "AIM", "names": [
+                { "lang": "zh-TW", "name": "料件基本資料維護作業", "report_title": null },
+                { "lang": "en", "name": "Item Master", "report_title": null },
+                { "lang": "zh-CN", "name": "", "report_title": null },
+            ] }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CREATED);
+    let dto: ProgramDto = body(res).await;
+    assert_eq!(dto.name.as_deref(), Some("料件基本資料維護作業"));
+    let langs: Vec<&str> = dto.names.iter().map(|n| n.lang.as_str()).collect();
+    assert_eq!(langs, ["en", "zh-TW"], "新增時空白語系不建立");
+
+    let mut input = dto.to_input();
+    input.names = dto.names.clone();
+    input.names[0].name = "Item Master Maintenance".into();
+    input.names.push(ttrs_shared::ProgramNameDto {
+        lang: "ja".into(),
+        name: "x".into(),
+        report_title: None,
+    });
+    let put = |input: &ttrs_shared::ProgramInput| {
+        json(
+            "PUT",
+            "/api/programs/aimi100",
+            serde_json::to_value(input).unwrap(),
+        )
+    };
+    let res = app.clone().oneshot(put(&input)).await.unwrap();
+    assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body::<ApiError>(res).await.code, "LANGUAGE_NOT_SUPPORTED");
+
+    input.names.pop();
+    let res = app.oneshot(put(&input)).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let dto: ProgramDto = body(res).await;
+    let en = dto.names.iter().find(|n| n.lang == "en").unwrap();
+    assert_eq!(en.name, "Item Master Maintenance");
+}

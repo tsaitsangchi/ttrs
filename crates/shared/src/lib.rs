@@ -185,6 +185,9 @@ pub struct ProgramInput {
     pub report_title: Option<String>,
     /// 設計日期（zz09），未給時為今天
     pub designed_on: Option<NaiveDate>,
+    /// 各語系的名稱與報表抬頭，一次儲存（ADR 0005，畫面的 MultilingualField）；
+    /// 有給時取代 `lang`、`name`、`report_title`。修改時名稱空白代表清除該語系
+    pub names: Vec<ProgramNameDto>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -256,6 +259,8 @@ impl ProgramDto {
             remark: self.remark.clone(),
             report_title: self.report_title.clone(),
             designed_on: Some(self.designed_on),
+            // 只沿用預設語系的 name/report_title；各語系一次儲存時由呼叫端填 names
+            names: Vec::new(),
         }
     }
 }

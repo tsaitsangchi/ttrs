@@ -107,6 +107,7 @@ pub fn TextArea(
     #[props(default = 4)] rows: i64,
     #[props(default)] readonly: bool,
     #[props(default)] maxlength: Option<usize>,
+    #[props(default)] placeholder: String,
     #[props(default)] oninput: EventHandler<String>,
 ) -> Element {
     rsx! {
@@ -118,6 +119,7 @@ pub fn TextArea(
                 rows,
                 readonly,
                 maxlength: maxlength.map(|n| n.to_string()),
+                placeholder: "{placeholder}",
                 value: "{value}",
                 oninput: move |e| oninput.call(e.value()),
             }

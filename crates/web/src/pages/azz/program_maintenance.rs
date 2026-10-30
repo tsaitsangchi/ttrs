@@ -10,8 +10,8 @@ use std::collections::BTreeMap;
 
 use dioxus::prelude::*;
 use ttrs_shared::{
-    IdleActionDto, IdleControlDto, ProgramDto, ProgramInput, QbeCondition, QueryRequest,
-    ReportExtModeDto, ReportTypeDto,
+    IdleActionDto, IdleControlDto, ProgramDto, ProgramInput, ProgramNameDto, QbeCondition,
+    QueryRequest, ReportExtModeDto, ReportTypeDto,
 };
 
 use ttrs_shared::program_max_len as max_len;
@@ -21,7 +21,8 @@ use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, IconButton, Notification, NotificationKind, RadioGroup,
     Select, Tabs, TextArea, TextField, icons,
 };
-use crate::i18n::{self, t, tf};
+use crate::components::multilingual::{LangField, LangValues, MultilingualField};
+use crate::i18n::{self, UiLang, t, tf};
 
 const LEDGER_MODULES: [&str; 4] = ["AGL", "CGL", "GGL", "CGGL"];
 
@@ -77,6 +78,9 @@ pub fn ProgramMaintenance() -> Element {
 
     let mut mode = use_signal(|| Mode::View);
     let mut form = use_signal(ProgramInput::default);
+    // 各語系的程式名稱（gaz03）與報表抬頭（gaz06），一次儲存；loaded 為載入時的內容
+    let mut names = use_signal(LangValues::default);
+    let mut loaded_names = use_signal(LangValues::default);
     // 目前顯示的程式（瀏覽模式）
     let mut current = use_signal(|| None::<ProgramDto>);
     let mut upper_tab = use_signal(|| 0usize);
@@ -111,7 +115,10 @@ pub fn ProgramMaintenance() -> Element {
     });
 
     let mut show = move |p: Option<ProgramDto>| {
-        form.set(p.as_ref().map(input_in_ui_lang).unwrap_or_default());
+        form.set(p.as_ref().map(ProgramDto::to_input).unwrap_or_default());
+        let n = p.as_ref().map(name_values).unwrap_or_default();
+        names.set(n.clone());
+        loaded_names.set(n);
         current.set(p);
         mode.set(Mode::View);
     };
@@ -155,8 +162,7 @@ pub fn ProgramMaintenance() -> Element {
     let save = move |_| {
         spawn(async move {
             let mut req = form();
-            // 名稱與報表抬頭寫入目前介面語系
-            req.lang = Some(i18n::current().code().to_owned());
+            req.names = names_input(&names.read(), &loaded_names.read());
             let result = match (mode(), current()) {
                 (Mode::Edit, Some(p)) => api::update_program(&p.program_no, &req).await,
                 _ => api::create_program(&req).await,
@@ -337,6 +343,8 @@ pub fn ProgramMaintenance() -> Element {
                                 message.set(None);
                                 error.set(None);
                                 form.set(ProgramInput::default());
+                                names.set(LangValues::default());
+                                loaded_names.set(LangValues::default());
                                 mode.set(Mode::New);
                                 upper_tab.set(0);
                             },
@@ -473,15 +481,17 @@ pub fn ProgramMaintenance() -> Element {
                                     oninput: move |v| form.write().module_code = v,
                                 }
                             }
-                            Q { field: "name", label: t("program-field-name"), class: "span-2", query: q, qbe,
-                                TextField {
-                                    id: "gaz03",
-                                    maxlength: Some(max_len::NAME),
-                                    class: "span-2",
-                                    label: t("program-field-name"),
-                                    value: f.name.clone().unwrap_or_default(),
-                                    readonly: ro,
-                                    oninput: move |v| form.write().name = non_empty(v),
+                            // gaz03 程式名稱：查詢時依名稱（介面語系）查；其餘各語系並列（ADR 0005）
+                            if q {
+                                Q { field: "name", label: t("program-field-name"), class: "span-2", query: q, qbe, {} }
+                            } else {
+                                div { class: "span-all",
+                                    MultilingualField {
+                                        id: "gaz03",
+                                        fields: vec![LangField::text("name", t("program-field-name"), max_len::NAME)],
+                                        values: names,
+                                        readonly: ro,
+                                    }
                                 }
                             }
                         }
@@ -657,13 +667,13 @@ pub fn ProgramMaintenance() -> Element {
                                 }
                                 // gaz06 報表抬頭不在 CONSTRUCT 欄位內，不可查詢
                                 if !q {
-                                    TextField {
-                                        id: "gaz06",
-                                        maxlength: Some(max_len::REPORT_TITLE),
-                                        label: t("program-field-report-title"),
-                                        readonly: ro,
-                                        value: f.report_title.clone().unwrap_or_default(),
-                                        oninput: move |v| form.write().report_title = non_empty(v),
+                                    div { class: "span-all",
+                                        MultilingualField {
+                                            id: "gaz06",
+                                            fields: vec![LangField::text("report_title", t("program-field-report-title"), max_len::REPORT_TITLE)],
+                                            values: names,
+                                            readonly: ro,
+                                        }
                                     }
                                 }
                                 Q { field: "fixed_print_method", label: t("program-field-fixed-print-method"), query: q, qbe,
@@ -990,13 +1000,27 @@ fn non_empty(s: String) -> Option<String> {
     Some(s).filter(|s| !s.trim().is_empty())
 }
 
-/// 表單內容：名稱與報表抬頭取「目前介面語系」那一筆（不退回繁中，避免把繁中名稱存成其他語系）
-fn input_in_ui_lang(p: &ProgramDto) -> ProgramInput {
-    let lang = i18n::current().code();
-    let own = p.names.iter().find(|n| n.lang == lang);
-    ProgramInput {
-        name: own.map(|n| n.name.clone()).filter(|s| !s.is_empty()),
-        report_title: own.and_then(|n| n.report_title.clone()),
-        ..p.to_input()
-    }
+/// 各語系名稱與報表抬頭（只取各語系自己的內容，不退回繁中，避免把繁中存成其他語系）
+fn name_values(p: &ProgramDto) -> LangValues {
+    LangValues::from_rows(
+        &p.names,
+        |n| &n.lang,
+        &[
+            ("name", |n| Some(n.name.clone())),
+            ("report_title", |n| n.report_title.clone()),
+        ],
+    )
+}
+
+/// 要儲存的語系：有內容的語系，加上原本有資料、這次清空的語系（後端以空白清除）
+fn names_input(values: &LangValues, loaded: &LangValues) -> Vec<ProgramNameDto> {
+    UiLang::ALL
+        .into_iter()
+        .filter(|l| values.has(*l) || loaded.has(*l))
+        .map(|l| ProgramNameDto {
+            lang: l.code().to_owned(),
+            name: values.opt(l, "name").unwrap_or_default(),
+            report_title: values.opt(l, "report_title"),
+        })
+        .collect()
 }

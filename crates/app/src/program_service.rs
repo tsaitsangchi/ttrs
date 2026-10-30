@@ -63,7 +63,10 @@ impl ProgramService {
         )?;
         self.check_query_definition(&program).await?;
 
-        let names: Vec<ProgramName> = input_name(&input)?.into_iter().collect();
+        let names: Vec<ProgramName> = input_names(&input)?
+            .into_iter()
+            .filter(|n| !n.is_blank())
+            .collect();
         // 選單不是可執行程式，不授權
         let grant_to = (!program.module.is_menu() && !actor.permission_class.is_empty())
             .then_some(actor.permission_class.as_str());
@@ -135,7 +138,7 @@ impl ProgramService {
         program.program_no = new.clone();
         let module = self.module(&input.module_code).await?;
         program.update(module, attrs(&input), &actor.user_id, today())?;
-        let name = input_name(&input)?;
+        let names = input_names(&input)?;
         self.check_query_definition(&program).await?;
 
         if new != old {
@@ -147,9 +150,9 @@ impl ProgramService {
         }
         self.repo.update(&program).await.map_err(infra)?;
         // 名稱與報表抬頭（TipTop 另以 modify_program_name / modify_report_title 更新 gaz_file）
-        if let Some(name) = name {
+        for name in &names {
             self.repo
-                .set_name(&program.program_no, &name)
+                .set_name(&program.program_no, name)
                 .await
                 .map_err(infra)?;
         }
@@ -374,14 +377,25 @@ fn today() -> NaiveDate {
     chrono::Local::now().date_naive()
 }
 
-/// 輸入畫面上的名稱與報表抬頭（語系為 `input.lang`，未給為繁中）
-fn input_name(i: &ProgramInput) -> Result<Option<ProgramName>, DomainError> {
-    let n = ProgramName::new(
-        i.lang.as_deref().unwrap_or(DEFAULT_LANG),
-        i.name.clone(),
-        i.report_title.clone(),
-    )?;
-    Ok((!n.is_blank()).then_some(n))
+/// 輸入的名稱與報表抬頭：有 `names` 時為各語系（全部先檢核再寫入），
+/// 否則為 `lang`（未給為繁中）的單一語系，且空白時不異動
+fn input_names(i: &ProgramInput) -> Result<Vec<ProgramName>, DomainError> {
+    if i.names.is_empty() {
+        let n = ProgramName::new(
+            i.lang.as_deref().unwrap_or(DEFAULT_LANG),
+            i.name.clone(),
+            i.report_title.clone(),
+        )?;
+        return Ok((!n.is_blank()).then_some(n).into_iter().collect());
+    }
+    let mut out: Vec<ProgramName> = Vec::with_capacity(i.names.len());
+    for n in &i.names {
+        let n = ProgramName::new(&n.lang, Some(n.name.clone()), n.report_title.clone())?;
+        // 同一語系給兩次以後者為準
+        out.retain(|x| x.lang != n.lang);
+        out.push(n);
+    }
+    Ok(out)
 }
 
 fn name_dto(n: &ProgramName) -> ProgramNameDto {

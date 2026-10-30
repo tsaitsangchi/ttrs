@@ -296,3 +296,38 @@ textarea.md-field__input:focus { padding: 9px 15px; }
 .md-table td.mono { font-family: var(--md-font-mono); font-size: 0.75rem; }
 .md-table td.num, .md-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .md-icon-button:disabled { color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent); cursor: default; }
+
+/* ----- MultilingualField 多語言欄位（ADR 0005）：每個語系一列 ----- */
+.md-multilingual {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: 12px;
+}
+.md-multilingual__row {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+.md-multilingual__lang {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 10px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--md-sys-color-on-surface);
+}
+.md-multilingual__default {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--md-sys-color-primary);
+}
+.md-multilingual__inputs { display: grid; gap: 16px; }
+@media (max-width: 720px) {
+  .md-multilingual__row { grid-template-columns: 1fr; }
+  .md-multilingual__lang { flex-direction: row; gap: 8px; padding-top: 0; }
+  .md-multilingual__inputs { grid-template-columns: 1fr !important; }
+}

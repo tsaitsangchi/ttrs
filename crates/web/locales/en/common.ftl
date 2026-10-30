@@ -37,3 +37,4 @@ query-hint = Query mode: enter conditions in the fields, then press OK. e.g. aim
 qbe-hint-flag = Y or N
 qbe-hint-number = e.g. 132, 100:200, >80
 qbe-hint-date = 2026/10/29 or 2026/10/01:2026/10/31
+common-lang-default = Default
