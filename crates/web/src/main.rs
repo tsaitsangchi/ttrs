@@ -2,9 +2,11 @@
 
 mod api;
 mod components;
+mod i18n;
 mod pages;
 
 use dioxus::prelude::*;
+use i18n::{UiLang, t};
 use pages::{
     aim::ItemList,
     azz::{DataDictionary, ProgramMaintenance},
@@ -39,6 +41,8 @@ fn main() {
 
 #[component]
 fn App() -> Element {
+    // 介面語系（L3）：啟動時讀取瀏覽器記住的語系；供外框切換
+    use_context_provider(|| Signal::new(i18n::load()));
     rsx! {
         document::Link { rel: "stylesheet", href: M3_COLORS_CSS }
         document::Link { rel: "stylesheet", href: M3_CSS }
@@ -49,19 +53,41 @@ fn App() -> Element {
 
 #[component]
 fn Shell() -> Element {
+    let mut lang = use_context::<Signal<UiLang>>();
+    let current = lang();
     rsx! {
         // M3 淺色主題；深色改為 md-theme-dark
-        div { class: "shell md-theme-light",
+        div { class: "shell md-theme-light", lang: current.code(),
             nav { class: "sidebar",
                 h1 { "TTRS ERP" }
-                Link { active_class: "active", to: Route::Home {}, "首頁" }
-                p { class: "group", "庫存管理 (aim)" }
-                Link { active_class: "active", to: Route::ItemList {}, "aimi100 料件基本資料" }
-                p { class: "group", "系統管理 (azz)" }
-                Link { active_class: "active", to: Route::ProgramMaintenance {}, title: "程式維護", "Program Maintenance" }
-                Link { active_class: "active", to: Route::DataDictionary {}, title: "資料字典維護", "Data Dictionary" }
+                Link { active_class: "active", to: Route::Home {}, {t("首頁")} }
+                p { class: "group", {t("庫存管理 (aim)")} }
+                Link { active_class: "active", to: Route::ItemList {}, {t("aimi100 料件基本資料")} }
+                p { class: "group", {t("系統管理 (azz)")} }
+                Link { active_class: "active", to: Route::ProgramMaintenance {}, title: t("程式維護"), "Program Maintenance" }
+                Link { active_class: "active", to: Route::DataDictionary {}, title: t("資料字典維護"), "Data Dictionary" }
+                div { class: "lang-switch",
+                    span { class: "group", {t("語言")} }
+                    div { class: "lang-options",
+                        for l in UiLang::ALL {
+                            button {
+                                key: "{l.code()}",
+                                r#type: "button",
+                                class: if l == current { "lang-option active" } else { "lang-option" },
+                                onclick: move |_| {
+                                    i18n::set(l);
+                                    lang.set(l);
+                                },
+                                "{l.native_name()}"
+                            }
+                        }
+                    }
+                }
             }
-            main { class: "content", Outlet::<Route> {} }
+            // 以語系為 key：切換語系時重新載入畫面，所有文字改用新語系
+            for l in [current] {
+                main { key: "{l.code()}", class: "content", Outlet::<Route> {} }
+            }
         }
     }
 }

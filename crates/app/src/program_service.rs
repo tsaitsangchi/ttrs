@@ -7,6 +7,7 @@ use chrono::NaiveDate;
 
 use ttrs_domain::{
     DomainError,
+    lang::Lang,
     program::{
         IdleAction, IdleControl, ModuleCode, OtherSettings, Program, ProgramAttrs, ProgramNo,
         ReportExtMode, ReportType, RuntimeSettings, check_length, max_len,
@@ -62,7 +63,7 @@ impl ProgramService {
         )?;
         self.check_query_definition(&program).await?;
 
-        let names: Vec<ProgramName> = default_name(&input)?.into_iter().collect();
+        let names: Vec<ProgramName> = input_name(&input)?.into_iter().collect();
         // 選單不是可執行程式，不授權
         let grant_to = (!program.module.is_menu() && !actor.permission_class.is_empty())
             .then_some(actor.permission_class.as_str());
@@ -102,9 +103,10 @@ impl ProgramService {
             .query(&filters, offset, u64::from(page_size))
             .await
             .map_err(infra)?;
+        let lang = Lang::parse(req.lang.as_deref().unwrap_or(DEFAULT_LANG))?;
         let mut items = Vec::with_capacity(programs.len());
         for p in &programs {
-            items.push(self.to_dto(p).await?);
+            items.push(self.to_dto_in(p, &lang).await?);
         }
         Ok(Page {
             items,
@@ -133,7 +135,7 @@ impl ProgramService {
         program.program_no = new.clone();
         let module = self.module(&input.module_code).await?;
         program.update(module, attrs(&input), &actor.user_id, today())?;
-        let name = default_name(&input)?;
+        let name = input_name(&input)?;
         self.check_query_definition(&program).await?;
 
         if new != old {
@@ -216,15 +218,28 @@ impl ProgramService {
     pub async fn set_name(
         &self,
         _actor: &Actor,
-        _no: &str,
-        _name: ProgramNameDto,
+        no: &str,
+        name: ProgramNameDto,
     ) -> Result<(), AppError> {
-        todo!("程式維護 多語言名稱")
+        let program = self.load(&ProgramNo::parse(no)?).await?;
+        let lang = Lang::parse(&name.lang)?;
+        let entry =
+            program_name(&lang, Some(name.name), name.report_title)?.unwrap_or(ProgramName {
+                lang: lang.as_str().to_owned(),
+                name: String::new(),
+                report_title: None,
+            });
+        self.repo
+            .set_name(&program.program_no, &entry)
+            .await
+            .map_err(infra)
     }
 
     /// 以使用者語系取得程式；該語系無名稱時退回繁中（L2）
-    pub async fn get_localized(&self, _no: &str, _lang: &str) -> Result<ProgramDto, AppError> {
-        todo!("程式維護 依語系顯示")
+    pub async fn get_localized(&self, no: &str, lang: &str) -> Result<ProgramDto, AppError> {
+        let lang = Lang::parse(lang)?;
+        let program = self.load(&ProgramNo::parse(no)?).await?;
+        self.to_dto_in(&program, &lang).await
     }
 
     pub async fn names(&self, no: &str) -> Result<Vec<ProgramNameDto>, AppError> {
@@ -284,13 +299,33 @@ impl ProgramService {
     }
 
     async fn to_dto(&self, p: &Program) -> Result<ProgramDto, AppError> {
+        let lang = Lang::parse(DEFAULT_LANG)?;
+        self.to_dto_in(p, &lang).await
+    }
+
+    /// 依語系組出 DTO；該語系沒有名稱或報表抬頭時退回繁中（L2）
+    async fn to_dto_in(&self, p: &Program, lang: &Lang) -> Result<ProgramDto, AppError> {
         let names = self.repo.names(&p.program_no).await.map_err(infra)?;
-        let (name, report_title) = names
-            .into_iter()
-            .find(|n| n.lang == DEFAULT_LANG)
-            .map_or((None, None), |n| {
-                (Some(n.name).filter(|s| !s.is_empty()), n.report_title)
+        let pick = |l: &str| names.iter().find(|n| n.lang == l);
+        let name = pick(lang.as_str())
+            .map(|n| n.name.clone())
+            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                pick(DEFAULT_LANG)
+                    .map(|n| n.name.clone())
+                    .filter(|s| !s.is_empty())
             });
+        let report_title = pick(lang.as_str())
+            .and_then(|n| n.report_title.clone())
+            .or_else(|| pick(DEFAULT_LANG).and_then(|n| n.report_title.clone()));
+        let all_names = names
+            .iter()
+            .map(|n| ProgramNameDto {
+                lang: n.lang.clone(),
+                name: n.name.clone(),
+                report_title: n.report_title.clone(),
+            })
+            .collect();
         let r = &p.runtime;
         let o = &p.other;
         Ok(ProgramDto {
@@ -298,6 +333,7 @@ impl ProgramService {
             module_code: p.module.as_str().to_owned(),
             program_type: p.program_type.clone(),
             name,
+            names: all_names,
             report_type: report_type_dto(p.report_type),
             idle_control: idle_control_dto(p.idle_control),
             idle_seconds: p.idle_seconds,
@@ -368,20 +404,25 @@ fn today() -> NaiveDate {
     chrono::Local::now().date_naive()
 }
 
-/// 預設語系的名稱與報表抬頭（含長度檢核）；兩者皆空白時不建立
-fn default_name(i: &ProgramInput) -> Result<Option<ProgramName>, DomainError> {
-    let clean = |v: &Option<String>| {
-        v.as_deref()
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_owned)
-    };
-    let (name, report_title) = (clean(&i.name), clean(&i.report_title));
+/// 輸入畫面上的名稱與報表抬頭（語系為 `input.lang`，未給為繁中）
+fn input_name(i: &ProgramInput) -> Result<Option<ProgramName>, DomainError> {
+    let lang = Lang::parse(i.lang.as_deref().unwrap_or(DEFAULT_LANG))?;
+    program_name(&lang, i.name.clone(), i.report_title.clone())
+}
+
+/// 某語系的名稱與報表抬頭（含長度檢核，各語系各自檢核）；兩者皆空白時回傳 None
+fn program_name(
+    lang: &Lang,
+    name: Option<String>,
+    report_title: Option<String>,
+) -> Result<Option<ProgramName>, DomainError> {
+    let clean = |v: Option<String>| v.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty());
+    let (name, report_title) = (clean(name), clean(report_title));
     check_length("程式名稱", name.as_deref(), max_len::NAME)?;
     check_length("報表抬頭", report_title.as_deref(), max_len::REPORT_TITLE)?;
     Ok(
         (name.is_some() || report_title.is_some()).then(|| ProgramName {
-            lang: DEFAULT_LANG.to_owned(),
+            lang: lang.as_str().to_owned(),
             name: name.unwrap_or_default(),
             report_title,
         }),

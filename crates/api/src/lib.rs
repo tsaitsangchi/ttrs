@@ -16,7 +16,7 @@ use ttrs_app::{Actor, AppError, DataDictionaryService, ItemService, ProgramServi
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
     IndexDto, ItemDto, MigrationDto, NewProgramNoRequest, Page, ProgramDto, ProgramInput,
-    QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto,
+    ProgramNameDto, QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto,
 };
 
 #[derive(Clone)]
@@ -53,6 +53,10 @@ pub fn router(state: AppState) -> Router {
             get(get_program).put(update_program).delete(delete_program),
         )
         .route("/api/programs/{no}/copy", post(copy_program))
+        .route(
+            "/api/programs/{no}/names",
+            axum::routing::put(set_program_name),
+        )
         .route(
             "/api/programs/{no}/permissions",
             get(list_permissions).post(grant_permission),
@@ -218,11 +222,26 @@ async fn create_program(
     ))
 }
 
+/// `?lang=en` 依語系顯示名稱（沒有該語系時退回繁中）
 async fn get_program(
     State(s): State<AppState>,
     Path(no): Path<String>,
+    Query(q): Query<LangQuery>,
 ) -> ApiResult<Json<ProgramDto>> {
-    Ok(Json(s.programs.get(&no).await?))
+    Ok(Json(match q.lang {
+        Some(lang) => s.programs.get_localized(&no, &lang).await?,
+        None => s.programs.get(&no).await?,
+    }))
+}
+
+/// 維護某語系的程式名稱與報表抬頭（gaz_file）
+async fn set_program_name(
+    State(s): State<AppState>,
+    Path(no): Path<String>,
+    Json(req): Json<ProgramNameDto>,
+) -> ApiResult<StatusCode> {
+    s.programs.set_name(&s.actor, &no, req).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn update_program(

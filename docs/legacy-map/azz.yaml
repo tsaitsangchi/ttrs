@@ -55,7 +55,7 @@ tables:
 
   - legacy: gaz_file
     target: program_name
-    note: "程式名稱多語言記錄檔；主鍵 (gaz01, gaz02, gaz05)。gaz01 varchar2(20)→program_no、gaz02 varchar2(1) 語言別→lang、gaz03 varchar2(500)→name、gaz06 varchar2(255) 報表列印抬頭→report_title"
+    note: "程式名稱多語言記錄檔；主鍵 (gaz01, gaz02, gaz05)。gaz01 varchar2(20)→program_no、gaz02 varchar2(1) 語言別→lang、gaz03 varchar2(500)→name、gaz06 varchar2(255) 報表列印抬頭→report_title。語言別（L5）0→zh-TW、1→en、2→zh-CN；顯示時該語系無名稱退回繁中（L2）"
     unmapped: "gaz04 varchar2(4000) 作業目的、gaz05 客製碼（Y 優先，屬主鍵）、gazuser/gazgrup/gazmodu/gazdate"
     verify: true   # 語言別代碼（TipTop 為 1 碼，新系統用 zh-TW）轉換規則待定
 
@@ -112,7 +112,7 @@ tables:
     note: "檔案名稱多語言對照檔；主鍵 (gat01, gat02)。gat06 模組、gat07 類型在 TipTop 寫入每個語言列（:1552、:1576），新系統放表頭（各語言共用）"
     columns:
       - { legacy: gat01, type: varchar2(15) NOT NULL, target: table_name }
-      - { legacy: gat02, type: varchar2(1) NOT NULL, target: lang, note: "TipTop 語言別 1 碼；新系統 zh-TW / en / zh-CN，代碼對照待確認", verify: true }
+      - { legacy: gat02, type: varchar2(1) NOT NULL, target: lang, note: "TipTop 語言別 1 碼：0→zh-TW、1→en、2→zh-CN（L5）" }
       - { legacy: gat03, type: varchar2(120), target: table_dictionary_text.name, sch: 檔案名稱 }
       - { legacy: gat04, type: varchar2(255), target: table_dictionary_text.purpose, sch: 檔案目的 }
       - { legacy: gat05, type: varchar2(255), target: table_dictionary_text.remark, sch: 備註 }
@@ -124,7 +124,7 @@ tables:
     note: "欄位多語言說明檔；主鍵 (gaq01, gaq02)。TipTop 以欄位代碼為全系統唯一鍵，新系統改 (table_name, column_name, lang)（D2）"
     columns:
       - { legacy: gaq01, type: varchar2(20) NOT NULL, target: column_name, note: 新系統加上 table_name }
-      - { legacy: gaq02, type: varchar2(1) NOT NULL, target: lang, verify: true }
+      - { legacy: gaq02, type: varchar2(1) NOT NULL, target: lang, note: "0→zh-TW、1→en、2→zh-CN（L5）" }
       - { legacy: gaq03, type: varchar2(255), target: name, sch: 欄位名稱 }
       - { legacy: gaq04, type: varchar2(500), target: description, sch: 欄位說明 }
       - { legacy: gaq05, type: varchar2(2000), target: extra, sch: 額外說明 }

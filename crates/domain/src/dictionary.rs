@@ -11,8 +11,7 @@ use crate::{
     program::{ModuleCode, check_length},
 };
 
-/// 支援的語系（D：繁中、英文、簡中）
-pub const LANGS: [&str; 3] = ["zh-TW", "en", "zh-CN"];
+pub use crate::lang::{LANGS, Lang};
 
 /// 長度上限（D8）：資料表代碼依 PostgreSQL 識別字上限，其餘依 gat_file.sch、gaq_file.sch、zta_file.sch
 pub mod max_len {
@@ -26,25 +25,6 @@ pub mod max_len {
     pub const COLUMN_EXTRA: usize = 2000; // gaq05
     pub const UPSTREAM: usize = 80; // zta11（4fd 上游檔案）
     pub const DOWNSTREAM: usize = 60; // zta12（4fd 下游檔案）
-}
-
-/// 語系代碼
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct Lang(String);
-
-impl Lang {
-    pub fn parse(raw: &str) -> Result<Self, DomainError> {
-        let v = raw.trim();
-        if LANGS.contains(&v) {
-            Ok(Self(v.to_owned()))
-        } else {
-            Err(DomainError::LanguageNotSupported(v.to_owned()))
-        }
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
 }
 
 /// 資料表或欄位名稱（資料庫識別字）

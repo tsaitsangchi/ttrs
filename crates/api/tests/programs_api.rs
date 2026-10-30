@@ -147,3 +147,43 @@ async fn query_returns_page_and_bad_condition_422() {
     assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(body::<ApiError>(res).await.code, "QBE_INVALID_NUMBER");
 }
+
+#[tokio::test]
+async fn names_per_language_and_localized_get() {
+    let app = app();
+    app.clone().oneshot(create("aimi100")).await.unwrap();
+    let res = app
+        .clone()
+        .oneshot(json(
+            "PUT",
+            "/api/programs/aimi100/names",
+            serde_json::json!({ "lang": "en", "name": "Item Master Maintenance" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::NO_CONTENT);
+
+    let res = app
+        .clone()
+        .oneshot(
+            Request::get("/api/programs/aimi100?lang=en")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let dto: ProgramDto = body(res).await;
+    assert_eq!(dto.name.as_deref(), Some("Item Master Maintenance"));
+    assert_eq!(dto.names.len(), 2);
+
+    let res = app
+        .oneshot(json(
+            "PUT",
+            "/api/programs/aimi100/names",
+            serde_json::json!({ "lang": "ja", "name": "x" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(body::<ApiError>(res).await.code, "LANGUAGE_NOT_SUPPORTED");
+}

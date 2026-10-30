@@ -35,7 +35,8 @@ async fn into_result<T: serde::de::DeserializeOwned>(res: reqwest::Response) -> 
 async fn error_message(res: reqwest::Response) -> String {
     let status = res.status();
     match res.json::<ApiError>().await {
-        Ok(e) => e.message,
+        // 依錯誤代碼翻譯成目前介面語系（L4）
+        Ok(e) => crate::i18n::error_text(&e.code, &e.message),
         Err(_) => format!("HTTP {status}"),
     }
 }

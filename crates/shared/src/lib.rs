@@ -151,6 +151,8 @@ impl ReportExtModeDto {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ProgramInput {
+    /// `name`、`report_title` 所屬語系；未給為 zh-TW
+    pub lang: Option<String>,
     pub program_no: String,
     pub module_code: String,
     /// 未給時由程式代號推導（a 開頭 7 碼取第 4 碼）
@@ -190,7 +192,10 @@ pub struct ProgramDto {
     pub program_no: String,
     pub module_code: String,
     pub program_type: Option<String>,
+    /// 依查詢語系顯示的名稱；該語系沒有時退回繁中（L2）
     pub name: Option<String>,
+    /// 所有語系的名稱與報表抬頭（gaz_file）
+    pub names: Vec<ProgramNameDto>,
     pub report_type: ReportTypeDto,
     pub idle_control: IdleControlDto,
     pub idle_seconds: Option<i32>,
@@ -224,6 +229,7 @@ impl ProgramDto {
     /// 轉回輸入格式，供修改時沿用其餘欄位
     pub fn to_input(&self) -> ProgramInput {
         ProgramInput {
+            lang: None,
             program_no: self.program_no.clone(),
             module_code: self.module_code.clone(),
             program_type: self.program_type.clone(),
@@ -305,6 +311,8 @@ pub struct QueryRequest {
     /// 從 1 開始
     pub page: Option<u32>,
     pub page_size: Option<u32>,
+    /// 結果中程式名稱等多語言欄位的顯示語系；未給為 zh-TW
+    pub lang: Option<String>,
 }
 
 impl QueryRequest {

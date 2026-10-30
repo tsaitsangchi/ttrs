@@ -212,3 +212,22 @@ body { margin: 0; }
 .md-chip.dict-chip { height: 22px; padding: 0 8px; font-size: 0.6875rem; }
 a.md-button { text-decoration: none; }
 @media (max-width: 840px) { .dict-layout { grid-template-columns: 1fr; } }
+
+/* 介面語系切換（側邊欄底部） */
+.lang-switch { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.lang-switch .group { display: block; margin: 0 16px 6px; }
+.lang-options { display: flex; flex-wrap: wrap; gap: 4px; padding: 0 12px; }
+.lang-option {
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background: transparent;
+  color: var(--md-sys-color-on-surface-variant);
+  border-radius: var(--md-sys-shape-corner-small);
+  padding: 4px 10px;
+  font: 500 0.75rem/1rem var(--md-font);
+  cursor: pointer;
+}
+.lang-option.active {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  border-color: transparent;
+}

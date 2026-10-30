@@ -97,6 +97,7 @@ async fn query_by_no_paged(w: &mut ErpWorld, expr: String, size: u32, page: u32)
             conditions: vec![condition("程式代號", &expr)],
             page: Some(page),
             page_size: Some(size),
+            lang: None,
         },
     )
     .await;

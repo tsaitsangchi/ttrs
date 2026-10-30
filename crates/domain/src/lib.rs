@@ -4,6 +4,7 @@
 pub mod dictionary;
 pub mod error;
 pub mod item;
+pub mod lang;
 pub mod plant;
 pub mod program;
 pub mod qbe;
