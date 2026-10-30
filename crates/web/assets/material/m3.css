@@ -363,3 +363,35 @@ textarea.md-field__input:focus { padding: 9px 15px; }
 .md-menu__item:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
 .md-menu__item--selected { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
 .md-menu__check { display: inline-flex; width: 18px; }
+
+/* ----- Dialog（M3 Basic dialog） ----- */
+.md-dialog-scrim { position: fixed; inset: 0; z-index: 20; background: rgb(0 0 0 / 32%); }
+.md-dialog {
+  --md-field-label-bg: var(--md-sys-color-surface-container-high);
+  position: fixed;
+  z-index: 21;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(40rem, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 24px;
+  border-radius: 28px;
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+  box-shadow: 0 4px 8px 3px rgb(0 0 0 / 15%), 0 1px 3px rgb(0 0 0 / 30%);
+  outline: none;
+}
+.md-dialog__headline { margin: 0 0 16px; font: 400 1.5rem/2rem var(--md-font); }
+.md-dialog__content { overflow: auto; padding-top: 8px; }
+.md-dialog__content .md-multilingual { border: none; padding: 0; }
+.md-dialog__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+
+/* MultilingualDialogField：介面語系的輸入框＋翻譯圖示（開啟各語言視窗） */
+.md-multilingual-inline { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.md-multilingual-inline > .md-field { flex: 1; }
+.md-multilingual-inline__button { display: flex; align-items: center; color: var(--md-sys-color-primary); }
+.md-multilingual-inline__count { font: 500 0.75rem/1rem var(--md-font); color: var(--md-sys-color-on-surface-variant); }

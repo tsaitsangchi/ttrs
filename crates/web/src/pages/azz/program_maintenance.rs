@@ -21,7 +21,9 @@ use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, IconButton, Notification, NotificationKind, RadioGroup,
     Select, Tabs, TextArea, TextField, icons,
 };
-use crate::components::multilingual::{LangField, LangValues, MultilingualField};
+use crate::components::multilingual::{
+    LangField, LangValues, MultilingualDialogField, MultilingualField,
+};
 use crate::i18n::{self, UiLang, t, tf};
 
 const LEDGER_MODULES: [&str; 4] = ["AGL", "CGL", "GGL", "CGGL"];
@@ -481,17 +483,15 @@ pub fn ProgramMaintenance() -> Element {
                                     oninput: move |v| form.write().module_code = v,
                                 }
                             }
-                            // gaz03 程式名稱：查詢時依名稱（介面語系）查；其餘各語系並列（ADR 0005）
-                            if q {
-                                Q { field: "name", label: t("program-field-name"), class: "span-2", query: q, qbe, {} }
-                            } else {
-                                div { class: "span-all",
-                                    MultilingualField {
-                                        id: "gaz03",
-                                        fields: vec![LangField::text("name", t("program-field-name"), max_len::NAME)],
-                                        values: names,
-                                        readonly: ro,
-                                    }
+                            // gaz03 程式名稱：表單顯示介面語系，翻譯圖示開窗輸入各語系（ADR 0005）；
+                            // 查詢時依介面語系的名稱查
+                            Q { field: "name", label: t("program-field-name"), class: "span-2", query: q, qbe,
+                                MultilingualDialogField {
+                                    id: "gaz03",
+                                    class: "span-2",
+                                    field: LangField::text("name", t("program-field-name"), max_len::NAME),
+                                    values: names,
+                                    readonly: ro,
                                 }
                             }
                         }

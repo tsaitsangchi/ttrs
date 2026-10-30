@@ -39,3 +39,6 @@ qbe-hint-flag = Y 或 N
 qbe-hint-number = 例：132、100:200、>80
 qbe-hint-date = 2026/10/29 或 2026/10/01:2026/10/31
 common-lang-default = 默认
+common-action-close = 关闭
+common-multilingual-title = { $field }（各语言）
+common-multilingual-open = 编辑各语言（已填 { $count } 种）

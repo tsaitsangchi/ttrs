@@ -39,3 +39,6 @@ qbe-hint-flag = Y or N
 qbe-hint-number = e.g. 132, 100:200, >80
 qbe-hint-date = 2026/10/29 or 2026/10/01:2026/10/31
 common-lang-default = Default
+common-action-close = Close
+common-multilingual-title = { $field } (all languages)
+common-multilingual-open = Edit languages ({ $count } filled)

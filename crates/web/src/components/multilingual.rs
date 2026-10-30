@@ -4,13 +4,18 @@
 //! （如程式名稱；或表名稱＋目的＋備註）。非預設語系空白時，以繁中內容作為提示，
 //! 表示顯示時會退回繁中（共用退回規則：指定語系 → zh-TW → 空白）。
 //! 各作業只負責把 DTO 轉成 [`LangValues`]、儲存時再轉回去。
+//!
+//! 版面較擠的欄位用 [`MultilingualDialogField`]：表單上只顯示介面語系的值，
+//! 旁邊的翻譯圖示開啟視窗，在視窗內並列編輯各語系。
 
 use std::collections::BTreeMap;
 
 use dioxus::prelude::*;
 
-use crate::components::material::{TextArea, TextField};
-use crate::i18n::{UiLang, t};
+use crate::components::material::{
+    Button, ButtonVariant, Dialog, IconButton, TextArea, TextField, icons,
+};
+use crate::i18n::{UiLang, current, t, tf};
 
 /// 一個多語言欄位的定義
 #[derive(Clone, PartialEq)]
@@ -132,6 +137,82 @@ pub fn MultilingualField(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/// 單一多語言欄位，表單上只顯示目前介面語系的值（可直接輸入），
+/// 翻譯圖示開啟視窗並列編輯各語系；視窗按「放棄」還原開啟前的內容。
+#[component]
+pub fn MultilingualDialogField(
+    /// 輸入框 id 前綴（建議用 TipTop 欄位代碼，如 `gaz03`）
+    id: String,
+    field: LangField,
+    values: Signal<LangValues>,
+    #[props(default)] readonly: bool,
+    #[props(default)] class: String,
+) -> Element {
+    let mut open = use_signal(|| false);
+    // 開啟視窗時的內容，按「放棄」時還原
+    let mut before = use_signal(LangValues::default);
+    let lang = current();
+    let key = field.key;
+    let value = values.read().get(lang, key);
+    // 介面語系空白時，提示顯示時會退回的繁中內容
+    let placeholder = if lang == UiLang::ZhTw || readonly {
+        String::new()
+    } else {
+        values.read().get(UiLang::ZhTw, key)
+    };
+    let filled = UiLang::ALL
+        .into_iter()
+        .filter(|l| values.read().opt(*l, key).is_some())
+        .count();
+    let title = tf(
+        "common-multilingual-title",
+        &[("field", field.label.as_str())],
+    );
+    let mut cancel = move || {
+        values.set(before());
+        open.set(false);
+    };
+    rsx! {
+        div { class: "md-multilingual-inline {class}",
+            TextField {
+                id: format!("{id}-{}", lang.code()),
+                label: field.label.clone(),
+                readonly,
+                maxlength: field.maxlength,
+                placeholder,
+                value,
+                oninput: move |v: String| values.write().set(lang, key, v),
+            }
+            div { class: "md-multilingual-inline__button",
+                IconButton {
+                    label: tf("common-multilingual-open", &[("count", filled.to_string().as_str())]),
+                    path: icons::TRANSLATE,
+                    onclick: move |_| {
+                        before.set(values());
+                        open.set(true);
+                    },
+                }
+                span { class: "md-multilingual-inline__count", "{filled}/{UiLang::ALL.len()}" }
+            }
+        }
+        if open() {
+            Dialog {
+                title,
+                oncancel: move |_| cancel(),
+                actions: rsx! {
+                    if readonly {
+                        Button { variant: ButtonVariant::Text, onclick: move |_| open.set(false), {t("common-action-close")} }
+                    } else {
+                        Button { variant: ButtonVariant::Text, onclick: move |_| cancel(), {t("common-action-cancel")} }
+                        Button { onclick: move |_| open.set(false), {t("common-action-ok")} }
+                    }
+                },
+                MultilingualField { id: format!("{id}-dialog"), fields: vec![field.clone()], values, readonly }
             }
         }
     }
