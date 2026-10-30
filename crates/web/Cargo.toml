@@ -8,6 +8,8 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+# 介面多語言（ADR 0005）：Fluent 翻譯檔
+fluent-bundle = "0.16"
 ttrs-shared.workspace = true
 dioxus.workspace = true
 reqwest.workspace = true

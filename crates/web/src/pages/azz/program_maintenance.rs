@@ -27,15 +27,15 @@ const LEDGER_MODULES: [&str; 4] = ["AGL", "CGL", "GGL", "CGGL"];
 
 /// zz03 程式類別（4fd ComboBox 選項）
 const PROGRAM_TYPES: [(&str, &str); 9] = [
-    ("I", "I：輸入/建立"),
-    ("M", "M：選單"),
-    ("O", "O：其他"),
-    ("P", "P：處理/批次"),
-    ("Q", "Q：查詢"),
-    ("R", "R：報表"),
-    ("S", "S：系統參數"),
-    ("T", "T：交易"),
-    ("U", "U：更新"),
+    ("I", "program-opt-type-i"),
+    ("M", "program-opt-type-m"),
+    ("O", "program-opt-type-o"),
+    ("P", "program-opt-type-p"),
+    ("Q", "program-opt-type-q"),
+    ("R", "program-opt-type-r"),
+    ("S", "program-opt-type-s"),
+    ("T", "program-opt-type-t"),
+    ("U", "program-opt-type-u"),
 ];
 
 /// zz27 視窗型態（4fd ComboBox 選項）
@@ -44,15 +44,20 @@ const WINDOW_STYLES: [&str; 13] = [
     "view", "lib",
 ];
 
-const UPPER_TABS: [&str; 2] = ["基本資料", "資料擁有者"];
-const LOWER_TABS: [&str; 4] = ["資料、權限設定", "列印設定", "閒置設定", "其他設定"];
+const UPPER_TABS: [&str; 2] = ["program-tab-basic", "program-tab-owner"];
+const LOWER_TABS: [&str; 4] = [
+    "program-tab-data",
+    "program-tab-print",
+    "program-tab-idle",
+    "program-tab-other",
+];
 
 /// 清單每頁筆數（QBE7）
 const PAGE_SIZE: u32 = 50;
 
-const HINT_FLAG: &str = "Y 或 N";
-const HINT_DATE: &str = "2026/10/29 或 2026/10/01:2026/10/31";
-const HINT_NUMBER: &str = "例：132、100:200、>80";
+const HINT_FLAG: &str = "qbe-hint-flag";
+const HINT_DATE: &str = "qbe-hint-date";
+const HINT_NUMBER: &str = "qbe-hint-number";
 
 #[derive(Clone, Copy, PartialEq)]
 enum Mode {
@@ -157,7 +162,10 @@ pub fn ProgramMaintenance() -> Element {
                 _ => api::create_program(&req).await,
             };
             match result {
-                Ok(p) => done(tf("已儲存 {}", &[&p.program_no]), Some(p)),
+                Ok(p) => done(
+                    tf("program-msg-saved", &[("no", p.program_no.as_str())]),
+                    Some(p),
+                ),
                 Err(e) => error.set(Some(e)),
             }
         });
@@ -189,9 +197,12 @@ pub fn ProgramMaintenance() -> Element {
                     if page.total == 0 {
                         pos.set(None);
                         show(None);
-                        message.set(Some(t("查無符合條件的資料").to_owned()));
+                        message.set(Some(t("query-msg-none").to_owned()));
                     } else {
-                        message.set(Some(tf("共 {} 筆符合條件", &[&page.total.to_string()])));
+                        message.set(Some(tf(
+                            "query-msg-matched",
+                            &[("count", page.total.to_string().as_str())],
+                        )));
                         mode.set(Mode::View);
                         go(0);
                     }
@@ -208,7 +219,7 @@ pub fn ProgramMaintenance() -> Element {
                 Ok(()) => {
                     pos.set(None);
                     done(
-                        tf("已刪除 {}（含名稱、權限、選單）", &[&p.program_no]),
+                        tf("program-msg-deleted", &[("no", p.program_no.as_str())]),
                         None,
                     );
                 }
@@ -224,7 +235,13 @@ pub fn ProgramMaintenance() -> Element {
                 Ok(n) => {
                     new_no.set(String::new());
                     done(
-                        tf("已將 {} 複製為 {}", &[&p.program_no, &n.program_no]),
+                        tf(
+                            "program-msg-copied",
+                            &[
+                                ("from", p.program_no.as_str()),
+                                ("to", n.program_no.as_str()),
+                            ],
+                        ),
                         Some(n),
                     );
                 }
@@ -239,7 +256,10 @@ pub fn ProgramMaintenance() -> Element {
             match api::grant_permission(&p.program_no, &grant_class()).await {
                 Ok(()) => {
                     grant_class.set(String::new());
-                    done(tf("已為 {} 設定權限", &[&p.program_no]), Some(p));
+                    done(
+                        tf("program-msg-granted", &[("no", p.program_no.as_str())]),
+                        Some(p),
+                    );
                 }
                 Err(e) => error.set(Some(e)),
             }
@@ -271,33 +291,33 @@ pub fn ProgramMaintenance() -> Element {
     rsx! {
         div { class: "page",
             div { class: "page-header",
-                div { class: "program-id", {t("系統管理 / Program Maintenance")} }
-                h2 { {t("程式維護")} }
+                div { class: "program-id", {t("program-breadcrumb")} }
+                h2 { {t("program-title")} }
             }
 
             // ----- 動作列 -----
             div { class: "action-bar",
                 match mode() {
                     Mode::New | Mode::Edit => rsx! {
-                        Button { onclick: save, {t("確定")} }
+                        Button { onclick: save, {t("common-action-ok")} }
                         Button {
                             variant: ButtonVariant::Text,
                             onclick: move |_| {
                                 error.set(None);
                                 show(current());
                             },
-                            {t("放棄")}
+                            {t("common-action-cancel")}
                         }
                     },
                     Mode::Query => rsx! {
-                        Button { onclick: run_query, {t("確定")} }
+                        Button { onclick: run_query, {t("common-action-ok")} }
                         Button {
                             variant: ButtonVariant::Text,
                             onclick: move |_| {
                                 error.set(None);
                                 show(current());
                             },
-                            {t("放棄")}
+                            {t("common-action-cancel")}
                         }
                     },
                     Mode::View => rsx! {
@@ -310,7 +330,7 @@ pub fn ProgramMaintenance() -> Element {
                                 mode.set(Mode::Query);
                                 upper_tab.set(0);
                             },
-                            {t("查詢")}
+                            {t("common-action-query")}
                         }
                         Button {
                             onclick: move |_| {
@@ -320,24 +340,24 @@ pub fn ProgramMaintenance() -> Element {
                                 mode.set(Mode::New);
                                 upper_tab.set(0);
                             },
-                            {t("新增")}
+                            {t("common-action-new")}
                         }
                         Button {
                             variant: ButtonVariant::Tonal,
                             disabled: no_cur,
                             onclick: move |_| mode.set(Mode::Edit),
-                            {t("修改")}
+                            {t("common-action-edit")}
                         }
                         Button {
                             variant: ButtonVariant::Error,
                             disabled: no_cur,
                             onclick: delete,
-                            {t("刪除")}
+                            {t("common-action-delete")}
                         }
                         div { class: "spacer" }
                         TextField {
                             id: "new-no",
-                            label: t("複製為新代號"),
+                            label: t("program-field-copy-as"),
                             value: new_no(),
                             disabled: no_cur,
                             oninput: move |v| new_no.set(v),
@@ -346,7 +366,7 @@ pub fn ProgramMaintenance() -> Element {
                             variant: ButtonVariant::Outlined,
                             disabled: no_cur,
                             onclick: copy,
-                            {t("複製")}
+                            {t("common-action-copy")}
                         }
                     },
                 }
@@ -354,7 +374,7 @@ pub fn ProgramMaintenance() -> Element {
 
             if q {
                 p { class: "query-hint",
-                    {t("查詢模式：在欄位輸入條件後按「確定」。例：aim*（開頭）、aimi10?（單一字元）、a|b（或）、100:200（範圍）、>x、<>x、=（空值）；不輸入即查全部。")}
+                    {t("query-hint")}
                 }
             }
 
@@ -362,13 +382,13 @@ pub fn ProgramMaintenance() -> Element {
             if mode() == Mode::View && total > 0 {
                 div { class: "record-nav",
                     IconButton {
-                        label: t("第一筆"),
+                        label: t("nav-first"),
                         path: icons::FIRST_PAGE,
                         disabled: pos() == Some(0),
                         onclick: move |_| go(0),
                     }
                     IconButton {
-                        label: t("上一筆"),
+                        label: t("nav-previous"),
                         path: icons::CHEVRON_LEFT,
                         disabled: pos().is_none_or(|i| i == 0),
                         onclick: move |_| {
@@ -379,18 +399,18 @@ pub fn ProgramMaintenance() -> Element {
                     }
                     span { class: "record-nav__count",
                         match pos() {
-                            Some(i) => rsx! { {tf("第 {} / {} 筆", &[&(i + 1).to_string(), &total.to_string()])} },
-                            None => rsx! { {tf("共 {} 筆", &[&total.to_string()])} },
+                            Some(i) => rsx! { {tf("nav-record-position", &[("pos", (i + 1).to_string().as_str()), ("total", total.to_string().as_str())])} },
+                            None => rsx! { {tf("nav-record-count", &[("total", total.to_string().as_str())])} },
                         }
                     }
                     IconButton {
-                        label: t("下一筆"),
+                        label: t("nav-next"),
                         path: icons::CHEVRON_RIGHT,
                         disabled: pos().is_some_and(|i| i + 1 >= total),
                         onclick: move |_| go(pos().map_or(0, |i| i + 1)),
                     }
                     IconButton {
-                        label: t("最後一筆"),
+                        label: t("nav-last"),
                         path: icons::LAST_PAGE,
                         disabled: pos() == Some(total - 1),
                         onclick: move |_| go(total - 1),
@@ -398,7 +418,7 @@ pub fn ProgramMaintenance() -> Element {
                     TextField {
                         id: "jump",
                         class: "record-nav__jump",
-                        label: t("跳至第幾筆"),
+                        label: t("nav-jump-to"),
                         input_type: "number",
                         value: jump(),
                         oninput: move |v| jump.set(v),
@@ -411,10 +431,10 @@ pub fn ProgramMaintenance() -> Element {
                                     jump.set(String::new());
                                     go(n - 1);
                                 }
-                                _ => error.set(Some(tf("請輸入 1 到 {} 之間的筆數", &[&total.to_string()]))),
+                                _ => error.set(Some(tf("nav-jump-invalid", &[("total", total.to_string().as_str())]))),
                             }
                         },
-                        {t("跳至")}
+                        {t("nav-jump")}
                     }
                 }
             }
@@ -432,33 +452,33 @@ pub fn ProgramMaintenance() -> Element {
                 div { class: "card-body",
                     if upper_tab() == 0 {
                         div { class: "form-grid cols-4",
-                            Q { field: "program_no", label: t("程式代號"), query: q, qbe,
+                            Q { field: "program_no", label: t("program-field-program-no"), query: q, qbe,
                                 TextField {
                                     id: "zz01",
                                     maxlength: Some(max_len::PROGRAM_NO),
-                                    label: t("程式代號"),
+                                    label: t("program-field-program-no"),
                                     value: f.program_no.clone(),
                                     // 修改時也可改代號（:1124 g_chkey；Q2 一律允許），存檔時連動選單與權限
                                     readonly: ro,
                                     oninput: move |v| form.write().program_no = v,
                                 }
                             }
-                            Q { field: "module_code", label: t("模組代號"), query: q, qbe,
+                            Q { field: "module_code", label: t("program-field-module"), query: q, qbe,
                                 TextField {
                                     id: "zz011",
                                     maxlength: Some(max_len::MODULE_CODE),
-                                    label: t("模組代號"),
+                                    label: t("program-field-module"),
                                     value: f.module_code.clone(),
                                     readonly: ro,
                                     oninput: move |v| form.write().module_code = v,
                                 }
                             }
-                            Q { field: "name", label: t("程式名稱"), class: "span-2", query: q, qbe,
+                            Q { field: "name", label: t("program-field-name"), class: "span-2", query: q, qbe,
                                 TextField {
                                     id: "gaz03",
                                     maxlength: Some(max_len::NAME),
                                     class: "span-2",
-                                    label: t("程式名稱"),
+                                    label: t("program-field-name"),
                                     value: f.name.clone().unwrap_or_default(),
                                     readonly: ro,
                                     oninput: move |v| form.write().name = non_empty(v),
@@ -467,17 +487,17 @@ pub fn ProgramMaintenance() -> Element {
                         }
                     } else {
                         div { class: "form-grid cols-4",
-                            Q { field: "created_by", label: t("資料所有者"), query: q, qbe,
-                                TextField { id: "zzuser", label: t("資料所有者"), readonly: true, value: cur.as_ref().map(|p| p.created_by.clone()).unwrap_or_default() }
+                            Q { field: "created_by", label: t("program-field-created-by"), query: q, qbe,
+                                TextField { id: "zzuser", label: t("program-field-created-by"), readonly: true, value: cur.as_ref().map(|p| p.created_by.clone()).unwrap_or_default() }
                             }
-                            Q { field: "updated_by", label: t("最後修改者"), query: q, qbe,
-                                TextField { id: "zzmodu", label: t("最後修改者"), readonly: true, value: cur.as_ref().and_then(|p| p.updated_by.clone()).unwrap_or_default() }
+                            Q { field: "updated_by", label: t("program-field-updated-by"), query: q, qbe,
+                                TextField { id: "zzmodu", label: t("program-field-updated-by"), readonly: true, value: cur.as_ref().and_then(|p| p.updated_by.clone()).unwrap_or_default() }
                             }
-                            Q { field: "created_dept", label: t("所屬部門"), query: q, qbe,
-                                TextField { id: "zzgrup", label: t("所屬部門"), readonly: true, value: cur.as_ref().map(|p| p.created_dept.clone()).unwrap_or_default() }
+                            Q { field: "created_dept", label: t("program-field-dept"), query: q, qbe,
+                                TextField { id: "zzgrup", label: t("program-field-dept"), readonly: true, value: cur.as_ref().map(|p| p.created_dept.clone()).unwrap_or_default() }
                             }
-                            Q { field: "updated_on", label: t("建立/修改日期"), hint: HINT_DATE, query: q, qbe,
-                                TextField { id: "zzdate", label: t("建立/修改日期"), readonly: true, value: cur.as_ref().map(|p| p.updated_on.to_string()).unwrap_or_default() }
+                            Q { field: "updated_on", label: t("program-field-updated-on"), hint: HINT_DATE, query: q, qbe,
+                                TextField { id: "zzdate", label: t("program-field-updated-on"), readonly: true, value: cur.as_ref().map(|p| p.updated_on.to_string()).unwrap_or_default() }
                             }
                         }
                     }
@@ -492,12 +512,12 @@ pub fn ProgramMaintenance() -> Element {
                         0 => rsx! {
                             div { class: "group-columns",
                                 section {
-                                    h3 { class: "form-section-title", {t("可執行功能")} }
+                                    h3 { class: "form-section-title", {t("program-section-actions")} }
                                     // zz04 不可查詢（:292）
                                     TextArea {
                                         id: "zz04",
                                         maxlength: Some(max_len::DEFAULT_ACTIONS),
-                                        label: if q { {t("功能代碼（不可查詢）")} } else { {t("功能代碼")} },
+                                        label: if q { {t("program-field-action-codes-noquery")} } else { {t("program-field-action-codes")} },
                                         rows: 12,
                                         readonly: ro,
                                         value: if q { String::new() } else { f.default_actions.clone().unwrap_or_default() },
@@ -506,42 +526,42 @@ pub fn ProgramMaintenance() -> Element {
                                 }
                                 div {
                                     section { class: "form-section",
-                                        h3 { class: "form-section-title", {t("設定")} }
+                                        h3 { class: "form-section-title", {t("program-section-settings")} }
                                         div { class: "form-grid",
-                                            Q { field: "program_group", label: t("程式群組"), query: q, qbe,
+                                            Q { field: "program_group", label: t("program-field-group"), query: q, qbe,
                                                 TextField {
                                                     id: "zz10",
                                                     maxlength: Some(max_len::PROGRAM_GROUP),
-                                                    label: t("程式群組"),
+                                                    label: t("program-field-group"),
                                                     readonly: ro,
                                                     value: f.program_group.clone().unwrap_or_default(),
                                                     oninput: move |v| form.write().program_group = non_empty(v),
                                                 }
                                             }
-                                            Q { field: "window_style", label: t("視窗型態"), hint: "例：sm1|main", query: q, qbe,
+                                            Q { field: "window_style", label: t("program-field-window-style"), hint: "例：sm1|main", query: q, qbe, // i18n-allow：QBE 條件值（資料）
                                                 Select {
                                                     id: "zz27",
-                                                    label: t("視窗型態"),
+                                                    label: t("program-field-window-style"),
                                                     options: with_blank("", WINDOW_STYLES.iter().map(|s| (s.to_string(), s.to_string()))),
                                                     value: f.window_style.clone().unwrap_or_default(),
                                                     readonly: ro,
                                                     onchange: move |v| form.write().window_style = non_empty(v),
                                                 }
                                             }
-                                            Q { field: "program_type", label: t("程式類別"), hint: "I M O P Q R S T U", query: q, qbe,
+                                            Q { field: "program_type", label: t("program-field-type"), hint: "I M O P Q R S T U", query: q, qbe,
                                                 Select {
                                                     id: "zz03",
-                                                    label: t("程式類別"),
-                                                    options: with_blank(t("依代號自動帶入"), PROGRAM_TYPES.iter().map(|(c, l)| (c.to_string(), t(l).to_string()))),
+                                                    label: t("program-field-type"),
+                                                    options: with_blank(&t("program-hint-type-auto"), PROGRAM_TYPES.iter().map(|(c, l)| (c.to_string(), t(l).to_string()))),
                                                     value: f.program_type.clone().unwrap_or_default(),
                                                     readonly: ro,
                                                     onchange: move |v| form.write().program_type = non_empty(v),
                                                 }
                                             }
-                                            Q { field: "designed_on", label: t("設計日期"), hint: HINT_DATE, query: q, qbe,
+                                            Q { field: "designed_on", label: t("program-field-designed-on"), hint: HINT_DATE, query: q, qbe,
                                                 TextField {
                                                     id: "zz09",
-                                                    label: t("設計日期"),
+                                                    label: t("program-field-designed-on"),
                                                     input_type: "date",
                                                     readonly: ro,
                                                     value: f.designed_on.map(|d| d.to_string()).unwrap_or_default(),
@@ -551,26 +571,26 @@ pub fn ProgramMaintenance() -> Element {
                                         }
                                     }
                                     section { class: "form-section",
-                                        h3 { class: "form-section-title", {t("執行設定")} }
+                                        h3 { class: "form-section-title", {t("program-section-execution")} }
                                         div { class: "form-grid",
-                                            Q { field: "run_command", label: t("UNIX 指令"), class: "span-all", query: q, qbe,
+                                            Q { field: "run_command", label: t("program-field-run-command"), class: "span-all", query: q, qbe,
                                                 TextField {
                                                     id: "zz08",
                                                     maxlength: Some(max_len::RUN_COMMAND),
                                                     class: "span-all mono",
-                                                    label: t("UNIX 指令"),
-                                                    placeholder: t("標準代號自動產生"),
+                                                    label: t("program-field-run-command"),
+                                                    placeholder: t("program-hint-run-command"),
                                                     readonly: ro,
                                                     value: f.run_command.clone().unwrap_or_default(),
                                                     oninput: move |v| form.write().run_command = non_empty(v),
                                                 }
                                             }
-                                            Q { field: "fixed_print_condition", label: t("固定列印條件"), class: "span-all", query: q, qbe,
+                                            Q { field: "fixed_print_condition", label: t("program-field-fixed-print-condition"), class: "span-all", query: q, qbe,
                                                 TextField {
                                                     id: "zz21",
                                                     maxlength: Some(max_len::FIXED_PRINT_CONDITION),
                                                     class: "span-all",
-                                                    label: t("固定列印條件"),
+                                                    label: t("program-field-fixed-print-condition"),
                                                     readonly: ro,
                                                     value: f.fixed_print_condition.clone().unwrap_or_default(),
                                                     oninput: move |v| form.write().fixed_print_condition = non_empty(v),
@@ -580,7 +600,7 @@ pub fn ProgramMaintenance() -> Element {
                                                 div { class: "span-all",
                                                     Checkbox {
                                                         id: "zz15",
-                                                        label: if is_ledger { {t("傳遞帳別參數給程式")} } else { {t("傳遞帳別參數給程式（僅總帳模組）")} },
+                                                        label: if is_ledger { {t("program-field-pass-book")} } else { {t("program-field-pass-book-gl-only")} },
                                                         checked: f.pass_book_no,
                                                         readonly: ro,
                                                         disabled: !is_ledger,
@@ -594,28 +614,28 @@ pub fn ProgramMaintenance() -> Element {
                             }
                             if let Some(p) = cur.as_ref().filter(|_| mode() == Mode::View) {
                                 section { class: "form-section",
-                                    h3 { class: "form-section-title", {t("群組權限")} }
+                                    h3 { class: "form-section-title", {t("program-section-permissions")} }
                                     div { class: "inline-items",
                                         match &*permissions.read() {
-                                            Some(Ok(list)) if list.is_empty() => rsx! { span { class: "muted", {t("尚未授權任何權限類別")} } },
+                                            Some(Ok(list)) if list.is_empty() => rsx! { span { class: "muted", {t("program-msg-no-grant")} } },
                                             Some(Ok(list)) => rsx! {
                                                 for c in list.iter() {
                                                     span { key: "{c}", class: "md-chip", "{c}" }
                                                 }
                                             },
                                             Some(Err(e)) => rsx! { span { class: "muted", "{e}" } },
-                                            None => rsx! { span { class: "muted", {t("載入中…")} } },
+                                            None => rsx! { span { class: "muted", {t("common-msg-loading")} } },
                                         }
                                     }
                                     if p.module_code != "MENU" {
                                         div { class: "action-bar grant-bar",
                                             TextField {
                                                 id: "grant-class",
-                                                label: t("權限類別"),
+                                                label: t("program-field-permission-class"),
                                                 value: grant_class(),
                                                 oninput: move |v| grant_class.set(v),
                                             }
-                                            Button { variant: ButtonVariant::Tonal, onclick: grant, {t("設定權限")} }
+                                            Button { variant: ButtonVariant::Tonal, onclick: grant, {t("program-action-grant")} }
                                         }
                                     }
                                 }
@@ -623,11 +643,11 @@ pub fn ProgramMaintenance() -> Element {
                         },
                         1 => rsx! {
                             div { class: "form-grid cols-4",
-                                Q { field: "report_type", label: t("報表類型"), hint: "憑證|明細表|統計表|追蹤表|無", query: q, qbe,
+                                Q { field: "report_type", label: t("program-field-report-type"), hint: "憑證|明細表|統計表|追蹤表|無", query: q, qbe, // i18n-allow：QBE 條件值（資料）
                                     Select {
                                         id: "zz14",
-                                        label: t("報表類型"),
-                                        options: enum_options(&ReportTypeDto::ALL, |v| t(ReportTypeDto::label(v))),
+                                        label: t("program-field-report-type"),
+                                        options: enum_options(&ReportTypeDto::ALL, |v| t(report_type_id(v))),
                                         value: index_of(&ReportTypeDto::ALL, f.report_type.unwrap_or_default()).to_string(),
                                         readonly: ro,
                                         onchange: move |v: String| {
@@ -640,29 +660,29 @@ pub fn ProgramMaintenance() -> Element {
                                     TextField {
                                         id: "gaz06",
                                         maxlength: Some(max_len::REPORT_TITLE),
-                                        label: t("報表抬頭"),
+                                        label: t("program-field-report-title"),
                                         readonly: ro,
                                         value: f.report_title.clone().unwrap_or_default(),
                                         oninput: move |v| form.write().report_title = non_empty(v),
                                     }
                                 }
-                                Q { field: "fixed_print_method", label: t("固定列印方式"), query: q, qbe,
+                                Q { field: "fixed_print_method", label: t("program-field-fixed-print-method"), query: q, qbe,
                                     TextField {
                                         id: "zz22",
                                         maxlength: Some(max_len::FIXED_PRINT_METHOD),
-                                        label: t("固定列印方式"),
+                                        label: t("program-field-fixed-print-method"),
                                         readonly: ro,
                                         value: f.fixed_print_method.clone().unwrap_or_default(),
                                         oninput: move |v| form.write().fixed_print_method = non_empty(v),
                                     }
                                 }
-                                Q { field: "report_ext_mode", label: t("報表副檔名"), hint: "固定|動態", query: q, qbe,
+                                Q { field: "report_ext_mode", label: t("program-field-report-ext"), hint: "固定|動態", query: q, qbe, // i18n-allow：QBE 條件值（資料）
                                     Select {
                                         id: "zz06",
-                                        label: t("報表副檔名"),
+                                        label: t("program-field-report-ext"),
                                         options: vec![
-                                            ("0".to_string(), t("固定副檔名（*.out）").to_string()),
-                                            ("1".to_string(), t("動態副檔名（*.xxr）").to_string()),
+                                            ("0".to_string(), t("program-opt-ext-fixed").to_string()),
+                                            ("1".to_string(), t("program-opt-ext-dynamic").to_string()),
                                         ],
                                         value: index_of(&ReportExtModeDto::ALL, f.report_ext_mode.unwrap_or(ReportExtModeDto::Fixed)).to_string(),
                                         readonly: ro,
@@ -671,20 +691,20 @@ pub fn ProgramMaintenance() -> Element {
                                         },
                                     }
                                 }
-                                Q { field: "report_width", label: t("報表寬度"), hint: HINT_NUMBER, query: q, qbe,
-                                    NumberField { id: "zz17", label: t("報表寬度"), value: f.report_width, readonly: ro, onchange: move |v| form.write().report_width = v }
+                                Q { field: "report_width", label: t("program-field-report-width"), hint: HINT_NUMBER, query: q, qbe,
+                                    NumberField { id: "zz17", label: t("program-field-report-width"), value: f.report_width, readonly: ro, onchange: move |v| form.write().report_width = v }
                                 }
-                                Q { field: "current_print_count", label: t("已列印次數"), hint: HINT_NUMBER, query: q, qbe,
-                                    NumberField { id: "zz16", label: t("已列印次數"), value: f.current_print_count, readonly: ro, onchange: move |v| form.write().current_print_count = v }
+                                Q { field: "current_print_count", label: t("program-field-printed"), hint: HINT_NUMBER, query: q, qbe,
+                                    NumberField { id: "zz16", label: t("program-field-printed"), value: f.current_print_count, readonly: ro, onchange: move |v| form.write().current_print_count = v }
                                 }
-                                Q { field: "deferred_print_count", label: t("延後列印次數"), hint: HINT_NUMBER, query: q, qbe,
-                                    NumberField { id: "zz07", label: t("延後列印次數"), value: f.deferred_print_count, readonly: ro, onchange: move |v| form.write().deferred_print_count = v }
+                                Q { field: "deferred_print_count", label: t("program-field-deferred"), hint: HINT_NUMBER, query: q, qbe,
+                                    NumberField { id: "zz07", label: t("program-field-deferred"), value: f.deferred_print_count, readonly: ro, onchange: move |v| form.write().deferred_print_count = v }
                                 }
-                                Q { field: "print_conditions", label: t("報表結束時列印查詢條件"), hint: HINT_FLAG, query: q, qbe,
+                                Q { field: "print_conditions", label: t("program-field-print-conditions"), hint: HINT_FLAG, query: q, qbe,
                                     div { class: "span-all",
                                         Checkbox {
                                             id: "zz05",
-                                            label: t("報表結束時列印查詢條件"),
+                                            label: t("program-field-print-conditions"),
                                             checked: f.print_conditions,
                                             readonly: ro,
                                             onchange: move |v| form.write().print_conditions = v,
@@ -695,15 +715,15 @@ pub fn ProgramMaintenance() -> Element {
                         },
                         2 => rsx! {
                             div { class: "form-grid cols-4",
-                                Q { field: "idle_control", label: t("閒置控制"), hint: "不控制|由程式|依系統", class: "span-2", query: q, qbe,
+                                Q { field: "idle_control", label: t("program-field-idle-control"), hint: "不控制|由程式|依系統", class: "span-2", query: q, qbe, // i18n-allow：QBE 條件值（資料）
                                     div { class: "span-2",
                                         Select {
                                             id: "zz28",
-                                            label: t("閒置控制"),
+                                            label: t("program-field-idle-control"),
                                             options: vec![
-                                                ("0".to_string(), t("不控制").to_string()),
-                                                ("1".to_string(), t("由程式設定閒置時間").to_string()),
-                                                ("2".to_string(), t("依整體系統設定").to_string()),
+                                                ("0".to_string(), t("program-opt-idle-off").to_string()),
+                                                ("1".to_string(), t("program-opt-idle-program").to_string()),
+                                                ("2".to_string(), t("program-opt-idle-system").to_string()),
                                             ],
                                             value: index_of(&IdleControlDto::ALL, f.idle_control.unwrap_or_default()).to_string(),
                                             readonly: ro,
@@ -713,21 +733,21 @@ pub fn ProgramMaintenance() -> Element {
                                         }
                                     }
                                 }
-                                Q { field: "idle_seconds", label: t("閒置時間（秒）"), hint: HINT_NUMBER, query: q, qbe,
+                                Q { field: "idle_seconds", label: t("program-field-idle-seconds"), hint: HINT_NUMBER, query: q, qbe,
                                     NumberField {
                                         id: "zz30",
-                                        label: t("閒置時間（秒）"),
+                                        label: t("program-field-idle-seconds"),
                                         value: f.idle_seconds,
                                         readonly: ro,
                                         disabled: !by_program,
                                         onchange: move |v| form.write().idle_seconds = v,
                                     }
                                 }
-                                Q { field: "idle_action", label: t("閒置處理"), hint: "僅警告|警告後關閉|直接關閉", class: "span-all", query: q, qbe,
+                                Q { field: "idle_action", label: t("program-field-idle-action"), hint: "僅警告|警告後關閉|直接關閉", class: "span-all", query: q, qbe, // i18n-allow：QBE 條件值（資料）
                                     div { class: "span-all",
                                         RadioGroup {
                                             name: "zz29",
-                                            legend: t("閒置處理"),
+                                            legend: t("program-field-idle-action"),
                                             options: IdleActionDto::ALL.iter().enumerate().map(|(i, a)| (i.to_string(), idle_action_text(*a).to_string())).collect::<Vec<_>>(),
                                             value: f.idle_action.map(|a| index_of(&IdleActionDto::ALL, a).to_string()),
                                             readonly: ro,
@@ -743,30 +763,30 @@ pub fn ProgramMaintenance() -> Element {
                         _ => rsx! {
                             div { class: "group-columns",
                                 section {
-                                    h3 { class: "form-section-title", {t("執行選項")} }
+                                    h3 { class: "form-section-title", {t("program-section-options")} }
                                     div { class: if q { "form-grid" } else { "check-list" },
-                                        Q { field: "log_errors", label: t("錯誤訊息寫入記錄檔"), hint: HINT_FLAG, query: q, qbe,
+                                        Q { field: "log_errors", label: t("program-field-log-errors"), hint: HINT_FLAG, query: q, qbe,
                                             Checkbox {
                                                 id: "zz26",
-                                                label: t("錯誤訊息寫入記錄檔"),
+                                                label: t("program-field-log-errors"),
                                                 checked: f.log_errors,
                                                 readonly: ro,
                                                 onchange: move |v| form.write().log_errors = v,
                                             }
                                         }
-                                        Q { field: "allow_key_update", label: t("維護作業可修改鍵值"), hint: HINT_FLAG, query: q, qbe,
+                                        Q { field: "allow_key_update", label: t("program-field-allow-key-update"), hint: HINT_FLAG, query: q, qbe,
                                             Checkbox {
                                                 id: "zz13",
-                                                label: t("維護作業可修改鍵值"),
+                                                label: t("program-field-allow-key-update"),
                                                 checked: f.allow_key_update,
                                                 readonly: ro,
                                                 onchange: move |v| form.write().allow_key_update = v,
                                             }
                                         }
-                                        Q { field: "sql_explain", label: t("SQL 執行計畫（Set explain on）"), hint: HINT_FLAG, query: q, qbe,
+                                        Q { field: "sql_explain", label: t("program-field-sql-explain"), hint: HINT_FLAG, query: q, qbe,
                                             Checkbox {
                                                 id: "zz25",
-                                                label: t("SQL 執行計畫（Set explain on）"),
+                                                label: t("program-field-sql-explain"),
                                                 checked: f.sql_explain,
                                                 readonly: ro,
                                                 onchange: move |v| form.write().sql_explain = v,
@@ -775,12 +795,12 @@ pub fn ProgramMaintenance() -> Element {
                                     }
                                 }
                                 section {
-                                    h3 { class: "form-section-title", {t("其他備註")} }
-                                    Q { field: "remark", label: t("備註"), query: q, qbe,
+                                    h3 { class: "form-section-title", {t("program-section-memo")} }
+                                    Q { field: "remark", label: t("program-field-remark"), query: q, qbe,
                                         TextArea {
                                             id: "zz31",
                                             maxlength: Some(max_len::REMARK),
-                                            label: t("備註"),
+                                            label: t("program-field-remark"),
                                             rows: 6,
                                             readonly: ro,
                                             value: f.remark.clone().unwrap_or_default(),
@@ -797,26 +817,36 @@ pub fn ProgramMaintenance() -> Element {
             // ----- 瀏覽清單（查詢結果，分頁） -----
             Card {
                 div { class: "table-header",
-                    h3 { {t("程式清單")} }
+                    h3 { {t("program-list-title")} }
                     p {
-                        if filtered { {tf("依查詢條件共 {} 筆", &[&total.to_string()])} } else { {tf("全部共 {} 筆", &[&total.to_string()])} }
-                        {t("，點選一筆以檢視或修改")}
+                        if filtered { {tf("list-count-filtered", &[("total", total.to_string().as_str())])} } else { {tf("list-count-all", &[("total", total.to_string().as_str())])} }
+                        {t("list-hint-click")}
                     }
                 }
                 div { class: "table-scroll",
                     table { class: "md-table",
                         thead {
                             tr {
-                                for h in ["程式代號", "程式名稱", "模組", "類別", "報表類型", "UNIX 指令", "最後修改日期"].map(t) {
+                                for h in [
+                                    "program-field-program-no",
+                                    "program-field-name",
+                                    "program-col-module",
+                                    "program-col-type",
+                                    "program-field-report-type",
+                                    "program-field-run-command",
+                                    "program-col-updated-on",
+                                ]
+                                .map(t)
+                                {
                                     th { key: "{h}", "{h}" }
                                 }
                             }
                         }
                         tbody {
                             match &*programs.read() {
-                                None => rsx! { tr { td { colspan: 7, {t("載入中…")} } } },
-                                Some(Err(e)) => rsx! { tr { td { colspan: 7, {tf("無法載入程式：{}", &[e])} } } },
-                                Some(Ok(page)) if page.items.is_empty() => rsx! { tr { td { colspan: 7, class: "muted", {t("查無資料")} } } },
+                                None => rsx! { tr { td { colspan: 7, {t("common-msg-loading")} } } },
+                                Some(Err(e)) => rsx! { tr { td { colspan: 7, {tf("program-msg-load-failed", &[("error", e.as_str())])} } } },
+                                Some(Ok(page)) if page.items.is_empty() => rsx! { tr { td { colspan: 7, class: "muted", {t("common-msg-no-data")} } } },
                                 Some(Ok(page)) => {
                                     let offset = u64::from(page.page - 1) * u64::from(page.page_size);
                                     rsx! {
@@ -836,7 +866,7 @@ pub fn ProgramMaintenance() -> Element {
                                                 td { {p.name.clone().unwrap_or_default()} }
                                                 td { "{p.module_code}" }
                                                 td { {p.program_type.clone().unwrap_or_default()} }
-                                                td { {t(p.report_type.label())} }
+                                                td { {t(report_type_id(p.report_type))} }
                                                 td { class: "mono", {p.run_command.clone().unwrap_or_default()} }
                                                 td { "{p.updated_on}" }
                                             }
@@ -848,15 +878,15 @@ pub fn ProgramMaintenance() -> Element {
                     }
                 }
                 div { class: "table-footer",
-                    span { {tf("第 {} / {} 頁", &[&list_page().to_string(), &pages.to_string()])} }
+                    span { {tf("list-page-position", &[("page", list_page().to_string().as_str()), ("pages", pages.to_string().as_str())])} }
                     IconButton {
-                        label: t("上一頁"),
+                        label: t("list-page-previous"),
                         path: icons::CHEVRON_LEFT,
                         disabled: list_page() <= 1,
                         onclick: move |_| list_page -= 1,
                     }
                     IconButton {
-                        label: t("下一頁"),
+                        label: t("list-page-next"),
                         path: icons::CHEVRON_RIGHT,
                         disabled: list_page() >= pages,
                         onclick: move |_| list_page += 1,
@@ -871,7 +901,7 @@ pub fn ProgramMaintenance() -> Element {
 #[component]
 fn Q(
     field: &'static str,
-    label: &'static str,
+    label: String,
     query: bool,
     qbe: Qbe,
     #[props(default)] hint: &'static str,
@@ -918,20 +948,31 @@ fn NumberField(
     }
 }
 
-fn idle_action_text(a: IdleActionDto) -> &'static str {
+fn idle_action_text(a: IdleActionDto) -> String {
     match a {
-        IdleActionDto::WarnOnly => t("僅提出警告"),
-        IdleActionDto::WarnThenClose => t("警告後關閉程式"),
-        IdleActionDto::Close => t("直接關閉程式"),
+        IdleActionDto::WarnOnly => t("program-opt-idle-warn"),
+        IdleActionDto::WarnThenClose => t("program-opt-idle-warn-close"),
+        IdleActionDto::Close => t("program-opt-idle-close"),
     }
 }
 
 /// 列舉轉成 Select 選項，值為索引
-fn enum_options<T: Copy>(all: &[T], label: fn(T) -> &'static str) -> Vec<(String, String)> {
+fn enum_options<T: Copy>(all: &[T], label: impl Fn(T) -> String) -> Vec<(String, String)> {
     all.iter()
         .enumerate()
-        .map(|(i, v)| (i.to_string(), label(*v).to_owned()))
+        .map(|(i, v)| (i.to_string(), label(*v)))
         .collect()
+}
+
+/// 報表類型的翻譯 ID（顯示用；QBE 條件值仍為繁中名稱或代碼）
+fn report_type_id(v: ReportTypeDto) -> &'static str {
+    match v {
+        ReportTypeDto::Voucher => "report-type-voucher",
+        ReportTypeDto::Detail => "report-type-detail",
+        ReportTypeDto::Statistics => "report-type-statistics",
+        ReportTypeDto::Tracking => "report-type-tracking",
+        ReportTypeDto::None => "report-type-none",
+    }
 }
 
 /// 在選項前加一個空白值（代表未設定）

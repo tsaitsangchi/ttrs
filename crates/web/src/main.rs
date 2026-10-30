@@ -60,14 +60,14 @@ fn Shell() -> Element {
         div { class: "shell md-theme-light", lang: current.code(),
             nav { class: "sidebar",
                 h1 { "TTRS ERP" }
-                Link { active_class: "active", to: Route::Home {}, {t("首頁")} }
-                p { class: "group", {t("庫存管理 (aim)")} }
-                Link { active_class: "active", to: Route::ItemList {}, {t("aimi100 料件基本資料")} }
-                p { class: "group", {t("系統管理 (azz)")} }
-                Link { active_class: "active", to: Route::ProgramMaintenance {}, title: t("程式維護"), "Program Maintenance" }
-                Link { active_class: "active", to: Route::DataDictionary {}, title: t("資料字典維護"), "Data Dictionary" }
+                Link { active_class: "active", to: Route::Home {}, {t("shell-nav-home")} }
+                p { class: "group", {t("shell-group-aim")} }
+                Link { active_class: "active", to: Route::ItemList {}, {t("shell-nav-aimi100")} }
+                p { class: "group", {t("shell-group-azz")} }
+                Link { active_class: "active", to: Route::ProgramMaintenance {}, title: t("program-title"), "Program Maintenance" }
+                Link { active_class: "active", to: Route::DataDictionary {}, title: t("shell-nav-dictionary"), "Data Dictionary" }
                 div { class: "lang-switch",
-                    span { class: "group", {t("語言")} }
+                    span { class: "group", {t("shell-language")} }
                     div { class: "lang-options",
                         for l in UiLang::ALL {
                             button {

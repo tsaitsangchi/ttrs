@@ -243,7 +243,7 @@ pub fn RadioGroup(
 
 /// Primary tabs（4fd 的 PageControl）；內容由呼叫端依 `active` 自行切換
 #[component]
-pub fn Tabs(tabs: Vec<&'static str>, active: Signal<usize>) -> Element {
+pub fn Tabs(tabs: Vec<String>, active: Signal<usize>) -> Element {
     rsx! {
         div { class: "md-tabs", role: "tablist",
             for (i, t) in tabs.iter().enumerate() {

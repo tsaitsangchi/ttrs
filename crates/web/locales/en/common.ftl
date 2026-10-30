@@ -1,0 +1,39 @@
+# 共用：外框、動作、筆數與分頁、QBE 提示
+# 語系：en。ID 規則見 docs/adr/0005-i18n.md；三個語系的 ID 必須一致。
+
+shell-nav-home = Home
+shell-group-aim = Inventory (aim)
+shell-nav-aimi100 = aimi100 Item Master
+shell-group-azz = System Admin (azz)
+shell-nav-dictionary = Data Dictionary
+shell-language = Language
+common-action-ok = OK
+common-action-cancel = Cancel
+common-action-query = Query
+common-action-new = New
+common-action-edit = Edit
+common-action-delete = Delete
+common-action-copy = Copy
+nav-jump = Go
+nav-jump-to = Go to record #
+nav-first = First
+nav-previous = Previous
+nav-next = Next
+nav-last = Last
+list-page-previous = Previous page
+list-page-next = Next page
+common-msg-loading = Loading…
+query-msg-none = No matching records
+query-msg-matched = { $count } matching records
+nav-record-position = Record { $pos } of { $total }
+nav-record-count = { $total } records
+nav-jump-invalid = Enter a record number from 1 to { $total }
+list-count-filtered = { $total } records matching the query
+list-count-all = { $total } records in total
+list-hint-click = { " " }— click a row to view or edit
+common-msg-no-data = No data
+list-page-position = Page { $page } of { $pages }
+query-hint = Query mode: enter conditions in the fields, then press OK. e.g. aim* (prefix), aimi10? (one char), a|b (or), 100:200 (range), >x, <>x, = (empty). Leave blank to list all.
+qbe-hint-flag = Y or N
+qbe-hint-number = e.g. 132, 100:200, >80
+qbe-hint-date = 2026/10/29 or 2026/10/01:2026/10/31

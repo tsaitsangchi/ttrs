@@ -150,7 +150,7 @@ fn TableDetail(
                     on_error,
                 }
                 Card {
-                    Tabs { tabs: LANG_TABS.to_vec(), active: lang_tab }
+                    Tabs { tabs: LANG_TABS.iter().map(|s| s.to_string()).collect::<Vec<_>>(), active: lang_tab }
                     // 以語系為 key：切換語系時重新載入該語系的說明
                     for l in [lang_tab()] {
                         TableTextForm {
@@ -163,7 +163,7 @@ fn TableDetail(
                     }
                 }
                 Card {
-                    Tabs { tabs: DETAIL_TABS.to_vec(), active: detail_tab }
+                    Tabs { tabs: DETAIL_TABS.iter().map(|s| s.to_string()).collect::<Vec<_>>(), active: detail_tab }
                     div { class: "card-body",
                         match detail_tab() {
                             0 => rsx! {

@@ -61,6 +61,19 @@ bdd：驗收測試，執行 specs/features/**/*.feature
 - Migration 只能新增，不可修改已存在的檔案。
 - 不要自行猜測 TipTop 欄位意義；不確定時在 legacy-map 標 `verify: true` 並詢問使用者。
 
+## 多語言（ADR 0005）
+
+- 語系：`zh-TW`（預設、翻譯來源）、`en`、`zh-CN`；只用 `ttrs_domain::lang::Lang`，不自行定義語系清單。
+- **畫面文字一律經翻譯函式**，不可直接寫中文字串；翻譯放 `crates/web/locales/<語系>/*.ftl`，
+  ID 規則 `<範圍>-<類別>-<名稱>`（如 `program-field-program-no`、`common-action-query`），
+  三個語系的 ID 必須一致（`make check` 會檢查）。使用者輸入的資料值（如 QBE 條件值）不翻譯，
+  該行加 `// i18n-allow` 註記。畫面完成翻譯後，加入 `i18n.rs` 的 `translated_pages_have_no_hardcoded_chinese` 清單。
+- 錯誤訊息翻譯 ID 為 `error-<錯誤代碼>`，代碼與 `DomainError::code()` 一致；新增錯誤代碼時同時補三語翻譯。
+- **需多語言的業務資料**：每種資料一張 `<資料>_text` 表（鍵值＋`lang`，外鍵 CASCADE），
+  不建通用翻譯表；顯示時用共用退回規則（指定語系 → zh-TW → 空白），
+  API 以 `?lang=` 決定顯示語系並回傳所有語系清單；畫面用共用的 `MultilingualField` 元件。
+- 萃取 TipTop 規格時，遇到語言別欄位（如 gaz02、gat02、gaq02）照此規則對應，語言別 `0/1/2` → `zh-TW/en/zh-CN`。
+
 ## 常用指令
 
 ```bash

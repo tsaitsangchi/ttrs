@@ -1,0 +1,39 @@
+# 共用：外框、動作、筆數與分頁、QBE 提示
+# 語系：zh-CN。ID 規則見 docs/adr/0005-i18n.md；三個語系的 ID 必須一致。
+
+shell-nav-home = 首页
+shell-group-aim = 库存管理 (aim)
+shell-nav-aimi100 = aimi100 料件基本资料
+shell-group-azz = 系统管理 (azz)
+shell-nav-dictionary = 数据字典维护
+shell-language = 语言
+common-action-ok = 确定
+common-action-cancel = 放弃
+common-action-query = 查询
+common-action-new = 新增
+common-action-edit = 修改
+common-action-delete = 删除
+common-action-copy = 复制
+nav-jump = 跳至
+nav-jump-to = 跳至第几笔
+nav-first = 第一笔
+nav-previous = 上一笔
+nav-next = 下一笔
+nav-last = 最后一笔
+list-page-previous = 上一页
+list-page-next = 下一页
+common-msg-loading = 加载中…
+query-msg-none = 查无符合条件的数据
+query-msg-matched = 共 { $count } 笔符合条件
+nav-record-position = 第 { $pos } / { $total } 笔
+nav-record-count = 共 { $total } 笔
+nav-jump-invalid = 请输入 1 到 { $total } 之间的笔数
+list-count-filtered = 依查询条件共 { $total } 笔
+list-count-all = 全部共 { $total } 笔
+list-hint-click = ，点选一笔以查看或修改
+common-msg-no-data = 查无数据
+list-page-position = 第 { $page } / { $pages } 页
+query-hint = 查询模式：在栏位输入条件后按「确定」。例：aim*（开头）、aimi10?（单一字元）、a|b（或）、100:200（范围）、>x、<>x、=（空值）；不输入即查全部。
+qbe-hint-flag = Y 或 N
+qbe-hint-number = 例：132、100:200、>80
+qbe-hint-date = 2026/10/29 或 2026/10/01:2026/10/31
