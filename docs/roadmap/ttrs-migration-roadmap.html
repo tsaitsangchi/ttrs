@@ -1,0 +1,514 @@
+<title>TTRS 移轉藍圖</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single readable column (~72ch) for prose, with wide blocks (Gantt, tables) breaking out to ~1100px in their own scroll containers. */
+:root {
+  --paper: #f5f7fa;
+  --surface: #ffffff;
+  --ink: #1b2330;
+  --ink-soft: #4a5566;
+  --line: #d8dee6;
+  --rust: #b0451b;
+  --rust-soft: #f6e3da;
+  --steel: #1f6874;
+  --steel-soft: #dcecee;
+  --ok: #2f6b3a;
+  --ok-soft: #e0efe2;
+  --wait: #8a5a00;
+  --wait-soft: #f6ebd4;
+  --todo-soft: #e9edf2;
+  --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.1875rem;
+  --step-2: 1.5rem;
+  --step-3: 2.125rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #11151b;
+    --surface: #181d25;
+    --ink: #e5e9ef;
+    --ink-soft: #a6b0bf;
+    --line: #2c3440;
+    --rust: #e07a4b;
+    --rust-soft: #3a2419;
+    --steel: #5fb6c1;
+    --steel-soft: #17323a;
+    --ok: #7fc48a;
+    --ok-soft: #1b3020;
+    --wait: #e3b55a;
+    --wait-soft: #3a2f16;
+    --todo-soft: #232a34;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #11151b;
+  --surface: #181d25;
+  --ink: #e5e9ef;
+  --ink-soft: #a6b0bf;
+  --line: #2c3440;
+  --rust: #e07a4b;
+  --rust-soft: #3a2419;
+  --steel: #5fb6c1;
+  --steel-soft: #17323a;
+  --ok: #7fc48a;
+  --ok-soft: #1b3020;
+  --wait: #e3b55a;
+  --wait-soft: #3a2f16;
+  --todo-soft: #232a34;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.75;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.page { max-width: 1100px; margin: 0 auto; padding-block: 48px 96px; display: flex; flex-direction: column; gap: 56px; }
+.prose { max-width: 72ch; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.3; margin: 0; }
+h1 { font-size: var(--step-3); }
+h2 { font-size: var(--step-2); }
+h3 { font-size: var(--step-1); }
+p { margin: 0; }
+section { display: flex; flex-direction: column; gap: 20px; }
+.eyebrow { font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.08em; text-transform: uppercase; color: var(--rust); }
+.lede { font-size: var(--step-1); color: var(--ink-soft); max-width: 62ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.9em; }
+code { background: var(--todo-soft); padding: 0.05em 0.35em; border-radius: 4px; }
+a { color: var(--steel); }
+a:focus-visible, :focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+
+header.cover { display: flex; flex-direction: column; gap: 16px; border-bottom: 2px solid var(--ink); padding-bottom: 28px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.fact { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: flex; flex-direction: column; gap: 2px; }
+.fact b { font-family: var(--font-mono); font-size: var(--step-2); font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
+.fact span { color: var(--ink-soft); font-size: var(--step--1); }
+.note { font-size: var(--step--1); color: var(--ink-soft); }
+
+.scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9375rem; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+th { font-weight: 500; color: var(--ink-soft); font-size: var(--step--1); letter-spacing: 0.04em; background: var(--paper); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+td.k { white-space: nowrap; font-weight: 500; }
+td ul { margin: 0; padding-left: 1.1em; }
+td li + li { margin-top: 2px; }
+
+.chip { display: inline-block; font-size: 0.75rem; line-height: 1; padding: 5px 8px; border-radius: 999px; white-space: nowrap; font-weight: 500; }
+.chip.ok { background: var(--ok-soft); color: var(--ok); }
+.chip.wait { background: var(--wait-soft); color: var(--wait); }
+.chip.todo { background: var(--todo-soft); color: var(--ink-soft); }
+.chip.ai { background: var(--steel-soft); color: var(--steel); }
+.chip.human { background: var(--rust-soft); color: var(--rust); }
+
+/* Principles */
+.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.principle { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; }
+.principle header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.principle h3 { font-size: 1.0625rem; }
+.principle p { color: var(--ink-soft); font-size: 0.9375rem; }
+
+/* Gantt: 24 month columns on one scale */
+.gantt { min-width: 820px; padding: 16px 16px 12px; display: grid; grid-template-columns: 11.5rem repeat(24, minmax(0, 1fr)); row-gap: 8px; align-items: center; }
+.gantt .m { font-family: var(--font-mono); font-size: 0.6875rem; color: var(--ink-soft); text-align: center; font-variant-numeric: tabular-nums; border-left: 1px dashed var(--line); padding-bottom: 4px; }
+.gantt .lbl { font-size: 0.875rem; padding-right: 12px; line-height: 1.35; }
+.gantt .lbl small { display: block; font-family: var(--font-mono); font-size: 0.6875rem; color: var(--ink-soft); }
+.bar { height: 22px; border-radius: 4px; background: var(--steel); color: #fff; font-size: 0.6875rem; display: flex; align-items: center; padding: 0 8px; white-space: nowrap; overflow: hidden; }
+.bar.core { background: var(--rust); }
+.bar.cross { background: var(--ink-soft); }
+:root:not([data-theme="light"]) .bar { color: #0f1318; }
+.gantt .ms { font-size: 0.75rem; color: var(--rust); font-weight: 500; white-space: nowrap; }
+.gantt .ms::before { content: "◆ "; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: var(--step--1); color: var(--ink-soft); }
+.legend i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+
+/* Pipeline */
+.pipeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; counter-reset: step; }
+.stage { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 8px; counter-increment: step; }
+.stage h3 { font-size: 1rem; display: flex; gap: 8px; align-items: baseline; }
+.stage h3::before { content: counter(step); font-family: var(--font-mono); font-size: 0.8125rem; color: var(--rust); }
+.stage p { font-size: 0.875rem; color: var(--ink-soft); }
+.stage .who { display: flex; flex-wrap: wrap; gap: 6px; }
+.stage.gate { border-color: var(--rust); box-shadow: inset 3px 0 0 var(--rust); }
+
+/* Architecture stack */
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.layer { display: grid; grid-template-columns: 9rem 1fr; gap: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; align-items: baseline; }
+.layer.ai { border-color: var(--steel); background: var(--steel-soft); }
+.layer b { font-family: var(--font-display); font-size: 1rem; }
+.layer p { font-size: 0.9375rem; color: var(--ink-soft); }
+.layer p strong { color: var(--ink); font-weight: 500; }
+
+ol.actions { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 10px; }
+ol.actions li::marker { font-family: var(--font-mono); color: var(--rust); }
+ol.actions .when { font-family: var(--font-mono); font-size: var(--step--1); color: var(--ink-soft); margin-right: 8px; }
+
+footer { border-top: 1px solid var(--line); padding-top: 20px; font-size: var(--step--1); color: var(--ink-soft); }
+
+@media (max-width: 640px) {
+  .layer { grid-template-columns: 1fr; gap: 4px; }
+  h1 { font-size: 1.75rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="page">
+
+<header class="cover">
+  <div class="eyebrow">TipTop GP → Rust 全端 · 總計畫 v1 · 2026-10-30</div>
+  <h1>TTRS 移轉藍圖</h1>
+  <p class="lede">把鼎新 TipTop ERP（Genero 4GL＋Oracle）移轉為 Rust 全端系統。保留業務行為、不逐行翻譯，並把 AI 同時用在「怎麼開發」與「系統能做什麼」兩件事上。</p>
+  <div class="facts">
+    <div class="fact"><b>24 個月</b><span>總時程估算（Phase 0 盤點後校正）</span></div>
+    <div class="fact"><b>8 個階段</b><span>盤點、平台、主檔、供應鏈、製造、財務、報表與 AI、上線</span></div>
+    <div class="fact"><b>4–6 人</b><span>核心團隊＋AI agent，另需各模組 Key User</span></div>
+    <div class="fact"><b>126</b><span>目前 BDD 情境（記憶體與 PostgreSQL 皆通過）</span></div>
+  </div>
+  <p class="note">時程與人力為規劃假設。TipTop 原始碼目前只匯入 azz 模組的 2 支程式（p_zz、p_zta），實際程式數、客製數與使用率要在 Phase 0 完整匯入後才能定案，屆時重排本表。</p>
+</header>
+
+<section>
+  <div class="eyebrow">設計原則</div>
+  <h2>AI 世代的 ERP 長什麼樣子</h2>
+  <p class="prose">傳統 ERP 把規則藏在程式裡、把結構藏在資料庫裡，只有人能看懂。新系統的每一層都要讓人和 AI 都讀得懂、改得動、查得到。下面 8 條是所有階段共同遵守的原則，狀態標示目前專案的進度。</p>
+  <div class="principles">
+    <article class="principle">
+      <header><h3>規格是唯一需求來源</h3><span class="chip ok">已採用</span></header>
+      <p>業務規則寫成中文 Gherkin，Key User 確認後才實作。規格同時是需求、驗收測試與 AI 的工作說明，取代散落的口頭需求與 4GL 註解。</p>
+    </article>
+    <article class="principle">
+      <header><h3>結構與說明都是程式碼</h3><span class="chip wait">部分完成</span></header>
+      <p>資料表只由 migration 變更（不在畫面建表）；表與欄位的命名、說明放在版控檔案，跟著 PR 審查。<code>make check</code> 檢查新欄位必須有說明。</p>
+    </article>
+    <article class="principle">
+      <header><h3>語意層讓 AI 看懂資料</h3><span class="chip wait">已起步</span></header>
+      <p>資料字典＋TipTop 對照目錄（目前 161 表、1,633 欄位）＋規格，組成系統的語意層。AI 查詢、寫報表、移植作業都依賴它，而不是去猜 <code>zx07</code> 是什麼。</p>
+    </article>
+    <article class="principle">
+      <header><h3>API 優先，Agent 可呼叫</h3><span class="chip todo">待做</span></header>
+      <p>每個 use case 都是有 OpenAPI 描述的 API，畫面、PDA、外部系統共用。另提供 MCP 伺服器，讓 AI agent 在使用者權限內查資料、擬單據。</p>
+    </article>
+    <article class="principle">
+      <header><h3>人在迴路，AI 不直接過帳</h3><span class="chip todo">待做</span></header>
+      <p>AI 可以建議、填草稿、找異常，但確認、過帳、核准一律由人按下。所有 AI 產生的異動都標記來源並寫入稽核紀錄。</p>
+    </article>
+    <article class="principle">
+      <header><h3>全面多語言</h3><span class="chip ok">已採用</span></header>
+      <p>介面用 Fluent 翻譯檔、業務資料用 <code>&lt;資料&gt;_text</code> 表（ADR 0005）。繁中、英文、簡中三語同步，<code>make check</code> 擋漏翻。</p>
+    </article>
+    <article class="principle">
+      <header><h3>可觀測、可稽核</h3><span class="chip todo">待做</span></header>
+      <p>每筆業務異動留事件紀錄（誰、何時、改了什麼、來自人或 AI），API 有追蹤與指標。取代 TipTop 分散的 azo、zs、zu 紀錄檔。</p>
+    </article>
+    <article class="principle">
+      <header><h3>安全是預設值</h3><span class="chip wait">部分完成</span></header>
+      <p>單一 schema＋<code>plant_id</code>，以 PostgreSQL Row-Level Security 隔離營運中心。AI 查詢只走唯讀副本並套用同一套權限。TTRS 不連 TipTop 正式庫。</p>
+    </article>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">現況</div>
+  <h2>已經完成的基礎</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>項目</th><th>內容</th><th>狀態</th></tr></thead>
+      <tbody>
+        <tr><td class="k">平台骨架</td><td>Cargo workspace（domain / app / infra / api / web / shared / bdd），Axum＋SQLx＋PostgreSQL，Dioxus 0.7，nginx 反向代理</td><td><span class="chip ok">完成</span></td></tr>
+        <tr><td class="k">開發流程</td><td>萃取 → <code>@draft</code> 規格 → Key User 確認 → Red → Green → 對照 → <code>make check</code>；記憶體與 PostgreSQL 跑同一份規格</td><td><span class="chip ok">完成</span></td></tr>
+        <tr><td class="k">程式維護 p_zz</td><td>新增／修改／刪除／複製、QBE 查詢、上下筆、權限、三語名稱開窗輸入</td><td><span class="chip ok">完成</span></td></tr>
+        <tr><td class="k">資料字典 p_zta</td><td>依 p_zta.4fd 重做；欄位、索引、限制唯讀取自資料庫，不執行 DDL</td><td><span class="chip ok">完成</span></td></tr>
+        <tr><td class="k">多語言 ADR 0005</td><td>共用退回規則、<code>MultilingualField</code> 元件、全部畫面翻譯</td><td><span class="chip ok">完成</span></td></tr>
+        <tr><td class="k">設計系統</td><td>Material 3 元件庫（ADR 0004），色彩 token 自動產生</td><td><span class="chip ok">完成</span></td></tr>
+        <tr><td class="k">TipTop 工具</td><td>原始碼匯入腳本、.sch 資料目錄、唯讀 Oracle 用戶端（只連 TOPTEST）</td><td><span class="chip ok">完成</span></td></tr>
+        <tr><td class="k">TipTop 對照目錄</td><td>azz 161 表、1,633 欄位英文命名並匯入，可在資料字典查閱</td><td><span class="chip ok">完成</span></td></tr>
+        <tr><td class="k">aimi100 料件</td><td>示範用的料件新增、確認、取消確認；畫面仍是舊樣式</td><td><span class="chip wait">示範級</span></td></tr>
+        <tr><td class="k">完整原始碼</td><td>目前只匯入 azz 的 p_zz、p_zta；其他模組、lib/sub/qry 共用程式、topcust 客製尚未匯入</td><td><span class="chip todo">待做</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">目標架構</div>
+  <h2>由上到下的系統分層</h2>
+  <p class="prose">延續 ADR 0001：Rust 分層架構、HTTP API 是唯一入口。新增的是 AI 層與幾個取代 TipTop 共用設施的服務（工作流、背景作業、報表）。</p>
+  <div class="stack">
+    <div class="layer"><b>使用者體驗</b><p><strong>Dioxus</strong> 一份程式碼輸出 Web、桌面（取代 GDC）、倉庫 PDA。每個畫面內建 <strong>AI 助手面板</strong>：解釋欄位、依文件填草稿、回答「這張單為什麼卡住」。</p></div>
+    <div class="layer"><b>API</b><p><strong>Axum REST＋OpenAPI</strong> 給畫面與外部系統；<strong>MCP 伺服器</strong> 把同一批 use case 包成 agent 工具，強制套用呼叫者的權限。</p></div>
+    <div class="layer"><b>應用服務</b><p>各作業的 use case；共用服務取代 TipTop 設施：<strong>工作流與通知</strong>（gaf/gag/gah）、<strong>背景作業</strong>（p_cron、gde）、<strong>報表</strong>（CR、zaw/zaa）、<strong>文件附件</strong>（gca/gcb）。</p></div>
+    <div class="layer"><b>領域規則</b><p>純 Rust，無 IO；金額數量一律 <code>Decimal</code>；錯誤碼是穩定 API。這層是規格的直接對應，也是 AI 最常修改的地方。</p></div>
+    <div class="layer"><b>資料</b><p><strong>PostgreSQL</strong> 單一 schema＋<code>plant_id</code>＋RLS；<strong>事件／稽核表</strong>記錄所有異動；<strong>唯讀副本</strong>給 BI 與 AI 查詢，不影響交易效能。</p></div>
+    <div class="layer ai"><b>AI 層</b><p><strong>LLM 閘道</strong>（模型可替換、記錄每次呼叫、遮罩個資）；<strong>語意層</strong>（資料字典、對照目錄、規格、SOP）；<strong>檢索</strong>（規格與說明文件）；<strong>自然語言查詢</strong>（只對唯讀副本、套 RLS）；<strong>文件擷取</strong>（PDF／掃描單據 → 草稿）。</p></div>
+    <div class="layer"><b>移轉與整合</b><p><strong>legacy-etl</strong>：依 legacy-map 從 Oracle 匯出、轉換、驗證；<strong>Golden Master 比對</strong>：同一批 TOPTEST 資料在新舊系統跑出相同結果。對外 EDI／API 於供應鏈階段補上。</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">移植生產線</div>
+  <h2>每支 TipTop 程式走同一條流程</h2>
+  <p class="prose">TipTop 的程式數以千計，靠人一支支讀 4GL 不可行。生產線讓 AI 負責大量的閱讀、草擬與實作，人把關三個關卡：規格確認、程式審查、新舊比對。紅框是關卡。</p>
+  <div class="pipeline">
+    <div class="stage"><h3>盤點與排序</h3><p>依使用紀錄（zu、azo、gbq）與客製覆寫排出移植順序，決定哪些程式不移植。</p><div class="who"><span class="chip ai">AI 統計分類</span><span class="chip human">PO 決定範圍</span></div></div>
+    <div class="stage"><h3>萃取規則</h3><p>讀 4gl、4fd、.sch 與呼叫的 cl_/s_/q_ 共用程式，列出規則並註明行號出處。</p><div class="who"><span class="chip ai">AI 草擬</span><span class="chip human">開發者抽查</span></div></div>
+    <div class="stage gate"><h3>規格確認</h3><p>寫成 <code>@draft</code> Gherkin，列出待確認問題；Key User 逐題確認後才往下。</p><div class="who"><span class="chip ai">AI 擬稿</span><span class="chip human">Key User 確認</span></div></div>
+    <div class="stage"><h3>Red</h3><p>寫 BDD 步驟，<code>make bdd</code> 必須先失敗，證明測試真的在測新行為。</p><div class="who"><span class="chip ai">AI 實作</span></div></div>
+    <div class="stage gate"><h3>Green 與審查</h3><p>依序實作 domain → app → infra → api → web，記憶體與 PostgreSQL 皆通過；人工 code review。</p><div class="who"><span class="chip ai">AI 實作</span><span class="chip human">開發者審查</span></div></div>
+    <div class="stage"><h3>對照與命名</h3><p>更新 legacy-map 與命名檔，不確定的欄位意義標 <code>verify</code>，不自行猜測。</p><div class="who"><span class="chip ai">AI 更新</span><span class="chip human">確認 verify</span></div></div>
+    <div class="stage gate"><h3>新舊比對</h3><p>用 TOPTEST 匯出資料跑新系統，與 TipTop 結果逐筆比對（庫存、成本、帳務金額）。</p><div class="who"><span class="chip ai">AI 產生比對</span><span class="chip human">QA 判讀差異</span></div></div>
+    <div class="stage"><h3>檢查與合併</h3><p><code>make check</code>（格式、clippy、全部測試）全綠，截圖驗證畫面後合併。</p><div class="who"><span class="chip ai">CI</span></div></div>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>作業類型</th><th>TipTop 例子</th><th>單支估算（含規格確認）</th><th>說明</th></tr></thead>
+      <tbody>
+        <tr><td class="k">單檔維護</td><td class="mono">p_zz、aooi*、aimi100</td><td>2–4 個工作天</td><td>一張主檔＋多語言，規則多在欄位檢核</td></tr>
+        <tr><td class="k">單頭單身單據</td><td class="mono">apmt540、axmt410</td><td>1.5–3 週</td><td>狀態流轉、確認／取消確認、與庫存或帳務連動</td></tr>
+        <tr><td class="k">批次處理</td><td class="mono">amrp500、axcp100</td><td>2–4 週</td><td>運算邏輯最重，必須做新舊比對</td></tr>
+        <tr><td class="k">查詢與報表</td><td class="mono">aimq102、*r*</td><td>1–3 天</td><td>以唯讀查詢＋報表框架為主，依使用率挑選</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">估算假設生產線穩定運作、Key User 能在一週內回覆規格問題。實際速度從 Phase 1 起每兩週量測並回饋到排程。</p>
+</section>
+
+<section>
+  <div class="eyebrow">時程</div>
+  <h2>24 個月分階段計畫</h2>
+  <p class="prose">階段可以重疊：前一階段的主檔穩定後，下一階段即可開始萃取規格。上線採「先內部、後業務」：系統管理與主檔先在內部使用，交易模組在 UAT 後於年度或季度切點一次切換，避免新舊系統雙向同步。</p>
+  <div class="legend"><span><i style="background:var(--rust)"></i>核心業務模組</span><span><i style="background:var(--steel)"></i>平台與 AI</span><span><i style="background:var(--ink-soft)"></i>移轉與上線</span></div>
+  <div class="scroll">
+    <div class="gantt" role="img" aria-label="24 個月甘特圖：Phase 0 第 1–2 月，Phase 1 第 2–5 月，Phase 2 第 4–7 月，Phase 3 第 7–12 月，Phase 4 第 10–15 月，Phase 5 第 13–19 月，Phase 6 第 15–21 月，Phase 7 第 19–24 月">
+      <div></div>
+      <div class="m">1</div><div class="m">2</div><div class="m">3</div><div class="m">4</div><div class="m">5</div><div class="m">6</div><div class="m">7</div><div class="m">8</div><div class="m">9</div><div class="m">10</div><div class="m">11</div><div class="m">12</div><div class="m">13</div><div class="m">14</div><div class="m">15</div><div class="m">16</div><div class="m">17</div><div class="m">18</div><div class="m">19</div><div class="m">20</div><div class="m">21</div><div class="m">22</div><div class="m">23</div><div class="m">24</div>
+
+      <div class="lbl">P0 盤點與生產線<small>全模組匯入</small></div>
+      <div class="bar" style="grid-column: 2 / 4">盤點</div>
+
+      <div class="lbl">P1 平台與系統管理<small>azz · 登入 · 共用服務</small></div>
+      <div class="bar" style="grid-column: 3 / 7">azz</div>
+
+      <div class="lbl">P2 共用主檔<small>aoo · aim 主檔</small></div>
+      <div class="bar core" style="grid-column: 5 / 9">主檔</div>
+
+      <div class="lbl">P3 供應鏈<small>aim · abm · apm · axm</small></div>
+      <div class="bar core" style="grid-column: 8 / 14">庫存、BOM、採購、銷售</div>
+
+      <div class="lbl">P4 製造<small>asf · amr · aqc</small></div>
+      <div class="bar core" style="grid-column: 11 / 17">工單、MRP、品管</div>
+
+      <div class="lbl">P5 財務<small>axr · aap · anm · agl · afa · axc</small></div>
+      <div class="bar core" style="grid-column: 14 / 21">應收、應付、總帳、成本</div>
+
+      <div class="lbl">P6 報表、BI 與 AI<small>報表框架 · NL 查詢</small></div>
+      <div class="bar" style="grid-column: 16 / 23">報表與 AI 進階</div>
+
+      <div class="lbl">P7 資料移轉與上線<small>ETL 演練 · 平行運行</small></div>
+      <div class="bar cross" style="grid-column: 20 / 26">演練、平行、切換</div>
+
+      <div class="lbl">里程碑</div>
+      <div class="ms" style="grid-column: 6 / 10">系統管理內部上線</div>
+      <div class="ms" style="grid-column: 13 / 17">供應鏈 UAT</div>
+      <div class="ms" style="grid-column: 20 / 23">財務 UAT</div>
+      <div class="ms" style="grid-column: 24 / 26">正式切換</div>
+    </div>
+  </div>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>階段</th><th>月份</th><th>範圍（TipTop 模組）</th><th>主要交付</th><th>完成條件</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="k">P0 盤點與生產線</td><td class="mono">M1–M2</td>
+          <td>全部 tiptop 與 topcust（含 lib、sub、qry）</td>
+          <td><ul><li>完整原始碼匯入、<code>INDEX.tsv</code></li><li>程式、資料表、客製覆寫清單與使用率排名</li><li>全模組 .sch 英文命名（擴大對照目錄）</li><li>CI 與自動部署、<code>legacy-etl</code> 骨架</li><li>生產線 SOP 與量測方式</li></ul></td>
+          <td>範圍清單經 PO 簽核；校正後的時程表</td>
+        </tr>
+        <tr>
+          <td class="k">P1 平台與系統管理</td><td class="mono">M2–M5</td>
+          <td class="mono">azz</td>
+          <td><ul><li>登入與 SSO（OIDC）、使用者 zx、權限 zw/zy/zxw、選單 zm</li><li>錯誤訊息 ze、畫面標籤 gae、公司 zo、營運中心與 RLS</li><li>稽核事件、背景作業、通知、報表框架雛形</li><li>MCP 伺服器雛形、AI 助手 v0（欄位說明、操作導覽）</li></ul></td>
+          <td>內部人員以新系統管理帳號、權限與選單</td>
+        </tr>
+        <tr>
+          <td class="k">P2 共用主檔</td><td class="mono">M4–M7</td>
+          <td class="mono">aoo、aim（主檔）</td>
+          <td><ul><li>幣別、匯率、單位、部門、員工、客戶、供應商、料件、倉庫儲位</li><li>主檔 ETL 與資料品質報告（重複、缺漏、無效代碼）</li><li>主檔 Golden Master 比對</li></ul></td>
+          <td>主檔 ETL 可重複執行，比對差異歸零或已說明</td>
+        </tr>
+        <tr>
+          <td class="k">P3 供應鏈</td><td class="mono">M7–M12</td>
+          <td class="mono">aim、abm、apm、axm</td>
+          <td><ul><li>庫存異動、調撥、盤點；BOM</li><li>請購、採購、收貨、驗退；報價、訂單、出貨、銷退</li><li>PDA 收發料、EDI／對外 API</li><li>AI：採購單據擷取、庫存異常提示</li></ul></td>
+          <td>供應鏈 UAT 通過；庫存數量與成本前置資料新舊一致</td>
+        </tr>
+        <tr>
+          <td class="k">P4 製造</td><td class="mono">M10–M15</td>
+          <td class="mono">asf、amr、aqc</td>
+          <td><ul><li>工單、發料、完工入庫、製程與報工</li><li>MRP 計算（新舊結果比對）</li><li>進料、製程、出貨檢驗</li></ul></td>
+          <td>MRP 建議與 TipTop 一致（差異已說明）；製造 UAT 通過</td>
+        </tr>
+        <tr>
+          <td class="k">P5 財務</td><td class="mono">M13–M19</td>
+          <td class="mono">axr、aap、anm、agl、afa、axc</td>
+          <td><ul><li>應收、應付、票據資金、總帳、固定資產</li><li>成本計算與月結</li><li>以 TOPTEST 跑完整月結做新舊比對</li></ul></td>
+          <td>一個完整月份的帳務與成本新舊相符；財務 UAT 通過</td>
+        </tr>
+        <tr>
+          <td class="k">P6 報表、BI 與 AI</td><td class="mono">M15–M21</td>
+          <td>CR 報表、自訂查詢 p_query（zai–zav）</td>
+          <td><ul><li>依使用率重建報表；自訂查詢改為唯讀副本＋報表框架</li><li>自然語言查詢（套 RLS）、異常偵測、月結檢核助手</li><li>AI 使用紀錄、成本與準確度儀表板</li></ul></td>
+          <td>常用報表全數可用；NL 查詢通過權限與準確度測試</td>
+        </tr>
+        <tr>
+          <td class="k">P7 資料移轉與上線</td><td class="mono">M19–M24</td>
+          <td>全部移植範圍</td>
+          <td><ul><li>全量 ETL 演練至少三次（含時間量測）</li><li>平行運行一個月結週期</li><li>教育訓練、切換手冊、回退方案</li><li>TipTop 唯讀封存與退場</li></ul></td>
+          <td>切換演練成功；平行運行差異結案；PO 與財務主管簽核上線</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">跨階段工作</div>
+  <h2>貫穿全程的六條工作線</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>工作線</th><th>做什麼</th><th>何時開始</th></tr></thead>
+      <tbody>
+        <tr><td class="k">資料移轉</td><td><code>legacy-etl</code> 依 legacy-map 從 TOPTEST 匯出、轉換、載入；資料品質報告；每個階段把該模組的 ETL 做完，不留到最後</td><td class="mono">P0</td></tr>
+        <tr><td class="k">測試與比對</td><td>BDD（規格）、API 契約測試、Golden Master（新舊結果比對）、效能測試（月結、MRP、大量查詢）</td><td class="mono">P0</td></tr>
+        <tr><td class="k">安全與權限</td><td>OIDC 登入、RLS、資料權限（TipTop 的 user／group 資料權限 zy04/zy05）、AI 存取控制、稽核</td><td class="mono">P1</td></tr>
+        <tr><td class="k">DevOps</td><td>CI（<code>make check</code>＋PostgreSQL BDD）、容器化部署、備份還原演練、監控與告警</td><td class="mono">P0</td></tr>
+        <tr><td class="k">知識與文件</td><td>規格即文件；資料字典與對照目錄保持最新；使用手冊由規格與畫面自動產生初稿</td><td class="mono">P1</td></tr>
+        <tr><td class="k">變更管理</td><td>Key User 排班、每兩週展示、教育訓練、使用者回饋進入規格</td><td class="mono">P1</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">AI 能力</div>
+  <h2>AI 用在兩個地方</h2>
+  <p class="prose">開發端的 AI 讓移植變快；使用端的 AI 讓新系統比 TipTop 更好用。使用端功能在交易模組穩定後才上，而且都遵守「AI 建議、人確認」。</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>能力</th><th>用途</th><th>階段</th><th>防護</th></tr></thead>
+      <tbody>
+        <tr><td class="k"><span class="chip ai">開發</span> 規則萃取</td><td>讀 4GL／4fd／.sch 草擬業務規則與待確認問題</td><td class="mono">P0 起</td><td>每條規則附行號出處；Key User 確認</td></tr>
+        <tr><td class="k"><span class="chip ai">開發</span> 實作與測試</td><td>依規格寫 BDD 步驟與各層程式</td><td class="mono">P1 起</td><td>Red 先失敗；人工審查；兩種後端皆通過</td></tr>
+        <tr><td class="k"><span class="chip ai">開發</span> 命名與對照</td><td>舊表欄位英文命名、legacy-map 維護</td><td class="mono">P0 起</td><td>自動檢核；不確定標 verify</td></tr>
+        <tr><td class="k"><span class="chip ai">開發</span> 新舊比對</td><td>產生比對腳本、彙整差異原因</td><td class="mono">P2 起</td><td>QA 判讀；差異必須結案</td></tr>
+        <tr><td class="k"><span class="chip human">使用</span> 欄位與操作說明</td><td>畫面上問「這欄是什麼、下一步做什麼」</td><td class="mono">P1</td><td>只讀語意層與規格，不碰交易資料</td></tr>
+        <tr><td class="k"><span class="chip human">使用</span> 文件擷取</td><td>供應商報價、訂單 PDF → 單據草稿</td><td class="mono">P3</td><td>只產生草稿；人確認後才存檔</td></tr>
+        <tr><td class="k"><span class="chip human">使用</span> 自然語言查詢</td><td>「上月 A 倉呆滯料前 20 名」</td><td class="mono">P6</td><td>唯讀副本、RLS、顯示所用查詢供核對</td></tr>
+        <tr><td class="k"><span class="chip human">使用</span> 異常與月結檢核</td><td>異常單價、未沖帳、庫存負數提醒</td><td class="mono">P6</td><td>只提醒不修改；可追溯判斷依據</td></tr>
+        <tr><td class="k"><span class="chip human">使用</span> Agent 工具（MCP）</td><td>外部 AI 助理在使用者權限內查詢、擬單</td><td class="mono">P1 雛形，P6 開放</td><td>沿用 API 權限；所有呼叫寫稽核</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">治理</div>
+  <h2>角色、節奏與量測</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>角色</th><th>人數</th><th>職責</th></tr></thead>
+      <tbody>
+        <tr><td class="k">產品負責人（PO）</td><td>1</td><td>範圍取捨、優先順序、階段簽核</td></tr>
+        <tr><td class="k">架構師</td><td>1</td><td>ADR、跨模組設計、AI 層與安全</td></tr>
+        <tr><td class="k">開發者＋AI agent</td><td>2–3</td><td>操作生產線、審查 AI 產出、處理複雜邏輯</td></tr>
+        <tr><td class="k">QA／DBA</td><td>1</td><td>新舊比對、ETL、效能、備份</td></tr>
+        <tr><td class="k">Key User</td><td>每模組 1–2</td><td>每週約 4–8 小時，回答規格問題、參與 UAT</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>指標</th><th>目標</th><th>為什麼量</th></tr></thead>
+      <tbody>
+        <tr><td class="k">每週完成程式數</td><td>依 P0 校正，之後逐季提升</td><td>判斷時程是否可達</td></tr>
+        <tr><td class="k">規格確認天數</td><td>中位數 ≤ 5 個工作天</td><td>Key User 回覆最常卡關</td></tr>
+        <tr><td class="k">Golden Master 通過率</td><td>上線前 100%（或差異已結案）</td><td>證明業務行為保留</td></tr>
+        <tr><td class="k">上線後缺陷</td><td>每階段 UAT 後遞減</td><td>衡量規格與測試的完整度</td></tr>
+        <tr><td class="k">待確認命名（verify）</td><td>每階段結束歸零</td><td>語意層品質</td></tr>
+        <tr><td class="k">AI 產出採用率</td><td>持續追蹤</td><td>知道 AI 在哪類工作省最多時間</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="prose">節奏：每週規格審查會（PO＋Key User）、每兩週展示可操作的畫面、每階段結束做一次回顧並重排後續時程。</p>
+</section>
+
+<section>
+  <div class="eyebrow">風險</div>
+  <h2>主要風險與對策</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>風險</th><th>影響</th><th>對策</th></tr></thead>
+      <tbody>
+        <tr><td class="k">4GL 隱含規則遺漏</td><td>上線後行為不同</td><td>萃取附行號出處；Golden Master 比對；平行運行一個月結</td></tr>
+        <tr><td class="k">客製程式覆寫</td><td>規格依標準版寫錯</td><td>先查 topcust 再查 tiptop；盤點時列出覆寫清單</td></tr>
+        <tr><td class="k">Key User 時間不足</td><td>規格卡關、時程延後</td><td>固定每週時段；問題集中批次問；量測確認天數</td></tr>
+        <tr><td class="k">範圍膨脹</td><td>時程失控</td><td>依使用率決定範圍；新需求先記錄，上線後再做</td></tr>
+        <tr><td class="k">舊資料品質差</td><td>ETL 失敗、報表不準</td><td>P2 起每階段出資料品質報告，於 TipTop 端先清理</td></tr>
+        <tr><td class="k">AI 產出錯誤</td><td>錯誤規則或程式進入系統</td><td>規格關卡、Red 先失敗、人工審查、兩種後端測試</td></tr>
+        <tr><td class="k">月結與 MRP 效能</td><td>批次跑不完</td><td>P4、P5 各做一次正式資料量的效能測試</td></tr>
+        <tr><td class="k">原始碼授權</td><td>不能散佈 TipTop 原始碼</td><td>legacy/ 不進版控；只引用行號與規則摘要</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="eyebrow">接下來 90 天</div>
+  <h2>立即行動</h2>
+  <ol class="actions">
+    <li><span class="when">第 1–2 週</span>匯入完整 TipTop 原始碼（tiptop＋topcust，含 lib、sub、qry），產生 <code>INDEX.tsv</code> 與匯入報告</li>
+    <li><span class="when">第 2–4 週</span>統計程式、資料表與客製覆寫數量；從 TOPTEST 匯出使用紀錄排出移植順序；PO 簽核範圍</li>
+    <li><span class="when">第 3–5 週</span>全模組 .sch 英文命名、匯入對照目錄；建立 CI（含 PostgreSQL BDD）與自動部署</li>
+    <li><span class="when">第 4–6 週</span>寫 ADR：登入與權限（OIDC＋RLS）、AI 層（LLM 閘道、資料邊界）、報表框架、上線策略</li>
+    <li><span class="when">第 5–10 週</span>依生產線移植 azz：使用者、權限、選單、錯誤訊息、公司與營運中心；建立稽核事件表</li>
+    <li><span class="when">第 8–12 週</span><code>legacy-etl</code> 跑通第一批主檔（使用者、權限、程式）；MCP 伺服器與 AI 助手 v0 雛形</li>
+    <li><span class="when">第 12 週</span>Phase 1 回顧：量測生產線速度，校正 24 個月時程</li>
+  </ol>
+</section>
+
+<section>
+  <div class="eyebrow">待決事項</div>
+  <h2>需要決定的事</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>議題</th><th>選項</th><th>建議</th><th>何時決定</th></tr></thead>
+      <tbody>
+        <tr><td class="k">團隊規模</td><td>3 人 ／ 4–6 人 ／ 更多</td><td>4–6 人可達 24 個月；3 人約需 32–36 個月</td><td class="mono">P0 結束</td></tr>
+        <tr><td class="k">上線策略</td><td>分波上線 ／ 一次切換</td><td>系統管理與主檔分波；交易與財務於年度切點一次切換</td><td class="mono">P1</td></tr>
+        <tr><td class="k">LLM 部署</td><td>雲端 API ／ 本地模型 ／ 混合</td><td>開發用雲端；使用端經閘道、可切換，個資遮罩後才送出</td><td class="mono">P1</td></tr>
+        <tr><td class="k">報表工具</td><td>自建 ／ 開源報表引擎</td><td>先盤點 CR 報表使用率再決定</td><td class="mono">P3</td></tr>
+        <tr><td class="k">移植範圍</td><td>全部 ／ 依使用率</td><td>依使用率；未使用與已停用作業不移植</td><td class="mono">P0</td></tr>
+        <tr><td class="k">客製處理</td><td>照搬 ／ 重新評估</td><td>逐支評估，能用標準流程取代就不移植</td><td class="mono">各階段</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  依據：ADR 0001–0005、CLAUDE.md 開發流程、docs/analysis/p_zta.md、specs/features/**。本計畫為 v1 規劃稿，Phase 0 盤點完成後更新為 v2。
+</footer>
+
+</div>
