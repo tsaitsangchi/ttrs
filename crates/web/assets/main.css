@@ -193,25 +193,14 @@ body { margin: 0; }
 }
 
 /* 資料字典：左側資料表清單＋右側明細 */
-.dict-layout { display: grid; grid-template-columns: 16rem minmax(0, 1fr); gap: 16px; align-items: start; }
-.dict-layout > div > .md-card { margin-bottom: 16px; }
-.dict-list { display: flex; flex-direction: column; gap: 12px; }
-.dict-tables { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow-y: auto; }
-.dict-tables li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: var(--md-sys-shape-corner-full);
-  cursor: pointer;
-  font: 400 0.875rem/1.25rem var(--md-font);
-}
-.dict-tables li:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
-.dict-tables li.active { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
-.md-chip.dict-chip { height: 22px; padding: 0 8px; font-size: 0.6875rem; }
+/* 資料字典（p_zta.4fd）：Main 頁左右兩欄（gr3074 / gr3075）、限制欄位與限制條件並排 */
+.dict-main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 24px; align-items: start; }
+.dict-main__col { display: flex; flex-direction: column; gap: 20px; }
+.dict-constraint { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; margin-top: 24px; }
+.dict-group .form-section-title { margin-top: 0; }
 a.md-button { text-decoration: none; }
-@media (max-width: 840px) { .dict-layout { grid-template-columns: 1fr; } }
+.dict-extra { max-width: 24rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 840px) { .dict-main, .dict-constraint { grid-template-columns: 1fr; } }
 
 /* 側邊欄標題列：系統名稱＋地球圖示（切換介面語系） */
 .sidebar-header { display: flex; align-items: center; gap: 4px; margin: -4px 0 8px -4px; }

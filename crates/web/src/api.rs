@@ -224,20 +224,10 @@ pub async fn schema_tables() -> Result<Vec<String>, String> {
     get_json(url("/api/dictionary/schema-tables")).await
 }
 
+/// 已建字典的資料表；表名稱、目的以目前介面語系顯示（無則退回繁中）
 pub async fn list_dictionaries() -> Result<Vec<TableDictionaryDto>, String> {
-    get_json(url("/api/dictionary/tables")).await
-}
-
-pub async fn get_dictionary(table: &str) -> Result<Option<TableDictionaryDto>, String> {
-    let res = reqwest::Client::new()
-        .get(dict_url(table, ""))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    if res.status() == reqwest::StatusCode::NOT_FOUND {
-        return Ok(None);
-    }
-    into_result(res).await.map(Some)
+    let lang = crate::i18n::current().code();
+    get_json(url(&format!("/api/dictionary/tables?lang={lang}"))).await
 }
 
 pub async fn create_dictionary(req: &TableDictionaryInput) -> Result<TableDictionaryDto, String> {
