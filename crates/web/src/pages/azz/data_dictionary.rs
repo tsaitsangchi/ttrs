@@ -23,13 +23,15 @@ use crate::components::multilingual::{
     LangField, LangValues, MultilingualDialogField, MultilingualField,
 };
 use crate::i18n::{self, UiLang, tf};
+use crate::pages::azz::legacy_catalog::{LegacyCatalog, LegacyMappingTab};
 
 const UPPER_TABS: [&str; 2] = ["dictionary-tab-main", "dictionary-tab-info"];
-const LOWER_TABS: [&str; 4] = [
+const LOWER_TABS: [&str; 5] = [
     "dictionary-tab-columns",
     "dictionary-tab-indexes",
     "dictionary-tab-constraints",
     "dictionary-tab-history",
+    "dictionary-tab-legacy",
 ];
 
 #[derive(Clone, Copy, PartialEq)]
@@ -81,8 +83,27 @@ impl Header {
     }
 }
 
+/// 資料字典維護；工具列可切換到 TipTop 對照目錄（legacy_catalog.feature C1）
 #[component]
 pub fn DataDictionary() -> Element {
+    let mut catalog_mode = use_signal(|| false);
+    rsx! {
+        if catalog_mode() {
+            div { class: "page",
+                div { class: "page-header",
+                    div { class: "program-id", {i18n::t("dictionary-breadcrumb")} }
+                    h2 { {i18n::t("legacy-title")} }
+                }
+                LegacyCatalog { onclose: move |_| catalog_mode.set(false) }
+            }
+        } else {
+            DictionaryMain { on_catalog: move |_| catalog_mode.set(true) }
+        }
+    }
+}
+
+#[component]
+fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
     let mut mode = use_signal(|| Mode::View);
@@ -320,6 +341,15 @@ pub fn DataDictionary() -> Element {
                             {i18n::t("common-action-delete")}
                         }
                         div { class: "spacer" }
+                        Button {
+                            variant: ButtonVariant::Outlined,
+                            onclick: move |_| {
+                                message.set(None);
+                                error.set(None);
+                                on_catalog.call(());
+                            },
+                            {i18n::t("legacy-action-open")}
+                        }
                         if !no_cur {
                             a {
                                 class: "md-button md-button--outlined md-state",
@@ -431,7 +461,8 @@ pub fn DataDictionary() -> Element {
                                 0 => rsx! { ColumnsTab { key: "{t}", table: t.clone(), editable: m == Mode::Edit, on_error: move |e| error.set(Some(e)) } },
                                 1 => rsx! { IndexesTab { key: "{t}", table: t.clone() } },
                                 2 => rsx! { ConstraintsTab { key: "{t}", table: t.clone() } },
-                                _ => rsx! { HistoryTab { key: "{t}", table: t.clone() } },
+                                3 => rsx! { HistoryTab { key: "{t}", table: t.clone() } },
+                                _ => rsx! { LegacyMappingTab { key: "{t}", table: t.clone() } },
                             }
                         }
                     }

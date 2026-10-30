@@ -35,3 +35,6 @@ error-DICT_TABLE_NOT_IN_SCHEMA = （使用伺服器訊息）
 error-DICT_ALREADY_EXISTS = （使用伺服器訊息）
 error-DICT_NOT_FOUND = （使用伺服器訊息）
 error-DICT_COLUMN_NOT_FOUND = （使用伺服器訊息）
+error-LEGACY_NAME_INVALID = （使用伺服器訊息）
+error-LEGACY_NAME_DUPLICATE = （使用伺服器訊息）
+error-LEGACY_TABLE_NOT_FOUND = （使用伺服器訊息）

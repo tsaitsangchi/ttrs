@@ -24,18 +24,30 @@ use ttrs_shared::{
 use crate::{
     Actor, AppError,
     error::RepoError,
-    ports::{ConstraintKind, DictionaryRepository, SchemaCatalog, TableSchema},
+    ports::{
+        ConstraintKind, DictionaryRepository, LegacyCatalogRepository, SchemaCatalog, TableSchema,
+    },
 };
 
 #[derive(Clone)]
 pub struct DataDictionaryService {
     repo: Arc<dyn DictionaryRepository>,
     schema: Arc<dyn SchemaCatalog>,
+    /// TipTop 對照目錄：建立字典時帶入 .sch 說明（legacy_catalog.feature C4）
+    catalog: Arc<dyn LegacyCatalogRepository>,
 }
 
 impl DataDictionaryService {
-    pub fn new(repo: Arc<dyn DictionaryRepository>, schema: Arc<dyn SchemaCatalog>) -> Self {
-        Self { repo, schema }
+    pub fn new(
+        repo: Arc<dyn DictionaryRepository>,
+        schema: Arc<dyn SchemaCatalog>,
+        catalog: Arc<dyn LegacyCatalogRepository>,
+    ) -> Self {
+        Self {
+            repo,
+            schema,
+            catalog,
+        }
     }
 
     /// 建立資料表字典（p_zta_a）；資料表必須已存在於資料庫（D1）
@@ -49,7 +61,10 @@ impl DataDictionaryService {
         let dict = TableDictionary::new(&name, module, attrs(&input), &actor.user_id, today())?;
         self.schema_table(&dict.table_name).await?;
         match self.repo.insert(&dict).await {
-            Ok(()) => self.to_dto(&dict, &Lang::default_lang()).await,
+            Ok(()) => {
+                self.prefill_from_catalog(&dict.table_name).await?;
+                self.to_dto(&dict, &Lang::default_lang()).await
+            }
             Err(RepoError::Conflict) => Err(DomainError::DictAlreadyExists.into()),
             Err(e) => Err(infra(e)),
         }
@@ -269,6 +284,45 @@ impl DataDictionaryService {
             purpose: localized(&texts, lang, |t| t.purpose.clone()),
             texts: texts.iter().map(table_text_dto).collect(),
         })
+    }
+
+    /// 建立字典時帶入 TipTop 對照目錄的繁中說明（legacy_catalog.feature C4）：
+    /// 表名稱＝.sch 表說明、目的＝.sch 目的；欄位名稱＝.sch 欄位說明（以英文欄位名對應，略過 No Use）。
+    /// 超過長度上限等無法帶入者略過，不影響建立。
+    async fn prefill_from_catalog(&self, table: &str) -> Result<(), AppError> {
+        let Some(legacy) = self.catalog.find_by_name(table).await.map_err(infra)? else {
+            return Ok(());
+        };
+        if let Ok(text) = TableText::new(
+            DEFAULT_LANG,
+            Some(legacy.title.clone()),
+            legacy.purpose.clone(),
+            None,
+        ) {
+            self.repo
+                .set_table_text(table, &text)
+                .await
+                .map_err(infra)?;
+        }
+        let schema = self.schema_table(table).await?;
+        for c in legacy.columns.iter().filter(|c| !c.unused) {
+            if !schema.columns.iter().any(|s| s.name == c.name) {
+                continue;
+            }
+            if let Ok(text) = ColumnText::new(
+                &c.name,
+                DEFAULT_LANG,
+                Some(c.description.clone()),
+                None,
+                None,
+            ) {
+                self.repo
+                    .set_column_text(table, &text)
+                    .await
+                    .map_err(infra)?;
+            }
+        }
+        Ok(())
     }
 
     async fn load(&self, table: &str) -> Result<TableDictionary, AppError> {

@@ -140,3 +140,6 @@ tables:
 
   - legacy: zte_file
     note: "欄位/索引/限制的屬性覆寫（zte04：p package 標準、c customise 客製、s software design）；不搬。畫面的屬性（ztb05/ztc05/ztd12）一律依 TipTop 預設規則推導：欄位 tc_/ta_ 或表 tc_ 開頭、索引 tic_、限制 tpc_ 開頭為 c，其餘 p（p_zta.4gl:2260、:1997、:2964）"
+
+# TipTop catalog (legacy_catalog.feature): English naming for every azz table/column is in docs/legacy-map/tiptop-naming/azz.yaml
+# (161 tables / 1,633 columns). Ported tables use the same names as the mappings above. Import with make legacy-catalog.

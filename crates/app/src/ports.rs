@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use ttrs_domain::{
     dictionary::{ColumnText, TableDictionary, TableText},
     item::{Item, ItemNo},
+    legacy_catalog::LegacyTable,
     plant::PlantId,
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
@@ -160,4 +161,27 @@ pub trait DictionaryRepository: Send + Sync {
     async fn set_column_text(&self, table: &str, text: &ColumnText) -> Result<(), RepoError>;
     async fn column_texts(&self, table: &str) -> Result<Vec<ColumnText>, RepoError>;
     async fn module_exists(&self, module: &ModuleCode) -> Result<bool, RepoError>;
+}
+
+/// TipTop 對照目錄清單的一列
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LegacyTableSummary {
+    pub legacy_name: String,
+    pub name: String,
+    pub title: String,
+    pub module: String,
+    pub column_count: u32,
+}
+
+/// TipTop 對照目錄（legacy_catalog.feature）
+#[async_trait]
+pub trait LegacyCatalogRepository: Send + Sync {
+    /// 以新內容整批取代（全有或全無；C2 可重複匯入）
+    async fn replace_all(&self, tables: &[LegacyTable]) -> Result<(), RepoError>;
+    /// 所有資料表（不含欄位），依舊表代碼排序
+    async fn list_tables(&self) -> Result<Vec<LegacyTableSummary>, RepoError>;
+    /// 依舊表代碼取得（含欄位，依 .sch 順序）
+    async fn get(&self, legacy_name: &str) -> Result<Option<LegacyTable>, RepoError>;
+    /// 依英文表名取得（含欄位）；用於已移植的資料表（C1、C4）
+    async fn find_by_name(&self, name: &str) -> Result<Option<LegacyTable>, RepoError>;
 }

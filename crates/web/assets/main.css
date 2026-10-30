@@ -205,3 +205,7 @@ a.md-button { text-decoration: none; }
 /* 側邊欄標題列：系統名稱＋地球圖示（切換介面語系） */
 .sidebar-header { display: flex; align-items: center; gap: 4px; margin: -4px 0 8px -4px; }
 .sidebar-header h1 { margin: 0 8px; }
+
+/* TipTop 對照目錄 */
+.legacy-search { min-width: 22rem; }
+.legacy-row--unused td { color: var(--md-sys-color-on-surface-variant); }

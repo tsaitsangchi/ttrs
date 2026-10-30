@@ -5,8 +5,9 @@
 
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
-    IndexDto, ItemDto, MigrationDto, NewProgramNoRequest, Page, ProgramDto, ProgramInput,
-    QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto,
+    IndexDto, ItemDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto, NewProgramNoRequest,
+    Page, ProgramDto, ProgramInput, QueryRequest, TableDictionaryDto, TableDictionaryInput,
+    TableTextDto,
 };
 
 fn base_url() -> String {
@@ -288,6 +289,25 @@ pub async fn table_constraints(table: &str) -> Result<Vec<ConstraintDto>, String
 
 pub async fn table_history(table: &str) -> Result<Vec<MigrationDto>, String> {
     get_json(dict_url(table, "/history")).await
+}
+
+/// 已移植資料表對應的 TipTop 舊表；沒有對照時為 None
+pub async fn table_legacy(table: &str) -> Result<Option<LegacyTableDto>, String> {
+    get_json(dict_url(table, "/legacy")).await
+}
+
+// ----- TipTop 對照目錄 -----
+
+pub async fn search_legacy(query: &str) -> Result<Vec<LegacyTableSummaryDto>, String> {
+    get_json(url(&format!(
+        "/api/legacy-catalog?q={}",
+        urlencoding(query)
+    )))
+    .await
+}
+
+pub async fn get_legacy(legacy: &str) -> Result<LegacyTableDto, String> {
+    get_json(url(&format!("/api/legacy-catalog/{}", urlencoding(legacy)))).await
 }
 
 /// 匯出 CSV 的下載網址（由瀏覽器直接下載）

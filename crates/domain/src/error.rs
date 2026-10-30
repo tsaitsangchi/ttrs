@@ -78,6 +78,14 @@ pub enum DomainError {
     QbeInvalidDate(String),
     #[error("欄位「{0}」不可做為查詢條件")]
     QbeFieldNotAllowed(String),
+
+    // TipTop 對照目錄（legacy_catalog.feature）
+    #[error("英文名稱不符命名規則（小寫英文開頭、僅小寫英數與底線、最多 63 字、非保留字）：{0}")]
+    LegacyNameInvalid(String),
+    #[error("英文名稱重複：{0}")]
+    LegacyNameDuplicate(String),
+    #[error("TipTop 對照目錄沒有資料表 {0}")]
+    LegacyTableNotFound(String),
 }
 
 impl DomainError {
@@ -116,6 +124,9 @@ impl DomainError {
             Self::QbeInvalidNumber(_) => "QBE_INVALID_NUMBER",
             Self::QbeInvalidDate(_) => "QBE_INVALID_DATE",
             Self::QbeFieldNotAllowed(_) => "QBE_FIELD_NOT_ALLOWED",
+            Self::LegacyNameInvalid(_) => "LEGACY_NAME_INVALID",
+            Self::LegacyNameDuplicate(_) => "LEGACY_NAME_DUPLICATE",
+            Self::LegacyTableNotFound(_) => "LEGACY_TABLE_NOT_FOUND",
         }
     }
 }

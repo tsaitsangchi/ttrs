@@ -13,13 +13,14 @@ use tower_http::{
     trace::TraceLayer,
 };
 use ttrs_app::{
-    Actor, AppError, DataDictionaryService, ItemService, ProgramService,
+    Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService, ProgramService,
     program_service::DEFAULT_LANG,
 };
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
-    IndexDto, ItemDto, MigrationDto, NewProgramNoRequest, Page, ProgramDto, ProgramInput,
-    ProgramNameDto, QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto,
+    IndexDto, ItemDto, LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto,
+    NewProgramNoRequest, Page, ProgramDto, ProgramInput, ProgramNameDto, QueryRequest,
+    TableDictionaryDto, TableDictionaryInput, TableTextDto,
 };
 
 #[derive(Clone)]
@@ -27,6 +28,7 @@ pub struct AppState {
     pub items: ItemService,
     pub programs: ProgramService,
     pub dictionary: DataDictionaryService,
+    pub legacy: LegacyCatalogService,
     /// 尚未有登入機制前，所有請求都以此使用者身分執行（見 `actor_from_env`）
     pub actor: Actor,
 }
@@ -95,6 +97,11 @@ pub fn router(state: AppState) -> Router {
             "/api/dictionary/tables/{table}/export",
             get(export_dictionary),
         )
+        .route("/api/dictionary/tables/{table}/legacy", get(table_legacy))
+        // TipTop 對照目錄（legacy_catalog.feature）；匯入由 make legacy-catalog 呼叫
+        .route("/api/legacy-catalog", get(search_legacy))
+        .route("/api/legacy-catalog/import", post(import_legacy))
+        .route("/api/legacy-catalog/{legacy}", get(get_legacy))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
@@ -120,6 +127,44 @@ pub fn cors_from_env() -> Option<CorsLayer> {
     )
 }
 
+// ----- TipTop 對照目錄（legacy_catalog.feature） -----
+
+#[derive(Deserialize)]
+struct SearchQuery {
+    #[serde(default)]
+    q: String,
+}
+
+async fn search_legacy(
+    State(s): State<AppState>,
+    Query(q): Query<SearchQuery>,
+) -> ApiResult<Json<Vec<LegacyTableSummaryDto>>> {
+    Ok(Json(s.legacy.search(&q.q).await?))
+}
+
+async fn get_legacy(
+    State(s): State<AppState>,
+    Path(legacy): Path<String>,
+) -> ApiResult<Json<LegacyTableDto>> {
+    Ok(Json(s.legacy.get(&legacy).await?))
+}
+
+/// 整批取代（C2）；名稱不合法或重複時 422 且不寫入（C6）
+async fn import_legacy(
+    State(s): State<AppState>,
+    Json(req): Json<Vec<LegacyTableDto>>,
+) -> ApiResult<Json<LegacyImportResultDto>> {
+    Ok(Json(s.legacy.import(req).await?))
+}
+
+/// 已移植資料表對應的 TipTop 舊表；沒有對照時回傳 null（C1）
+async fn table_legacy(
+    State(s): State<AppState>,
+    Path(table): Path<String>,
+) -> ApiResult<Json<Option<LegacyTableDto>>> {
+    Ok(Json(s.legacy.for_table(&table).await?))
+}
+
 pub struct HttpError(AppError);
 
 impl From<AppError> for HttpError {
@@ -131,7 +176,10 @@ impl From<AppError> for HttpError {
 impl IntoResponse for HttpError {
     fn into_response(self) -> Response {
         let status = match self.0.code() {
-            "ITEM_NOT_FOUND" | "PROGRAM_NOT_FOUND" | "DICT_NOT_FOUND" => StatusCode::NOT_FOUND,
+            "ITEM_NOT_FOUND"
+            | "PROGRAM_NOT_FOUND"
+            | "DICT_NOT_FOUND"
+            | "LEGACY_TABLE_NOT_FOUND" => StatusCode::NOT_FOUND,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
             | "ITEM_HAS_TRANSACTIONS"

@@ -484,3 +484,53 @@ pub struct MigrationDto {
     pub version: i64,
     pub description: String,
 }
+
+// ----- TipTop 對照目錄（legacy_catalog.feature） -----
+
+/// 一張 TipTop 資料表的對照（匯入與查看共用）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LegacyTableDto {
+    /// TipTop 表代碼，如 zx_file
+    pub legacy_name: String,
+    /// 英文表名，如 user_account
+    pub name: String,
+    /// .sch 表說明
+    pub title: String,
+    pub purpose: Option<String>,
+    pub module: String,
+    pub columns: Vec<LegacyColumnDto>,
+}
+
+/// 一個 TipTop 欄位的對照
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LegacyColumnDto {
+    pub legacy_name: String,
+    pub name: String,
+    pub data_type: String,
+    pub primary_key: bool,
+    pub description: String,
+    pub notes: Option<String>,
+    /// .sch 標示 No Use
+    pub unused: bool,
+    /// 命名待確認
+    pub verify: bool,
+}
+
+/// 對照目錄清單的一列
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct LegacyTableSummaryDto {
+    pub legacy_name: String,
+    pub name: String,
+    pub title: String,
+    pub module: String,
+    pub column_count: u32,
+}
+
+/// 匯入結果
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct LegacyImportResultDto {
+    pub tables: u32,
+    pub columns: u32,
+}

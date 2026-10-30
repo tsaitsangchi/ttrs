@@ -3,6 +3,7 @@
 pub mod data_dictionary_service;
 pub mod error;
 pub mod item_service;
+pub mod legacy_catalog_service;
 #[cfg(feature = "memory")]
 pub mod memory;
 pub mod ports;
@@ -12,4 +13,5 @@ pub mod program_service;
 pub use data_dictionary_service::DataDictionaryService;
 pub use error::AppError;
 pub use item_service::ItemService;
+pub use legacy_catalog_service::LegacyCatalogService;
 pub use program_service::{Actor, ProgramService};

@@ -335,6 +335,14 @@ pub fn IconButton(
     }
 }
 
+/// 標記（M3 assist chip 的靜態樣式）；`warning` 用於待確認等需注意的標記
+#[component]
+pub fn Chip(label: String, #[props(default)] warning: bool) -> Element {
+    rsx! {
+        span { class: if warning { "md-chip md-chip--small md-chip--warning" } else { "md-chip md-chip--small" }, "{label}" }
+    }
+}
+
 /// 對話框（M3 Basic dialog）：遮罩＋標題＋內容＋動作列。點遮罩或按 Esc 視同取消。
 /// 由呼叫端決定是否顯示（`if open() { Dialog { … } }`）。
 #[component]

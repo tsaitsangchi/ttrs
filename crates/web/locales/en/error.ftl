@@ -35,3 +35,6 @@ error-DICT_TABLE_NOT_IN_SCHEMA = The table does not exist in the database (creat
 error-DICT_ALREADY_EXISTS = This table already has a dictionary.
 error-DICT_NOT_FOUND = This table has no dictionary yet.
 error-DICT_COLUMN_NOT_FOUND = The table has no such column.
+error-LEGACY_NAME_INVALID = Invalid English name (lowercase letter first, only lowercase letters, digits and underscores, up to 63, not a reserved word).
+error-LEGACY_NAME_DUPLICATE = Duplicate English name.
+error-LEGACY_TABLE_NOT_FOUND = TipTop table not found in the catalog.

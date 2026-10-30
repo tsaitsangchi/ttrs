@@ -259,7 +259,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 6] = [
+        const TRANSLATED: [(&str, &str); 7] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/multilingual.rs",
@@ -277,6 +277,10 @@ mod tests {
             (
                 "pages/aim/item_list.rs",
                 include_str!("pages/aim/item_list.rs"),
+            ),
+            (
+                "pages/azz/legacy_catalog.rs",
+                include_str!("pages/azz/legacy_catalog.rs"),
             ),
         ];
         let is_cjk = |c: char| {

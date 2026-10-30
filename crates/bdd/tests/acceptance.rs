@@ -11,11 +11,13 @@ use std::{fmt, sync::Arc};
 use cucumber::World;
 use sqlx::PgPool;
 use ttrs_app::{
-    Actor, AppError, DataDictionaryService, ItemService, ProgramService, memory::InMemoryStore,
+    Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService, ProgramService,
+    memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
 use ttrs_shared::{
-    ColumnInfoDto, ConstraintDto, MigrationDto, Page, ProgramDto, TableDictionaryDto,
+    ColumnInfoDto, ConstraintDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto, Page,
+    ProgramDto, TableDictionaryDto,
 };
 
 pub enum Backend {
@@ -45,6 +47,11 @@ pub struct ErpWorld {
     pub displayed_dict: Option<TableDictionaryDto>,
     /// 程式維護多語言：最近一次依語系查看的程式
     pub displayed_program: Option<ProgramDto>,
+    pub legacy: LegacyCatalogService,
+    /// TipTop 對照目錄：.sch 資料目錄＋命名檔合併後、待匯入的內容
+    pub legacy_source: Vec<LegacyTableDto>,
+    pub legacy_results: Option<Vec<LegacyTableSummaryDto>>,
+    pub legacy_view: Option<LegacyTableDto>,
 }
 
 impl fmt::Debug for ErpWorld {
@@ -57,11 +64,11 @@ impl fmt::Debug for ErpWorld {
 
 impl ErpWorld {
     async fn init() -> Self {
-        let (backend, items, programs, dictionary) = match database_url() {
+        let (backend, items, programs, dictionary, legacy) = match database_url() {
             Some(url) => {
                 let pool = ttrs_infra::connect(&url).await.expect("connect PostgreSQL");
                 ttrs_infra::migrate(&pool).await.expect("run migrations");
-                sqlx::query("TRUNCATE column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
+                sqlx::query("TRUNCATE legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, inventory_txn, item, unit, plant \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
@@ -72,7 +79,8 @@ impl ErpWorld {
                     Backend::Pg(pool),
                     ItemService::new(store.clone(), store.clone()),
                     ProgramService::new(store.clone()),
-                    DataDictionaryService::new(store.clone(), store),
+                    DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
+                    LegacyCatalogService::new(store),
                 )
             }
             None => {
@@ -83,7 +91,8 @@ impl ErpWorld {
                     Backend::Memory(store),
                     ItemService::new(shared.clone(), shared.clone()),
                     ProgramService::new(shared.clone()),
-                    DataDictionaryService::new(shared.clone(), shared),
+                    DataDictionaryService::new(shared.clone(), shared.clone(), shared.clone()),
+                    LegacyCatalogService::new(shared),
                 )
             }
         };
@@ -101,6 +110,10 @@ impl ErpWorld {
             dict_export: None,
             displayed_dict: None,
             displayed_program: None,
+            legacy,
+            legacy_source: Vec::new(),
+            legacy_results: None,
+            legacy_view: None,
         }
     }
 }

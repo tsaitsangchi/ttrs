@@ -35,3 +35,6 @@ error-DICT_TABLE_NOT_IN_SCHEMA = 数据库中没有此数据表（需先由 migr
 error-DICT_ALREADY_EXISTS = 此数据表已有数据字典
 error-DICT_NOT_FOUND = 此数据表尚无数据字典
 error-DICT_COLUMN_NOT_FOUND = 数据表没有此栏位
+error-LEGACY_NAME_INVALID = 英文名称不符命名规则
+error-LEGACY_NAME_DUPLICATE = 英文名称重复
+error-LEGACY_TABLE_NOT_FOUND = TipTop 对照目录没有此数据表

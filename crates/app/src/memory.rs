@@ -10,6 +10,7 @@ use ttrs_domain::{
     dictionary::{ColumnText, TableDictionary, TableText},
     item::{Item, ItemNo},
     lang::Lang,
+    legacy_catalog::LegacyTable,
     plant::PlantId,
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
@@ -18,13 +19,16 @@ use ttrs_domain::{
 use crate::{
     error::RepoError,
     ports::{
-        AuditEntry, DictionaryRepository, ItemRepository, MasterDataRepository, MigrationSource,
-        ProgramName, ProgramRepository, SchemaCatalog, TableSchema,
+        AuditEntry, DictionaryRepository, ItemRepository, LegacyCatalogRepository,
+        LegacyTableSummary, MasterDataRepository, MigrationSource, ProgramName, ProgramRepository,
+        SchemaCatalog, TableSchema,
     },
 };
 
 #[derive(Default)]
 struct State {
+    /// TipTop 對照目錄（舊表代碼 → 對照）
+    legacy: BTreeMap<String, LegacyTable>,
     plants: HashSet<String>,
     units: HashSet<String>,
     items: BTreeMap<(PlantId, ItemNo), Item>,
@@ -463,5 +467,45 @@ impl DictionaryRepository for InMemoryStore {
 
     async fn module_exists(&self, module: &ModuleCode) -> Result<bool, RepoError> {
         Ok(self.lock().modules.contains(module.as_str()))
+    }
+}
+
+#[async_trait]
+impl LegacyCatalogRepository for InMemoryStore {
+    async fn replace_all(&self, tables: &[LegacyTable]) -> Result<(), RepoError> {
+        self.lock().legacy = tables
+            .iter()
+            .map(|t| (t.legacy_name.clone(), t.clone()))
+            .collect();
+        Ok(())
+    }
+
+    async fn list_tables(&self) -> Result<Vec<LegacyTableSummary>, RepoError> {
+        // BTreeMap 依舊表代碼排序（位元組順序，同 PostgreSQL COLLATE "C"）
+        Ok(self
+            .lock()
+            .legacy
+            .values()
+            .map(|t| LegacyTableSummary {
+                legacy_name: t.legacy_name.clone(),
+                name: t.name.clone(),
+                title: t.title.clone(),
+                module: t.module.clone(),
+                column_count: u32::try_from(t.columns.len()).unwrap_or(u32::MAX),
+            })
+            .collect())
+    }
+
+    async fn get(&self, legacy_name: &str) -> Result<Option<LegacyTable>, RepoError> {
+        Ok(self.lock().legacy.get(legacy_name).cloned())
+    }
+
+    async fn find_by_name(&self, name: &str) -> Result<Option<LegacyTable>, RepoError> {
+        Ok(self
+            .lock()
+            .legacy
+            .values()
+            .find(|t| t.name == name)
+            .cloned())
     }
 }

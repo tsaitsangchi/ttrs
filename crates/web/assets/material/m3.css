@@ -395,3 +395,11 @@ textarea.md-field__input:focus { padding: 9px 15px; }
 .md-multilingual-inline > .md-field { flex: 1; }
 .md-multilingual-inline__button { display: flex; align-items: center; color: var(--md-sys-color-primary); }
 .md-multilingual-inline__count { font: 500 0.75rem/1rem var(--md-font); color: var(--md-sys-color-on-surface-variant); }
+
+/* Chip 小尺寸（表格內標記）與警示色（待確認） */
+.md-chip--small { height: 22px; padding: 0 8px; font-size: 0.6875rem; white-space: nowrap; }
+.md-chip--warning {
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
+  border-color: transparent;
+}

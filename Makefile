@@ -1,4 +1,4 @@
-.PHONY: test bdd bdd-pg api web desktop bundle check fmt db-create
+.PHONY: test bdd bdd-pg api web desktop bundle check fmt db-create legacy-catalog
 
 # 本機 8080 常被占用，可用 make web WEB_PORT=xxxx 覆寫
 WEB_PORT ?= 8765
@@ -38,3 +38,9 @@ check:
 db-create:
 	createdb ttrs
 	createdb ttrs_test
+
+# TipTop catalog (legacy_catalog.feature): merge the .sch catalog with the naming file and import into TTRS
+# (API must be running; set TTRS_API_URL for another address)
+legacy-catalog:
+	python3 scripts/tiptop/sch_catalog.py build
+	python3 scripts/tiptop/import_catalog.py
