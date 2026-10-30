@@ -33,6 +33,8 @@ fn constraint(
         ref_columns: reference
             .map(|(_, cs)| cs.iter().map(|c| (*c).into()).collect())
             .unwrap_or_default(),
+        // 本專案外鍵都參照對方主鍵，PostgreSQL 預設名稱為 <表>_pkey
+        ref_constraint: reference.map(|(t, _)| format!("{t}_pkey")),
         check_clause: None,
     }
 }

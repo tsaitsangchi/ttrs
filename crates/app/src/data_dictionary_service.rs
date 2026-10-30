@@ -200,6 +200,7 @@ impl DataDictionaryService {
                 columns: c.columns,
                 ref_table: c.ref_table,
                 ref_columns: c.ref_columns,
+                ref_constraint: c.ref_constraint,
                 check_clause: c.check_clause,
             })
             .collect())

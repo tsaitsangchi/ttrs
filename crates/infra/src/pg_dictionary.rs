@@ -78,7 +78,17 @@ impl SchemaCatalog for PgStore {
             return Ok(None);
         }
 
-        let constraints: Vec<(String, String, Vec<String>, Option<String>, Vec<String>, Option<String>)> =
+        // (名稱, 類型, 欄位, 參照表, 參照欄位, 參照的主鍵/唯一限制, 檢查條件)
+        type ConstraintRow = (
+            String,
+            String,
+            Vec<String>,
+            Option<String>,
+            Vec<String>,
+            Option<String>,
+            Option<String>,
+        );
+        let constraints: Vec<ConstraintRow> =
             sqlx::query_as(
                 "SELECT con.conname::text, con.contype::text,
                         ARRAY(SELECT a.attname::text FROM unnest(con.conkey) WITH ORDINALITY k(n, ord)
@@ -88,6 +98,9 @@ impl SchemaCatalog for PgStore {
                         ARRAY(SELECT a.attname::text FROM unnest(con.confkey) WITH ORDINALITY k(n, ord)
                               JOIN pg_attribute a ON a.attrelid = con.confrelid AND a.attnum = k.n
                               ORDER BY k.ord),
+                        (SELECT rk.conname::text FROM pg_constraint rk
+                          WHERE con.contype = 'f' AND rk.conrelid = con.confrelid
+                            AND rk.conindid = con.conindid AND rk.contype IN ('p', 'u')),
                         CASE WHEN con.contype = 'c' THEN pg_get_constraintdef(con.oid) END
                  FROM pg_constraint con
                  JOIN pg_class c ON c.oid = con.conrelid
@@ -142,23 +155,26 @@ impl SchemaCatalog for PgStore {
                 .collect(),
             constraints: constraints
                 .into_iter()
-                .filter_map(|(name, kind, columns, ref_table, ref_columns, check)| {
-                    let kind = match kind.as_str() {
-                        "p" => ConstraintKind::PrimaryKey,
-                        "f" => ConstraintKind::ForeignKey,
-                        "u" => ConstraintKind::Unique,
-                        "c" => ConstraintKind::Check,
-                        _ => return None,
-                    };
-                    Some(ConstraintSchema {
-                        name,
-                        kind,
-                        columns,
-                        ref_table,
-                        ref_columns,
-                        check_clause: check,
-                    })
-                })
+                .filter_map(
+                    |(name, kind, columns, ref_table, ref_columns, ref_constraint, check)| {
+                        let kind = match kind.as_str() {
+                            "p" => ConstraintKind::PrimaryKey,
+                            "f" => ConstraintKind::ForeignKey,
+                            "u" => ConstraintKind::Unique,
+                            "c" => ConstraintKind::Check,
+                            _ => return None,
+                        };
+                        Some(ConstraintSchema {
+                            name,
+                            kind,
+                            columns,
+                            ref_table,
+                            ref_columns,
+                            ref_constraint,
+                            check_clause: check,
+                        })
+                    },
+                )
                 .collect(),
         }))
     }

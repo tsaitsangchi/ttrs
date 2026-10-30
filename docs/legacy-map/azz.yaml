@@ -133,10 +133,10 @@ tables:
       - { legacy: gaq08, type: date, target: updated_on, sch: 異動日期 }
 
   - legacy: ztb_file / ztc_file / ztd_file
-    note: "欄位、索引、Constraint 定義。新系統不另存，改由 PostgreSQL 系統目錄（information_schema、pg_catalog）唯讀讀取。注意 4fd 的 ztb06–ztb09 實為精度/小數位/長度/NOT NULL，與 .sch 說明（中/英/簡說明）不符"
+    note: "欄位、索引、Constraint 定義（畫面對照見 docs/analysis/p_zta.md）。新系統不另存，改由 PostgreSQL 系統目錄（information_schema、pg_catalog）唯讀讀取。注意 4fd 的 ztb06–ztb09 實為精度/小數位/長度/NOT NULL，與 .sch 說明（中/英/簡說明）不符"
 
   - legacy: zs_file
     note: "檔案架構修整記錄（修正指令、p_zl 工作單號、測試/正式區、版號）。新系統以 migration 歷史取代（D5）"
 
   - legacy: zte_file
-    note: 欄位預設值設定方式；不搬
+    note: "欄位/索引/限制的屬性覆寫（zte04：p package 標準、c customise 客製、s software design）；不搬。畫面的屬性（ztb05/ztc05/ztd12）一律依 TipTop 預設規則推導：欄位 tc_/ta_ 或表 tc_ 開頭、索引 tic_、限制 tpc_ 開頭為 c，其餘 p（p_zta.4gl:2260、:1997、:2964）"

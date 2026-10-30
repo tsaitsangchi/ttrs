@@ -122,6 +122,8 @@ pub struct ConstraintSchema {
     pub columns: Vec<String>,
     pub ref_table: Option<String>,
     pub ref_columns: Vec<String>,
+    /// 外鍵參照的主鍵/唯一限制名稱（TipTop p_zta 限制欄位 rzad07 Ref. Constraint Name）
+    pub ref_constraint: Option<String>,
     pub check_clause: Option<String>,
 }
 

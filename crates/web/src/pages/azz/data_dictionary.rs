@@ -596,7 +596,8 @@ fn split_type(data_type: &str) -> (String, String) {
     }
 }
 
-/// 4fd s_ztb：欄位代碼、型別、長度、不可空白、預設值、欄位名稱 gaq03、額外說明 gaq05。
+/// 4fd s_ztb：欄位名稱 ztb03、型態 ztb04、長度 ztb08、不允許null ztb09、預設值 ztb11、
+/// 屬性 ztb05、欄位說明 gaq03、額外說明 gaq05。
 /// 點選欄位開窗：修改模式可編輯各語系說明，否則唯讀。
 #[component]
 fn ColumnsTab(table: String, editable: bool, on_error: EventHandler<String>) -> Element {
@@ -632,13 +633,13 @@ fn ColumnsTab(table: String, editable: bool, on_error: EventHandler<String>) -> 
                 div { class: "table-scroll",
                     table { class: "md-table",
                         thead { tr {
-                            for h in ["dictionary-col-column", "dictionary-col-type", "dictionary-col-length", "dictionary-col-not-null", "dictionary-col-default", "dictionary-field-column-name", "dictionary-field-column-extra"] {
+                            for h in ["dictionary-col-column", "dictionary-col-type", "dictionary-col-length", "dictionary-col-not-null", "dictionary-col-default", "dictionary-col-attr", "dictionary-col-field-desc", "dictionary-col-more-desc"] {
                                 th { key: "{h}", {i18n::t(h)} }
                             }
                         } }
                         tbody {
                             for c in cols.iter().cloned() {
-                                {column_row(c, &text_list, editing, values, loaded)}
+                                {column_row(&table, c, &text_list, editing, values, loaded)}
                             }
                         }
                     }
@@ -697,6 +698,7 @@ fn ColumnsTab(table: String, editable: bool, on_error: EventHandler<String>) -> 
 }
 
 fn column_row(
+    table: &str,
     c: ColumnInfoDto,
     all: &[ColumnTextDto],
     mut editing: Signal<Option<String>>,
@@ -707,6 +709,12 @@ fn column_row(
     let name = column_display(all, &c.name, |x| x.name.clone());
     let extra = column_display(all, &c.name, |x| x.extra.clone());
     let v = column_values(all, &c.name);
+    let attr = attr_id(column_is_custom(table, &c.name));
+    let default = c
+        .default
+        .as_deref()
+        .map(display_default)
+        .unwrap_or_default();
     let col = c.name.clone();
     rsx! {
         tr {
@@ -721,14 +729,61 @@ fn column_row(
             td { class: "mono", "{kind}" }
             td { class: "mono num", "{length}" }
             td { if c.not_null { "✓" } }
-            td { class: "mono", {c.default.clone().unwrap_or_default()} }
+            td { class: "mono", "{default}" }
+            td { {i18n::t(attr)} }
             td { "{name}" }
             td { class: "dict-extra", "{extra}" }
         }
     }
 }
 
-/// 4fd s_ztc：唯一、索引名稱、索引欄位
+/// 屬性（ztb05/ztc05/ztd12）：TipTop 存在 zte_file，新系統不移植 zte_file，
+/// 一律依 TipTop 預設規則推導（p_zta.4gl:2260 欄位、:1997 索引、:2964 限制）：
+/// 客製開頭 → c:客製，其餘 p:標準
+fn attr_id(custom: bool) -> &'static str {
+    if custom {
+        "dictionary-opt-attr-c"
+    } else {
+        "dictionary-opt-attr-p"
+    }
+}
+
+/// 欄位屬性：欄位以 tc_/ta_ 開頭，或資料表以 tc_ 開頭為客製（p_zta.4gl:2263）
+fn column_is_custom(table: &str, column: &str) -> bool {
+    column.starts_with("tc_") || column.starts_with("ta_") || table.starts_with("tc_")
+}
+
+/// 預設值去掉字串引號與型別轉換（比照 TQC-860023，p_zta.4gl:2241）：`'5'::text` → `5`；
+/// 函式（now()）、常數（false、CURRENT_DATE）照原樣
+fn display_default(raw: &str) -> String {
+    let body = raw.trim();
+    let Some(rest) = body.strip_prefix('\'') else {
+        return body.to_owned();
+    };
+    // 找結尾引號（'' 為跳脫的單引號），之後只允許 ::型別
+    let mut out = String::new();
+    let mut chars = rest.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\'' {
+            if chars.peek() == Some(&'\'') {
+                chars.next();
+                out.push('\'');
+                continue;
+            }
+            let tail: String = chars.collect();
+            let tail = tail.trim();
+            return if tail.is_empty() || tail.starts_with("::") {
+                out
+            } else {
+                body.to_owned()
+            };
+        }
+        out.push(ch);
+    }
+    body.to_owned()
+}
+
+/// 4fd s_ztc：唯一、索引名稱、索引欄位、屬性
 #[component]
 fn IndexesTab(table: String) -> Element {
     let indexes = use_resource(move || {
@@ -746,6 +801,7 @@ fn IndexesTab(table: String) -> Element {
                         th { {i18n::t("dictionary-col-unique")} }
                         th { {i18n::t("dictionary-col-index-name")} }
                         th { {i18n::t("dictionary-col-index-columns")} }
+                        th { {i18n::t("dictionary-col-attr")} }
                     } }
                     tbody {
                         for i in list.iter().cloned() {
@@ -753,6 +809,7 @@ fn IndexesTab(table: String) -> Element {
                                 td { if i.unique { "✓" } }
                                 td { class: "mono", "{i.name}" }
                                 td { class: "mono", {i.columns.join(", ")} }
+                                td { {i18n::t(attr_id(i.name.starts_with("tic_")))} }
                             }
                         }
                     }
@@ -795,6 +852,7 @@ fn ConstraintsTab(table: String) -> Element {
                     thead { tr {
                         th { {i18n::t("dictionary-col-constraint-name")} }
                         th { {i18n::t("dictionary-col-constraint-kind")} }
+                        th { {i18n::t("dictionary-col-attr")} }
                     } }
                     tbody {
                         for (i, c) in list.iter().cloned().enumerate() {
@@ -805,6 +863,7 @@ fn ConstraintsTab(table: String) -> Element {
                                 onclick: move |_| selected.set(i),
                                 td { class: "mono", "{c.name}" }
                                 td { {i18n::t(kind_id(c.kind))} }
+                                td { {i18n::t(attr_id(c.name.starts_with("tpc_")))} }
                             }
                         }
                     }
@@ -817,6 +876,7 @@ fn ConstraintsTab(table: String) -> Element {
                                 thead { tr {
                                     th { {i18n::t("dictionary-col-position")} }
                                     th { {i18n::t("dictionary-col-column")} }
+                                    th { {i18n::t("dictionary-col-ref-constraint")} }
                                     th { {i18n::t("dictionary-col-ref-table")} }
                                     th { {i18n::t("dictionary-col-ref-column")} }
                                 } }
@@ -825,6 +885,7 @@ fn ConstraintsTab(table: String) -> Element {
                                         tr { key: "{col}",
                                             td { class: "num", "{n + 1}" }
                                             td { class: "mono", "{col}" }
+                                            td { class: "mono", {c.ref_constraint.clone().unwrap_or_default()} }
                                             td { class: "mono", {c.ref_table.clone().unwrap_or_default()} }
                                             td { class: "mono", {c.ref_columns.get(n).cloned().unwrap_or_default()} }
                                         }
@@ -898,6 +959,27 @@ mod tests {
         assert!(!glob("program", "program_name"), "無萬用字元時須完全相同"); // i18n-allow：測試訊息
         assert!(glob("?tem", "item"));
         assert!(glob("*_text", "table_dictionary_text"));
+    }
+
+    #[test]
+    fn default_without_quotes_and_casts() {
+        assert_eq!(display_default("'5'::text"), "5");
+        assert_eq!(display_default("'Y'::bpchar"), "Y");
+        assert_eq!(display_default("'it''s'::text"), "it's");
+        assert_eq!(display_default("now()"), "now()");
+        assert_eq!(display_default("false"), "false");
+        assert_eq!(
+            display_default("nextval('seq'::regclass)"),
+            "nextval('seq'::regclass)"
+        );
+    }
+
+    #[test]
+    fn attribute_follows_tiptop_default_rule() {
+        assert!(column_is_custom("program", "tc_abc01"));
+        assert!(column_is_custom("program", "ta_abc01"));
+        assert!(column_is_custom("tc_aaa", "aaa01"));
+        assert!(!column_is_custom("program", "program_no"));
     }
 
     #[test]
