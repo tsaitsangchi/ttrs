@@ -63,3 +63,4 @@ dictionary-hint-table-query = e.g. program*
 dictionary-list-title = Data dictionary list
 dictionary-opt-select-table = (Choose a table without a dictionary)
 dictionary-query-hint = Query mode: enter conditions and press OK. Table and module accept * (any characters), ? (one character) and | (or), e.g. program*, item|unit; leave blank to list all.
+dictionary-msg-no-table = Select a table first (by query or New)

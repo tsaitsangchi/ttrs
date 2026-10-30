@@ -63,3 +63,4 @@ dictionary-hint-table-query = 例：program*
 dictionary-list-title = 数据字典清单
 dictionary-opt-select-table = （请选择尚未建立字典的数据表）
 dictionary-query-hint = 查询模式：在栏位输入条件后按「确定」。数据表代码、模组可用 *（任意字符）、?（单一字符）、|（或），例：program*、item|unit；不输入即查全部。
+dictionary-msg-no-table = 请先选择数据表（查询或新增时选取）

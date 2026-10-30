@@ -240,7 +240,8 @@ pub fn DataDictionary() -> Element {
     let h = header();
     let no_cur = cur.is_none();
     let table = h.table.clone();
-    let has_table = !table.is_empty() && m != Mode::New;
+    // 下方頁籤顯示的資料表：目前這一筆；新增時為已選的資料表（尚未建字典也可先看結構）
+    let has_table = !table.is_empty() && !q;
 
     rsx! {
         div { class: "page",
@@ -416,12 +417,15 @@ pub fn DataDictionary() -> Element {
                 }
             }
 
-            // ----- 下方頁籤 pc2（Field / Index / Constraint / 變更紀錄） -----
-            if has_table && !q {
-                Card {
-                    Tabs { tabs: LOWER_TABS.iter().map(|s| i18n::t(s)).collect::<Vec<_>>(), active: lower_tab }
-                    div { class: "card-body",
-                        // 以資料表為 key：換筆時重新載入
+            // ----- 下方頁籤 pc2（Field / Index / Constraint / 變更紀錄），比照 4fd 一律顯示 -----
+            Card {
+                Tabs { tabs: LOWER_TABS.iter().map(|s| i18n::t(s)).collect::<Vec<_>>(), active: lower_tab }
+                div { class: "card-body",
+                    if !has_table {
+                        p { class: "muted", {i18n::t("dictionary-msg-no-table")} }
+                    }
+                    // 以資料表為 key：換筆時重新載入
+                    if has_table {
                         for t in [table.clone()] {
                             match lower_tab() {
                                 0 => rsx! { ColumnsTab { key: "{t}", table: t.clone(), editable: m == Mode::Edit, on_error: move |e| error.set(Some(e)) } },
