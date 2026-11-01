@@ -6,8 +6,8 @@
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
     IndexDto, ItemDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto, NewProgramNoRequest,
-    Page, ProgramDto, ProgramInput, QueryRequest, TableDictionaryDto, TableDictionaryInput,
-    TableTextDto,
+    NewUserIdRequest, Page, ProgramDto, ProgramInput, QueryRequest, TableDictionaryDto,
+    TableDictionaryInput, TableTextDto, UserDto, UserInput,
 };
 
 fn base_url() -> String {
@@ -313,4 +313,66 @@ pub async fn get_legacy(legacy: &str) -> Result<LegacyTableDto, String> {
 /// 匯出 CSV 的下載網址（由瀏覽器直接下載）
 pub fn export_url(table: &str, lang: &str) -> String {
     format!("{}?lang={lang}", dict_url(table, "/export"))
+}
+
+// ----- User Maintenance 使用者維護（TipTop p_zx） -----
+
+fn user_url(id: &str, suffix: &str) -> String {
+    url(&format!("/api/users/{}{suffix}", urlencoding(id)))
+}
+
+pub async fn list_users() -> Result<Vec<UserDto>, String> {
+    get_json(url("/api/users")).await
+}
+
+pub async fn create_user(req: &UserInput) -> Result<UserDto, String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/users"))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn update_user(id: &str, req: &UserInput) -> Result<UserDto, String> {
+    let res = reqwest::Client::new()
+        .put(user_url(id, ""))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn delete_user(id: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(user_url(id, ""))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn copy_user(id: &str, new_id: &str) -> Result<UserDto, String> {
+    let res = reqwest::Client::new()
+        .post(user_url(id, "/copy"))
+        .json(&NewUserIdRequest {
+            new_user_id: new_id.to_owned(),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+/// 停用或啟用（TipTop p_zx 無效切換）
+pub async fn set_user_active(id: &str, active: bool) -> Result<UserDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    let res = reqwest::Client::new()
+        .post(user_url(id, suffix))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
 }

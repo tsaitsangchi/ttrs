@@ -1,0 +1,46 @@
+# User Maintenance 使用者維護（TipTop p_zx）
+# 語系：en。ID 規則見 docs/adr/0005-i18n.md；三個語系的 ID 必須一致。
+
+user-breadcrumb = System Admin / User Maintenance
+user-title = User Maintenance
+user-tab-basic = Basic Data
+user-tab-language = Language
+user-tab-status = Status
+user-tab-plants = Allowed Plants
+user-field-user-id = User Code
+user-field-name = User Name
+user-field-dept = Department Code
+user-field-class = Permission Class
+user-field-menu = User Menu
+user-field-multi-plant = Multi-Plant User
+user-field-default-plant = Default Plant
+user-field-email = Email Address
+user-field-idp-username = Company Account
+user-hint-idp-username = e.g. name@company.com
+user-field-valid-until = Expiry Date
+user-field-lang = Preferred Language
+user-hint-lang = Interface language after login.
+user-field-active = Valid
+user-status-active = Valid
+user-status-inactive = Disabled
+user-field-idp-bound = Account Binding
+user-idp-bound = Bound
+user-idp-unbound = Not yet bound
+user-field-created-by = Data Owner
+user-field-created-dept = Owner Department
+user-field-updated-by = Last Modified By
+user-field-updated-on = Last Modified On
+user-hint-plants = The default plant is added automatically; single-plant users have only one plant.
+user-col-plant = Plant
+user-col-default = Default
+user-list-title = User list
+user-field-filter = Filter by code or name
+user-field-copy-as = Copy as new code
+user-action-deactivate = Disable
+user-action-activate = Enable
+user-msg-saved = Saved user { $id }
+user-msg-deleted = Deleted user { $id }
+user-msg-copied = Copied { $from } to { $to }
+user-msg-activated = Enabled user { $id }
+user-msg-deactivated = Disabled user { $id }
+user-note-password = Passwords, password policy and lockout are managed by the company account system (ADR 0006); this program does not maintain passwords.

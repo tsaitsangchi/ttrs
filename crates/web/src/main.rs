@@ -10,7 +10,7 @@ use dioxus::prelude::*;
 use i18n::{UiLang, t};
 use pages::{
     aim::ItemList,
-    azz::{DataDictionary, ProgramMaintenance},
+    azz::{DataDictionary, ProgramMaintenance, UserMaintenance},
     home::Home,
 };
 
@@ -34,6 +34,9 @@ enum Route {
         /// Data Dictionary 資料字典維護（TipTop p_zta）
         #[route("/azz/data-dictionary")]
         DataDictionary {},
+        /// User Maintenance 使用者維護（TipTop p_zx）
+        #[route("/azz/user-maintenance")]
+        UserMaintenance {},
 }
 
 fn main() {
@@ -82,6 +85,7 @@ fn Shell() -> Element {
                 p { class: "group", {t("shell-group-azz")} }
                 Link { active_class: "active", to: Route::ProgramMaintenance {}, {t("shell-nav-program")} }
                 Link { active_class: "active", to: Route::DataDictionary {}, {t("shell-nav-dictionary")} }
+                Link { active_class: "active", to: Route::UserMaintenance {}, {t("shell-nav-users")} }
             }
             // 以語系為 key：切換語系時重新載入畫面，所有文字改用新語系
             for l in [current] {

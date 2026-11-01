@@ -9,7 +9,8 @@ use axum::{
 use tower::ServiceExt;
 use ttrs_api::{AppState, actor_from_env, router};
 use ttrs_app::{
-    DataDictionaryService, ItemService, LegacyCatalogService, ProgramService, memory::InMemoryStore,
+    DataDictionaryService, ItemService, LegacyCatalogService, ProgramService, UserService,
+    memory::InMemoryStore,
 };
 use ttrs_shared::ApiError;
 
@@ -19,7 +20,8 @@ fn app() -> axum::Router {
         items: ItemService::new(store.clone(), store.clone()),
         programs: ProgramService::new(store.clone()),
         dictionary: DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
-        legacy: LegacyCatalogService::new(store),
+        legacy: LegacyCatalogService::new(store.clone()),
+        users: UserService::new(store.clone(), store.clone(), store),
         actor: actor_from_env(),
     })
 }

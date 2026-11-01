@@ -14,6 +14,7 @@ use ttrs_domain::{
     plant::PlantId,
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
+    user::{User, UserId},
 };
 
 use crate::{
@@ -21,12 +22,15 @@ use crate::{
     ports::{
         AuditEntry, DictionaryRepository, ItemRepository, LegacyCatalogRepository,
         LegacyTableSummary, MasterDataRepository, MigrationSource, ProgramName, ProgramRepository,
-        SchemaCatalog, TableSchema,
+        SchemaCatalog, TableSchema, UserRepository,
     },
 };
 
 #[derive(Default)]
 struct State {
+    /// 使用者（zx_file）與可使用營運中心（zxy_file）
+    users: BTreeMap<UserId, User>,
+    user_plants: BTreeMap<UserId, Vec<PlantId>>,
     /// TipTop 對照目錄（舊表代碼 → 對照）
     legacy: BTreeMap<String, LegacyTable>,
     plants: HashSet<String>,
@@ -75,6 +79,11 @@ impl InMemoryStore {
         }
         s.add_permission_class("ADMIN");
         s
+    }
+
+    /// 測試用：使用者可使用的營運中心數
+    pub fn user_plant_count(&self, id: &UserId) -> usize {
+        self.lock().user_plants.get(id).map_or(0, Vec::len)
     }
 
     pub fn add_plant(&self, plant: &str) {
@@ -507,5 +516,57 @@ impl LegacyCatalogRepository for InMemoryStore {
             .values()
             .find(|t| t.name == name)
             .cloned())
+    }
+}
+
+#[async_trait]
+impl UserRepository for InMemoryStore {
+    async fn get(&self, id: &UserId) -> Result<Option<User>, RepoError> {
+        Ok(self.lock().users.get(id).cloned())
+    }
+
+    async fn list(&self) -> Result<Vec<User>, RepoError> {
+        // BTreeMap 依使用者代號排序（位元組順序，同 PostgreSQL COLLATE "C"）
+        Ok(self.lock().users.values().cloned().collect())
+    }
+
+    async fn insert(&self, user: &User, plants: &[PlantId]) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.users.contains_key(&user.user_id) {
+            return Err(RepoError::Conflict);
+        }
+        s.users.insert(user.user_id.clone(), user.clone());
+        s.user_plants.insert(user.user_id.clone(), plants.to_vec());
+        Ok(())
+    }
+
+    async fn update(&self, user: &User, plants: &[PlantId]) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        s.users.insert(user.user_id.clone(), user.clone());
+        s.user_plants.insert(user.user_id.clone(), plants.to_vec());
+        Ok(())
+    }
+
+    async fn delete(&self, id: &UserId) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        s.users.remove(id);
+        s.user_plants.remove(id);
+        Ok(())
+    }
+
+    async fn plants(&self, id: &UserId) -> Result<Vec<PlantId>, RepoError> {
+        // 與 PostgreSQL 一致：依營運中心代號排序
+        let mut plants = self.lock().user_plants.get(id).cloned().unwrap_or_default();
+        plants.sort();
+        Ok(plants)
+    }
+
+    async fn find_by_idp_username(&self, username: &str) -> Result<Option<UserId>, RepoError> {
+        Ok(self
+            .lock()
+            .users
+            .values()
+            .find(|u| u.attrs.idp_username.as_deref() == Some(username))
+            .map(|u| u.user_id.clone()))
     }
 }

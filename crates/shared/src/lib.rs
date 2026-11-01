@@ -1,7 +1,7 @@
 //! API 契約：Axum 後端與 Dioxus 前端共用。
 //! 這裡只放純資料型別，不放業務邏輯，也不可依賴 tokio/sqlx 等非 wasm 套件。
 
-use chrono::NaiveDate;
+pub use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
 /// 料件狀態（對應 TipTop 料件確認碼，見 docs/legacy-map/aim.yaml）
@@ -533,4 +533,94 @@ pub struct LegacyTableSummaryDto {
 pub struct LegacyImportResultDto {
     pub tables: u32,
     pub columns: u32,
+}
+
+// ----- User Maintenance 使用者維護（TipTop p_zx；user_maintenance.feature） -----
+
+/// 使用者欄位上限（依 TipTop zx_file.sch；與 domain user::max_len 一致）
+pub mod user_max_len {
+    pub const USER_ID: usize = 10;
+    pub const NAME: usize = 80;
+    pub const DEPT: usize = 10;
+    pub const EMAIL: usize = 80;
+    pub const IDP_USERNAME: usize = 255;
+}
+
+/// 新增/修改使用者的輸入（未給的欄位套用預設值）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UserInput {
+    /// zx01 使用者代號；修改時不可變更（U1）
+    pub user_id: String,
+    /// zx02 使用者名稱
+    pub name: Option<String>,
+    /// zx03 部門代號（U3：部門主檔移植前為自由輸入）
+    pub dept_code: Option<String>,
+    /// zx04 權限類別
+    pub permission_class: String,
+    /// zx05 使用者選單（模組 MENU 的程式）
+    pub menu: String,
+    /// zx07 多營運中心使用者
+    pub multi_plant: bool,
+    /// zx08 預設營運中心
+    pub default_plant: String,
+    /// zx09 電子郵件
+    pub email: Option<String>,
+    /// 公司帳號（UPN，ADR 0006）
+    pub idp_username: Option<String>,
+    /// zx06 偏好語言；未給為 zh-TW
+    pub lang: Option<String>,
+    /// zx18 失效日期
+    pub valid_until: Option<NaiveDate>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UserDto {
+    pub user_id: String,
+    pub name: Option<String>,
+    pub dept_code: Option<String>,
+    pub permission_class: String,
+    pub menu: String,
+    pub multi_plant: bool,
+    pub default_plant: String,
+    pub email: Option<String>,
+    pub idp_username: Option<String>,
+    /// 首次以公司帳號登入時綁定（ADR 0006 §2）
+    pub idp_bound: bool,
+    pub lang: String,
+    pub valid_until: Option<NaiveDate>,
+    /// zxacti 資料有效
+    pub active: bool,
+    /// zxy 可使用的營運中心
+    pub allowed_plants: Vec<String>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+}
+
+impl UserDto {
+    /// 轉回輸入格式，供修改時沿用其餘欄位
+    pub fn to_input(&self) -> UserInput {
+        UserInput {
+            user_id: self.user_id.clone(),
+            name: self.name.clone(),
+            dept_code: self.dept_code.clone(),
+            permission_class: self.permission_class.clone(),
+            menu: self.menu.clone(),
+            multi_plant: self.multi_plant,
+            default_plant: self.default_plant.clone(),
+            email: self.email.clone(),
+            idp_username: self.idp_username.clone(),
+            lang: Some(self.lang.clone()),
+            valid_until: self.valid_until,
+        }
+    }
+}
+
+/// 複製使用者的新代號
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct NewUserIdRequest {
+    pub new_user_id: String,
 }

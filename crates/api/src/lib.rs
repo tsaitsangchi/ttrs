@@ -14,13 +14,13 @@ use tower_http::{
 };
 use ttrs_app::{
     Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService, ProgramService,
-    program_service::DEFAULT_LANG,
+    UserService, program_service::DEFAULT_LANG,
 };
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
     IndexDto, ItemDto, LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto,
-    NewProgramNoRequest, Page, ProgramDto, ProgramInput, ProgramNameDto, QueryRequest,
-    TableDictionaryDto, TableDictionaryInput, TableTextDto,
+    NewProgramNoRequest, NewUserIdRequest, Page, ProgramDto, ProgramInput, ProgramNameDto,
+    QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto, UserDto, UserInput,
 };
 
 #[derive(Clone)]
@@ -29,6 +29,7 @@ pub struct AppState {
     pub programs: ProgramService,
     pub dictionary: DataDictionaryService,
     pub legacy: LegacyCatalogService,
+    pub users: UserService,
     /// 尚未有登入機制前，所有請求都以此使用者身分執行（見 `actor_from_env`）
     pub actor: Actor,
 }
@@ -102,6 +103,15 @@ pub fn router(state: AppState) -> Router {
         .route("/api/legacy-catalog", get(search_legacy))
         .route("/api/legacy-catalog/import", post(import_legacy))
         .route("/api/legacy-catalog/{legacy}", get(get_legacy))
+        // User Maintenance 使用者維護（TipTop p_zx）
+        .route("/api/users", get(list_users).post(create_user))
+        .route(
+            "/api/users/{id}",
+            get(get_user).put(update_user).delete(delete_user),
+        )
+        .route("/api/users/{id}/copy", post(copy_user))
+        .route("/api/users/{id}/deactivate", post(deactivate_user))
+        .route("/api/users/{id}/activate", post(activate_user))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
@@ -165,6 +175,64 @@ async fn table_legacy(
     Ok(Json(s.legacy.for_table(&table).await?))
 }
 
+// ----- User Maintenance 使用者維護（TipTop p_zx） -----
+
+async fn list_users(State(s): State<AppState>) -> ApiResult<Json<Vec<UserDto>>> {
+    Ok(Json(s.users.list().await?))
+}
+
+async fn create_user(
+    State(s): State<AppState>,
+    Json(req): Json<UserInput>,
+) -> ApiResult<(StatusCode, Json<UserDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.users.create(&s.actor, req).await?),
+    ))
+}
+
+async fn get_user(State(s): State<AppState>, Path(id): Path<String>) -> ApiResult<Json<UserDto>> {
+    Ok(Json(s.users.get(&id).await?))
+}
+
+async fn update_user(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+    Json(req): Json<UserInput>,
+) -> ApiResult<Json<UserDto>> {
+    Ok(Json(s.users.update(&s.actor, &id, req).await?))
+}
+
+async fn delete_user(State(s): State<AppState>, Path(id): Path<String>) -> ApiResult<StatusCode> {
+    s.users.delete(&id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn copy_user(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+    Json(req): Json<NewUserIdRequest>,
+) -> ApiResult<(StatusCode, Json<UserDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.users.copy(&s.actor, &id, &req.new_user_id).await?),
+    ))
+}
+
+async fn deactivate_user(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<UserDto>> {
+    Ok(Json(s.users.deactivate(&s.actor, &id).await?))
+}
+
+async fn activate_user(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<UserDto>> {
+    Ok(Json(s.users.activate(&s.actor, &id).await?))
+}
+
 pub struct HttpError(AppError);
 
 impl From<AppError> for HttpError {
@@ -179,12 +247,15 @@ impl IntoResponse for HttpError {
             "ITEM_NOT_FOUND"
             | "PROGRAM_NOT_FOUND"
             | "DICT_NOT_FOUND"
-            | "LEGACY_TABLE_NOT_FOUND" => StatusCode::NOT_FOUND,
+            | "LEGACY_TABLE_NOT_FOUND"
+            | "USER_NOT_FOUND" => StatusCode::NOT_FOUND,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
             | "ITEM_HAS_TRANSACTIONS"
             | "PROGRAM_ALREADY_EXISTS"
-            | "DICT_ALREADY_EXISTS" => StatusCode::CONFLICT,
+            | "DICT_ALREADY_EXISTS"
+            | "USER_ALREADY_EXISTS"
+            | "IDP_ACCOUNT_IN_USE" => StatusCode::CONFLICT,
             "INFRA_ERROR" => StatusCode::INTERNAL_SERVER_ERROR,
             _ => StatusCode::UNPROCESSABLE_ENTITY,
         };

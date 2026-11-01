@@ -6,6 +6,7 @@ pub mod pg;
 mod pg_dictionary;
 mod pg_legacy;
 mod pg_program;
+mod pg_user;
 
 pub use pg::PgStore;
 

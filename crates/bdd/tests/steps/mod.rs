@@ -6,4 +6,5 @@ mod azz_legacy_catalog;
 mod azz_program_maintenance;
 mod azz_program_maintenance_i18n;
 mod azz_program_maintenance_query;
+mod azz_user_maintenance;
 mod common;

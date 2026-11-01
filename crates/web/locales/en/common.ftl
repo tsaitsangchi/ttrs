@@ -6,6 +6,7 @@ shell-group-aim = Inventory (aim)
 shell-nav-aimi100 = aimi100 Item Master
 shell-group-azz = System Admin (azz)
 shell-nav-program = Program Maintenance
+shell-nav-users = User Maintenance
 shell-nav-dictionary = Data Dictionary
 shell-language = Language
 common-action-ok = OK

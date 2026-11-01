@@ -61,6 +61,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-TW/error.ftl"),
         include_str!("../locales/zh-TW/dictionary.ftl"),
         include_str!("../locales/zh-TW/item.ftl"),
+        include_str!("../locales/zh-TW/user.ftl"),
     ],
     &[
         include_str!("../locales/en/common.ftl"),
@@ -68,6 +69,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/en/error.ftl"),
         include_str!("../locales/en/dictionary.ftl"),
         include_str!("../locales/en/item.ftl"),
+        include_str!("../locales/en/user.ftl"),
     ],
     &[
         include_str!("../locales/zh-CN/common.ftl"),
@@ -75,6 +77,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-CN/error.ftl"),
         include_str!("../locales/zh-CN/dictionary.ftl"),
         include_str!("../locales/zh-CN/item.ftl"),
+        include_str!("../locales/zh-CN/user.ftl"),
     ],
 ];
 
@@ -259,7 +262,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 7] = [
+        const TRANSLATED: [(&str, &str); 8] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/multilingual.rs",
@@ -281,6 +284,10 @@ mod tests {
             (
                 "pages/azz/legacy_catalog.rs",
                 include_str!("pages/azz/legacy_catalog.rs"),
+            ),
+            (
+                "pages/azz/user_maintenance.rs",
+                include_str!("pages/azz/user_maintenance.rs"),
             ),
         ];
         let is_cjk = |c: char| {

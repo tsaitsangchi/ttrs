@@ -12,7 +12,7 @@ use cucumber::World;
 use sqlx::PgPool;
 use ttrs_app::{
     Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService, ProgramService,
-    memory::InMemoryStore,
+    UserService, memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
 use ttrs_shared::{
@@ -52,6 +52,7 @@ pub struct ErpWorld {
     pub legacy_source: Vec<LegacyTableDto>,
     pub legacy_results: Option<Vec<LegacyTableSummaryDto>>,
     pub legacy_view: Option<LegacyTableDto>,
+    pub users: UserService,
 }
 
 impl fmt::Debug for ErpWorld {
@@ -64,11 +65,11 @@ impl fmt::Debug for ErpWorld {
 
 impl ErpWorld {
     async fn init() -> Self {
-        let (backend, items, programs, dictionary, legacy) = match database_url() {
+        let (backend, items, programs, dictionary, legacy, users) = match database_url() {
             Some(url) => {
                 let pool = ttrs_infra::connect(&url).await.expect("connect PostgreSQL");
                 ttrs_infra::migrate(&pool).await.expect("run migrations");
-                sqlx::query("TRUNCATE legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
+                sqlx::query("TRUNCATE user_plant, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, inventory_txn, item, unit, plant \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
@@ -80,7 +81,8 @@ impl ErpWorld {
                     ItemService::new(store.clone(), store.clone()),
                     ProgramService::new(store.clone()),
                     DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
-                    LegacyCatalogService::new(store),
+                    LegacyCatalogService::new(store.clone()),
+                    UserService::new(store.clone(), store.clone(), store),
                 )
             }
             None => {
@@ -92,7 +94,8 @@ impl ErpWorld {
                     ItemService::new(shared.clone(), shared.clone()),
                     ProgramService::new(shared.clone()),
                     DataDictionaryService::new(shared.clone(), shared.clone(), shared.clone()),
-                    LegacyCatalogService::new(shared),
+                    LegacyCatalogService::new(shared.clone()),
+                    UserService::new(shared.clone(), shared.clone(), shared),
                 )
             }
         };
@@ -114,6 +117,7 @@ impl ErpWorld {
             legacy_source: Vec::new(),
             legacy_results: None,
             legacy_view: None,
+            users,
         }
     }
 }

@@ -9,5 +9,6 @@ pub mod legacy_catalog;
 pub mod plant;
 pub mod program;
 pub mod qbe;
+pub mod user;
 
 pub use error::DomainError;

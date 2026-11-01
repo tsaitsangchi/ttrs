@@ -74,6 +74,16 @@ bdd：驗收測試，執行 specs/features/**/*.feature
   API 以 `?lang=` 決定顯示語系並回傳所有語系清單；畫面用共用的 `MultilingualField` 元件。
 - 萃取 TipTop 規格時，遇到語言別欄位（如 gaz02、gat02、gaq02）照此規則對應，語言別 `0/1/2` → `zh-TW/en/zh-CN`。
 
+## 登入與權限（ADR 0006）
+
+- 登入一律走公司 SSO（OIDC），TTRS 不存密碼；TipTop 密碼相關欄位（zx10、zx16、zx17、zx19、zx20、gbt_file）不移植。
+- 使用者代號沿用 TipTop `zx01`（各表 `created_by` 存它）；公司帳號以 `idp_subject` 綁定，不自動建帳號。
+- 權限沿用 TipTop 模型與資料（zw/zy/zxw/zyw/gbl），動作代號用 TipTop action id（insert、modify、delete、query、confirm…）。
+- **每個 use case 都要宣告（程式代號, 動作）並經 app 層 `Authorizer` 檢查**；修改／刪除再依資料擁有者 `created_by`、
+  擁有部門 `created_dept` 套用資料權限。畫面隱藏按鈕只是方便，伺服器一定要檢查。拒絕回 `PERMISSION_DENIED`。
+- 業務表以 PostgreSQL RLS 依 `plant_id` 隔離；每個交易先 `SET LOCAL ttrs.plant_id`。
+- AI 代表使用者操作（Actor `kind = ai`），預設不得 confirm／post／approve／delete；背景作業用服務帳號。
+
 ## 常用指令
 
 ```bash

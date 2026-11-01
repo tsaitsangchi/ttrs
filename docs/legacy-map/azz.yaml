@@ -70,6 +70,52 @@ tables:
     note: "權限類別；主鍵 zw01 varchar2(10)、zw02 varchar2(80) 權限說明"
     unmapped: "zw03 使用目錄編號、zw05 閒置處理、zw06 閒置時間、zwacti、zwuser/zwgrup/zwmodu/zwdate"
 
+  - legacy: zx_file
+    target: user_account
+    program: p_zx（User Maintenance 使用者維護）
+    spec: specs/features/azz/user_maintenance.feature
+    note: "部門使用者檔；登入改用公司 SSO（ADR 0006），密碼相關欄位不搬"
+    columns:
+      - { legacy: zx01,   type: varchar2(10) NOT NULL, target: user_id, sch: 使用者代號, note: "各表 created_by 存此值；建立後不可修改（U1）" }
+      - { legacy: zx02,   type: varchar2(80), target: name, sch: 使用者名稱, note: "不做多語言（U5）" }
+      - { legacy: zx03,   type: varchar2(10), target: dept_code, sch: 部門代號, note: "部門主檔 gem_file 移植前為自由輸入（U3）" }
+      - { legacy: zx04,   type: varchar2(10), target: class_code, sch: 權限類別 }
+      - { legacy: zx05,   type: varchar2(10), target: menu_program, sch: 自定目錄編號, note: "須為模組 MENU 的程式" }
+      - { legacy: zx06,   type: varchar2(1), target: lang, sch: 使用語言別, note: "0→zh-TW、1→en、2→zh-CN（U6）" }
+      - { legacy: zx07,   type: varchar2(1), target: multi_plant, sch: 是否為多營運中心使用者, note: "Y/N → boolean" }
+      - { legacy: zx08,   type: varchar2(10), target: default_plant, sch: 預設營運中心編號 }
+      - { legacy: zx09,   type: varchar2(80), target: email, sch: Email位址, note: "新增基本格式檢核（U8）" }
+      - { legacy: zx10,   type: varchar2(40), sch: WEB User Password, note: "不搬（ADR 0006 §3，IdP 處理）" }
+      - { legacy: zx11,   type: varchar2(30), sch: 使用者流程, note: "不搬（TipTop udm tree）" }
+      - { legacy: zx12,   type: varchar2(1), sch: 依照權限調整使用者目錄, note: "不搬（TTRS 選單即依權限動態產生）" }
+      - { legacy: zx13,   type: varchar2(1), sch: No Use, note: 不搬 }
+      - { legacy: zx14,   type: varchar2(1), sch: 使用多語言功能, note: "不搬（ADR 0005 一律支援三語）" }
+      - { legacy: zx15,   type: varchar2(1), sch: UI切換語言別方式, note: "不搬（TTRS 介面語言隨時可切換）" }
+      - { legacy: zx16,   type: date, sch: Password 更新日期, note: "不搬（ADR 0006 §3）" }
+      - { legacy: zx17,   type: number(5), sch: 使用者此密碼已應用次數, note: "不搬（ADR 0006 §3）" }
+      - { legacy: zx18,   type: date, target: valid_until, sch: 使用者可用截止日期, note: "失效日期已到（含今天）即無效" }
+      - { legacy: zx19,   type: varchar2(1), sch: 強制使用者於下次登入更改密碼, note: "不搬（ADR 0006 §3）" }
+      - { legacy: zx20,   type: number(5), sch: 已試誤次數, note: "不搬（ADR 0006 §3）" }
+      - { legacy: zxacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean" }
+      - { legacy: zxuser, type: varchar2(10), target: created_by, sch: OWNER }
+      - { legacy: zxgrup, type: varchar2(10), target: created_dept, sch: GROUP }
+      - { legacy: zxmodu, type: varchar2(10), target: updated_by, sch: MODIFY USER }
+      - { legacy: zxdate, type: date, target: "created_on / updated_on", sch: MODIFY DATE, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+    new_columns:
+      - { target: idp_username, note: "公司帳號（UPN，小寫、不可重複），ADR 0006 §2" }
+      - { target: idp_subject, note: "公司 IdP 使用者識別碼，首次登入綁定" }
+
+  - legacy: zxy_file
+    target: user_plant
+    note: "使用者可使用營運中心；zxy02 使用者名稱為冗餘欄位不搬"
+    columns:
+      - { legacy: zxy01, type: varchar2(10) NOT NULL, target: user_id }
+      - { legacy: zxy02, type: varchar2(80), sch: 使用者名稱, note: 不搬（冗餘） }
+      - { legacy: zxy03, type: varchar2(10) NOT NULL, target: plant_id }
+
+  - legacy: gbt_file
+    note: "帳號稽核原則（密碼長度、更新週期、試誤次數）；不搬，由公司 IdP 處理（ADR 0006 §3）"
+
   - legacy: zm_file
     target: menu_item
     note: "選單；主鍵 (zm01, zm03)。zm01 varchar2(20) 目錄代號、zm03 number(5) 序號、zm04 varchar2(20) 程式代號"

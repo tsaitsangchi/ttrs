@@ -1,0 +1,46 @@
+# User Maintenance 使用者維護（TipTop p_zx）
+# 語系：zh-CN。ID 規則見 docs/adr/0005-i18n.md；三個語系的 ID 必須一致。
+
+user-breadcrumb = 系统管理 / User Maintenance
+user-title = 用户维护
+user-tab-basic = 基本资料
+user-tab-language = 语言
+user-tab-status = 状态
+user-tab-plants = 可使用营运中心
+user-field-user-id = 用户代号
+user-field-name = 用户名称
+user-field-dept = 部门代号
+user-field-class = 权限类别
+user-field-menu = 用户菜单
+user-field-multi-plant = 多营运中心用户
+user-field-default-plant = 默认营运中心
+user-field-email = 电子邮件
+user-field-idp-username = 公司账号
+user-hint-idp-username = 例：name@company.com
+user-field-valid-until = 失效日期
+user-field-lang = 偏好语言
+user-hint-lang = 登录后的界面语言。
+user-field-active = 资料有效
+user-status-active = 有效
+user-status-inactive = 停用
+user-field-idp-bound = 公司账号绑定
+user-idp-bound = 已绑定
+user-idp-unbound = 尚未登录绑定
+user-field-created-by = 资料所有者
+user-field-created-dept = 资料所有部门
+user-field-updated-by = 最后修改者
+user-field-updated-on = 最后修改日期
+user-hint-plants = 默认营运中心会自动加入；非多营运中心用户只能有一个营运中心。
+user-col-plant = 营运中心
+user-col-default = 默认
+user-list-title = 用户清单
+user-field-filter = 筛选代号或名称
+user-field-copy-as = 复制为新代号
+user-action-deactivate = 停用
+user-action-activate = 启用
+user-msg-saved = 已保存用户 { $id }
+user-msg-deleted = 已删除用户 { $id }
+user-msg-copied = 已将 { $from } 复制为 { $to }
+user-msg-activated = 已启用用户 { $id }
+user-msg-deactivated = 已停用用户 { $id }
+user-note-password = 密码、密码原则与账号锁定由公司账号系统管理（ADR 0006），本作业不维护密码。

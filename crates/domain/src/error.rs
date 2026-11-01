@@ -79,6 +79,26 @@ pub enum DomainError {
     #[error("欄位「{0}」不可做為查詢條件")]
     QbeFieldNotAllowed(String),
 
+    // 使用者維護（user_maintenance.feature）
+    #[error("使用者代號不可空白")]
+    UserIdEmpty,
+    #[error("使用者代號長度不可超過 {max} 碼")]
+    UserIdTooLong { max: usize },
+    #[error("使用者已存在")]
+    UserAlreadyExists,
+    #[error("使用者不存在")]
+    UserNotFound,
+    #[error("使用者代號不可修改")]
+    UserIdImmutable,
+    #[error("使用者選單必須是選單程式（模組 MENU）：{0}")]
+    UserMenuInvalid(String),
+    #[error("非多營運中心使用者只能有一個可使用的營運中心")]
+    UserSinglePlant,
+    #[error("公司帳號已綁定其他使用者：{0}")]
+    IdpAccountInUse(String),
+    #[error("電子郵件格式不正確：{0}")]
+    UserEmailInvalid(String),
+
     // TipTop 對照目錄（legacy_catalog.feature）
     #[error("英文名稱不符命名規則（小寫英文開頭、僅小寫英數與底線、最多 63 字、非保留字）：{0}")]
     LegacyNameInvalid(String),
@@ -124,6 +144,15 @@ impl DomainError {
             Self::QbeInvalidNumber(_) => "QBE_INVALID_NUMBER",
             Self::QbeInvalidDate(_) => "QBE_INVALID_DATE",
             Self::QbeFieldNotAllowed(_) => "QBE_FIELD_NOT_ALLOWED",
+            Self::UserIdEmpty => "USER_ID_EMPTY",
+            Self::UserIdTooLong { .. } => "USER_ID_TOO_LONG",
+            Self::UserAlreadyExists => "USER_ALREADY_EXISTS",
+            Self::UserNotFound => "USER_NOT_FOUND",
+            Self::UserIdImmutable => "USER_ID_IMMUTABLE",
+            Self::UserMenuInvalid(_) => "USER_MENU_INVALID",
+            Self::UserSinglePlant => "USER_SINGLE_PLANT",
+            Self::IdpAccountInUse(_) => "IDP_ACCOUNT_IN_USE",
+            Self::UserEmailInvalid(_) => "USER_EMAIL_INVALID",
             Self::LegacyNameInvalid(_) => "LEGACY_NAME_INVALID",
             Self::LegacyNameDuplicate(_) => "LEGACY_NAME_DUPLICATE",
             Self::LegacyTableNotFound(_) => "LEGACY_TABLE_NOT_FOUND",

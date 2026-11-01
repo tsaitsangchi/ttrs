@@ -1,0 +1,46 @@
+# User Maintenance 使用者維護（TipTop p_zx）
+# 語系：zh-TW。ID 規則見 docs/adr/0005-i18n.md；三個語系的 ID 必須一致。
+
+user-breadcrumb = 系統管理 / User Maintenance
+user-title = 使用者維護
+user-tab-basic = 基本資料
+user-tab-language = 語言
+user-tab-status = 狀態
+user-tab-plants = 可使用營運中心
+user-field-user-id = 使用者代號
+user-field-name = 使用者名稱
+user-field-dept = 部門代號
+user-field-class = 權限類別
+user-field-menu = 使用者選單
+user-field-multi-plant = 多營運中心使用者
+user-field-default-plant = 預設營運中心
+user-field-email = 電子郵件
+user-field-idp-username = 公司帳號
+user-hint-idp-username = 例：name@company.com
+user-field-valid-until = 失效日期
+user-field-lang = 偏好語言
+user-hint-lang = 登入後的介面語言。
+user-field-active = 資料有效
+user-status-active = 有效
+user-status-inactive = 停用
+user-field-idp-bound = 公司帳號綁定
+user-idp-bound = 已綁定
+user-idp-unbound = 尚未登入綁定
+user-field-created-by = 資料所有者
+user-field-created-dept = 資料所有部門
+user-field-updated-by = 最後修改者
+user-field-updated-on = 最後修改日期
+user-hint-plants = 預設營運中心會自動加入；非多營運中心使用者只能有一個營運中心。
+user-col-plant = 營運中心
+user-col-default = 預設
+user-list-title = 使用者清單
+user-field-filter = 篩選代號或名稱
+user-field-copy-as = 複製為新代號
+user-action-deactivate = 停用
+user-action-activate = 啟用
+user-msg-saved = 已儲存使用者 { $id }
+user-msg-deleted = 已刪除使用者 { $id }
+user-msg-copied = 已將 { $from } 複製為 { $to }
+user-msg-activated = 已啟用使用者 { $id }
+user-msg-deactivated = 已停用使用者 { $id }
+user-note-password = 密碼、密碼原則與帳號鎖定由公司帳號系統管理（ADR 0006），本作業不維護密碼。

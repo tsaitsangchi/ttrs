@@ -8,6 +8,7 @@ use ttrs_domain::{
     plant::PlantId,
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
+    user::{User, UserId},
 };
 
 use crate::error::RepoError;
@@ -184,4 +185,21 @@ pub trait LegacyCatalogRepository: Send + Sync {
     async fn get(&self, legacy_name: &str) -> Result<Option<LegacyTable>, RepoError>;
     /// 依英文表名取得（含欄位）；用於已移植的資料表（C1、C4）
     async fn find_by_name(&self, name: &str) -> Result<Option<LegacyTable>, RepoError>;
+}
+
+/// 使用者（TipTop: zx_file）與可使用營運中心（zxy_file）— user_maintenance.feature
+#[async_trait]
+pub trait UserRepository: Send + Sync {
+    async fn get(&self, id: &UserId) -> Result<Option<User>, RepoError>;
+    /// 依使用者代號排序
+    async fn list(&self) -> Result<Vec<User>, RepoError>;
+    /// 新增使用者與可使用營運中心（同一交易）；代號重複回 Conflict
+    async fn insert(&self, user: &User, plants: &[PlantId]) -> Result<(), RepoError>;
+    /// 更新使用者並以 `plants` 取代可使用營運中心（同一交易）
+    async fn update(&self, user: &User, plants: &[PlantId]) -> Result<(), RepoError>;
+    /// 刪除使用者連同可使用營運中心（U9，p_zx.4gl:1246-1249）
+    async fn delete(&self, id: &UserId) -> Result<(), RepoError>;
+    async fn plants(&self, id: &UserId) -> Result<Vec<PlantId>, RepoError>;
+    /// 公司帳號（小寫）目前綁定的使用者
+    async fn find_by_idp_username(&self, username: &str) -> Result<Option<UserId>, RepoError>;
 }

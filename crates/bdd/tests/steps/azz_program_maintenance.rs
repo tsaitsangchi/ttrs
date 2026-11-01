@@ -70,7 +70,12 @@ async fn program(w: &ErpWorld, no: &str) -> ProgramDto {
 }
 
 /// 準備基本資料：記憶體後端呼叫 `memory`，PostgreSQL 後端執行 `sql`
-async fn seed(w: &ErpWorld, memory: impl FnOnce(&InMemoryStore), sql: &'static str, args: &[&str]) {
+pub(crate) async fn seed(
+    w: &ErpWorld,
+    memory: impl FnOnce(&InMemoryStore),
+    sql: &'static str,
+    args: &[&str],
+) {
     match &w.backend {
         Backend::Memory(s) => memory(s),
         Backend::Pg(pool) => {

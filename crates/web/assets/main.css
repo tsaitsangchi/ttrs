@@ -209,3 +209,9 @@ a.md-button { text-decoration: none; }
 /* TipTop 對照目錄 */
 .legacy-search { min-width: 22rem; }
 .legacy-row--unused td { color: var(--md-sys-color-on-surface-variant); }
+
+/* 使用者維護（p_zx.4fd group01 / group02 兩欄） */
+.user-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.user-group { border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; padding: 20px 16px 16px; margin: 0; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.note { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
+@media (max-width: 840px) { .user-groups { grid-template-columns: 1fr; } }
