@@ -84,3 +84,7 @@ perm-act-related_document = Related Documents
 perm-act-help = Help
 perm-act-exit = Exit
 perm-act-locale = Switch Language
+# Query (YQ1–YQ4)
+perm-msg-filtered = Showing only programs matching the query
+perm-hint-qbe-actions = e.g. confirm, conf*, <>confirm, = (no actions)
+perm-hint-qbe-levels = { $field }: { $codes }

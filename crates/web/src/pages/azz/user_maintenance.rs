@@ -3,6 +3,7 @@
 //!   動作列（新增 / 修改 / 刪除 / 停用・啟用 / 複製）＋ 上下筆
 //!   ＋ 頁籤（Basic Data：group01 代號～選單、group02 營運中心～失效日期；Language；Status；另加可使用營運中心 U7）
 //!   ＋ 使用者清單。
+//! 查詢比照 TipTop Q.查詢（p_zx_curs CONSTRUCT）：在同一個表單的欄位上輸入 QBE 條件（user_maintenance_query.feature）。
 //! 密碼、解鎖等欄位不移植（ADR 0006）；規則在後端 UserService。
 
 use dioxus::prelude::*;
@@ -10,8 +11,11 @@ use ttrs_shared::{UserDto, UserInput, user_max_len as max_len};
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Checkbox, Chip, IconButton, Notification, NotificationKind,
-    Select, Tabs, TextField, icons,
+    Button, ButtonVariant, Card, Checkbox, Chip, Notification, NotificationKind, Select, Tabs,
+    TextField,
+};
+use crate::components::qbe::{
+    HINT_DATE, HINT_FLAG, ListPager, Q, RecordNav, conditions_of, use_query_records,
 };
 use crate::i18n::{self, UiLang, t, tf};
 
@@ -27,6 +31,8 @@ enum Mode {
     View,
     New,
     Edit,
+    /// 輸入 QBE 條件
+    Query,
 }
 
 fn opt(v: String) -> Option<String> {
@@ -38,68 +44,56 @@ pub fn UserMaintenance() -> Element {
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
     let mut mode = use_signal(|| Mode::View);
-    let tab = use_signal(|| 0usize);
-    let mut users = use_resource(api::list_users);
-    let mut filter = use_signal(String::new);
-    let mut pos = use_signal(|| None::<usize>);
+    let mut tab = use_signal(|| 0usize);
+    let mut rec = use_query_records(|req| async move { api::query_users(&req).await });
     let mut form = use_signal(UserInput::default);
     let mut copy_id = use_signal(String::new);
 
-    let all: Vec<UserDto> = users
-        .read()
-        .as_ref()
-        .and_then(|r| r.as_ref().ok())
-        .cloned()
-        .unwrap_or_default();
-    let f = filter().trim().to_lowercase();
-    let list: Vec<UserDto> = all
-        .iter()
-        .filter(|u| {
-            f.is_empty()
-                || u.user_id.to_lowercase().contains(&f)
-                || u.name.as_deref().unwrap_or("").to_lowercase().contains(&f)
-        })
-        .cloned()
-        .collect();
-    let total = list.len();
-    let cur: Option<UserDto> = pos().and_then(|i| list.get(i).cloned());
+    let cur: Option<UserDto> = rec.current.read().clone();
+    let (total, pages) = rec.totals();
+    let filtered = !rec.conditions.read().is_empty();
+    let offset = rec.offset();
 
-    // 換筆或清單重新載入時，表單跟著目前這一筆（預設停在第一筆）
+    // 換筆時表單跟著目前這一筆
     use_effect(move || {
-        let list: Vec<UserDto> = match &*users.read() {
-            Some(Ok(all)) => all.clone(),
-            _ => return,
-        };
-        if pos().is_none() && !list.is_empty() {
-            pos.set(Some(0));
-            return;
-        }
+        let c = rec.current.read().clone();
         if *mode.peek() == Mode::View {
-            form.set(
-                pos()
-                    .and_then(|i| list.get(i))
-                    .map(UserDto::to_input)
-                    .unwrap_or_default(),
-            );
+            form.set(c.as_ref().map(UserDto::to_input).unwrap_or_default());
         }
     });
 
-    // 存檔或其他異動後重新載入，並停在該使用者
-    let mut done = move |msg: String, id: Option<String>| {
+    // 存檔或其他異動後：顯示該使用者並重新載入清單
+    let mut done = move |msg: String, u: Option<UserDto>| {
         error.set(None);
         message.set(Some(msg));
         mode.set(Mode::View);
-        filter.set(String::new());
-        users.restart();
+        form.set(u.as_ref().map(UserDto::to_input).unwrap_or_default());
+        if u.is_none() {
+            rec.pos.set(None);
+        }
+        rec.show(u);
+    };
+
+    // 執行查詢：先試查第 1 頁，條件有誤時留在查詢模式顯示錯誤
+    let run_query = move |_| {
+        let conds = conditions_of(&rec.qbe.read());
+        let req = rec.request(conds.clone(), 1);
         spawn(async move {
-            if let Ok(list) = api::list_users().await {
-                pos.set(match id {
-                    Some(id) => list.iter().position(|u| u.user_id == id),
-                    None => (!list.is_empty()).then_some(0),
-                });
-                if let Some(u) = pos().and_then(|i| list.get(i)) {
-                    form.set(u.to_input());
+            match api::query_users(&req).await {
+                Ok(page) => {
+                    error.set(None);
+                    mode.set(Mode::View);
+                    rec.apply(conds, page.total);
+                    message.set(Some(if page.total == 0 {
+                        t("query-msg-none")
+                    } else {
+                        tf(
+                            "query-msg-matched",
+                            &[("count", page.total.to_string().as_str())],
+                        )
+                    }));
                 }
+                Err(e) => error.set(Some(e)),
             }
         });
     };
@@ -116,10 +110,7 @@ pub fn UserMaintenance() -> Element {
                 api::create_user(&req).await
             };
             match result {
-                Ok(u) => done(
-                    tf("user-msg-saved", &[("id", u.user_id.as_str())]),
-                    Some(u.user_id),
-                ),
+                Ok(u) => done(tf("user-msg-saved", &[("id", u.user_id.as_str())]), Some(u)),
                 Err(e) => error.set(Some(e)),
             }
         });
@@ -130,13 +121,20 @@ pub fn UserMaintenance() -> Element {
     let cur_toggle = cur.clone();
     let cur_copy = cur.clone();
     let m = mode();
-    let ro = m == Mode::View;
+    let q = m == Mode::Query;
+    let ro = matches!(m, Mode::View | Mode::Query);
     let no_cur = cur.is_none();
     let v = form();
     let lang_options: Vec<(String, String)> = UiLang::ALL
         .iter()
         .map(|l| (l.code().to_owned(), l.native_name().to_owned()))
         .collect();
+    let lang_hint = UiLang::ALL
+        .iter()
+        .map(|l| l.code())
+        .collect::<Vec<_>>()
+        .join("|");
+    let qbe = rec.qbe;
 
     rsx! {
         div { class: "page",
@@ -160,7 +158,30 @@ pub fn UserMaintenance() -> Element {
                             {t("common-action-cancel")}
                         }
                     },
+                    Mode::Query => rsx! {
+                        Button { onclick: run_query, {t("common-action-ok")} }
+                        Button {
+                            variant: ButtonVariant::Text,
+                            onclick: move |_| {
+                                error.set(None);
+                                form.set(rec.current.peek().as_ref().map(UserDto::to_input).unwrap_or_default());
+                                mode.set(Mode::View);
+                            },
+                            {t("common-action-cancel")}
+                        }
+                    },
                     Mode::View => rsx! {
+                        Button {
+                            variant: ButtonVariant::Tonal,
+                            onclick: move |_| {
+                                message.set(None);
+                                error.set(None);
+                                rec.qbe.set(Default::default());
+                                mode.set(Mode::Query);
+                                tab.set(0);
+                            },
+                            {t("common-action-query")}
+                        }
                         Button {
                             onclick: move |_| {
                                 message.set(None);
@@ -195,7 +216,7 @@ pub fn UserMaintenance() -> Element {
                                     match api::set_user_active(&u.user_id, !u.active).await {
                                         Ok(r) => {
                                             let id = if r.active { "user-msg-activated" } else { "user-msg-deactivated" };
-                                            done(tf(id, &[("id", r.user_id.as_str())]), Some(r.user_id));
+                                            done(tf(id, &[("id", r.user_id.as_str())]), Some(r));
                                         }
                                         Err(e) => error.set(Some(e)),
                                     }
@@ -223,7 +244,7 @@ pub fn UserMaintenance() -> Element {
                                     match api::copy_user(&u.user_id, &new_id).await {
                                         Ok(r) => {
                                             copy_id.set(String::new());
-                                            done(tf("user-msg-copied", &[("from", u.user_id.as_str()), ("to", r.user_id.as_str())]), Some(r.user_id));
+                                            done(tf("user-msg-copied", &[("from", u.user_id.as_str()), ("to", r.user_id.as_str())]), Some(r));
                                         }
                                         Err(e) => error.set(Some(e)),
                                     }
@@ -235,19 +256,12 @@ pub fn UserMaintenance() -> Element {
                 }
             }
 
+            if q {
+                p { class: "query-hint", {t("query-hint")} }
+            }
+
             if m == Mode::View && total > 0 {
-                div { class: "record-nav",
-                    IconButton { label: t("nav-first"), path: icons::FIRST_PAGE, disabled: pos() == Some(0), onclick: move |_| pos.set(Some(0)) }
-                    IconButton { label: t("nav-previous"), path: icons::CHEVRON_LEFT, disabled: pos().is_none_or(|i| i == 0), onclick: move |_| pos.set(pos().map(|i| i.saturating_sub(1))) }
-                    span { class: "record-nav__count",
-                        match pos() {
-                            Some(i) => rsx! { {tf("nav-record-position", &[("pos", (i + 1).to_string().as_str()), ("total", total.to_string().as_str())])} },
-                            None => rsx! { {tf("nav-record-count", &[("total", total.to_string().as_str())])} },
-                        }
-                    }
-                    IconButton { label: t("nav-next"), path: icons::CHEVRON_RIGHT, disabled: pos().is_some_and(|i| i + 1 >= total), onclick: move |_| pos.set(Some(pos().map_or(0, |i| (i + 1).min(total - 1)))) }
-                    IconButton { label: t("nav-last"), path: icons::LAST_PAGE, disabled: pos() == Some(total - 1), onclick: move |_| pos.set(Some(total - 1)) }
-                }
+                RecordNav { total, pos: (rec.pos)(), ongo: move |i| rec.go(i), onerror: move |e| error.set(Some(e)) }
             }
 
             if let Some(msg) = error() {
@@ -265,44 +279,81 @@ pub fn UserMaintenance() -> Element {
                             div { class: "user-groups",
                                 // p_zx.4fd group01：代號、名稱、部門、權限類別、選單
                                 fieldset { class: "user-group",
-                                    TextField { id: "zx01", label: t("user-field-user-id"), maxlength: max_len::USER_ID, value: v.user_id.clone(), readonly: m != Mode::New, oninput: move |x| form.write().user_id = x }
-                                    TextField { id: "zx02", label: t("user-field-name"), maxlength: max_len::NAME, value: v.name.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().name = opt(x) }
-                                    TextField { id: "zx03", label: t("user-field-dept"), maxlength: max_len::DEPT, value: v.dept_code.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().dept_code = opt(x) }
-                                    TextField { id: "zx04", label: t("user-field-class"), value: v.permission_class.clone(), readonly: ro, oninput: move |x| form.write().permission_class = x }
-                                    TextField { id: "zx05", label: t("user-field-menu"), value: v.menu.clone(), readonly: ro, oninput: move |x| form.write().menu = x }
+                                    Q { field: "user_id", label: t("user-field-user-id"), query: q, qbe,
+                                        TextField { id: "zx01", label: t("user-field-user-id"), maxlength: max_len::USER_ID, value: v.user_id.clone(), readonly: m != Mode::New, oninput: move |x| form.write().user_id = x }
+                                    }
+                                    Q { field: "name", label: t("user-field-name"), query: q, qbe,
+                                        TextField { id: "zx02", label: t("user-field-name"), maxlength: max_len::NAME, value: v.name.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().name = opt(x) }
+                                    }
+                                    Q { field: "dept_code", label: t("user-field-dept"), query: q, qbe,
+                                        TextField { id: "zx03", label: t("user-field-dept"), maxlength: max_len::DEPT, value: v.dept_code.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().dept_code = opt(x) }
+                                    }
+                                    Q { field: "permission_class", label: t("user-field-class"), query: q, qbe,
+                                        TextField { id: "zx04", label: t("user-field-class"), value: v.permission_class.clone(), readonly: ro, oninput: move |x| form.write().permission_class = x }
+                                    }
+                                    Q { field: "menu", label: t("user-field-menu"), query: q, qbe,
+                                        TextField { id: "zx05", label: t("user-field-menu"), value: v.menu.clone(), readonly: ro, oninput: move |x| form.write().menu = x }
+                                    }
                                 }
                                 // p_zx.4fd group02：多營運中心、預設營運中心、Email、公司帳號、失效日期
                                 fieldset { class: "user-group",
-                                    Checkbox { id: "zx07", label: t("user-field-multi-plant"), checked: v.multi_plant, readonly: ro, onchange: move |x| form.write().multi_plant = x }
-                                    TextField { id: "zx08", label: t("user-field-default-plant"), value: v.default_plant.clone(), readonly: ro, oninput: move |x| form.write().default_plant = x }
-                                    TextField { id: "zx09", label: t("user-field-email"), maxlength: max_len::EMAIL, value: v.email.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().email = opt(x) }
-                                    TextField { id: "idp", label: t("user-field-idp-username"), maxlength: max_len::IDP_USERNAME, placeholder: t("user-hint-idp-username"), value: v.idp_username.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().idp_username = opt(x) }
-                                    TextField {
-                                        id: "zx18",
-                                        label: t("user-field-valid-until"),
-                                        input_type: "date",
-                                        value: v.valid_until.map(|d| d.to_string()).unwrap_or_default(),
-                                        readonly: ro,
-                                        oninput: move |x: String| form.write().valid_until = ttrs_shared::NaiveDate::parse_from_str(&x, "%Y-%m-%d").ok(),
+                                    Q { field: "multi_plant", label: t("user-field-multi-plant"), hint: HINT_FLAG, query: q, qbe,
+                                        Checkbox { id: "zx07", label: t("user-field-multi-plant"), checked: v.multi_plant, readonly: ro, onchange: move |x| form.write().multi_plant = x }
+                                    }
+                                    Q { field: "default_plant", label: t("user-field-default-plant"), query: q, qbe,
+                                        TextField { id: "zx08", label: t("user-field-default-plant"), value: v.default_plant.clone(), readonly: ro, oninput: move |x| form.write().default_plant = x }
+                                    }
+                                    Q { field: "email", label: t("user-field-email"), query: q, qbe,
+                                        TextField { id: "zx09", label: t("user-field-email"), maxlength: max_len::EMAIL, value: v.email.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().email = opt(x) }
+                                    }
+                                    Q { field: "idp_username", label: t("user-field-idp-username"), query: q, qbe,
+                                        TextField { id: "idp", label: t("user-field-idp-username"), maxlength: max_len::IDP_USERNAME, placeholder: t("user-hint-idp-username"), value: v.idp_username.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().idp_username = opt(x) }
+                                    }
+                                    Q { field: "valid_until", label: t("user-field-valid-until"), hint: HINT_DATE, query: q, qbe,
+                                        TextField {
+                                            id: "zx18",
+                                            label: t("user-field-valid-until"),
+                                            input_type: "date",
+                                            value: v.valid_until.map(|d| d.to_string()).unwrap_or_default(),
+                                            readonly: ro,
+                                            oninput: move |x: String| form.write().valid_until = ttrs_shared::NaiveDate::parse_from_str(&x, "%Y-%m-%d").ok(),
+                                        }
                                     }
                                 }
                             }
                         },
                         1 => rsx! {
                             div { class: "form-grid cols-4",
-                                Select { id: "zx06", label: t("user-field-lang"), options: lang_options.clone(), value: v.lang.clone().unwrap_or_else(|| UiLang::ZhTw.code().into()), readonly: ro, onchange: move |x| form.write().lang = Some(x) }
+                                Q { field: "lang", label: t("user-field-lang"), hint_text: lang_hint.clone(), query: q, qbe,
+                                    Select { id: "zx06", label: t("user-field-lang"), options: lang_options.clone(), value: v.lang.clone().unwrap_or_else(|| UiLang::ZhTw.code().into()), readonly: ro, onchange: move |x| form.write().lang = Some(x) }
+                                }
                             }
                             p { class: "muted", {t("user-hint-lang")} }
                         },
                         2 => rsx! {
                             div { class: "form-grid cols-4",
-                                TextField { id: "zxacti", label: t("user-field-active"), readonly: true, value: cur.as_ref().map(|u| if u.active { t("user-status-active") } else { t("user-status-inactive") }).unwrap_or_default() }
-                                TextField { id: "idp-bound", label: t("user-field-idp-bound"), readonly: true, value: cur.as_ref().map(|u| if u.idp_bound { t("user-idp-bound") } else { t("user-idp-unbound") }).unwrap_or_default() }
-                                TextField { id: "zxuser", label: t("user-field-created-by"), readonly: true, value: cur.as_ref().map(|u| u.created_by.clone()).unwrap_or_default() }
-                                TextField { id: "zxgrup", label: t("user-field-created-dept"), readonly: true, value: cur.as_ref().map(|u| u.created_dept.clone()).unwrap_or_default() }
-                                TextField { id: "zxmodu", label: t("user-field-updated-by"), readonly: true, value: cur.as_ref().and_then(|u| u.updated_by.clone()).unwrap_or_default() }
-                                TextField { id: "zxdate", label: t("user-field-updated-on"), readonly: true, value: cur.as_ref().and_then(|u| u.updated_on.map(|d| d.format("%Y/%m/%d").to_string())).unwrap_or_default() }
+                                Q { field: "active", label: t("user-field-active"), hint: HINT_FLAG, query: q, qbe,
+                                    TextField { id: "zxacti", label: t("user-field-active"), readonly: true, value: cur.as_ref().map(|u| if u.active { t("user-status-active") } else { t("user-status-inactive") }).unwrap_or_default() }
+                                }
+                                if !q {
+                                    TextField { id: "idp-bound", label: t("user-field-idp-bound"), readonly: true, value: cur.as_ref().map(|u| if u.idp_bound { t("user-idp-bound") } else { t("user-idp-unbound") }).unwrap_or_default() }
+                                }
+                                Q { field: "created_by", label: t("user-field-created-by"), query: q, qbe,
+                                    TextField { id: "zxuser", label: t("user-field-created-by"), readonly: true, value: cur.as_ref().map(|u| u.created_by.clone()).unwrap_or_default() }
+                                }
+                                Q { field: "created_dept", label: t("user-field-created-dept"), query: q, qbe,
+                                    TextField { id: "zxgrup", label: t("user-field-created-dept"), readonly: true, value: cur.as_ref().map(|u| u.created_dept.clone()).unwrap_or_default() }
+                                }
+                                Q { field: "updated_by", label: t("user-field-updated-by"), query: q, qbe,
+                                    TextField { id: "zxmodu", label: t("user-field-updated-by"), readonly: true, value: cur.as_ref().and_then(|u| u.updated_by.clone()).unwrap_or_default() }
+                                }
+                                Q { field: "updated_on", label: t("user-field-updated-on"), hint: HINT_DATE, query: q, qbe,
+                                    TextField { id: "zxdate", label: t("user-field-updated-on"), readonly: true, value: cur.as_ref().and_then(|u| u.updated_on.map(|d| d.format("%Y/%m/%d").to_string())).unwrap_or_default() }
+                                }
                             }
+                        },
+                        _ if q => rsx! {
+                            p { class: "muted", {t("query-msg-tab-not-queryable")} }
                         },
                         _ => rsx! {
                             p { class: "muted", {t("user-hint-plants")} }
@@ -326,10 +377,7 @@ pub fn UserMaintenance() -> Element {
             Card {
                 div { class: "table-header",
                     h3 { {t("user-list-title")} }
-                    p { {tf("list-count-all", &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
-                }
-                div { class: "card-body",
-                    TextField { id: "user-filter", class: "legacy-search", label: t("user-field-filter"), value: filter(), oninput: move |x| { filter.set(x); pos.set(Some(0)); } }
+                    p { {tf(if filtered { "list-count-filtered" } else { "list-count-all" }, &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
                 }
                 div { class: "table-scroll",
                     table { class: "md-table",
@@ -339,17 +387,17 @@ pub fn UserMaintenance() -> Element {
                             }
                         } }
                         tbody {
-                            match &*users.read() {
+                            match &*rec.list.read() {
                                 None => rsx! { tr { td { colspan: 6, {t("common-msg-loading")} } } },
                                 Some(Err(e)) => rsx! { tr { td { colspan: 6, "{e}" } } },
-                                Some(Ok(_)) if list.is_empty() => rsx! { tr { td { colspan: 6, class: "muted", {t("common-msg-no-data")} } } },
-                                Some(Ok(_)) => rsx! {
-                                    for (i, u) in list.iter().cloned().enumerate() {
+                                Some(Ok(page)) if page.items.is_empty() => rsx! { tr { td { colspan: 6, class: "muted", {t("common-msg-no-data")} } } },
+                                Some(Ok(page)) => rsx! {
+                                    for (i, u) in page.items.iter().cloned().enumerate() {
                                         tr {
                                             key: "{u.user_id}",
                                             class: "md-table__row--clickable",
-                                            class: if pos() == Some(i) { "md-table__row--selected" },
-                                            onclick: move |_| if mode() == Mode::View { message.set(None); error.set(None); pos.set(Some(i)); },
+                                            class: if cur.as_ref().is_some_and(|c| c.user_id == u.user_id) { "md-table__row--selected" },
+                                            onclick: move |_| if mode() == Mode::View { message.set(None); error.set(None); rec.go(offset + i as u64); },
                                             td { class: "mono", "{u.user_id}" }
                                             td { {u.name.clone().unwrap_or_default()} }
                                             td { {u.dept_code.clone().unwrap_or_default()} }
@@ -365,6 +413,7 @@ pub fn UserMaintenance() -> Element {
                         }
                     }
                 }
+                ListPager { page: rec.page, pages }
             }
             p { class: "note", {i18n::t("user-note-password")} }
         }

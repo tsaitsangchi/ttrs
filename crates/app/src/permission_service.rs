@@ -13,15 +13,20 @@ use ttrs_domain::{
     permission_class::{ClassCode, PermissionClass},
     program::{Program, ProgramNo},
 };
-use ttrs_shared::{PermissionBatchResultDto, ProgramPermissionDto, ProgramPermissionInput};
+use ttrs_shared::{
+    Page, PermissionBatchResultDto, PermissionClassDto, ProgramPermissionDto,
+    ProgramPermissionInput, QueryRequest,
+};
 
 use crate::{
     Actor, AppError,
     error::RepoError,
+    permission_class_service::to_dto as class_dto,
     ports::{
         PermissionClassRepository, PermissionListItem, ProgramPermissionRepository,
         ProgramRepository,
     },
+    query,
 };
 
 /// 選單展開的最大層數（TipTop p_zy_bom mfg2733）
@@ -45,6 +50,46 @@ impl ProgramPermissionService {
             programs,
             classes,
         }
+    }
+
+    /// QBE 查詢（p_zy_curs，p_zy.4gl:143-203）：符合條件的權限類別（單頭）；欄位見
+    /// query::program_permission（YQ1、YQ2）
+    pub async fn query(&self, req: QueryRequest) -> Result<Page<PermissionClassDto>, AppError> {
+        let (header, detail) = query::program_permission::filters(&req.conditions)?;
+        let p = query::paging(&req);
+        let (classes, total) = self
+            .perms
+            .query_classes(&header, &detail, p.offset, u64::from(p.page_size))
+            .await
+            .map_err(infra)?;
+        Ok(Page {
+            items: classes.iter().map(class_dto).collect(),
+            total,
+            page: p.page,
+            page_size: p.page_size,
+        })
+    }
+
+    /// 權限類別符合查詢條件的程式（p_zy_b_fill(g_wc)，p_zy.4gl:938-955，YQ3）：只套用單身條件，
+    /// 程式名稱依 `req.lang` 顯示
+    pub async fn query_class(
+        &self,
+        class: &str,
+        req: QueryRequest,
+    ) -> Result<Vec<ProgramPermissionDto>, AppError> {
+        let (_, detail) = query::program_permission::filters(&req.conditions)?;
+        let class = self.class(class).await?;
+        let lang = Lang::parse(req.lang.as_deref().unwrap_or(DEFAULT_LANG))?;
+        let items = self.perms.list(&class.code).await.map_err(infra)?;
+        Ok(items
+            .iter()
+            .filter(|i| {
+                query::matches_all(&detail, |f| {
+                    query::program_permission::value(&i.permission, f)
+                })
+            })
+            .map(|i| to_dto(i, &lang))
+            .collect())
     }
 
     /// 權限類別的全部程式權限（依程式代號排序），程式名稱依 `lang` 顯示

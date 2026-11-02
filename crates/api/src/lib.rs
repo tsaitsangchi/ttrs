@@ -114,6 +114,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/legacy-catalog/{legacy}", get(get_legacy))
         // User Maintenance 使用者維護（TipTop p_zx）
         .route("/api/users", get(list_users).post(create_user))
+        .route("/api/users/query", post(query_users))
         .route(
             "/api/users/{id}",
             get(get_user).put(update_user).delete(delete_user),
@@ -142,6 +143,7 @@ pub fn router(state: AppState) -> Router {
         )
         // Plant Maintenance 營運中心維護（TipTop aooi901）
         .route("/api/plants", get(list_plants).post(create_plant))
+        .route("/api/plants/query", post(query_plants))
         .route(
             "/api/plants/{id}",
             get(get_plant).put(update_plant).delete(delete_plant),
@@ -154,6 +156,7 @@ pub fn router(state: AppState) -> Router {
             "/api/permission-classes",
             get(list_classes).post(create_class),
         )
+        .route("/api/permission-classes/query", post(query_classes))
         .route(
             "/api/permission-classes/update-user-menus",
             post(update_user_menus),
@@ -171,6 +174,14 @@ pub fn router(state: AppState) -> Router {
             post(activate_class),
         )
         // Program Permission Maintenance 程式執行權限維護（TipTop p_zy）
+        .route(
+            "/api/program-permissions/query",
+            post(query_program_permissions),
+        )
+        .route(
+            "/api/permission-classes/{code}/permission-query",
+            post(query_class_permissions),
+        )
         .route(
             "/api/permission-classes/{code}/permissions",
             get(list_class_permissions)
@@ -266,6 +277,14 @@ async fn list_users(State(s): State<AppState>) -> ApiResult<Json<Vec<UserDto>>> 
     Ok(Json(s.users.list().await?))
 }
 
+/// QBE 查詢（TipTop p_zx 的 Q.查詢）；條件格式見 ttrs_domain::qbe
+async fn query_users(
+    State(s): State<AppState>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<UserDto>>> {
+    Ok(Json(s.users.query(req).await?))
+}
+
 async fn create_user(
     State(s): State<AppState>,
     Json(req): Json<UserInput>,
@@ -322,6 +341,14 @@ async fn activate_user(
 
 async fn list_plants(State(s): State<AppState>) -> ApiResult<Json<Vec<PlantDto>>> {
     Ok(Json(s.plants.list().await?))
+}
+
+/// QBE 查詢（TipTop aooi901 的 Q.查詢）
+async fn query_plants(
+    State(s): State<AppState>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<PlantDto>>> {
+    Ok(Json(s.plants.query(req).await?))
 }
 
 async fn create_plant(
@@ -382,6 +409,14 @@ async fn list_classes(State(s): State<AppState>) -> ApiResult<Json<Vec<Permissio
     Ok(Json(s.classes.list().await?))
 }
 
+/// QBE 查詢（TipTop p_zw 的 Q.查詢）
+async fn query_classes(
+    State(s): State<AppState>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<PermissionClassDto>>> {
+    Ok(Json(s.classes.query(req).await?))
+}
+
 async fn create_class(
     State(s): State<AppState>,
     Json(req): Json<PermissionClassInput>,
@@ -435,6 +470,23 @@ async fn update_user_menus(State(s): State<AppState>) -> ApiResult<Json<UpdatedC
 }
 
 // ----- Program Permission Maintenance 程式執行權限維護（TipTop p_zy） -----
+
+/// QBE 查詢（TipTop p_zy 的 Q.查詢）：符合條件的權限類別
+async fn query_program_permissions(
+    State(s): State<AppState>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<PermissionClassDto>>> {
+    Ok(Json(s.permissions.query(req).await?))
+}
+
+/// 權限類別符合同一組查詢條件的程式（單身，YQ3）
+async fn query_class_permissions(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Vec<ProgramPermissionDto>>> {
+    Ok(Json(s.permissions.query_class(&code, req).await?))
+}
 
 async fn list_class_permissions(
     State(s): State<AppState>,

@@ -1,9 +1,12 @@
 //! Program Maintenance QBE 查詢 — specs/features/azz/program_maintenance_query.feature
 
-use cucumber::{gherkin::Step, given, then, when};
+use cucumber::{gherkin::Step, given, when};
 use ttrs_shared::{ProgramInput, QbeCondition, QueryRequest, ReportTypeDto};
 
-use crate::ErpWorld;
+use crate::{
+    ErpWorld,
+    steps::common::{query_request, rows, set_query_result},
+};
 
 /// 畫面欄位名稱 → 查詢欄位鍵值（與 ProgramDto 欄位名稱相同）
 fn field_key(label: &str) -> &'static str {
@@ -19,23 +22,9 @@ fn field_key(label: &str) -> &'static str {
     }
 }
 
-/// 讀取表格（略過標題列）
-fn rows(step: &Step) -> Vec<Vec<String>> {
-    let table = step.table.as_ref().expect("此步驟需要表格");
-    table.rows.iter().skip(1).cloned().collect()
-}
-
 async fn run_query(w: &mut ErpWorld, req: QueryRequest) {
-    match w.programs.query(req).await {
-        Ok(page) => {
-            w.program_page = Some(page);
-            w.last = Some(Ok(()));
-        }
-        Err(e) => {
-            w.program_page = None;
-            w.last = Some(Err(e));
-        }
-    }
+    let result = w.programs.query(req).await;
+    set_query_result(w, result, |p| p.program_no.clone());
 }
 
 fn condition(label: &str, expr: &str) -> QbeCondition {
@@ -66,15 +55,8 @@ async fn existing_programs(w: &mut ErpWorld, step: &Step) {
 
 #[when(expr = "使用者以下列條件查詢程式:")]
 async fn query_by_table(w: &mut ErpWorld, step: &Step) {
-    let conditions = rows(step).iter().map(|r| condition(&r[0], &r[1])).collect();
-    run_query(
-        w,
-        QueryRequest {
-            conditions,
-            ..Default::default()
-        },
-    )
-    .await;
+    let req = query_request(step, field_key, None);
+    run_query(w, req).await;
 }
 
 #[when(expr = "使用者以程式代號 {string} 查詢程式")]
@@ -101,30 +83,4 @@ async fn query_by_no_paged(w: &mut ErpWorld, expr: String, size: u32, page: u32)
         },
     )
     .await;
-}
-
-fn result_nos(w: &ErpWorld) -> String {
-    let page = w.program_page.as_ref().expect("沒有查詢結果（查詢失敗？）");
-    page.items
-        .iter()
-        .map(|p| p.program_no.as_str())
-        .collect::<Vec<_>>()
-        .join(",")
-}
-
-#[then(expr = "查詢結果應為 {string}")]
-fn result_is(w: &mut ErpWorld, expected: String) {
-    assert_eq!(result_nos(w), expected);
-}
-
-#[then(expr = "查詢結果應為 {string} 共 {int} 筆")]
-fn result_is_with_total(w: &mut ErpWorld, expected: String, total: u64) {
-    assert_eq!(result_nos(w), expected);
-    assert_eq!(w.program_page.as_ref().unwrap().total, total, "總筆數");
-}
-
-#[then(expr = "查詢結果應有 {int} 筆")]
-fn result_count(w: &mut ErpWorld, total: u64) {
-    let page = w.program_page.as_ref().expect("沒有查詢結果（查詢失敗？）");
-    assert_eq!(page.total, total);
 }

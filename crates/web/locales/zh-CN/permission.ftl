@@ -11,7 +11,6 @@ class-field-idle-control = 闲置设置
 class-field-idle-action = 闲置处理
 class-field-idle-seconds = 闲置时间（秒）
 class-field-active = 有效
-class-field-filter = 筛选（代号、说明）
 class-opt-idle-off = 不控制
 class-opt-idle-class = 依权限类别设置
 class-opt-idle-system = 依整体系统设置
@@ -36,3 +35,6 @@ class-msg-activated = 权限类别 { $code } 已启用
 class-msg-deactivated = 权限类别 { $code } 已停用
 class-msg-menus-updated = 已更新 { $count } 位用户的菜单
 class-note-permissions = 群组执行权限（p_zy）与打印权限（p_zy2）的维护将于后续移植；新增的权限类别不会自动带入任何程序权限。
+# 查询模式提示（WQ2：可输入代码或繁中显示文字）
+class-hint-qbe-idle-control = 1 不控制 | 2 依权限类别 | 3 依系统
+class-hint-qbe-idle-action = 1 仅警告 | 2 警告后关闭 | 3 直接关闭

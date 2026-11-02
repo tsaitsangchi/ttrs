@@ -8,9 +8,29 @@ use ttrs_app::{error::RepoError, ports::PermissionClassRepository};
 use ttrs_domain::{
     permission_class::{ClassCode, ClassIdleControl, PermissionClass, PermissionClassAttrs},
     program::IdleAction,
+    qbe::QbeFilter,
 };
 
-use crate::{PgStore, pg::db_err};
+use crate::{
+    PgStore,
+    pg::db_err,
+    pg_permission::permission_column,
+    qbe_sql::{Column, push_filters, query_page},
+};
+
+/// 查詢鍵值（PermissionClassDto 欄位名稱，ttrs_app::query::permission_class）→ 資料庫欄位
+fn class_column(field: &str) -> Option<Column> {
+    Some(match field {
+        "class_code" => Column::Scalar("c.class_code", true),
+        "name" => Column::Scalar("c.name", true),
+        "default_menu" => Column::Scalar("c.default_menu", true),
+        "idle_control" => Column::Scalar("c.idle_control", true),
+        "idle_action" => Column::Scalar("c.idle_action", true),
+        "idle_seconds" => Column::Scalar("c.idle_seconds", false),
+        "active" => Column::Scalar("c.active", false),
+        _ => return None,
+    })
+}
 
 #[derive(FromRow)]
 struct ClassRow {
@@ -102,6 +122,15 @@ impl PermissionClassRepository for PgStore {
             .collect()
     }
 
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<PermissionClass>, u64), RepoError> {
+        self.query_classes_by(filters, &[], offset, limit).await
+    }
+
     async fn insert(&self, c: &PermissionClass) -> Result<(), RepoError> {
         let a = &c.attrs;
         sqlx::query(
@@ -176,5 +205,44 @@ impl PermissionClassRepository for PgStore {
             code,
         )
         .await
+    }
+}
+
+impl PgStore {
+    /// 權限類別的 QBE 查詢（p_zw 查詢、p_zy 查詢共用）：`detail` 有值時只取至少有一筆程式權限
+    /// 同時符合全部 `detail` 的權限類別（p_zy，YQ2）
+    pub(crate) async fn query_classes_by(
+        &self,
+        header: &[QbeFilter],
+        detail: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<PermissionClass>, u64), RepoError> {
+        let (rows, total) = query_page::<ClassRow>(
+            &self.pool,
+            "SELECT COUNT(*) FROM permission_class c WHERE TRUE",
+            select_class!("c WHERE TRUE"),
+            |qb| {
+                push_filters(qb, header, class_column)?;
+                if !detail.is_empty() {
+                    qb.push(
+                        " AND EXISTS (SELECT 1 FROM program_permission pp \
+                         WHERE pp.class_code = c.class_code",
+                    );
+                    push_filters(qb, detail, permission_column)?;
+                    qb.push(")");
+                }
+                Ok(())
+            },
+            r#" ORDER BY c.class_code COLLATE "C""#,
+            offset,
+            limit,
+        )
+        .await?;
+        let classes = rows
+            .into_iter()
+            .map(PermissionClass::try_from)
+            .collect::<Result<_, _>>()?;
+        Ok((classes, total))
     }
 }

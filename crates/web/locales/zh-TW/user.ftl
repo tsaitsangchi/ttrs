@@ -34,7 +34,6 @@ user-hint-plants = 預設營運中心會自動加入；非多營運中心使用�
 user-col-plant = 營運中心
 user-col-default = 預設
 user-list-title = 使用者清單
-user-field-filter = 篩選代號或名稱
 user-field-copy-as = 複製為新代號
 user-action-deactivate = 停用
 user-action-activate = 啟用

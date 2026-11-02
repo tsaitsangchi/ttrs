@@ -12,6 +12,7 @@ pub mod plant_service;
 pub mod ports;
 pub mod program_query;
 pub mod program_service;
+pub mod query;
 pub mod user_permission_service;
 pub mod user_service;
 

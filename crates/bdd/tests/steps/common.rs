@@ -1,6 +1,74 @@
-use cucumber::{given, then};
+use cucumber::{gherkin::Step, given, then};
+use ttrs_app::AppError;
+use ttrs_shared::{Page, QbeCondition, QueryRequest};
 
 use crate::{Backend, ErpWorld};
+
+/// 讀取表格（略過標題列）
+pub fn rows(step: &Step) -> Vec<Vec<String>> {
+    let table = step.table.as_ref().expect("此步驟需要表格");
+    table.rows.iter().skip(1).cloned().collect()
+}
+
+/// QBE 查詢步驟的「欄位／條件」表格 → 查詢請求；`key` 把畫面欄位名稱轉成查詢欄位鍵值，
+/// `paging` 為（每頁筆數, 頁次）
+pub fn query_request(
+    step: &Step,
+    key: fn(&str) -> &'static str,
+    paging: Option<(u32, u32)>,
+) -> QueryRequest {
+    QueryRequest {
+        conditions: rows(step)
+            .iter()
+            .map(|r| QbeCondition {
+                field: key(&r[0]).to_owned(),
+                expr: r[1].clone(),
+            })
+            .collect(),
+        page_size: paging.map(|(size, _)| size),
+        page: paging.map(|(_, page)| page),
+        lang: None,
+    }
+}
+
+/// 記錄 QBE 查詢的結果（鍵值依序）供「查詢結果應為」比對
+pub fn set_query_result<T>(
+    w: &mut ErpWorld,
+    result: Result<Page<T>, AppError>,
+    key: fn(&T) -> String,
+) {
+    match result {
+        Ok(page) => {
+            w.query_result = Some((page.items.iter().map(key).collect(), page.total));
+            w.last = Some(Ok(()));
+        }
+        Err(e) => {
+            w.query_result = None;
+            w.last = Some(Err(e));
+        }
+    }
+}
+
+fn query_keys(w: &ErpWorld) -> &(Vec<String>, u64) {
+    w.query_result.as_ref().expect("沒有查詢結果（查詢失敗？）")
+}
+
+#[then(expr = "查詢結果應為 {string}")]
+fn result_is(w: &mut ErpWorld, expected: String) {
+    assert_eq!(query_keys(w).0.join(","), expected);
+}
+
+#[then(expr = "查詢結果應為 {string} 共 {int} 筆")]
+fn result_is_with_total(w: &mut ErpWorld, expected: String, total: u64) {
+    let (keys, actual) = query_keys(w);
+    assert_eq!(keys.join(","), expected);
+    assert_eq!(*actual, total, "總筆數");
+}
+
+#[then(expr = "查詢結果應有 {int} 筆")]
+fn result_count(w: &mut ErpWorld, total: u64) {
+    assert_eq!(query_keys(w).1, total);
+}
 
 #[given(expr = "營運中心 {string} 已啟用")]
 async fn plant_active(w: &mut ErpWorld, plant: String) {

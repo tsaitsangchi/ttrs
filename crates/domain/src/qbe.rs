@@ -1,6 +1,7 @@
 //! QBE（Query By Example）條件解析與比對
 //! TipTop 對應：Genero BDL CONSTRUCT 的條件語法（各維護作業的 Q.查詢）
-//! 規格：specs/features/azz/program_maintenance_query.feature（QBE1–QBE7）
+//! 規格：specs/features/azz/program_maintenance_query.feature（QBE1–QBE7）；多值欄位見
+//!       program_permission_maintenance_query.feature（YQ4）
 //!
 //! 語法（以 `|` 分隔多個選項，彼此為 OR）：
 //!   - `abc`        等於
@@ -263,6 +264,18 @@ impl QbeFilter {
     }
 }
 
+impl QbeFilter {
+    /// 多值欄位（如程式執行權限的允許執行功能，YQ4）：逐一比對每個值，任一值符合即符合；
+    /// `<>x` 為沒有任何值等於 x，`=` 為沒有任何值
+    pub fn matches_set(&self, values: &[QbeValue]) -> bool {
+        self.terms.iter().any(|t| match t {
+            QbeTerm::IsNull => values.is_empty(),
+            QbeTerm::Ne(x) => !values.iter().any(|v| v.compare(x) == Some(Ordering::Equal)),
+            _ => values.iter().any(|v| t.matches(Some(v))),
+        })
+    }
+}
+
 impl QbeTerm {
     pub fn matches(&self, value: Option<&QbeValue>) -> bool {
         let Some(v) = value else {
@@ -350,6 +363,21 @@ mod tests {
         assert_eq!(date, Err(DomainError::QbeInvalidDate("2026/13/01".into())));
         let range = parse("f", FieldType::Text, "a:", str::to_owned);
         assert_eq!(range, Err(DomainError::QbeInvalidSyntax("a:".into())));
+    }
+
+    #[test]
+    fn set_values() {
+        let set = |xs: &[&str]| -> Vec<QbeValue> {
+            xs.iter().map(|x| QbeValue::Text((*x).to_owned())).collect()
+        };
+        let actions = set(&["insert", "query", "confirm"]);
+        assert!(text("confirm").matches_set(&actions));
+        assert!(text("*conf*").matches_set(&actions));
+        assert!(!text("<>confirm").matches_set(&actions));
+        assert!(text("<>modify").matches_set(&actions));
+        assert!(text("<>modify").matches_set(&[]));
+        assert!(text("=").matches_set(&[]));
+        assert!(!text("=").matches_set(&actions));
     }
 
     #[test]

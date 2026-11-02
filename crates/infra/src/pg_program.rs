@@ -15,12 +15,13 @@ use ttrs_domain::{
         IdleAction, IdleControl, ModuleCode, OtherSettings, Program, ProgramNo, ReportExtMode,
         ReportType, RuntimeSettings,
     },
-    qbe::{PatternPart, QbeFilter, QbeTerm, QbeValue},
+    qbe::{QbeFilter, QbeTerm},
 };
 
 use crate::{
     pg::{PgStore, db_err},
     pg_permission::{INSERT_PERMISSION_IF_ABSENT, insert_permission},
+    qbe_sql::push_term,
 };
 
 #[derive(FromRow)]
@@ -475,7 +476,7 @@ impl ProgramRepository for PgStore {
     }
 }
 
-// ----- QBE → SQL：欄位名稱只來自下方白名單，條件值一律 push_bind -----
+// ----- QBE → SQL：欄位名稱只來自下方白名單，條件值一律 push_bind（共用部分見 qbe_sql） -----
 
 /// 查詢鍵值 → (資料庫欄位, 是否文字)；鍵值清單見 ttrs_app::program_query
 fn column(field: &str) -> Option<(&'static str, bool)> {
@@ -538,71 +539,4 @@ fn push_filters(qb: &mut QueryBuilder<Postgres>, filters: &[QbeFilter]) -> Resul
         qb.push(")");
     }
     Ok(())
-}
-
-fn push_term(qb: &mut QueryBuilder<Postgres>, col: &'static str, is_text: bool, term: &QbeTerm) {
-    // 文字以位元組順序比較、區分大小寫（QBE2）
-    let collate = if is_text { r#" COLLATE "C""# } else { "" };
-    let mut cmp = |op: &str, v: &QbeValue| {
-        qb.push(col).push(collate).push(op);
-        push_value(qb, v);
-    };
-    match term {
-        QbeTerm::IsNull => {
-            if is_text {
-                qb.push("(")
-                    .push(col)
-                    .push(" IS NULL OR ")
-                    .push(col)
-                    .push(" = '')");
-            } else {
-                qb.push(col).push(" IS NULL");
-            }
-        }
-        QbeTerm::Eq(v) => cmp(" = ", v),
-        QbeTerm::Ne(v) => cmp(" <> ", v),
-        QbeTerm::Lt(v) => cmp(" < ", v),
-        QbeTerm::Le(v) => cmp(" <= ", v),
-        QbeTerm::Gt(v) => cmp(" > ", v),
-        QbeTerm::Ge(v) => cmp(" >= ", v),
-        QbeTerm::Range(lo, hi) => {
-            cmp(" BETWEEN ", lo);
-            qb.push(" AND ");
-            push_value(qb, hi);
-        }
-        QbeTerm::Like(parts) => {
-            qb.push(col).push(collate).push(r" LIKE ");
-            qb.push_bind(like_pattern(parts));
-            qb.push(r" ESCAPE '\'");
-        }
-    }
-}
-
-fn push_value(qb: &mut QueryBuilder<Postgres>, v: &QbeValue) {
-    match v {
-        QbeValue::Text(s) => qb.push_bind(s.clone()),
-        QbeValue::Integer(n) => qb.push_bind(*n),
-        QbeValue::Date(d) => qb.push_bind(*d),
-        QbeValue::Flag(b) => qb.push_bind(*b),
-    };
-}
-
-/// `*` → `%`、`?` → `_`；字面的 `%` `_` `\` 以反斜線跳脫
-fn like_pattern(parts: &[PatternPart]) -> String {
-    let mut out = String::new();
-    for p in parts {
-        match p {
-            PatternPart::AnyMany => out.push('%'),
-            PatternPart::AnyOne => out.push('_'),
-            PatternPart::Literal(s) => {
-                for c in s.chars() {
-                    if matches!(c, '%' | '_' | '\\') {
-                        out.push('\\');
-                    }
-                    out.push(c);
-                }
-            }
-        }
-    }
-    out
 }

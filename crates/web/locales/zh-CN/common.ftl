@@ -48,3 +48,5 @@ common-lang-default = 默认
 common-action-close = 关闭
 common-multilingual-title = { $field }（各语言）
 common-multilingual-open = 编辑各语言（已填 { $count } 种）
+query-action-clear = 清除查询条件
+query-msg-tab-not-queryable = 此页签的栏位不能作为查询条件

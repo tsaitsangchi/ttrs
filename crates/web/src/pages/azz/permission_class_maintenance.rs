@@ -2,19 +2,40 @@
 //! 版面比照 tiptop/azz/4fd/p_zw.4fd（W11）：單一表格，欄位與順序同 4fd
 //!   （權限類別、權限說明、使用目錄編號、閒置設定、閒置處理、閒置時間、有效）＋筆數；
 //!   新增／修改以小視窗編輯；動作列另有停用・啟用與「更新所有使用者目錄編號」（需確認）。
-//! 規則在後端 PermissionClassService。
+//! 查詢比照 TipTop Q.查詢（p_zw_curs 在表格第一列 CONSTRUCT）：表格上方出現一列條件輸入框
+//! （permission_class_maintenance_query.feature）。規則在後端 PermissionClassService。
 
 use dioxus::prelude::*;
 use ttrs_shared::{
-    ClassIdleControlDto, IdleActionDto, PermissionClassDto, PermissionClassInput,
-    permission_class_max_len as max_len,
+    ClassIdleControlDto, IdleActionDto, PermissionClassDto, PermissionClassInput, QbeCondition,
+    QueryRequest, permission_class_max_len as max_len,
 };
 
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Chip, Dialog, Notification, NotificationKind, Select, TextField,
 };
+use crate::components::qbe::{HINT_FLAG, HINT_NUMBER, ListPager, PAGE_SIZE, Qbe, conditions_of};
 use crate::i18n::{t, tf};
+
+/// 表格欄位（p_zw.4fd s_zw 順序）：（標題翻譯 ID, 查詢欄位鍵值, 查詢提示翻譯 ID）
+const COLUMNS: [(&str, &str, &str); 7] = [
+    ("class-field-code", "class_code", ""),
+    ("class-field-name", "name", ""),
+    ("class-field-menu", "default_menu", ""),
+    (
+        "class-field-idle-control",
+        "idle_control",
+        "class-hint-qbe-idle-control",
+    ),
+    (
+        "class-field-idle-action",
+        "idle_action",
+        "class-hint-qbe-idle-action",
+    ),
+    ("class-field-idle-seconds", "idle_seconds", HINT_NUMBER),
+    ("class-field-active", "active", HINT_FLAG),
+];
 
 /// 編輯視窗：新增或修改某代號
 #[derive(Clone, PartialEq)]
@@ -81,31 +102,45 @@ fn opt(v: String) -> Option<String> {
 pub fn PermissionClassMaintenance() -> Element {
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
-    let mut classes = use_resource(api::list_classes);
-    let mut filter = use_signal(String::new);
+    // 查詢：qbe 為查詢列正在輸入的條件，conditions 為目前生效的條件（QBE4：預設查全部）
+    let mut querying = use_signal(|| false);
+    let mut qbe: Qbe = use_signal(Default::default);
+    let mut conditions = use_signal(Vec::<QbeCondition>::new);
+    let mut page = use_signal(|| 1u32);
+    let mut classes = use_resource(move || {
+        let req = QueryRequest {
+            conditions: conditions(),
+            page: Some(page()),
+            page_size: Some(PAGE_SIZE),
+            lang: None,
+        };
+        async move { api::query_classes(&req).await }
+    });
     let mut selected = use_signal(|| None::<String>);
     let mut editor = use_signal(|| None::<Editor>);
     let mut form = use_signal(PermissionClassInput::default);
     let mut dialog_error = use_signal(|| None::<String>);
     let mut confirm_menus = use_signal(|| false);
 
-    let all: Vec<PermissionClassDto> = classes
+    let list: Vec<PermissionClassDto> = classes
         .read()
         .as_ref()
         .and_then(|r| r.as_ref().ok())
-        .cloned()
+        .map(|p| p.items.clone())
         .unwrap_or_default();
-    let f = filter().trim().to_lowercase();
-    let list: Vec<PermissionClassDto> = all
-        .iter()
-        .filter(|c| {
-            f.is_empty()
-                || c.class_code.to_lowercase().contains(&f)
-                || c.name.to_lowercase().contains(&f)
-        })
-        .cloned()
-        .collect();
-    let total = list.len();
+    let (total, pages) = classes
+        .read()
+        .as_ref()
+        .and_then(|r| r.as_ref().ok())
+        .map_or((0, 1), |p| {
+            (
+                p.total,
+                u32::try_from(p.total.div_ceil(u64::from(p.page_size)))
+                    .unwrap_or(1)
+                    .max(1),
+            )
+        });
+    let filtered = !conditions.read().is_empty();
     let cur: Option<PermissionClassDto> = selected()
         .and_then(|code| list.iter().find(|c| c.class_code == code).cloned())
         .or_else(|| list.first().cloned());
@@ -119,6 +154,37 @@ pub fn PermissionClassMaintenance() -> Element {
         dialog_error.set(None);
         selected.set(code);
         classes.restart();
+    };
+
+    // 執行查詢：先試查第 1 頁，條件有誤時留在查詢列顯示錯誤
+    let run_query = move |_| {
+        let conds = conditions_of(&qbe.read());
+        let req = QueryRequest {
+            conditions: conds.clone(),
+            page: Some(1),
+            page_size: Some(PAGE_SIZE),
+            lang: None,
+        };
+        spawn(async move {
+            match api::query_classes(&req).await {
+                Ok(result) => {
+                    error.set(None);
+                    querying.set(false);
+                    selected.set(None);
+                    conditions.set(conds);
+                    page.set(1);
+                    message.set(Some(if result.total == 0 {
+                        t("query-msg-none")
+                    } else {
+                        tf(
+                            "query-msg-matched",
+                            &[("count", result.total.to_string().as_str())],
+                        )
+                    }));
+                }
+                Err(e) => error.set(Some(e)),
+            }
+        });
     };
 
     let save = move |_| {
@@ -161,7 +227,27 @@ pub fn PermissionClassMaintenance() -> Element {
             }
 
             // ----- 動作列 -----
+            if querying() {
+                div { class: "action-bar",
+                    Button { onclick: run_query, {t("common-action-ok")} }
+                    Button { variant: ButtonVariant::Text, onclick: move |_| { error.set(None); querying.set(false); }, {t("common-action-cancel")} }
+                }
+                p { class: "query-hint", {t("query-hint")} }
+                // 查詢列欄位較窄，代碼說明另列（WQ2）
+                p { class: "muted", {format!("{}: {}", t("class-field-idle-control"), t("class-hint-qbe-idle-control"))} }
+                p { class: "muted", {format!("{}: {}", t("class-field-idle-action"), t("class-hint-qbe-idle-action"))} }
+            } else {
             div { class: "action-bar",
+                Button {
+                    variant: ButtonVariant::Tonal,
+                    onclick: move |_| {
+                        message.set(None);
+                        error.set(None);
+                        qbe.set(Default::default());
+                        querying.set(true);
+                    },
+                    {t("common-action-query")}
+                }
                 Button {
                     onclick: move |_| {
                         message.set(None);
@@ -230,6 +316,7 @@ pub fn PermissionClassMaintenance() -> Element {
                     {t("class-action-update-menus")}
                 }
             }
+            }
 
             if let Some(msg) = error() {
                 Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }
@@ -242,18 +329,32 @@ pub fn PermissionClassMaintenance() -> Element {
             Card {
                 div { class: "table-header",
                     h3 { {t("class-list-title")} }
-                    p { {tf("list-count-all", &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
-                }
-                div { class: "card-body",
-                    TextField { id: "class-filter", class: "legacy-search", label: t("class-field-filter"), value: filter(), oninput: move |x| filter.set(x) }
+                    p { {tf(if filtered { "list-count-filtered" } else { "list-count-all" }, &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
                 }
                 div { class: "table-scroll",
                     table { class: "md-table",
                         thead { tr {
-                            for id in ["class-field-code", "class-field-name", "class-field-menu", "class-field-idle-control", "class-field-idle-action", "class-field-idle-seconds", "class-field-active"] {
+                            for (id, _, _) in COLUMNS {
                                 th { key: "{id}", {t(id)} }
                             }
-                        } }
+                        }
+                        // 查詢列（p_zw 在表格第一列輸入條件）
+                        if querying() {
+                            tr {
+                                for (id, field, hint) in COLUMNS {
+                                    th { key: "{field}",
+                                        TextField {
+                                            id: "q-{field}",
+                                            label: t(id),
+                                            placeholder: if hint.is_empty() { String::new() } else { t(hint) },
+                                            value: qbe.read().get(field).cloned().unwrap_or_default(),
+                                            oninput: move |v: String| { qbe.write().insert(field, v); },
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        }
                         tbody {
                             match &*classes.read() {
                                 None => rsx! { tr { td { colspan: 7, {t("common-msg-loading")} } } },
@@ -285,6 +386,7 @@ pub fn PermissionClassMaintenance() -> Element {
                         }
                     }
                 }
+                ListPager { page, pages }
             }
             p { class: "note", {t("class-note-permissions")} }
 

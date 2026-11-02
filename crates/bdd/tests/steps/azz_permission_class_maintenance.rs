@@ -18,7 +18,7 @@ fn yes_no(v: bool) -> &'static str {
     if v { "是" } else { "否" }
 }
 
-fn by_label<T: Copy>(all: &[T], label: fn(T) -> &'static str, text: &str) -> Option<T> {
+pub fn by_label<T: Copy>(all: &[T], label: fn(T) -> &'static str, text: &str) -> Option<T> {
     if text.is_empty() {
         return None;
     }

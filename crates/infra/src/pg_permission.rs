@@ -13,11 +13,24 @@ use ttrs_app::{
 use ttrs_domain::{
     lang::Lang,
     permission::{DetailRows, OtherDeptData, OtherUserData, PermissionAttrs, ProgramPermission},
-    permission_class::ClassCode,
+    permission_class::{ClassCode, PermissionClass},
     program::ProgramNo,
+    qbe::QbeFilter,
 };
 
-use crate::{PgStore, pg::db_err};
+use crate::{PgStore, pg::db_err, qbe_sql::Column};
+
+/// 程式執行權限單身的查詢鍵值（ttrs_app::query::program_permission）→ 資料庫欄位（別名 pp）
+pub(crate) fn permission_column(field: &str) -> Option<Column> {
+    Some(match field {
+        "program_no" => Column::Scalar("pp.program_no", true),
+        "actions" => Column::TextArray("pp.actions"),
+        "other_user_data" => Column::Scalar("pp.other_user_data", true),
+        "other_dept_data" => Column::Scalar("pp.other_dept_data", true),
+        "detail_rows" => Column::Scalar("pp.detail_rows", true),
+        _ => return None,
+    })
+}
 
 #[derive(FromRow)]
 struct PermissionRow {
@@ -117,6 +130,16 @@ pub(crate) fn insert_permission<'q>(
 
 #[async_trait]
 impl ProgramPermissionRepository for PgStore {
+    async fn query_classes(
+        &self,
+        header: &[QbeFilter],
+        detail: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<PermissionClass>, u64), RepoError> {
+        self.query_classes_by(header, detail, offset, limit).await
+    }
+
     async fn get(
         &self,
         class: &ClassCode,

@@ -34,7 +34,6 @@ user-hint-plants = 默认营运中心会自动加入；非多营运中心用户�
 user-col-plant = 营运中心
 user-col-default = 默认
 user-list-title = 用户清单
-user-field-filter = 筛选代号或名称
 user-field-copy-as = 复制为新代号
 user-action-deactivate = 停用
 user-action-activate = 启用

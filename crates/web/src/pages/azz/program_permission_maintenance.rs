@@ -2,19 +2,26 @@
 //! 版面比照 tiptop/azz/4fd/p_zy.4fd（Y12）：表頭（權限類別、說明、有效）＋類別切換
 //!   ＋ 程式權限表格（程式、名稱、允許執行功能、他人資料權限、他部門資料權限、單身權限）
 //!   ＋ 小視窗：新增、修改（勾選允許執行功能，s_act_define）、複製、依程式／依選單整批產生、依選單整批刪除、刪除全部。
+//! 查詢比照 TipTop Q.查詢（p_zy_curs：單頭權限類別＋單身第一列 CONSTRUCT）：查詢結果為權限類別，
+//! 單身只列出符合條件的程式（program_permission_maintenance_query.feature YQ1–YQ5）。
 //! 規則在後端 ProgramPermissionService；權限的實際檢查見 ADR 0006。
 
 use dioxus::prelude::*;
 use ttrs_shared::{
-    PermissionClassDto, ProgramDto, ProgramPermissionDto, ProgramPermissionInput, QueryRequest,
+    PermissionClassDto, ProgramDto, ProgramPermissionDto, ProgramPermissionInput, QbeCondition,
+    QueryRequest,
 };
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Checkbox, Dialog, IconButton, Notification, NotificationKind,
-    Select, TextField, icons,
+    Button, ButtonVariant, Card, Checkbox, Chip, Dialog, IconButton, Notification,
+    NotificationKind, Select, TextField, icons,
 };
+use crate::components::qbe::{Qbe, conditions_of};
 use crate::i18n::{self, t, tf};
+
+/// 查詢結果的權限類別一次取回（數量有限；每頁上限同後端 500 筆）
+const MAX_CLASSES: u32 = 500;
 
 /// 選單程式的模組代號（與 ttrs_domain::program::MENU_MODULE 一致）
 const MENU_MODULE: &str = "MENU";
@@ -67,13 +74,32 @@ pub fn ProgramPermissionsFor(class: String) -> Element {
 fn PermissionMain(initial: Option<String>) -> Element {
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
+    // 查詢：qbe 為查詢模式正在輸入的條件，conditions 為目前生效的條件（QBE4：預設查全部）
+    let mut querying = use_signal(|| false);
+    let mut qbe: Qbe = use_signal(Default::default);
+    let mut conditions = use_signal(Vec::<QbeCondition>::new);
+    // 全部權限類別（複製目標）；found 為符合查詢條件的權限類別（切換用，YQ2）
     let classes = use_resource(api::list_classes);
+    let found = use_resource(move || {
+        let req = class_query(conditions());
+        async move { api::query_program_permissions(&req).await.map(|p| p.items) }
+    });
     let mut class = use_signal(|| initial.clone());
+    // 有查詢條件時單身只列出符合的程式（YQ3）
     let mut perms = use_resource(move || {
         let code = class();
+        let conds = conditions();
         async move {
             match code {
-                Some(c) => api::list_class_permissions(&c).await,
+                Some(c) if conds.is_empty() => api::list_class_permissions(&c).await,
+                Some(c) => {
+                    let req = QueryRequest {
+                        conditions: conds,
+                        lang: Some(i18n::current().code().to_owned()),
+                        ..Default::default()
+                    };
+                    api::query_class_permissions(&c, &req).await
+                }
                 None => Ok(Vec::new()),
             }
         }
@@ -96,10 +122,16 @@ fn PermissionMain(initial: Option<String>) -> Element {
         .and_then(|r| r.as_ref().ok())
         .cloned()
         .unwrap_or_default();
+    let found_classes: Vec<PermissionClassDto> = found
+        .read()
+        .as_ref()
+        .and_then(|r| r.as_ref().ok())
+        .cloned()
+        .unwrap_or_default();
     // 未指定權限類別時停在第一個
     use_effect(move || {
         if class.peek().is_none()
-            && let Some(Ok(list)) = &*classes.read()
+            && let Some(Ok(list)) = &*found.read()
             && let Some(first) = list.first()
         {
             class.set(Some(first.class_code.clone()));
@@ -108,8 +140,9 @@ fn PermissionMain(initial: Option<String>) -> Element {
 
     let code = class().unwrap_or_default();
     let cur_class = all_classes.iter().find(|c| c.class_code == code).cloned();
-    let pos = all_classes.iter().position(|c| c.class_code == code);
-    let total = all_classes.len();
+    let pos = found_classes.iter().position(|c| c.class_code == code);
+    let total = found_classes.len();
+    let filtered = !conditions.read().is_empty();
     let rows: Vec<ProgramPermissionDto> = perms
         .read()
         .as_ref()
@@ -183,7 +216,7 @@ fn PermissionMain(initial: Option<String>) -> Element {
                     }),
             )
             .collect();
-    let class_options: Vec<(String, String)> = all_classes
+    let class_options: Vec<(String, String)> = found_classes
         .iter()
         .map(|c| {
             (
@@ -207,10 +240,53 @@ fn PermissionMain(initial: Option<String>) -> Element {
             )
             .collect();
 
-    let all_nav = all_classes.clone();
-    let all_prev = all_classes.clone();
-    let all_next = all_classes.clone();
-    let all_last = all_classes.clone();
+    // 執行查詢：條件有誤時留在查詢模式顯示錯誤；成功時停在第一個權限類別
+    let run_query = move |_| {
+        let conds = conditions_of(&qbe.read());
+        let req = class_query(conds.clone());
+        spawn(async move {
+            match api::query_program_permissions(&req).await {
+                Ok(page) => {
+                    error.set(None);
+                    querying.set(false);
+                    selected.set(None);
+                    class.set(page.items.first().map(|c| c.class_code.clone()));
+                    conditions.set(conds);
+                    message.set(Some(if page.total == 0 {
+                        t("query-msg-none")
+                    } else {
+                        tf(
+                            "query-msg-matched",
+                            &[("count", page.total.to_string().as_str())],
+                        )
+                    }));
+                }
+                Err(e) => error.set(Some(e)),
+            }
+        });
+    };
+    let level_legend = |kind: &str, field: &str, codes: &[&str]| {
+        tf(
+            "perm-hint-qbe-levels",
+            &[
+                ("field", t(field).as_str()),
+                (
+                    "codes",
+                    codes
+                        .iter()
+                        .map(|c| format!("{c} {}", level_label(kind, c)))
+                        .collect::<Vec<_>>()
+                        .join(" / ")
+                        .as_str(),
+                ),
+            ],
+        )
+    };
+
+    let all_nav = found_classes.clone();
+    let all_prev = found_classes.clone();
+    let all_next = found_classes.clone();
+    let all_last = found_classes.clone();
     let cur_edit = cur.clone();
     let cur_remove = cur.clone();
     let v = form();
@@ -223,7 +299,62 @@ fn PermissionMain(initial: Option<String>) -> Element {
             }
 
             // ----- 動作列 -----
+            if querying() {
+                div { class: "action-bar",
+                    Button { onclick: run_query, {t("common-action-ok")} }
+                    Button { variant: ButtonVariant::Text, onclick: move |_| { error.set(None); querying.set(false); }, {t("common-action-cancel")} }
+                }
+                p { class: "query-hint", {t("query-hint")} }
+                // 單頭權限類別＋單身第一列（p_zy.4gl:154）
+                Card {
+                    div { class: "card-body",
+                        div { class: "form-grid cols-3",
+                            for (field, label, hint) in [
+                                ("class_code", "perm-field-class", String::new()),
+                                ("program_no", "perm-field-program", String::new()),
+                                ("actions", "perm-field-actions", t("perm-hint-qbe-actions")),
+                                ("other_user_data", "perm-field-other-user", "0:4".to_owned()),
+                                ("other_dept_data", "perm-field-other-dept", "0:8".to_owned()),
+                                ("detail_rows", "perm-field-detail", "0:3".to_owned()),
+                            ] {
+                                TextField {
+                                    key: "{field}",
+                                    id: "q-{field}",
+                                    label: t(label),
+                                    placeholder: hint,
+                                    value: qbe.read().get(field).cloned().unwrap_or_default(),
+                                    oninput: move |v: String| { qbe.write().insert(field, v); },
+                                }
+                            }
+                        }
+                        p { class: "muted", {level_legend("user", "perm-field-other-user", &USER_LEVELS)} }
+                        p { class: "muted", {level_legend("dept", "perm-field-other-dept", &DEPT_LEVELS)} }
+                        p { class: "muted", {level_legend("detail", "perm-field-detail", &DETAIL_LEVELS)} }
+                    }
+                }
+            } else {
             div { class: "action-bar",
+                Button {
+                    variant: ButtonVariant::Tonal,
+                    onclick: move |_| {
+                        message.set(None);
+                        error.set(None);
+                        qbe.set(Default::default());
+                        querying.set(true);
+                    },
+                    {t("common-action-query")}
+                }
+                if filtered {
+                    Button {
+                        variant: ButtonVariant::Outlined,
+                        onclick: move |_| {
+                            message.set(None);
+                            selected.set(None);
+                            conditions.set(Vec::new());
+                        },
+                        {t("query-action-clear")}
+                    }
+                }
                 Button {
                     disabled: no_class,
                     onclick: move |_| {
@@ -300,9 +431,10 @@ fn PermissionMain(initial: Option<String>) -> Element {
                     {t("perm-action-del-by-menu")}
                 }
             }
+            }
 
             // ----- 權限類別切換 -----
-            if total > 0 {
+            if total > 0 && !querying() {
                 div { class: "record-nav",
                     IconButton { label: t("nav-first"), path: icons::FIRST_PAGE, disabled: pos == Some(0), onclick: move |_| go(0, all_nav.clone()) }
                     IconButton { label: t("nav-previous"), path: icons::CHEVRON_LEFT, disabled: pos.is_none_or(|i| i == 0), onclick: move |_| go(pos.unwrap_or(0).saturating_sub(1), all_prev.clone()) }
@@ -339,7 +471,10 @@ fn PermissionMain(initial: Option<String>) -> Element {
             Card {
                 div { class: "table-header",
                     h3 { {t("perm-list-title")} }
-                    p { {tf("list-count-all", &[("total", rows.len().to_string().as_str())])} {t("list-hint-click")} }
+                    p { {tf(if filtered { "list-count-filtered" } else { "list-count-all" }, &[("total", rows.len().to_string().as_str())])} {t("list-hint-click")} }
+                    if filtered {
+                        Chip { label: t("perm-msg-filtered") }
+                    }
                 }
                 div { class: "table-scroll",
                     table { class: "md-table",
@@ -641,5 +776,15 @@ fn PermissionMain(initial: Option<String>) -> Element {
                 },
             }
         }
+    }
+}
+
+/// 權限類別查詢（p_zy 查詢）：一次取回全部符合的權限類別
+fn class_query(conditions: Vec<QbeCondition>) -> QueryRequest {
+    QueryRequest {
+        conditions,
+        page: Some(1),
+        page_size: Some(MAX_CLASSES),
+        lang: None,
     }
 }

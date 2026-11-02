@@ -48,3 +48,5 @@ common-lang-default = 預設
 common-action-close = 關閉
 common-multilingual-title = { $field }（各語言）
 common-multilingual-open = 編輯各語言（已填 { $count } 種）
+query-action-clear = 清除查詢條件
+query-msg-tab-not-queryable = 此頁籤的欄位不能作為查詢條件

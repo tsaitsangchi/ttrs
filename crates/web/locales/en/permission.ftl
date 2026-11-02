@@ -11,7 +11,6 @@ class-field-idle-control = Idle Control
 class-field-idle-action = Idle Action
 class-field-idle-seconds = Idle Time (sec)
 class-field-active = Active
-class-field-filter = Filter (code, description)
 class-opt-idle-off = Not controlled
 class-opt-idle-class = By permission class
 class-opt-idle-system = By system setting
@@ -36,3 +35,6 @@ class-msg-activated = Permission class { $code } activated
 class-msg-deactivated = Permission class { $code } deactivated
 class-msg-menus-updated = Updated the menu of { $count } users
 class-note-permissions = Program run permissions (p_zy) and print permissions (p_zy2) will be ported later; a new permission class starts without program permissions.
+# Query mode hints (WQ2: code or Traditional Chinese label)
+class-hint-qbe-idle-control = 1 Not controlled | 2 By class | 3 By system
+class-hint-qbe-idle-action = 1 Warn only | 2 Warn, then close | 3 Close immediately

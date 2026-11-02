@@ -7,10 +7,38 @@ use ttrs_app::{error::RepoError, ports::UserRepository};
 use ttrs_domain::{
     lang::Lang,
     plant::PlantId,
+    qbe::QbeFilter,
     user::{User, UserAttrs, UserId},
 };
 
-use crate::{PgStore, pg::db_err};
+use crate::{
+    PgStore,
+    pg::db_err,
+    qbe_sql::{Column, push_filters, query_page},
+};
+
+/// 查詢鍵值（UserDto 欄位名稱，ttrs_app::query::user）→ 資料庫欄位
+fn user_column(field: &str) -> Option<Column> {
+    Some(match field {
+        "user_id" => Column::Scalar("u.user_id", true),
+        "name" => Column::Scalar("u.name", true),
+        "dept_code" => Column::Scalar("u.dept_code", true),
+        "permission_class" => Column::Scalar("u.class_code", true),
+        "menu" => Column::Scalar("u.menu_program", true),
+        "multi_plant" => Column::Scalar("u.multi_plant", false),
+        "default_plant" => Column::Scalar("u.default_plant", true),
+        "email" => Column::Scalar("u.email", true),
+        "idp_username" => Column::Scalar("u.idp_username", true),
+        "valid_until" => Column::Scalar("u.valid_until", false),
+        "lang" => Column::Scalar("u.lang", true),
+        "active" => Column::Scalar("u.active", false),
+        "created_by" => Column::Scalar("u.created_by", true),
+        "created_dept" => Column::Scalar("u.created_dept", true),
+        "updated_by" => Column::Scalar("u.updated_by", true),
+        "updated_on" => Column::Scalar("u.updated_on", false),
+        _ => return None,
+    })
+}
 
 #[derive(FromRow)]
 struct UserRow {
@@ -121,6 +149,29 @@ impl UserRepository for PgStore {
             .into_iter()
             .map(User::try_from)
             .collect()
+    }
+
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<User>, u64), RepoError> {
+        let (rows, total) = query_page::<UserRow>(
+            &self.pool,
+            "SELECT COUNT(*) FROM user_account u WHERE TRUE",
+            select_user!("u WHERE TRUE"),
+            |qb| push_filters(qb, filters, user_column),
+            r#" ORDER BY u.user_id COLLATE "C""#,
+            offset,
+            limit,
+        )
+        .await?;
+        let users = rows
+            .into_iter()
+            .map(User::try_from)
+            .collect::<Result<_, _>>()?;
+        Ok((users, total))
     }
 
     async fn insert(&self, user: &User, plants: &[PlantId]) -> Result<(), RepoError> {

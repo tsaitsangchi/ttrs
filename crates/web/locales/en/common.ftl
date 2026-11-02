@@ -48,3 +48,5 @@ common-lang-default = Default
 common-action-close = Close
 common-multilingual-title = { $field } (all languages)
 common-multilingual-open = Edit languages ({ $count } filled)
+query-action-clear = Clear query
+query-msg-tab-not-queryable = Fields on this tab cannot be used as query conditions

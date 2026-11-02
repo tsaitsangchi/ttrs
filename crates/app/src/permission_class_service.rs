@@ -9,12 +9,16 @@ use ttrs_domain::{
     permission_class::{ClassCode, ClassIdleControl, PermissionClass, PermissionClassAttrs},
     program::{IdleAction, ProgramNo},
 };
-use ttrs_shared::{ClassIdleControlDto, IdleActionDto, PermissionClassDto, PermissionClassInput};
+use ttrs_shared::{
+    ClassIdleControlDto, IdleActionDto, Page, PermissionClassDto, PermissionClassInput,
+    QueryRequest,
+};
 
 use crate::{
     Actor, AppError,
     error::RepoError,
     ports::{PermissionClassRepository, ProgramRepository, UserRepository},
+    query,
 };
 
 #[derive(Clone)]
@@ -73,6 +77,24 @@ impl PermissionClassService {
 
     pub async fn get(&self, code: &str) -> Result<PermissionClassDto, AppError> {
         Ok(to_dto(&self.load(code).await?))
+    }
+
+    /// QBE 查詢（p_zw_curs，p_zw.4gl:185-241）；欄位見 query::permission_class（WQ1–WQ3）
+    pub async fn query(&self, req: QueryRequest) -> Result<Page<PermissionClassDto>, AppError> {
+        let filters = query::permission_class::filters(&req.conditions)?;
+        let p = query::paging(&req);
+        let (rows, total) = self
+            .classes
+            .query(&filters, p.offset, u64::from(p.page_size))
+            .await
+            .map_err(infra)?;
+        let items = rows.iter().map(to_dto).collect();
+        Ok(Page {
+            items,
+            total,
+            page: p.page,
+            page_size: p.page_size,
+        })
     }
 
     pub async fn list(&self) -> Result<Vec<PermissionClassDto>, AppError> {
@@ -232,7 +254,7 @@ fn idle_action_dto(v: IdleAction) -> IdleActionDto {
     }
 }
 
-fn to_dto(c: &PermissionClass) -> PermissionClassDto {
+pub(crate) fn to_dto(c: &PermissionClass) -> PermissionClassDto {
     let a = &c.attrs;
     PermissionClassDto {
         class_code: c.code.as_str().to_owned(),

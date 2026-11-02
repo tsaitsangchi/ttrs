@@ -63,6 +63,7 @@ tables:
     target: program_permission
     program: p_zy（Program Permission Maintenance 程式執行權限維護）
     spec: specs/features/azz/program_permission_maintenance.feature
+    query: "Q.查詢 CONSTRUCT zy01＋zy02/03/04/05/07（p_zy.4gl:154）→ ttrs_app::query::program_permission；specs/features/azz/program_permission_maintenance_query.feature（YQ1–YQ5）。只有單頭條件時含沒有程式權限的權限類別（YQ2，TipTop 查不到）；單身只顯示符合條件的程式（YQ3）；zy03 逐一比對每個功能（YQ4，TipTop 比對整串文字）"
     note: "權限類別＋程式一筆，有此筆才可執行該程式；資料權限的實際檢查見 ADR 0006（Authorizer）"
     columns:
       - { legacy: zy01,   type: varchar2(10) NOT NULL, target: class_code, sch: 權限類別 }
@@ -84,6 +85,7 @@ tables:
     target: permission_class
     program: p_zw（Permission Class Maintenance 權限類別維護）
     spec: specs/features/azz/permission_class_maintenance.feature
+    query: "Q.查詢 CONSTRUCT zw01–zw06、zwacti（p_zw.4gl:192）→ ttrs_app::query::permission_class；specs/features/azz/permission_class_maintenance_query.feature（WQ1–WQ4）。zw04/zw05 可輸入代碼或顯示文字"
     note: "權限類別；新增時不自動加入 TipTop 基本程式權限（W8）"
     columns:
       - { legacy: zw01,   type: varchar2(10) NOT NULL, target: class_code, sch: 權限類別, note: "建立後不可修改（W1）" }
@@ -105,6 +107,7 @@ tables:
     target: user_account
     program: p_zx（User Maintenance 使用者維護）
     spec: specs/features/azz/user_maintenance.feature
+    query: "Q.查詢 CONSTRUCT 19 欄位（p_zx.4gl:118-121）中有對應的 15 欄＋公司帳號 → ttrs_app::query::user；specs/features/azz/user_maintenance_query.feature（UQ1–UQ5）。zx11/zx12/zx15/zx19 不移植不可查；zx03、zx08 條件轉大寫、公司帳號轉小寫；資料權限條件（p_zx.4gl:194-204）待 Authorizer（UQ4）"
     note: "部門使用者檔；登入改用公司 SSO（ADR 0006），密碼相關欄位不搬"
     columns:
       - { legacy: zx01,   type: varchar2(10) NOT NULL, target: user_id, sch: 使用者代號, note: "各表 created_by 存此值；建立後不可修改（U1）" }

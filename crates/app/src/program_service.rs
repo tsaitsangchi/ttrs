@@ -28,8 +28,6 @@ use crate::{
 
 /// 程式名稱的預設語系（輸入畫面上的「程式名稱」）
 pub use ttrs_domain::lang::DEFAULT_LANG;
-/// 查詢每頁筆數上限
-const MAX_PAGE_SIZE: u32 = 500;
 /// 寫入異動紀錄時的作業代號
 const AUDIT_PROGRAM: &str = "program-maintenance";
 
@@ -101,12 +99,11 @@ impl ProgramService {
     /// QBE 查詢（p_zz_curs :281-359），依程式代號排序並分頁
     pub async fn query(&self, req: QueryRequest) -> Result<Page<ProgramDto>, AppError> {
         let filters = crate::program_query::filters(&req.conditions)?;
-        let page = req.page.unwrap_or(1).max(1);
-        let page_size = req
-            .page_size
-            .unwrap_or(QueryRequest::DEFAULT_PAGE_SIZE)
-            .clamp(1, MAX_PAGE_SIZE);
-        let offset = u64::from(page - 1) * u64::from(page_size);
+        let crate::query::Paging {
+            page,
+            page_size,
+            offset,
+        } = crate::query::paging(&req);
         let (programs, total) = self
             .repo
             .query(&filters, offset, u64::from(page_size))

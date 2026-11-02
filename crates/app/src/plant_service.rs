@@ -10,9 +10,9 @@ use ttrs_domain::{
     DomainError,
     plant::{Plant, PlantAttrs, PlantId},
 };
-use ttrs_shared::{PlantDto, PlantInput};
+use ttrs_shared::{Page, PlantDto, PlantInput, QueryRequest};
 
-use crate::{Actor, AppError, error::RepoError, ports::PlantRepository};
+use crate::{Actor, AppError, error::RepoError, ports::PlantRepository, query};
 
 #[derive(Clone)]
 pub struct PlantService {
@@ -49,6 +49,24 @@ impl PlantService {
 
     pub async fn get(&self, id: &str) -> Result<PlantDto, AppError> {
         Ok(to_dto(&self.load(id).await?))
+    }
+
+    /// QBE 查詢（i901_curs，aooi901.4gl:119-156）；欄位見 query::plant（PQ1–PQ3）
+    pub async fn query(&self, req: QueryRequest) -> Result<Page<PlantDto>, AppError> {
+        let filters = query::plant::filters(&req.conditions)?;
+        let p = query::paging(&req);
+        let (rows, total) = self
+            .plants
+            .query(&filters, p.offset, u64::from(p.page_size))
+            .await
+            .map_err(infra)?;
+        let items = rows.iter().map(to_dto).collect();
+        Ok(Page {
+            items,
+            total,
+            page: p.page,
+            page_size: p.page_size,
+        })
     }
 
     pub async fn list(&self) -> Result<Vec<PlantDto>, AppError> {

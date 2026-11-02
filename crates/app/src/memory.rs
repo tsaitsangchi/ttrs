@@ -29,6 +29,7 @@ use crate::{
         ProgramRepository, SchemaCatalog, TableSchema, UserPermissionItem,
         UserPermissionRepository, UserRepository,
     },
+    query,
 };
 
 #[derive(Default)]
@@ -252,6 +253,17 @@ impl MasterDataRepository for InMemoryStore {
     }
 }
 
+/// 依序結果取指定範圍，並回傳總筆數
+fn page_of<T>(hits: Vec<T>, offset: u64, limit: u64) -> (Vec<T>, u64) {
+    let total = hits.len() as u64;
+    let page = hits
+        .into_iter()
+        .skip(usize::try_from(offset).unwrap_or(usize::MAX))
+        .take(usize::try_from(limit).unwrap_or(usize::MAX))
+        .collect();
+    (page, total)
+}
+
 #[async_trait]
 impl ProgramRepository for InMemoryStore {
     async fn get(&self, no: &ProgramNo) -> Result<Option<Program>, RepoError> {
@@ -270,7 +282,7 @@ impl ProgramRepository for InMemoryStore {
     ) -> Result<(Vec<Program>, u64), RepoError> {
         let s = self.lock();
         // BTreeMap 依 ProgramNo（String）排序＝位元組順序，與 PostgreSQL 的 COLLATE "C" 一致
-        let hits: Vec<Program> = s
+        let hits = s
             .programs
             .values()
             .filter(|p| {
@@ -288,13 +300,7 @@ impl ProgramRepository for InMemoryStore {
             })
             .cloned()
             .collect();
-        let total = hits.len() as u64;
-        let page = hits
-            .into_iter()
-            .skip(usize::try_from(offset).unwrap_or(usize::MAX))
-            .take(usize::try_from(limit).unwrap_or(usize::MAX))
-            .collect();
-        Ok((page, total))
+        Ok(page_of(hits, offset, limit))
     }
 
     async fn insert(
@@ -627,6 +633,22 @@ impl UserRepository for InMemoryStore {
         Ok(self.lock().users.values().cloned().collect())
     }
 
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<User>, u64), RepoError> {
+        let hits = self
+            .lock()
+            .users
+            .values()
+            .filter(|x| query::matches_all(filters, |f| query::user::value(x, f)))
+            .cloned()
+            .collect();
+        Ok(page_of(hits, offset, limit))
+    }
+
     async fn insert(&self, user: &User, plants: &[PlantId]) -> Result<(), RepoError> {
         let mut s = self.lock();
         if s.users.contains_key(&user.user_id) {
@@ -678,6 +700,22 @@ impl PermissionClassRepository for InMemoryStore {
     async fn list(&self) -> Result<Vec<PermissionClass>, RepoError> {
         // BTreeMap 依代號排序（位元組順序，同 PostgreSQL COLLATE "C"）
         Ok(self.lock().permission_classes.values().cloned().collect())
+    }
+
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<PermissionClass>, u64), RepoError> {
+        let hits = self
+            .lock()
+            .permission_classes
+            .values()
+            .filter(|x| query::matches_all(filters, |f| query::permission_class::value(x, f)))
+            .cloned()
+            .collect();
+        Ok(page_of(hits, offset, limit))
     }
 
     async fn insert(&self, class: &PermissionClass) -> Result<(), RepoError> {
@@ -734,6 +772,22 @@ impl PlantRepository for InMemoryStore {
         Ok(self.lock().plants.values().cloned().collect())
     }
 
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Plant>, u64), RepoError> {
+        let hits = self
+            .lock()
+            .plants
+            .values()
+            .filter(|x| query::matches_all(filters, |f| query::plant::value(x, f)))
+            .cloned()
+            .collect();
+        Ok(page_of(hits, offset, limit))
+    }
+
     async fn insert(&self, plant: &Plant) -> Result<(), RepoError> {
         let mut s = self.lock();
         if s.plants.contains_key(&plant.id) {
@@ -773,6 +827,32 @@ impl ProgramPermissionRepository for InMemoryStore {
     ) -> Result<Option<ProgramPermission>, RepoError> {
         let key = (class.as_str().to_owned(), program.as_str().to_owned());
         Ok(self.lock().permissions.get(&key).cloned())
+    }
+
+    async fn query_classes(
+        &self,
+        header: &[QbeFilter],
+        detail: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<PermissionClass>, u64), RepoError> {
+        let s = self.lock();
+        let hits = s
+            .permission_classes
+            .values()
+            .filter(|c| {
+                query::matches_all(header, |f| query::permission_class::value(c, f))
+                    && (detail.is_empty()
+                        || s.permissions.values().any(|p| {
+                            p.class == c.code
+                                && query::matches_all(detail, |f| {
+                                    query::program_permission::value(p, f)
+                                })
+                        }))
+            })
+            .cloned()
+            .collect();
+        Ok(page_of(hits, offset, limit))
     }
 
     async fn list(&self, class: &ClassCode) -> Result<Vec<PermissionListItem>, RepoError> {

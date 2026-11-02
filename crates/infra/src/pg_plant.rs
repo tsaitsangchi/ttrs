@@ -5,9 +5,30 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use sqlx::FromRow;
 use ttrs_app::{error::RepoError, ports::PlantRepository};
-use ttrs_domain::plant::{Plant, PlantAttrs, PlantId};
+use ttrs_domain::{
+    plant::{Plant, PlantAttrs, PlantId},
+    qbe::QbeFilter,
+};
 
-use crate::{PgStore, pg::db_err};
+use crate::{
+    PgStore,
+    pg::db_err,
+    qbe_sql::{Column, push_filters, query_page},
+};
+
+/// 查詢鍵值（PlantDto 欄位名稱，ttrs_app::query::plant）→ 資料庫欄位
+fn plant_column(field: &str) -> Option<Column> {
+    Some(match field {
+        "plant_id" => Column::Scalar("p.plant_id", true),
+        "name" => Column::Scalar("p.name", true),
+        "time_zone" => Column::Scalar("p.time_zone", true),
+        "address" => Column::Scalar("p.address", true),
+        "phone" => Column::Scalar("p.phone", true),
+        "fax" => Column::Scalar("p.fax", true),
+        "active" => Column::Scalar("p.active", false),
+        _ => return None,
+    })
+}
 
 #[derive(FromRow)]
 struct PlantRow {
@@ -81,6 +102,29 @@ impl PlantRepository for PgStore {
             .into_iter()
             .map(Plant::try_from)
             .collect()
+    }
+
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Plant>, u64), RepoError> {
+        let (rows, total) = query_page::<PlantRow>(
+            &self.pool,
+            "SELECT COUNT(*) FROM plant p WHERE TRUE",
+            select_plant!("p WHERE TRUE"),
+            |qb| push_filters(qb, filters, plant_column),
+            r#" ORDER BY p.plant_id COLLATE "C""#,
+            offset,
+            limit,
+        )
+        .await?;
+        let plants = rows
+            .into_iter()
+            .map(Plant::try_from)
+            .collect::<Result<_, _>>()?;
+        Ok((plants, total))
     }
 
     async fn insert(&self, p: &Plant) -> Result<(), RepoError> {

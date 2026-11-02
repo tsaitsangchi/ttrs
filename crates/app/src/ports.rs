@@ -198,6 +198,13 @@ pub trait UserRepository: Send + Sync {
     async fn get(&self, id: &UserId) -> Result<Option<User>, RepoError>;
     /// 依使用者代號排序
     async fn list(&self) -> Result<Vec<User>, RepoError>;
+    /// QBE 查詢（p_zx.4gl:206-207）：符合全部篩選者依使用者代號（位元組順序）排序，回傳指定範圍與總筆數
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<User>, u64), RepoError>;
     /// 新增使用者與可使用營運中心（同一交易）；代號重複回 Conflict
     async fn insert(&self, user: &User, plants: &[PlantId]) -> Result<(), RepoError>;
     /// 更新使用者並以 `plants` 取代可使用營運中心（同一交易）
@@ -218,6 +225,13 @@ pub trait PermissionClassRepository: Send + Sync {
     async fn get(&self, code: &ClassCode) -> Result<Option<PermissionClass>, RepoError>;
     /// 依代號排序（p_zw.4gl:235-237）
     async fn list(&self) -> Result<Vec<PermissionClass>, RepoError>;
+    /// QBE 查詢（p_zw.4gl:235-237）：符合全部篩選者依代號（位元組順序）排序，回傳指定範圍與總筆數
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<PermissionClass>, u64), RepoError>;
     /// 代號重複回 Conflict
     async fn insert(&self, class: &PermissionClass) -> Result<(), RepoError>;
     async fn update(&self, class: &PermissionClass) -> Result<(), RepoError>;
@@ -237,6 +251,13 @@ pub trait PlantRepository: Send + Sync {
     async fn get(&self, id: &PlantId) -> Result<Option<Plant>, RepoError>;
     /// 依代號排序（aooi901.4gl:151-152）
     async fn list(&self) -> Result<Vec<Plant>, RepoError>;
+    /// QBE 查詢（aooi901.4gl:151-152）：符合全部篩選者依代號（位元組順序）排序，回傳指定範圍與總筆數
+    async fn query(
+        &self,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Plant>, u64), RepoError>;
     /// 代號重複回 Conflict
     async fn insert(&self, plant: &Plant) -> Result<(), RepoError>;
     async fn update(&self, plant: &Plant) -> Result<(), RepoError>;
@@ -266,6 +287,15 @@ pub trait ProgramPermissionRepository: Send + Sync {
     ) -> Result<Option<ProgramPermission>, RepoError>;
     /// 依程式代號排序（p_zy.4gl:948-952）
     async fn list(&self, class: &ClassCode) -> Result<Vec<PermissionListItem>, RepoError>;
+    /// 權限類別的 QBE 查詢（p_zy.4gl:194-203）：`header` 篩選權限類別本身；`detail` 有值時只取
+    /// 至少有一筆程式權限同時符合全部 `detail` 的權限類別（YQ2）。依代號（位元組順序）排序
+    async fn query_classes(
+        &self,
+        header: &[QbeFilter],
+        detail: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<PermissionClass>, u64), RepoError>;
     /// 同一權限類別＋程式重複回 Conflict
     async fn insert(&self, permission: &ProgramPermission) -> Result<(), RepoError>;
     async fn update(&self, permission: &ProgramPermission) -> Result<(), RepoError>;

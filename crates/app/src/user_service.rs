@@ -12,7 +12,7 @@ use ttrs_domain::{
     program::ProgramNo,
     user::{User, UserAttrs, UserId, plants_after_default_change},
 };
-use ttrs_shared::{UserDto, UserInput};
+use ttrs_shared::{Page, QueryRequest, UserDto, UserInput};
 
 use crate::{
     Actor, AppError,
@@ -21,6 +21,7 @@ use crate::{
         MasterDataRepository, PermissionClassRepository, ProgramRepository,
         UserPermissionRepository, UserRepository,
     },
+    query,
     user_permission_service::move_special_class,
 };
 
@@ -107,6 +108,28 @@ impl UserService {
         let user = self.load(user_id).await?;
         let plants = self.users.plants(&user.user_id).await.map_err(infra)?;
         Ok(to_dto(&user, &plants))
+    }
+
+    /// QBE 查詢（p_zx_curs，p_zx.4gl:115-207）；欄位見 query::user（UQ1–UQ3）
+    pub async fn query(&self, req: QueryRequest) -> Result<Page<UserDto>, AppError> {
+        let filters = query::user::filters(&req.conditions)?;
+        let p = query::paging(&req);
+        let (rows, total) = self
+            .users
+            .query(&filters, p.offset, u64::from(p.page_size))
+            .await
+            .map_err(infra)?;
+        let mut items = Vec::with_capacity(rows.len());
+        for u in &rows {
+            let plants = self.users.plants(&u.user_id).await.map_err(infra)?;
+            items.push(to_dto(u, &plants));
+        }
+        Ok(Page {
+            items,
+            total,
+            page: p.page,
+            page_size: p.page_size,
+        })
     }
 
     pub async fn list(&self) -> Result<Vec<UserDto>, AppError> {

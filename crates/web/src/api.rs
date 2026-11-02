@@ -125,8 +125,16 @@ async fn no_content(res: reqwest::Response) -> Result<(), String> {
 
 /// QBE 查詢（條件語法見 ttrs_domain::qbe）
 pub async fn query_programs(req: &QueryRequest) -> Result<Page<ProgramDto>, String> {
+    post_query(url("/api/programs/query"), req).await
+}
+
+/// 各作業的 QBE 查詢共用：POST 條件，回傳結果
+async fn post_query<T: serde::de::DeserializeOwned>(
+    url: String,
+    req: &QueryRequest,
+) -> Result<T, String> {
     let res = reqwest::Client::new()
-        .post(url("/api/programs/query"))
+        .post(url)
         .json(req)
         .send()
         .await
@@ -329,6 +337,10 @@ pub async fn list_users() -> Result<Vec<UserDto>, String> {
     get_json(url("/api/users")).await
 }
 
+pub async fn query_users(req: &QueryRequest) -> Result<Page<UserDto>, String> {
+    post_query(url("/api/users/query"), req).await
+}
+
 pub async fn create_user(req: &UserInput) -> Result<UserDto, String> {
     let res = reqwest::Client::new()
         .post(url("/api/users"))
@@ -394,6 +406,10 @@ pub async fn list_classes() -> Result<Vec<PermissionClassDto>, String> {
     get_json(url("/api/permission-classes")).await
 }
 
+pub async fn query_classes(req: &QueryRequest) -> Result<Page<PermissionClassDto>, String> {
+    post_query(url("/api/permission-classes/query"), req).await
+}
+
 pub async fn create_class(req: &PermissionClassInput) -> Result<PermissionClassDto, String> {
     let res = reqwest::Client::new()
         .post(url("/api/permission-classes"))
@@ -453,8 +469,8 @@ fn plant_url(id: &str, suffix: &str) -> String {
     url(&format!("/api/plants/{}{suffix}", urlencoding(id)))
 }
 
-pub async fn list_plants() -> Result<Vec<PlantDto>, String> {
-    get_json(url("/api/plants")).await
+pub async fn query_plants(req: &QueryRequest) -> Result<Page<PlantDto>, String> {
+    post_query(url("/api/plants/query"), req).await
 }
 
 pub async fn create_plant(req: &PlantInput) -> Result<PlantDto, String> {
@@ -532,6 +548,21 @@ async fn post_batch<B: serde::Serialize>(
 }
 
 /// 程式名稱依目前介面語系顯示
+/// p_zy 查詢：符合條件的權限類別
+pub async fn query_program_permissions(
+    req: &QueryRequest,
+) -> Result<Page<PermissionClassDto>, String> {
+    post_query(url("/api/program-permissions/query"), req).await
+}
+
+/// 權限類別符合同一組查詢條件的程式（單身）
+pub async fn query_class_permissions(
+    class: &str,
+    req: &QueryRequest,
+) -> Result<Vec<ProgramPermissionDto>, String> {
+    post_query(class_perm_url(class, "/permission-query"), req).await
+}
+
 pub async fn list_class_permissions(class: &str) -> Result<Vec<ProgramPermissionDto>, String> {
     let lang = crate::i18n::current().code();
     get_json(format!(

@@ -16,7 +16,6 @@ plant-field-created-on = 建立日期
 plant-field-updated-by = 最后修改者
 plant-field-updated-on = 最后修改日期
 plant-field-copy-as = 复制为新代号
-plant-field-filter = 筛选（代码、名称）
 plant-status-active = 有效
 plant-status-inactive = 停用
 plant-action-activate = 启用

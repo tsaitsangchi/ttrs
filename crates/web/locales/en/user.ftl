@@ -34,7 +34,6 @@ user-hint-plants = The default plant is added automatically; single-plant users 
 user-col-plant = Plant
 user-col-default = Default
 user-list-title = User list
-user-field-filter = Filter by code or name
 user-field-copy-as = Copy as new code
 user-action-deactivate = Disable
 user-action-activate = Enable

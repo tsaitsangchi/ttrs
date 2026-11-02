@@ -17,8 +17,8 @@ use ttrs_app::{
 };
 use ttrs_infra::PgStore;
 use ttrs_shared::{
-    ColumnInfoDto, ConstraintDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto, Page,
-    ProgramDto, TableDictionaryDto,
+    ColumnInfoDto, ConstraintDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto, ProgramDto,
+    QbeCondition, TableDictionaryDto,
 };
 
 pub enum Backend {
@@ -36,8 +36,10 @@ pub struct ErpWorld {
     pub actor: Actor,
     /// 最近一次「當」步驟的結果
     pub last: Option<Result<(), AppError>>,
-    /// 最近一次程式維護查詢的結果
-    pub program_page: Option<Page<ProgramDto>>,
+    /// 最近一次 QBE 查詢的結果：依序的鍵值（程式代號、使用者代號…）與總筆數
+    pub query_result: Option<(Vec<String>, u64)>,
+    /// 最近一次 QBE 查詢的條件（程式執行權限查詢再以同一組條件取各權限類別的程式）
+    pub query_conditions: Vec<QbeCondition>,
     pub dictionary: DataDictionaryService,
     /// 資料字典：最近一次查看的欄位、限制、變更紀錄、匯出內容
     pub dict_columns: Option<Vec<ColumnInfoDto>>,
@@ -148,7 +150,8 @@ impl ErpWorld {
             programs,
             actor: Actor::default(),
             last: None,
-            program_page: None,
+            query_result: None,
+            query_conditions: Vec::new(),
             dictionary,
             dict_columns: None,
             dict_constraints: None,

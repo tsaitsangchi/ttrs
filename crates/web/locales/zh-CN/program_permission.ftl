@@ -84,3 +84,7 @@ perm-act-related_document = 相关文件
 perm-act-help = 说明
 perm-act-exit = 离开
 perm-act-locale = 切换语言
+# 查询（YQ1–YQ4）
+perm-msg-filtered = 只显示符合查询条件的程序
+perm-hint-qbe-actions = 例：confirm、conf*、<>confirm、=（没有任何功能）
+perm-hint-qbe-levels = { $field }：{ $codes }

@@ -16,7 +16,6 @@ plant-field-created-on = Created On
 plant-field-updated-by = Modified By
 plant-field-updated-on = Modified On
 plant-field-copy-as = Copy as new code
-plant-field-filter = Filter (code, name)
 plant-status-active = Active
 plant-status-inactive = Inactive
 plant-action-activate = Activate

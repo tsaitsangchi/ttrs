@@ -18,11 +18,14 @@ use ttrs_shared::program_max_len as max_len;
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Checkbox, IconButton, Notification, NotificationKind, RadioGroup,
-    Select, Tabs, TextArea, TextField, icons,
+    Button, ButtonVariant, Card, Checkbox, Notification, NotificationKind, RadioGroup, Select,
+    Tabs, TextArea, TextField,
 };
 use crate::components::multilingual::{
     LangField, LangValues, MultilingualDialogField, MultilingualField,
+};
+use crate::components::qbe::{
+    HINT_DATE, HINT_FLAG, HINT_NUMBER, ListPager, PAGE_SIZE, Q, Qbe, RecordNav, conditions_of,
 };
 use crate::i18n::{self, UiLang, t, tf};
 
@@ -55,13 +58,6 @@ const LOWER_TABS: [&str; 4] = [
     "program-tab-other",
 ];
 
-/// 清單每頁筆數（QBE7）
-const PAGE_SIZE: u32 = 50;
-
-const HINT_FLAG: &str = "qbe-hint-flag";
-const HINT_DATE: &str = "qbe-hint-date";
-const HINT_NUMBER: &str = "qbe-hint-number";
-
 #[derive(Clone, Copy, PartialEq)]
 enum Mode {
     View,
@@ -70,8 +66,6 @@ enum Mode {
     /// 輸入 QBE 條件
     Query,
 }
-
-type Qbe = Signal<BTreeMap<&'static str, String>>;
 
 #[component]
 pub fn ProgramMaintenance() -> Element {
@@ -105,7 +99,6 @@ pub fn ProgramMaintenance() -> Element {
     // 目前顯示的是查詢結果的第幾筆（0 起算）；sync 表示要在該頁載入後顯示這一筆
     let mut pos = use_signal(|| None::<u64>);
     let mut sync = use_signal(|| false);
-    let mut jump = use_signal(String::new);
 
     let mut new_no = use_signal(String::new);
     let mut grant_class = use_signal(String::new);
@@ -181,15 +174,7 @@ pub fn ProgramMaintenance() -> Element {
 
     // 執行查詢：先試查第 1 頁，條件有誤時留在查詢模式顯示錯誤
     let run_query = move |_| {
-        let conds: Vec<QbeCondition> = qbe
-            .read()
-            .iter()
-            .filter(|(_, v)| !v.trim().is_empty())
-            .map(|(k, v)| QbeCondition {
-                field: (*k).to_owned(),
-                expr: v.clone(),
-            })
-            .collect();
+        let conds = conditions_of(&qbe.read());
         spawn(async move {
             let req = QueryRequest {
                 conditions: conds.clone(),
@@ -200,6 +185,8 @@ pub fn ProgramMaintenance() -> Element {
             match api::query_programs(&req).await {
                 Ok(page) => {
                     error.set(None);
+                    // 清掉舊條件的結果，避免新結果載入前誤取舊清單的第一筆
+                    programs.clear();
                     conditions.set(conds);
                     list_page.set(1);
                     if page.total == 0 {
@@ -390,63 +377,7 @@ pub fn ProgramMaintenance() -> Element {
 
             // ----- 筆數與上下筆（4fd 底部 cnt；:383-395 F/P/N/L/跳筆） -----
             if mode() == Mode::View && total > 0 {
-                div { class: "record-nav",
-                    IconButton {
-                        label: t("nav-first"),
-                        path: icons::FIRST_PAGE,
-                        disabled: pos() == Some(0),
-                        onclick: move |_| go(0),
-                    }
-                    IconButton {
-                        label: t("nav-previous"),
-                        path: icons::CHEVRON_LEFT,
-                        disabled: pos().is_none_or(|i| i == 0),
-                        onclick: move |_| {
-                            if let Some(i) = pos().filter(|i| *i > 0) {
-                                go(i - 1);
-                            }
-                        },
-                    }
-                    span { class: "record-nav__count",
-                        match pos() {
-                            Some(i) => rsx! { {tf("nav-record-position", &[("pos", (i + 1).to_string().as_str()), ("total", total.to_string().as_str())])} },
-                            None => rsx! { {tf("nav-record-count", &[("total", total.to_string().as_str())])} },
-                        }
-                    }
-                    IconButton {
-                        label: t("nav-next"),
-                        path: icons::CHEVRON_RIGHT,
-                        disabled: pos().is_some_and(|i| i + 1 >= total),
-                        onclick: move |_| go(pos().map_or(0, |i| i + 1)),
-                    }
-                    IconButton {
-                        label: t("nav-last"),
-                        path: icons::LAST_PAGE,
-                        disabled: pos() == Some(total - 1),
-                        onclick: move |_| go(total - 1),
-                    }
-                    TextField {
-                        id: "jump",
-                        class: "record-nav__jump",
-                        label: t("nav-jump-to"),
-                        input_type: "number",
-                        value: jump(),
-                        oninput: move |v| jump.set(v),
-                    }
-                    Button {
-                        variant: ButtonVariant::Outlined,
-                        onclick: move |_| {
-                            match jump().trim().parse::<u64>() {
-                                Ok(n) if (1..=total).contains(&n) => {
-                                    jump.set(String::new());
-                                    go(n - 1);
-                                }
-                                _ => error.set(Some(tf("nav-jump-invalid", &[("total", total.to_string().as_str())]))),
-                            }
-                        },
-                        {t("nav-jump")}
-                    }
-                }
+                RecordNav { total, pos: pos(), ongo: go, onerror: move |e| error.set(Some(e)) }
             }
 
             if let Some(msg) = error() {
@@ -887,50 +818,8 @@ pub fn ProgramMaintenance() -> Element {
                         }
                     }
                 }
-                div { class: "table-footer",
-                    span { {tf("list-page-position", &[("page", list_page().to_string().as_str()), ("pages", pages.to_string().as_str())])} }
-                    IconButton {
-                        label: t("list-page-previous"),
-                        path: icons::CHEVRON_LEFT,
-                        disabled: list_page() <= 1,
-                        onclick: move |_| list_page -= 1,
-                    }
-                    IconButton {
-                        label: t("list-page-next"),
-                        path: icons::CHEVRON_RIGHT,
-                        disabled: list_page() >= pages,
-                        onclick: move |_| list_page += 1,
-                    }
-                }
+                ListPager { page: list_page, pages }
             }
-        }
-    }
-}
-
-/// 查詢模式下把欄位換成 QBE 條件輸入框（文字），其餘模式照常顯示原本的欄位
-#[component]
-fn Q(
-    field: &'static str,
-    label: String,
-    query: bool,
-    qbe: Qbe,
-    #[props(default)] hint: &'static str,
-    #[props(default)] class: &'static str,
-    children: Element,
-) -> Element {
-    if !query {
-        return children;
-    }
-    rsx! {
-        TextField {
-            id: "q-{field}",
-            label,
-            class,
-            placeholder: t(hint),
-            value: qbe.read().get(field).cloned().unwrap_or_default(),
-            oninput: move |v: String| {
-                qbe.write().insert(field, v);
-            },
         }
     }
 }

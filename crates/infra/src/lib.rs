@@ -11,6 +11,7 @@ mod pg_plant;
 mod pg_program;
 mod pg_user;
 mod pg_user_permission;
+mod qbe_sql;
 
 pub use pg::PgStore;
 

@@ -2,3 +2,4 @@
 
 pub mod material;
 pub mod multilingual;
+pub mod qbe;

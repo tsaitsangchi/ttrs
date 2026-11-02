@@ -1,6 +1,7 @@
 //! Plant Maintenance 營運中心維護（TipTop aooi901 工廠資料建立）
 //! 版面比照 tiptop/aoo/4fd/aooi901.4fd（P12）：動作列（新增 / 修改 / 刪除 / 停用・啟用 / 複製）＋ 上下筆
 //!   ＋ 單筆表單（group01：代碼、名稱、時區、地址、電話、傳真；另加狀態與建立／修改資訊）＋ 營運中心清單。
+//! 查詢比照 TipTop Q.查詢（i901_curs CONSTRUCT）：在同一個表單的欄位上輸入 QBE 條件（plant_maintenance_query.feature）。
 //! 資料庫連線欄位（schema、DB link、MSSQL IP）與上線人數不移植（P1、P8）；規則在後端 PlantService。
 
 use dioxus::prelude::*;
@@ -8,8 +9,10 @@ use ttrs_shared::{PlantDto, PlantInput, plant_max_len as max_len};
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Chip, IconButton, Notification, NotificationKind, Select,
-    TextField, icons,
+    Button, ButtonVariant, Card, Chip, Notification, NotificationKind, Select, TextField,
+};
+use crate::components::qbe::{
+    HINT_FLAG, ListPager, Q, RecordNav, conditions_of, use_query_records,
 };
 use crate::i18n::{t, tf};
 
@@ -49,6 +52,8 @@ enum Mode {
     View,
     New,
     Edit,
+    /// 輸入 QBE 條件
+    Query,
 }
 
 fn opt(v: String) -> Option<String> {
@@ -60,67 +65,55 @@ pub fn PlantMaintenance() -> Element {
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
     let mut mode = use_signal(|| Mode::View);
-    let mut plants = use_resource(api::list_plants);
-    let mut filter = use_signal(String::new);
-    let mut pos = use_signal(|| None::<usize>);
+    let mut rec = use_query_records(|req| async move { api::query_plants(&req).await });
     let mut form = use_signal(PlantInput::default);
     let mut copy_id = use_signal(String::new);
 
-    let all: Vec<PlantDto> = plants
-        .read()
-        .as_ref()
-        .and_then(|r| r.as_ref().ok())
-        .cloned()
-        .unwrap_or_default();
-    let f = filter().trim().to_lowercase();
-    let list: Vec<PlantDto> = all
-        .iter()
-        .filter(|p| {
-            f.is_empty()
-                || p.plant_id.to_lowercase().contains(&f)
-                || p.name.to_lowercase().contains(&f)
-        })
-        .cloned()
-        .collect();
-    let total = list.len();
-    let cur: Option<PlantDto> = pos().and_then(|i| list.get(i).cloned());
+    let cur: Option<PlantDto> = rec.current.read().clone();
+    let (total, pages) = rec.totals();
+    let filtered = !rec.conditions.read().is_empty();
+    let offset = rec.offset();
 
-    // 換筆或清單重新載入時，表單跟著目前這一筆（預設停在第一筆）
+    // 換筆時表單跟著目前這一筆
     use_effect(move || {
-        let list: Vec<PlantDto> = match &*plants.read() {
-            Some(Ok(all)) => all.clone(),
-            _ => return,
-        };
-        if pos().is_none() && !list.is_empty() {
-            pos.set(Some(0));
-            return;
-        }
+        let c = rec.current.read().clone();
         if *mode.peek() == Mode::View {
-            form.set(
-                pos()
-                    .and_then(|i| list.get(i))
-                    .map(PlantDto::to_input)
-                    .unwrap_or_default(),
-            );
+            form.set(c.as_ref().map(PlantDto::to_input).unwrap_or_default());
         }
     });
 
-    // 存檔或其他異動後重新載入，並停在該營運中心
-    let mut done = move |msg: String, id: Option<String>| {
+    // 存檔或其他異動後：顯示該營運中心並重新載入清單
+    let mut done = move |msg: String, p: Option<PlantDto>| {
         error.set(None);
         message.set(Some(msg));
         mode.set(Mode::View);
-        filter.set(String::new());
-        plants.restart();
+        form.set(p.as_ref().map(PlantDto::to_input).unwrap_or_default());
+        if p.is_none() {
+            rec.pos.set(None);
+        }
+        rec.show(p);
+    };
+
+    // 執行查詢：先試查第 1 頁，條件有誤時留在查詢模式顯示錯誤
+    let run_query = move |_| {
+        let conds = conditions_of(&rec.qbe.read());
+        let req = rec.request(conds.clone(), 1);
         spawn(async move {
-            if let Ok(list) = api::list_plants().await {
-                pos.set(match id {
-                    Some(id) => list.iter().position(|p| p.plant_id == id),
-                    None => (!list.is_empty()).then_some(0),
-                });
-                if let Some(p) = pos().and_then(|i| list.get(i)) {
-                    form.set(p.to_input());
+            match api::query_plants(&req).await {
+                Ok(page) => {
+                    error.set(None);
+                    mode.set(Mode::View);
+                    rec.apply(conds, page.total);
+                    message.set(Some(if page.total == 0 {
+                        t("query-msg-none")
+                    } else {
+                        tf(
+                            "query-msg-matched",
+                            &[("count", page.total.to_string().as_str())],
+                        )
+                    }));
                 }
+                Err(e) => error.set(Some(e)),
             }
         });
     };
@@ -139,7 +132,7 @@ pub fn PlantMaintenance() -> Element {
             match result {
                 Ok(p) => done(
                     tf("plant-msg-saved", &[("id", p.plant_id.as_str())]),
-                    Some(p.plant_id),
+                    Some(p),
                 ),
                 Err(e) => error.set(Some(e)),
             }
@@ -151,7 +144,9 @@ pub fn PlantMaintenance() -> Element {
     let cur_toggle = cur.clone();
     let cur_copy = cur.clone();
     let m = mode();
-    let ro = m == Mode::View;
+    let q = m == Mode::Query;
+    let ro = matches!(m, Mode::View | Mode::Query);
+    let qbe = rec.qbe;
     let no_cur = cur.is_none();
     let v = form();
     let tz = v
@@ -189,7 +184,29 @@ pub fn PlantMaintenance() -> Element {
                             {t("common-action-cancel")}
                         }
                     },
+                    Mode::Query => rsx! {
+                        Button { onclick: run_query, {t("common-action-ok")} }
+                        Button {
+                            variant: ButtonVariant::Text,
+                            onclick: move |_| {
+                                error.set(None);
+                                form.set(rec.current.peek().as_ref().map(PlantDto::to_input).unwrap_or_default());
+                                mode.set(Mode::View);
+                            },
+                            {t("common-action-cancel")}
+                        }
+                    },
                     Mode::View => rsx! {
+                        Button {
+                            variant: ButtonVariant::Tonal,
+                            onclick: move |_| {
+                                message.set(None);
+                                error.set(None);
+                                rec.qbe.set(Default::default());
+                                mode.set(Mode::Query);
+                            },
+                            {t("common-action-query")}
+                        }
                         Button {
                             onclick: move |_| {
                                 message.set(None);
@@ -224,7 +241,7 @@ pub fn PlantMaintenance() -> Element {
                                     match api::set_plant_active(&p.plant_id, !p.active).await {
                                         Ok(r) => {
                                             let id = if r.active { "plant-msg-activated" } else { "plant-msg-deactivated" };
-                                            done(tf(id, &[("id", r.plant_id.as_str())]), Some(r.plant_id));
+                                            done(tf(id, &[("id", r.plant_id.as_str())]), Some(r));
                                         }
                                         Err(e) => error.set(Some(e)),
                                     }
@@ -244,7 +261,7 @@ pub fn PlantMaintenance() -> Element {
                                     match api::copy_plant(&p.plant_id, &new_id).await {
                                         Ok(r) => {
                                             copy_id.set(String::new());
-                                            done(tf("plant-msg-copied", &[("from", p.plant_id.as_str()), ("to", r.plant_id.as_str())]), Some(r.plant_id));
+                                            done(tf("plant-msg-copied", &[("from", p.plant_id.as_str()), ("to", r.plant_id.as_str())]), Some(r));
                                         }
                                         Err(e) => error.set(Some(e)),
                                     }
@@ -256,19 +273,12 @@ pub fn PlantMaintenance() -> Element {
                 }
             }
 
+            if q {
+                p { class: "query-hint", {t("query-hint")} }
+            }
+
             if m == Mode::View && total > 0 {
-                div { class: "record-nav",
-                    IconButton { label: t("nav-first"), path: icons::FIRST_PAGE, disabled: pos() == Some(0), onclick: move |_| pos.set(Some(0)) }
-                    IconButton { label: t("nav-previous"), path: icons::CHEVRON_LEFT, disabled: pos().is_none_or(|i| i == 0), onclick: move |_| pos.set(pos().map(|i| i.saturating_sub(1))) }
-                    span { class: "record-nav__count",
-                        match pos() {
-                            Some(i) => rsx! { {tf("nav-record-position", &[("pos", (i + 1).to_string().as_str()), ("total", total.to_string().as_str())])} },
-                            None => rsx! { {tf("nav-record-count", &[("total", total.to_string().as_str())])} },
-                        }
-                    }
-                    IconButton { label: t("nav-next"), path: icons::CHEVRON_RIGHT, disabled: pos().is_some_and(|i| i + 1 >= total), onclick: move |_| pos.set(Some(pos().map_or(0, |i| (i + 1).min(total - 1)))) }
-                    IconButton { label: t("nav-last"), path: icons::LAST_PAGE, disabled: pos() == Some(total - 1), onclick: move |_| pos.set(Some(total - 1)) }
-                }
+                RecordNav { total, pos: (rec.pos)(), ongo: move |i| rec.go(i), onerror: move |e| error.set(Some(e)) }
             }
 
             if let Some(msg) = error() {
@@ -282,20 +292,37 @@ pub fn PlantMaintenance() -> Element {
             Card {
                 div { class: "card-body",
                     div { class: "form-grid",
-                        TextField { id: "azp01", label: t("plant-field-id"), maxlength: max_len::ID, value: v.plant_id.clone(), readonly: m != Mode::New, oninput: move |x| form.write().plant_id = x }
-                        TextField { id: "azp02", label: t("plant-field-name"), maxlength: max_len::NAME, value: v.name.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().name = opt(x) }
-                        Select { id: "azp052", label: t("plant-field-time-zone"), options: tz_options, value: tz, readonly: ro, onchange: move |x| form.write().time_zone = Some(x) }
-                        TextField { id: "azp06", label: t("plant-field-phone"), maxlength: max_len::PHONE, value: v.phone.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().phone = opt(x) }
-                        TextField { id: "azp051", class: "span-2", label: t("plant-field-address"), maxlength: max_len::ADDRESS, value: v.address.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().address = opt(x) }
-                        TextField { id: "azp07", label: t("plant-field-fax"), maxlength: max_len::FAX, value: v.fax.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().fax = opt(x) }
-                        TextField { id: "active", label: t("plant-field-active"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).map(|p| if p.active { t("plant-status-active") } else { t("plant-status-inactive") }).unwrap_or_default() }
+                        Q { field: "plant_id", label: t("plant-field-id"), query: q, qbe,
+                            TextField { id: "azp01", label: t("plant-field-id"), maxlength: max_len::ID, value: v.plant_id.clone(), readonly: m != Mode::New, oninput: move |x| form.write().plant_id = x }
+                        }
+                        Q { field: "name", label: t("plant-field-name"), query: q, qbe,
+                            TextField { id: "azp02", label: t("plant-field-name"), maxlength: max_len::NAME, value: v.name.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().name = opt(x) }
+                        }
+                        Q { field: "time_zone", label: t("plant-field-time-zone"), hint_text: "Asia/*", query: q, qbe,
+                            Select { id: "azp052", label: t("plant-field-time-zone"), options: tz_options, value: tz, readonly: ro, onchange: move |x| form.write().time_zone = Some(x) }
+                        }
+                        Q { field: "phone", label: t("plant-field-phone"), query: q, qbe,
+                            TextField { id: "azp06", label: t("plant-field-phone"), maxlength: max_len::PHONE, value: v.phone.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().phone = opt(x) }
+                        }
+                        Q { field: "address", label: t("plant-field-address"), class: "span-2", query: q, qbe,
+                            TextField { id: "azp051", class: "span-2", label: t("plant-field-address"), maxlength: max_len::ADDRESS, value: v.address.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().address = opt(x) }
+                        }
+                        Q { field: "fax", label: t("plant-field-fax"), query: q, qbe,
+                            TextField { id: "azp07", label: t("plant-field-fax"), maxlength: max_len::FAX, value: v.fax.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().fax = opt(x) }
+                        }
+                        Q { field: "active", label: t("plant-field-active"), hint: HINT_FLAG, query: q, qbe,
+                            TextField { id: "active", label: t("plant-field-active"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).map(|p| if p.active { t("plant-status-active") } else { t("plant-status-inactive") }).unwrap_or_default() }
+                        }
                     }
                     p { class: "muted", {t("plant-hint-time-zone")} }
-                    div { class: "form-grid cols-4",
-                        TextField { id: "created-by", label: t("plant-field-created-by"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).map(|p| p.created_by.clone()).unwrap_or_default() }
-                        TextField { id: "created-on", label: t("plant-field-created-on"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).map(|p| p.created_on.format("%Y/%m/%d").to_string()).unwrap_or_default() }
-                        TextField { id: "updated-by", label: t("plant-field-updated-by"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).and_then(|p| p.updated_by.clone()).unwrap_or_default() }
-                        TextField { id: "updated-on", label: t("plant-field-updated-on"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).and_then(|p| p.updated_on.map(|d| d.format("%Y/%m/%d").to_string())).unwrap_or_default() }
+                    // 建立／修改資訊不在 aooi901 查詢欄位內（PQ1）
+                    if !q {
+                        div { class: "form-grid cols-4",
+                            TextField { id: "created-by", label: t("plant-field-created-by"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).map(|p| p.created_by.clone()).unwrap_or_default() }
+                            TextField { id: "created-on", label: t("plant-field-created-on"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).map(|p| p.created_on.format("%Y/%m/%d").to_string()).unwrap_or_default() }
+                            TextField { id: "updated-by", label: t("plant-field-updated-by"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).and_then(|p| p.updated_by.clone()).unwrap_or_default() }
+                            TextField { id: "updated-on", label: t("plant-field-updated-on"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).and_then(|p| p.updated_on.map(|d| d.format("%Y/%m/%d").to_string())).unwrap_or_default() }
+                        }
                     }
                 }
             }
@@ -304,10 +331,7 @@ pub fn PlantMaintenance() -> Element {
             Card {
                 div { class: "table-header",
                     h3 { {t("plant-list-title")} }
-                    p { {tf("list-count-all", &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
-                }
-                div { class: "card-body",
-                    TextField { id: "plant-filter", class: "legacy-search", label: t("plant-field-filter"), value: filter(), oninput: move |x| { filter.set(x); pos.set(Some(0)); } }
+                    p { {tf(if filtered { "list-count-filtered" } else { "list-count-all" }, &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
                 }
                 div { class: "table-scroll",
                     table { class: "md-table",
@@ -317,17 +341,17 @@ pub fn PlantMaintenance() -> Element {
                             }
                         } }
                         tbody {
-                            match &*plants.read() {
+                            match &*rec.list.read() {
                                 None => rsx! { tr { td { colspan: 5, {t("common-msg-loading")} } } },
                                 Some(Err(e)) => rsx! { tr { td { colspan: 5, "{e}" } } },
-                                Some(Ok(_)) if list.is_empty() => rsx! { tr { td { colspan: 5, class: "muted", {t("common-msg-no-data")} } } },
-                                Some(Ok(_)) => rsx! {
-                                    for (i, p) in list.iter().cloned().enumerate() {
+                                Some(Ok(page)) if page.items.is_empty() => rsx! { tr { td { colspan: 5, class: "muted", {t("common-msg-no-data")} } } },
+                                Some(Ok(page)) => rsx! {
+                                    for (i, p) in page.items.iter().cloned().enumerate() {
                                         tr {
                                             key: "{p.plant_id}",
                                             class: "md-table__row--clickable",
-                                            class: if pos() == Some(i) { "md-table__row--selected" },
-                                            onclick: move |_| if mode() == Mode::View { message.set(None); error.set(None); pos.set(Some(i)); },
+                                            class: if cur.as_ref().is_some_and(|c| c.plant_id == p.plant_id) { "md-table__row--selected" },
+                                            onclick: move |_| if mode() == Mode::View { message.set(None); error.set(None); rec.go(offset + i as u64); },
                                             td { class: "mono", "{p.plant_id}" }
                                             td { "{p.name}" }
                                             td { class: "mono", "{p.time_zone}" }
@@ -342,6 +366,7 @@ pub fn PlantMaintenance() -> Element {
                         }
                     }
                 }
+                ListPager { page: rec.page, pages }
             }
             p { class: "note", {t("plant-note-schema")} }
         }
