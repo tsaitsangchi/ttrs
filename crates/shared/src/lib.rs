@@ -624,3 +624,83 @@ impl UserDto {
 pub struct NewUserIdRequest {
     pub new_user_id: String,
 }
+
+// ---------------------------------------------------------------------------
+// Permission Class Maintenance 權限類別維護（TipTop p_zw / zw_file，見 docs/legacy-map/azz.yaml）
+// ---------------------------------------------------------------------------
+
+/// 欄位上限（與 ttrs_domain::permission_class::max_len 一致）
+pub mod permission_class_max_len {
+    pub const CODE: usize = 10;
+    pub const NAME: usize = 80;
+}
+
+/// 閒置控制（zw04）
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ClassIdleControlDto {
+    #[default]
+    Off,
+    ByClass,
+    BySystem,
+}
+
+impl ClassIdleControlDto {
+    pub const ALL: [Self; 3] = [Self::Off, Self::ByClass, Self::BySystem];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Off => "不控制",
+            Self::ByClass => "依權限類別",
+            Self::BySystem => "依系統",
+        }
+    }
+}
+
+/// 新增／修改權限類別
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PermissionClassInput {
+    pub class_code: String,
+    pub name: Option<String>,
+    pub default_menu: Option<String>,
+    /// 未指定為「不控制」
+    pub idle_control: Option<ClassIdleControlDto>,
+    pub idle_action: Option<IdleActionDto>,
+    pub idle_seconds: Option<i32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PermissionClassDto {
+    pub class_code: String,
+    pub name: String,
+    pub default_menu: Option<String>,
+    pub idle_control: ClassIdleControlDto,
+    pub idle_action: Option<IdleActionDto>,
+    pub idle_seconds: Option<i32>,
+    pub active: bool,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+}
+
+impl PermissionClassDto {
+    pub fn to_input(&self) -> PermissionClassInput {
+        PermissionClassInput {
+            class_code: self.class_code.clone(),
+            name: Some(self.name.clone()),
+            default_menu: self.default_menu.clone(),
+            idle_control: Some(self.idle_control),
+            idle_action: self.idle_action,
+            idle_seconds: self.idle_seconds,
+        }
+    }
+}
+
+/// 批次作業的處理筆數（如「更新所有使用者目錄編號」）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UpdatedCountDto {
+    pub updated: u64,
+}

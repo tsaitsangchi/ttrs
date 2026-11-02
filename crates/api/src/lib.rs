@@ -13,14 +13,15 @@ use tower_http::{
     trace::TraceLayer,
 };
 use ttrs_app::{
-    Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService, ProgramService,
-    UserService, program_service::DEFAULT_LANG,
+    Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService,
+    PermissionClassService, ProgramService, UserService, program_service::DEFAULT_LANG,
 };
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
     IndexDto, ItemDto, LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto,
-    NewProgramNoRequest, NewUserIdRequest, Page, ProgramDto, ProgramInput, ProgramNameDto,
-    QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto, UserDto, UserInput,
+    NewProgramNoRequest, NewUserIdRequest, Page, PermissionClassDto, PermissionClassInput,
+    ProgramDto, ProgramInput, ProgramNameDto, QueryRequest, TableDictionaryDto,
+    TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto, UserInput,
 };
 
 #[derive(Clone)]
@@ -30,6 +31,7 @@ pub struct AppState {
     pub dictionary: DataDictionaryService,
     pub legacy: LegacyCatalogService,
     pub users: UserService,
+    pub classes: PermissionClassService,
     /// 尚未有登入機制前，所有請求都以此使用者身分執行（見 `actor_from_env`）
     pub actor: Actor,
 }
@@ -112,6 +114,27 @@ pub fn router(state: AppState) -> Router {
         .route("/api/users/{id}/copy", post(copy_user))
         .route("/api/users/{id}/deactivate", post(deactivate_user))
         .route("/api/users/{id}/activate", post(activate_user))
+        // Permission Class Maintenance 權限類別維護（TipTop p_zw）
+        .route(
+            "/api/permission-classes",
+            get(list_classes).post(create_class),
+        )
+        .route(
+            "/api/permission-classes/update-user-menus",
+            post(update_user_menus),
+        )
+        .route(
+            "/api/permission-classes/{code}",
+            get(get_class).put(update_class).delete(delete_class),
+        )
+        .route(
+            "/api/permission-classes/{code}/deactivate",
+            post(deactivate_class),
+        )
+        .route(
+            "/api/permission-classes/{code}/activate",
+            post(activate_class),
+        )
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
@@ -233,6 +256,64 @@ async fn activate_user(
     Ok(Json(s.users.activate(&s.actor, &id).await?))
 }
 
+// ----- Permission Class Maintenance 權限類別維護（TipTop p_zw） -----
+
+async fn list_classes(State(s): State<AppState>) -> ApiResult<Json<Vec<PermissionClassDto>>> {
+    Ok(Json(s.classes.list().await?))
+}
+
+async fn create_class(
+    State(s): State<AppState>,
+    Json(req): Json<PermissionClassInput>,
+) -> ApiResult<(StatusCode, Json<PermissionClassDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.classes.create(&s.actor, req).await?),
+    ))
+}
+
+async fn get_class(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+) -> ApiResult<Json<PermissionClassDto>> {
+    Ok(Json(s.classes.get(&code).await?))
+}
+
+async fn update_class(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+    Json(req): Json<PermissionClassInput>,
+) -> ApiResult<Json<PermissionClassDto>> {
+    Ok(Json(s.classes.update(&s.actor, &code, req).await?))
+}
+
+async fn delete_class(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+) -> ApiResult<StatusCode> {
+    s.classes.delete(&code).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn deactivate_class(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+) -> ApiResult<Json<PermissionClassDto>> {
+    Ok(Json(s.classes.deactivate(&s.actor, &code).await?))
+}
+
+async fn activate_class(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+) -> ApiResult<Json<PermissionClassDto>> {
+    Ok(Json(s.classes.activate(&s.actor, &code).await?))
+}
+
+async fn update_user_menus(State(s): State<AppState>) -> ApiResult<Json<UpdatedCountDto>> {
+    let updated = s.classes.update_user_menus(&s.actor).await?;
+    Ok(Json(UpdatedCountDto { updated }))
+}
+
 pub struct HttpError(AppError);
 
 impl From<AppError> for HttpError {
@@ -255,7 +336,10 @@ impl IntoResponse for HttpError {
             | "PROGRAM_ALREADY_EXISTS"
             | "DICT_ALREADY_EXISTS"
             | "USER_ALREADY_EXISTS"
-            | "IDP_ACCOUNT_IN_USE" => StatusCode::CONFLICT,
+            | "IDP_ACCOUNT_IN_USE"
+            | "PERMISSION_CLASS_ALREADY_EXISTS"
+            | "PERMISSION_CLASS_IN_USE"
+            | "PERMISSION_CLASS_HAS_PERMISSIONS" => StatusCode::CONFLICT,
             "INFRA_ERROR" => StatusCode::INTERNAL_SERVER_ERROR,
             _ => StatusCode::UNPROCESSABLE_ENTITY,
         };

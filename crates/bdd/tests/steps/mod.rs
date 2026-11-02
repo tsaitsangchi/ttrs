@@ -3,6 +3,7 @@
 mod aim_item;
 mod azz_data_dictionary;
 mod azz_legacy_catalog;
+mod azz_permission_class_maintenance;
 mod azz_program_maintenance;
 mod azz_program_maintenance_i18n;
 mod azz_program_maintenance_query;

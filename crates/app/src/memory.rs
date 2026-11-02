@@ -11,6 +11,7 @@ use ttrs_domain::{
     item::{Item, ItemNo},
     lang::Lang,
     legacy_catalog::LegacyTable,
+    permission_class::{ClassCode, ClassIdleControl, PermissionClass, PermissionClassAttrs},
     plant::PlantId,
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
@@ -21,8 +22,8 @@ use crate::{
     error::RepoError,
     ports::{
         AuditEntry, DictionaryRepository, ItemRepository, LegacyCatalogRepository,
-        LegacyTableSummary, MasterDataRepository, MigrationSource, ProgramName, ProgramRepository,
-        SchemaCatalog, TableSchema, UserRepository,
+        LegacyTableSummary, MasterDataRepository, MigrationSource, PermissionClassRepository,
+        ProgramName, ProgramRepository, SchemaCatalog, TableSchema, UserRepository,
     },
 };
 
@@ -39,7 +40,8 @@ struct State {
     transactions: HashSet<(PlantId, ItemNo)>,
     // Program Maintenance
     modules: HashSet<String>,
-    permission_classes: HashSet<String>,
+    /// 權限類別（zw_file）
+    permission_classes: BTreeMap<ClassCode, PermissionClass>,
     /// (選單代號, 程式代號)（zm_file）
     menu_items: HashSet<(String, String)>,
     /// p_query 查詢定義代號（zai_file）
@@ -103,9 +105,35 @@ impl InMemoryStore {
         self.lock().modules.insert(module.to_uppercase());
     }
 
-    /// 權限類別（zw_file）
+    /// 權限類別（zw_file）：說明同代號、其餘為資料庫預設值（同 migrations/0011 的欄位預設）
     pub fn add_permission_class(&self, class: &str) {
-        self.lock().permission_classes.insert(class.to_string());
+        let code = ClassCode::parse(class).expect("權限類別代號");
+        let pc = PermissionClass {
+            attrs: PermissionClassAttrs {
+                name: class.to_string(),
+                default_menu: None,
+                idle_control: ClassIdleControl::Off,
+                idle_action: None,
+                idle_seconds: None,
+            },
+            active: true,
+            created_by: String::new(),
+            created_dept: String::new(),
+            created_on: chrono::Local::now().date_naive(),
+            updated_by: None,
+            updated_on: None,
+            code: code.clone(),
+        };
+        self.lock().permission_classes.insert(code, pc);
+    }
+
+    /// 測試用：權限類別的程式權限筆數
+    pub fn class_permission_count(&self, class: &str) -> usize {
+        self.lock()
+            .permissions
+            .iter()
+            .filter(|(c, _)| c == class)
+            .count()
     }
 
     pub fn add_menu_item(&self, menu: &str, program: &str) {
@@ -371,7 +399,7 @@ impl ProgramRepository for InMemoryStore {
     }
 
     async fn permission_class_exists(&self, class: &str) -> Result<bool, RepoError> {
-        Ok(self.lock().permission_classes.contains(class))
+        Ok(ClassCode::parse(class).is_ok_and(|c| self.lock().permission_classes.contains_key(&c)))
     }
 
     async fn query_definition_exists(&self, query: &str) -> Result<bool, RepoError> {
@@ -568,5 +596,53 @@ impl UserRepository for InMemoryStore {
             .values()
             .find(|u| u.attrs.idp_username.as_deref() == Some(username))
             .map(|u| u.user_id.clone()))
+    }
+}
+
+#[async_trait]
+impl PermissionClassRepository for InMemoryStore {
+    async fn get(&self, code: &ClassCode) -> Result<Option<PermissionClass>, RepoError> {
+        Ok(self.lock().permission_classes.get(code).cloned())
+    }
+
+    async fn list(&self) -> Result<Vec<PermissionClass>, RepoError> {
+        // BTreeMap 依代號排序（位元組順序，同 PostgreSQL COLLATE "C"）
+        Ok(self.lock().permission_classes.values().cloned().collect())
+    }
+
+    async fn insert(&self, class: &PermissionClass) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.permission_classes.contains_key(&class.code) {
+            return Err(RepoError::Conflict);
+        }
+        s.permission_classes
+            .insert(class.code.clone(), class.clone());
+        Ok(())
+    }
+
+    async fn update(&self, class: &PermissionClass) -> Result<(), RepoError> {
+        if let Some(c) = self.lock().permission_classes.get_mut(&class.code) {
+            *c = class.clone();
+        }
+        Ok(())
+    }
+
+    async fn delete(&self, code: &ClassCode) -> Result<(), RepoError> {
+        self.lock().permission_classes.remove(code);
+        Ok(())
+    }
+
+    async fn user_count(&self, code: &ClassCode) -> Result<u64, RepoError> {
+        let n = self
+            .lock()
+            .users
+            .values()
+            .filter(|u| u.attrs.permission_class == code.as_str())
+            .count();
+        Ok(n as u64)
+    }
+
+    async fn permission_count(&self, code: &ClassCode) -> Result<u64, RepoError> {
+        Ok(self.class_permission_count(code.as_str()) as u64)
     }
 }

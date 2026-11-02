@@ -11,8 +11,8 @@ use std::{fmt, sync::Arc};
 use cucumber::World;
 use sqlx::PgPool;
 use ttrs_app::{
-    Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService, ProgramService,
-    UserService, memory::InMemoryStore,
+    Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService,
+    PermissionClassService, ProgramService, UserService, memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
 use ttrs_shared::{
@@ -53,6 +53,9 @@ pub struct ErpWorld {
     pub legacy_results: Option<Vec<LegacyTableSummaryDto>>,
     pub legacy_view: Option<LegacyTableDto>,
     pub users: UserService,
+    pub classes: PermissionClassService,
+    /// 最近一次批次作業的處理筆數（更新所有使用者目錄編號）
+    pub updated_count: Option<u64>,
 }
 
 impl fmt::Debug for ErpWorld {
@@ -65,7 +68,7 @@ impl fmt::Debug for ErpWorld {
 
 impl ErpWorld {
     async fn init() -> Self {
-        let (backend, items, programs, dictionary, legacy, users) = match database_url() {
+        let (backend, items, programs, dictionary, legacy, users, classes) = match database_url() {
             Some(url) => {
                 let pool = ttrs_infra::connect(&url).await.expect("connect PostgreSQL");
                 ttrs_infra::migrate(&pool).await.expect("run migrations");
@@ -82,7 +85,8 @@ impl ErpWorld {
                     ProgramService::new(store.clone()),
                     DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
                     LegacyCatalogService::new(store.clone()),
-                    UserService::new(store.clone(), store.clone(), store),
+                    UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
+                    PermissionClassService::new(store.clone(), store.clone(), store),
                 )
             }
             None => {
@@ -95,7 +99,13 @@ impl ErpWorld {
                     ProgramService::new(shared.clone()),
                     DataDictionaryService::new(shared.clone(), shared.clone(), shared.clone()),
                     LegacyCatalogService::new(shared.clone()),
-                    UserService::new(shared.clone(), shared.clone(), shared),
+                    UserService::new(
+                        shared.clone(),
+                        shared.clone(),
+                        shared.clone(),
+                        shared.clone(),
+                    ),
+                    PermissionClassService::new(shared.clone(), shared.clone(), shared),
                 )
             }
         };
@@ -118,6 +128,8 @@ impl ErpWorld {
             legacy_results: None,
             legacy_view: None,
             users,
+            classes,
+            updated_count: None,
         }
     }
 }

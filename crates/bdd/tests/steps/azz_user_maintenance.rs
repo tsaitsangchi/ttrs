@@ -47,7 +47,7 @@ fn input(id: &str, name: &str, dept: &str, class: &str, menu: &str, plant: &str)
 }
 
 /// 背景已備妥的標準使用者
-fn standard(id: &str) -> UserInput {
+pub(crate) fn standard(id: &str) -> UserInput {
     input(id, "王小明", "SAL", "CLASS1", "menu_main", "TW01")
 }
 
@@ -90,6 +90,16 @@ async fn existing_user(w: &mut ErpWorld, id: String) {
 async fn existing_user_with_account(w: &mut ErpWorld, id: String, account: String) {
     let req = UserInput {
         idp_username: Some(account),
+        ..standard(&id)
+    };
+    w.users.create(&w.actor, req).await.unwrap();
+}
+
+#[given(expr = "已有使用者 {string}，權限類別 {string}，選單 {string}")]
+async fn existing_user_with_class(w: &mut ErpWorld, id: String, class: String, menu: String) {
+    let req = UserInput {
+        permission_class: class,
+        menu,
         ..standard(&id)
     };
     w.users.create(&w.actor, req).await.unwrap();
@@ -308,6 +318,11 @@ async fn account_should_be(w: &mut ErpWorld, id: String, expected: String) {
         user(w, &id).await.idp_username.unwrap_or_default(),
         expected
     );
+}
+
+#[then(expr = "使用者 {string} 的選單應為 {string}")]
+async fn menu_should_be(w: &mut ErpWorld, id: String, expected: String) {
+    assert_eq!(user(w, &id).await.menu, expected);
 }
 
 #[then(expr = "使用者 {string} 的權限類別應為 {string}")]

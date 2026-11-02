@@ -7,6 +7,7 @@ shell-nav-aimi100 = aimi100 料件基本資料
 shell-group-azz = 系統管理 (azz)
 shell-nav-program = 程式維護
 shell-nav-users = 使用者維護
+shell-nav-classes = 權限類別維護
 shell-nav-dictionary = 資料字典維護
 shell-language = 語言
 common-action-ok = 確定

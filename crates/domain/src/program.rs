@@ -132,6 +132,8 @@ macro_rules! coded_enum {
     };
 }
 
+pub(crate) use coded_enum;
+
 coded_enum!(
     /// 報表類型（zz14）
     ReportType { Voucher = "1", Detail = "2", Statistics = "3", Tracking = "4", None = "5" }

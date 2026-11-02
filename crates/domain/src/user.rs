@@ -197,6 +197,12 @@ impl User {
         Self::new(new_id, attrs, actor, actor_dept, today)
     }
 
+    /// 改為權限類別的預設選單（p_zw「更新所有使用者目錄編號」，W9 記錄修改者）
+    pub fn set_menu(&mut self, menu: &str, actor: &str, today: NaiveDate) {
+        self.attrs.menu = menu.to_owned();
+        self.touch(actor, today);
+    }
+
     fn touch(&mut self, actor: &str, today: NaiveDate) {
         self.updated_by = Some(actor.to_owned());
         self.updated_on = Some(today);

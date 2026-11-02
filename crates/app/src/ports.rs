@@ -5,6 +5,7 @@ use ttrs_domain::{
     dictionary::{ColumnText, TableDictionary, TableText},
     item::{Item, ItemNo},
     legacy_catalog::LegacyTable,
+    permission_class::{ClassCode, PermissionClass},
     plant::PlantId,
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
@@ -202,4 +203,23 @@ pub trait UserRepository: Send + Sync {
     async fn plants(&self, id: &UserId) -> Result<Vec<PlantId>, RepoError>;
     /// 公司帳號（小寫）目前綁定的使用者
     async fn find_by_idp_username(&self, username: &str) -> Result<Option<UserId>, RepoError>;
+}
+
+// ---------------------------------------------------------------------------
+// 權限類別（TipTop p_zw / zw_file）
+// ---------------------------------------------------------------------------
+
+#[async_trait]
+pub trait PermissionClassRepository: Send + Sync {
+    async fn get(&self, code: &ClassCode) -> Result<Option<PermissionClass>, RepoError>;
+    /// 依代號排序（p_zw.4gl:235-237）
+    async fn list(&self) -> Result<Vec<PermissionClass>, RepoError>;
+    /// 代號重複回 Conflict
+    async fn insert(&self, class: &PermissionClass) -> Result<(), RepoError>;
+    async fn update(&self, class: &PermissionClass) -> Result<(), RepoError>;
+    async fn delete(&self, code: &ClassCode) -> Result<(), RepoError>;
+    /// 屬於此權限類別的使用者數（zx04）
+    async fn user_count(&self, code: &ClassCode) -> Result<u64, RepoError>;
+    /// 此權限類別的程式權限筆數（zy_file）
+    async fn permission_count(&self, code: &ClassCode) -> Result<u64, RepoError>;
 }

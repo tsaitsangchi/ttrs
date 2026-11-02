@@ -3,8 +3,8 @@ use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 use ttrs_api::{AppState, actor_from_env, cors_from_env, router};
 use ttrs_app::{
-    DataDictionaryService, ItemService, LegacyCatalogService, ProgramService, UserService,
-    memory::InMemoryStore,
+    DataDictionaryService, ItemService, LegacyCatalogService, PermissionClassService,
+    ProgramService, UserService, memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
 
@@ -17,7 +17,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     // 有 DATABASE_URL 就用 PostgreSQL（並自動 migrate），否則用記憶體資料方便前端開發
-    let (items, programs, dictionary, legacy, users) = match std::env::var("DATABASE_URL") {
+    let (items, programs, dictionary, legacy, users, classes) = match std::env::var("DATABASE_URL")
+    {
         Ok(url) => {
             let pool = ttrs_infra::connect(&url).await?;
             ttrs_infra::migrate(&pool).await?;
@@ -28,7 +29,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ProgramService::new(store.clone()),
                 DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
                 LegacyCatalogService::new(store.clone()),
-                UserService::new(store.clone(), store.clone(), store),
+                UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
+                PermissionClassService::new(store.clone(), store.clone(), store),
             )
         }
         Err(_) => {
@@ -40,7 +42,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // 記憶體模式沒有真正的資料庫結構，資料字典只能看到空清單
                 DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
                 LegacyCatalogService::new(store.clone()),
-                UserService::new(store.clone(), store.clone(), store),
+                UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
+                PermissionClassService::new(store.clone(), store.clone(), store),
             )
         }
     };
@@ -56,6 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         dictionary,
         legacy,
         users,
+        classes,
         actor,
     });
     if let Some(cors) = cors_from_env() {

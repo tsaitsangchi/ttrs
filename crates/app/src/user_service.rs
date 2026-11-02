@@ -7,6 +7,7 @@ use chrono::NaiveDate;
 use ttrs_domain::{
     DomainError,
     lang::DEFAULT_LANG,
+    permission_class::ClassCode,
     plant::PlantId,
     program::ProgramNo,
     user::{User, UserAttrs, UserId, plants_after_default_change},
@@ -16,7 +17,7 @@ use ttrs_shared::{UserDto, UserInput};
 use crate::{
     Actor, AppError,
     error::RepoError,
-    ports::{MasterDataRepository, ProgramRepository, UserRepository},
+    ports::{MasterDataRepository, PermissionClassRepository, ProgramRepository, UserRepository},
 };
 
 #[derive(Clone)]
@@ -24,6 +25,7 @@ pub struct UserService {
     users: Arc<dyn UserRepository>,
     programs: Arc<dyn ProgramRepository>,
     master: Arc<dyn MasterDataRepository>,
+    classes: Arc<dyn PermissionClassRepository>,
 }
 
 impl UserService {
@@ -31,11 +33,13 @@ impl UserService {
         users: Arc<dyn UserRepository>,
         programs: Arc<dyn ProgramRepository>,
         master: Arc<dyn MasterDataRepository>,
+        classes: Arc<dyn PermissionClassRepository>,
     ) -> Self {
         Self {
             users,
             programs,
             master,
+            classes,
         }
     }
 
@@ -155,11 +159,11 @@ impl UserService {
             .ok_or_else(|| DomainError::UserNotFound.into())
     }
 
-    /// 檢核輸入並組出欄位：權限類別存在（p_zx.4gl:582-596）、選單為 MENU 程式（:611-619）、
-    /// 預設營運中心存在（:630-638）、公司帳號未綁定其他使用者（U2）
+    /// 檢核輸入並組出欄位：權限類別存在且有效（p_zx.4gl:582-602）、選單空白時帶入權限類別的預設選單（:584-588）、
+    /// 選單為 MENU 程式（:611-619）、預設營運中心存在（:630-638）、公司帳號未綁定其他使用者（U2）
     async fn attrs(&self, i: &UserInput, me: Option<&UserId>) -> Result<UserAttrs, AppError> {
         let plant = PlantId::parse(&i.default_plant)?;
-        let attrs = UserAttrs::new(
+        let mut attrs = UserAttrs::new(
             i.name.clone(),
             i.dept_code.clone(),
             &i.permission_class,
@@ -171,13 +175,18 @@ impl UserService {
             i.lang.as_deref().unwrap_or(DEFAULT_LANG),
             i.valid_until,
         )?;
-        if !self
-            .programs
-            .permission_class_exists(&attrs.permission_class)
-            .await
-            .map_err(infra)?
+        let class = match ClassCode::parse(&attrs.permission_class) {
+            Ok(code) => self.classes.get(&code).await.map_err(infra)?,
+            Err(_) => None,
+        }
+        .ok_or(DomainError::PermissionClassNotFound)?;
+        if !class.active {
+            return Err(DomainError::PermissionClassInactive.into());
+        }
+        if attrs.menu.is_empty()
+            && let Some(menu) = class.attrs.default_menu
         {
-            return Err(DomainError::PermissionClassNotFound.into());
+            attrs.menu = menu;
         }
         let menu_ok = match ProgramNo::parse(&attrs.menu) {
             Ok(no) => self

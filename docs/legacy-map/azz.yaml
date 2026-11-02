@@ -67,8 +67,24 @@ tables:
 
   - legacy: zw_file
     target: permission_class
-    note: "權限類別；主鍵 zw01 varchar2(10)、zw02 varchar2(80) 權限說明"
-    unmapped: "zw03 使用目錄編號、zw05 閒置處理、zw06 閒置時間、zwacti、zwuser/zwgrup/zwmodu/zwdate"
+    program: p_zw（Permission Class Maintenance 權限類別維護）
+    spec: specs/features/azz/permission_class_maintenance.feature
+    note: "權限類別；新增時不自動加入 TipTop 基本程式權限（W8）"
+    columns:
+      - { legacy: zw01,   type: varchar2(10) NOT NULL, target: class_code, sch: 權限類別, note: "建立後不可修改（W1）" }
+      - { legacy: zw02,   type: varchar2(80), target: name, sch: 權限說明, note: "新系統必填（W2）、不做多語言（W3）" }
+      - { legacy: zw03,   type: varchar2(10), target: default_menu, sch: 使用目錄編號, note: "模組 MENU 的程式（W4）；使用者選單空白時帶入" }
+      - { legacy: zw04,   type: varchar2(1), target: idle_control, sch: "test", note: ".sch 說明為 test；依 p_zw.4fd 為閒置設定 1 不控制、2 依權限類別、3 依系統（W5）" }
+      - { legacy: zw05,   type: varchar2(1), target: idle_action, sch: 閒置處理, note: "1 僅警告、2 警告後關閉、3 直接關閉；只有 zw04 = 2 時保留" }
+      - { legacy: zw06,   type: number(5), target: idle_seconds, sch: "閒置時間(秒)", note: "1–99999；只有 zw04 = 2 時保留" }
+      - { legacy: zwacti, type: varchar2(1), target: active, sch: Active flag, note: "Y/N → true/false" }
+      - { legacy: zwuser, type: varchar2(10), target: created_by, sch: OWNER, note: "TipTop p_zw 從未寫入，轉入時空白（W10）" }
+      - { legacy: zwgrup, type: varchar2(10), target: created_dept, sch: GROUP, note: "同上" }
+      - { legacy: zwmodu, type: varchar2(10), target: updated_by, sch: MODIFY USER }
+      - { legacy: zwdate, type: date, target: updated_on, sch: MODIFY DATE }
+    not_ported:
+      - "基本程式權限自動加入與「新增基本程式權限」（p_zw.4gl:96-108、333-343、970-999；W8）"
+      - "報表輸出 p_query、匯出 Excel（共用功能後續提供）"
 
   - legacy: zx_file
     target: user_account

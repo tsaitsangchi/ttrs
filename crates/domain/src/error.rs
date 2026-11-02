@@ -99,6 +99,30 @@ pub enum DomainError {
     #[error("電子郵件格式不正確：{0}")]
     UserEmailInvalid(String),
 
+    // 權限類別維護（permission_class_maintenance.feature）
+    #[error("權限類別代號不可空白")]
+    PermissionClassCodeEmpty,
+    #[error("權限類別代號長度不可超過 {max} 碼")]
+    PermissionClassCodeTooLong { max: usize },
+    #[error("權限類別已存在")]
+    PermissionClassAlreadyExists,
+    #[error("權限類別代號不可修改")]
+    PermissionClassCodeImmutable,
+    #[error("權限說明不可空白")]
+    PermissionClassNameEmpty,
+    #[error("預設選單必須是選單程式（模組 MENU）：{0}")]
+    PermissionClassMenuInvalid(String),
+    #[error("閒置控制為「依權限類別」時，閒置處理與閒置秒數必須輸入")]
+    IdleSettingRequired,
+    #[error("閒置秒數必須介於 1 到 {max} 秒")]
+    IdleSecondsInvalid { max: i32 },
+    #[error("仍有使用者屬於此權限類別，不可停用或刪除")]
+    PermissionClassInUse,
+    #[error("此權限類別仍有程式權限，請先刪除程式權限")]
+    PermissionClassHasPermissions,
+    #[error("權限類別已無效，不可指定給使用者")]
+    PermissionClassInactive,
+
     // TipTop 對照目錄（legacy_catalog.feature）
     #[error("英文名稱不符命名規則（小寫英文開頭、僅小寫英數與底線、最多 63 字、非保留字）：{0}")]
     LegacyNameInvalid(String),
@@ -153,6 +177,17 @@ impl DomainError {
             Self::UserSinglePlant => "USER_SINGLE_PLANT",
             Self::IdpAccountInUse(_) => "IDP_ACCOUNT_IN_USE",
             Self::UserEmailInvalid(_) => "USER_EMAIL_INVALID",
+            Self::PermissionClassCodeEmpty => "PERMISSION_CLASS_CODE_EMPTY",
+            Self::PermissionClassCodeTooLong { .. } => "PERMISSION_CLASS_CODE_TOO_LONG",
+            Self::PermissionClassAlreadyExists => "PERMISSION_CLASS_ALREADY_EXISTS",
+            Self::PermissionClassCodeImmutable => "PERMISSION_CLASS_CODE_IMMUTABLE",
+            Self::PermissionClassNameEmpty => "PERMISSION_CLASS_NAME_EMPTY",
+            Self::PermissionClassMenuInvalid(_) => "PERMISSION_CLASS_MENU_INVALID",
+            Self::IdleSettingRequired => "IDLE_SETTING_REQUIRED",
+            Self::IdleSecondsInvalid { .. } => "IDLE_SECONDS_INVALID",
+            Self::PermissionClassInUse => "PERMISSION_CLASS_IN_USE",
+            Self::PermissionClassHasPermissions => "PERMISSION_CLASS_HAS_PERMISSIONS",
+            Self::PermissionClassInactive => "PERMISSION_CLASS_INACTIVE",
             Self::LegacyNameInvalid(_) => "LEGACY_NAME_INVALID",
             Self::LegacyNameDuplicate(_) => "LEGACY_NAME_DUPLICATE",
             Self::LegacyTableNotFound(_) => "LEGACY_TABLE_NOT_FOUND",

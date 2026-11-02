@@ -6,6 +6,7 @@ pub mod item_service;
 pub mod legacy_catalog_service;
 #[cfg(feature = "memory")]
 pub mod memory;
+pub mod permission_class_service;
 pub mod ports;
 pub mod program_query;
 pub mod program_service;
@@ -15,5 +16,6 @@ pub use data_dictionary_service::DataDictionaryService;
 pub use error::AppError;
 pub use item_service::ItemService;
 pub use legacy_catalog_service::LegacyCatalogService;
+pub use permission_class_service::PermissionClassService;
 pub use program_service::{Actor, ProgramService};
 pub use user_service::UserService;

@@ -6,8 +6,9 @@
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
     IndexDto, ItemDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto, NewProgramNoRequest,
-    NewUserIdRequest, Page, ProgramDto, ProgramInput, QueryRequest, TableDictionaryDto,
-    TableDictionaryInput, TableTextDto, UserDto, UserInput,
+    NewUserIdRequest, Page, PermissionClassDto, PermissionClassInput, ProgramDto, ProgramInput,
+    QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto,
+    UserInput,
 };
 
 fn base_url() -> String {
@@ -375,4 +376,70 @@ pub async fn set_user_active(id: &str, active: bool) -> Result<UserDto, String> 
         .await
         .map_err(|e| e.to_string())?;
     into_result(res).await
+}
+
+// ----- Permission Class Maintenance 權限類別維護（TipTop p_zw） -----
+
+fn class_url(code: &str, suffix: &str) -> String {
+    url(&format!(
+        "/api/permission-classes/{}{suffix}",
+        urlencoding(code)
+    ))
+}
+
+pub async fn list_classes() -> Result<Vec<PermissionClassDto>, String> {
+    get_json(url("/api/permission-classes")).await
+}
+
+pub async fn create_class(req: &PermissionClassInput) -> Result<PermissionClassDto, String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/permission-classes"))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn update_class(
+    code: &str,
+    req: &PermissionClassInput,
+) -> Result<PermissionClassDto, String> {
+    let res = reqwest::Client::new()
+        .put(class_url(code, ""))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn delete_class(code: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(class_url(code, ""))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 停用或啟用（TipTop p_zw 有效欄位）
+pub async fn set_class_active(code: &str, active: bool) -> Result<PermissionClassDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    let res = reqwest::Client::new()
+        .post(class_url(code, suffix))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+/// 更新所有使用者目錄編號，回傳更新的使用者數
+pub async fn update_user_menus() -> Result<u64, String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/permission-classes/update-user-menus"))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result::<UpdatedCountDto>(res).await.map(|r| r.updated)
 }
