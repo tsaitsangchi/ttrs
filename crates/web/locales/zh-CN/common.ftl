@@ -10,6 +10,7 @@ shell-group-azz = 系统管理 (azz)
 shell-nav-program = 程序维护
 shell-nav-users = 用户维护
 shell-nav-classes = 权限类别维护
+shell-nav-permissions = 程序执行权限
 shell-nav-dictionary = 数据字典维护
 shell-language = 语言
 common-action-ok = 确定

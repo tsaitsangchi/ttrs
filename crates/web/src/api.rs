@@ -4,11 +4,13 @@
 //! （開發由 dx proxy、正式由 nginx 轉發），桌面/行動版預設連本機 API。
 
 use ttrs_shared::{
-    ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
-    IndexDto, ItemDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto, NewPlantIdRequest,
-    NewProgramNoRequest, NewUserIdRequest, Page, PermissionClassDto, PermissionClassInput,
-    PlantDto, PlantInput, ProgramDto, ProgramInput, QueryRequest, TableDictionaryDto,
-    TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto, UserInput,
+    ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CopyPermissionsRequest,
+    CreateItemRequest, GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto, LegacyTableDto,
+    LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto, NewPlantIdRequest,
+    NewProgramNoRequest, NewUserIdRequest, Page, PermissionBatchResultDto, PermissionClassDto,
+    PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput, ProgramPermissionDto,
+    ProgramPermissionInput, QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto,
+    UpdatedCountDto, UserDto, UserInput,
 };
 
 fn base_url() -> String {
@@ -504,4 +506,134 @@ pub async fn set_plant_active(id: &str, active: bool) -> Result<PlantDto, String
         .await
         .map_err(|e| e.to_string())?;
     into_result(res).await
+}
+
+// ----- Program Permission Maintenance 程式執行權限維護（TipTop p_zy） -----
+
+fn class_perm_url(class: &str, suffix: &str) -> String {
+    url(&format!(
+        "/api/permission-classes/{}{suffix}",
+        urlencoding(class)
+    ))
+}
+
+async fn post_batch<B: serde::Serialize>(
+    target: String,
+    body: &B,
+) -> Result<PermissionBatchResultDto, String> {
+    let res = reqwest::Client::new()
+        .post(target)
+        .json(body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+/// 程式名稱依目前介面語系顯示
+pub async fn list_class_permissions(class: &str) -> Result<Vec<ProgramPermissionDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!(
+        "{}?lang={lang}",
+        class_perm_url(class, "/permissions")
+    ))
+    .await
+}
+
+pub async fn grant_class_permission(
+    class: &str,
+    req: &ProgramPermissionInput,
+) -> Result<ProgramPermissionDto, String> {
+    let res = reqwest::Client::new()
+        .post(class_perm_url(class, "/permissions"))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn update_class_permission(
+    class: &str,
+    program: &str,
+    req: &ProgramPermissionInput,
+) -> Result<ProgramPermissionDto, String> {
+    let res = reqwest::Client::new()
+        .put(class_perm_url(
+            class,
+            &format!("/permissions/{}", urlencoding(program)),
+        ))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn revoke_class_permission(class: &str, program: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(class_perm_url(
+            class,
+            &format!("/permissions/{}", urlencoding(program)),
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn revoke_all_permissions(class: &str) -> Result<PermissionBatchResultDto, String> {
+    let res = reqwest::Client::new()
+        .delete(class_perm_url(class, "/permissions"))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn copy_permissions(
+    class: &str,
+    target: &str,
+) -> Result<PermissionBatchResultDto, String> {
+    let body = CopyPermissionsRequest {
+        target_class: target.to_owned(),
+    };
+    post_batch(class_perm_url(class, "/copy-permissions"), &body).await
+}
+
+pub async fn generate_permissions(
+    class: &str,
+    program_nos: &[String],
+) -> Result<PermissionBatchResultDto, String> {
+    let body = GeneratePermissionsRequest {
+        program_nos: program_nos.to_vec(),
+    };
+    post_batch(class_perm_url(class, "/generate-permissions"), &body).await
+}
+
+pub async fn generate_permissions_by_menu(
+    class: &str,
+    menu: &str,
+    reset_existing: bool,
+) -> Result<PermissionBatchResultDto, String> {
+    let body = MenuPermissionsRequest {
+        menu: menu.to_owned(),
+        reset_existing,
+    };
+    post_batch(
+        class_perm_url(class, "/generate-permissions-by-menu"),
+        &body,
+    )
+    .await
+}
+
+pub async fn delete_permissions_by_menu(
+    class: &str,
+    menu: &str,
+) -> Result<PermissionBatchResultDto, String> {
+    let body = MenuPermissionsRequest {
+        menu: menu.to_owned(),
+        reset_existing: false,
+    };
+    post_batch(class_perm_url(class, "/delete-permissions-by-menu"), &body).await
 }

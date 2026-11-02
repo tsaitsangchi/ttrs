@@ -12,7 +12,8 @@ use cucumber::World;
 use sqlx::PgPool;
 use ttrs_app::{
     Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService,
-    PermissionClassService, PlantService, ProgramService, UserService, memory::InMemoryStore,
+    PermissionClassService, PlantService, ProgramPermissionService, ProgramService, UserService,
+    memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
 use ttrs_shared::{
@@ -55,6 +56,7 @@ pub struct ErpWorld {
     pub users: UserService,
     pub classes: PermissionClassService,
     pub plants: PlantService,
+    pub permissions: ProgramPermissionService,
     /// 最近一次批次作業的處理筆數（更新所有使用者目錄編號）
     pub updated_count: Option<u64>,
 }
@@ -69,7 +71,7 @@ impl fmt::Debug for ErpWorld {
 
 impl ErpWorld {
     async fn init() -> Self {
-        let (backend, items, programs, dictionary, legacy, users, classes, plants) =
+        let (backend, items, programs, dictionary, legacy, users, classes, plants, permissions) =
             match database_url() {
                 Some(url) => {
                     let pool = ttrs_infra::connect(&url).await.expect("connect PostgreSQL");
@@ -94,7 +96,8 @@ impl ErpWorld {
                             store.clone(),
                         ),
                         PermissionClassService::new(store.clone(), store.clone(), store.clone()),
-                        PlantService::new(store),
+                        PlantService::new(store.clone()),
+                        ProgramPermissionService::new(store.clone(), store.clone(), store),
                     )
                 }
                 None => {
@@ -114,7 +117,8 @@ impl ErpWorld {
                             shared.clone(),
                         ),
                         PermissionClassService::new(shared.clone(), shared.clone(), shared.clone()),
-                        PlantService::new(shared),
+                        PlantService::new(shared.clone()),
+                        ProgramPermissionService::new(shared.clone(), shared.clone(), shared),
                     )
                 }
             };
@@ -139,6 +143,7 @@ impl ErpWorld {
             users,
             classes,
             plants,
+            permissions,
             updated_count: None,
         }
     }

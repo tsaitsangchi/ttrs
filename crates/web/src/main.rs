@@ -11,7 +11,10 @@ use i18n::{UiLang, t};
 use pages::{
     aim::ItemList,
     aoo::PlantMaintenance,
-    azz::{DataDictionary, PermissionClassMaintenance, ProgramMaintenance, UserMaintenance},
+    azz::{
+        DataDictionary, PermissionClassMaintenance, ProgramMaintenance, ProgramPermissions,
+        ProgramPermissionsFor, UserMaintenance,
+    },
     home::Home,
 };
 
@@ -44,6 +47,12 @@ enum Route {
         /// Permission Class Maintenance 權限類別維護（TipTop p_zw）
         #[route("/azz/permission-classes")]
         PermissionClassMaintenance {},
+        /// Program Permission Maintenance 程式執行權限維護（TipTop p_zy）
+        #[route("/azz/program-permissions")]
+        ProgramPermissions {},
+        /// 由權限類別維護帶入權限類別
+        #[route("/azz/program-permissions/:class")]
+        ProgramPermissionsFor { class: String },
 }
 
 fn main() {
@@ -96,6 +105,7 @@ fn Shell() -> Element {
                 Link { active_class: "active", to: Route::DataDictionary {}, {t("shell-nav-dictionary")} }
                 Link { active_class: "active", to: Route::UserMaintenance {}, {t("shell-nav-users")} }
                 Link { active_class: "active", to: Route::PermissionClassMaintenance {}, {t("shell-nav-classes")} }
+                Link { active_class: "active", to: Route::ProgramPermissions {}, {t("shell-nav-permissions")} }
             }
             // 以語系為 key：切換語系時重新載入畫面，所有文字改用新語系
             for l in [current] {

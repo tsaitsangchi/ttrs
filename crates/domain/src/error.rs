@@ -99,6 +99,18 @@ pub enum DomainError {
     #[error("電子郵件格式不正確：{0}")]
     UserEmailInvalid(String),
 
+    // 程式執行權限維護（program_permission_maintenance.feature）
+    #[error("此權限類別已設定該程式的權限")]
+    PermissionAlreadyExists,
+    #[error("此權限類別沒有該程式的權限")]
+    PermissionNotFound,
+    #[error("程式沒有提供此功能，不可設定：{0}")]
+    PermissionActionNotAllowed(String),
+    #[error("資料權限代碼不正確：{0}")]
+    PermissionLevelInvalid(String),
+    #[error("必須是選單程式（模組 MENU）：{0}")]
+    MenuProgramInvalid(String),
+
     // 營運中心維護（plant_maintenance.feature）
     #[error("營運中心代號長度不可超過 {max} 碼")]
     PlantIdTooLong { max: usize },
@@ -191,6 +203,11 @@ impl DomainError {
             Self::UserSinglePlant => "USER_SINGLE_PLANT",
             Self::IdpAccountInUse(_) => "IDP_ACCOUNT_IN_USE",
             Self::UserEmailInvalid(_) => "USER_EMAIL_INVALID",
+            Self::PermissionAlreadyExists => "PERMISSION_ALREADY_EXISTS",
+            Self::PermissionNotFound => "PERMISSION_NOT_FOUND",
+            Self::PermissionActionNotAllowed(_) => "PERMISSION_ACTION_NOT_ALLOWED",
+            Self::PermissionLevelInvalid(_) => "PERMISSION_LEVEL_INVALID",
+            Self::MenuProgramInvalid(_) => "MENU_PROGRAM_INVALID",
             Self::PlantIdTooLong { .. } => "PLANT_ID_TOO_LONG",
             Self::PlantAlreadyExists => "PLANT_ALREADY_EXISTS",
             Self::PlantIdImmutable => "PLANT_ID_IMMUTABLE",

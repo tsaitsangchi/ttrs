@@ -267,7 +267,7 @@ async fn copy_program(w: &mut ErpWorld, from: String, to: String) {
 
 #[when(expr = "使用者為程式 {string} 設定權限類別 {string} 的權限")]
 async fn grant_permission(w: &mut ErpWorld, no: String, class: String) {
-    w.last = Some(w.programs.grant(&no, &class).await);
+    w.last = Some(w.programs.grant(&w.actor, &no, &class).await);
 }
 
 // ----- 那麼 -----

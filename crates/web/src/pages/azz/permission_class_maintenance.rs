@@ -215,6 +215,14 @@ pub fn PermissionClassMaintenance() -> Element {
                     },
                     if cur.as_ref().is_some_and(|c| !c.active) { {t("class-action-activate")} } else { {t("class-action-deactivate")} }
                 }
+                // 串接 p_zy「維護群組執行權限」（p_zw.4gl:130-138）
+                if let Some(c) = cur.as_ref() {
+                    Link {
+                        class: "md-button md-state md-button--outlined",
+                        to: crate::Route::ProgramPermissionsFor { class: c.class_code.clone() },
+                        {t("class-action-permissions")}
+                    }
+                }
                 div { class: "spacer" }
                 Button {
                     variant: ButtonVariant::Outlined,

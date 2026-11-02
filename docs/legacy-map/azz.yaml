@@ -24,7 +24,7 @@ tables:
       - { legacy: zz01,   type: varchar2(20) NOT NULL, target: program_no, sch: 程式代號, note: "程式代號（鍵值，不可重複）；上限 20 字（PROGRAM_NO_TOO_LONG）" }
       - { legacy: zz011,  type: varchar2(10), target: module_code, sch: 模組代碼, note: "所屬模組；選項來自 gao_file，排除 SUB/CSUB/LIB/CLIB/QRY/CQRY，另加 MENU" }
       - { legacy: zz03,   type: varchar2(1), target: program_type, sch: "程式類別 M目錄 F建檔 T異動 P處理 R報表（.sch 說明較舊）", note: "4fd 選項 I輸入 M選單 O其他 P批次 Q查詢 R報表 S參數 T交易 U更新；a 開頭 7 碼代號取第 4 碼" }
-      - { legacy: zz04,   type: varchar2(3000), target: default_actions, sch: "基本提供執行功能，Ex:AQURCOB（A輸入 Q查詢 U更改 R取消 C複製 O印表 B單身）", note: "TipTop 新增權限時帶入 zy03（允許執行功能）；新系統原樣保存" }
+      - { legacy: zz04,   type: varchar2(3000), target: default_actions, sch: "基本提供執行功能，Ex:AQURCOB（A輸入 Q查詢 U更改 R取消 C複製 O印表 B單身）", note: "逗號分隔的 action id 清單（p_zy Y1 確認）；新增權限時帶入 zy03 允許執行功能" }
       - { legacy: zz05,   type: varchar2(1), target: print_conditions, sch: "列印選擇條件否：僅對報表有效，Y 則於報表結束時列印 QBE 選擇條件", note: "新增預設 N（:790）；0007 由 print_option 更名" }
       - { legacy: zz06,   type: varchar2(1), target: report_ext_mode, sch: "報表檔附加檔名 (1).out (2)變動（變動為列印次數）", note: "新增預設 1（:791）" }
       - { legacy: zz07,   type: number(5), target: deferred_print_count, sch: "延後列印次數：延後列印時作為執行檔附加檔名並自動更新", note: 新增時預設 0 }
@@ -61,9 +61,24 @@ tables:
 
   - legacy: zy_file
     target: program_permission
-    note: "群組權限；主鍵 (zy01, zy02)。zy01 varchar2(10) 權限類別、zy02 varchar2(20) 程式代號"
-    unmapped: "zy03 varchar2(3000) 允許執行功能（新增時帶 zz04）、zy04 使用者資料權限、zy05 部門資料權限、zy06 使用者允許印表方式、zy07 程式單身處理權限"
-    verify: true   # 未搬欄位是否需要
+    program: p_zy（Program Permission Maintenance 程式執行權限維護）
+    spec: specs/features/azz/program_permission_maintenance.feature
+    note: "權限類別＋程式一筆，有此筆才可執行該程式；資料權限的實際檢查見 ADR 0006（Authorizer）"
+    columns:
+      - { legacy: zy01,   type: varchar2(10) NOT NULL, target: class_code, sch: 權限類別 }
+      - { legacy: zy02,   type: varchar2(20) NOT NULL, target: program_no, sch: 程式代號, note: "選單程式不設定（Y6）" }
+      - { legacy: zy03,   type: varchar2(3000), target: actions, sch: "允許執行功能（Ex:AURQCOB）", note: "Genero 版實存逗號分隔的 action id；轉為 text[]，去空白、轉小寫、去重複，只能取自 zz04（Y1）" }
+      - { legacy: zy04,   type: varchar2(1), target: other_user_data, sch: 使用者資料權限, note: "沿用代碼 0–4（Y4）" }
+      - { legacy: zy05,   type: varchar2(1), target: other_dept_data, sch: 部門資料權限, note: "沿用代碼 0–8；5–8 相關部門待 p_zyw（Y4）" }
+      - { legacy: zy07,   type: varchar2(1), target: detail_rows, sch: 程式單身處理權限, note: "沿用代碼 0–3（Y4）" }
+      - { legacy: zyuser, type: varchar2(10), target: created_by, sch: OWNER, note: "TipTop 修改時也覆寫為修改者（MOD-970066）；新系統只在新增時寫入" }
+      - { legacy: zygrup, type: varchar2(10), target: created_dept, sch: GROUP }
+      - { legacy: zymodu, type: varchar2(10), target: updated_by, sch: USER }
+      - { legacy: zydate, type: date, target: "created_on / updated_on", sch: MODIFY DATE, note: "TipTop 新增與修改共用；轉入時同時填 created_on" }
+    not_ported:
+      - { legacy: zy06, type: varchar2(20), sch: 使用者允許印表方式, reason: "TipTop FUN-5C0057 已取消" }
+      - { legacy: "gap_file / gbd_file", reason: "程式動作關係與動作多語名稱；常見動作由 TTRS 翻譯（Y2）" }
+      - { legacy: "gbl_file（p_auth_as 權限加嚴控管設定）", reason: "隨 Authorizer 設計" }
 
   - legacy: zw_file
     target: permission_class

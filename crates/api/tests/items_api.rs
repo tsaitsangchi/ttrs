@@ -10,7 +10,7 @@ use tower::ServiceExt;
 use ttrs_api::{AppState, actor_from_env, router};
 use ttrs_app::{
     DataDictionaryService, ItemService, LegacyCatalogService, PermissionClassService, PlantService,
-    ProgramService, UserService, memory::InMemoryStore,
+    ProgramPermissionService, ProgramService, UserService, memory::InMemoryStore,
 };
 use ttrs_shared::ApiError;
 
@@ -23,7 +23,8 @@ fn app() -> axum::Router {
         legacy: LegacyCatalogService::new(store.clone()),
         users: UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
         classes: PermissionClassService::new(store.clone(), store.clone(), store.clone()),
-        plants: PlantService::new(store),
+        plants: PlantService::new(store.clone()),
+        permissions: ProgramPermissionService::new(store.clone(), store.clone(), store),
         actor: actor_from_env(),
     })
 }

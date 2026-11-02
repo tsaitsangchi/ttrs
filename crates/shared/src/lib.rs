@@ -765,3 +765,82 @@ impl PlantDto {
 pub struct NewPlantIdRequest {
     pub new_plant_id: String,
 }
+
+// ---------------------------------------------------------------------------
+// Program Permission Maintenance 程式執行權限維護（TipTop p_zy / zy_file，見 docs/legacy-map/azz.yaml）
+// ---------------------------------------------------------------------------
+
+/// 新增／修改程式權限；未指定的欄位：新增時用預設值（程式的全部功能、0／0／0），修改時沿用原值
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ProgramPermissionInput {
+    pub program_no: String,
+    /// 允許執行功能（TipTop action id）
+    pub actions: Option<Vec<String>>,
+    /// 他人資料權限 zy04（'0'–'4'）
+    pub other_user_data: Option<String>,
+    /// 他部門資料權限 zy05（'0'–'8'）
+    pub other_dept_data: Option<String>,
+    /// 單身權限 zy07（'0'–'3'）
+    pub detail_rows: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProgramPermissionDto {
+    pub class_code: String,
+    pub program_no: String,
+    /// 依 ?lang= 顯示的程式名稱（退回規則同程式維護）
+    pub program_name: Option<String>,
+    /// 程式提供的功能（可勾選的範圍）
+    pub available_actions: Vec<String>,
+    pub actions: Vec<String>,
+    pub other_user_data: String,
+    pub other_dept_data: String,
+    pub detail_rows: String,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+}
+
+impl ProgramPermissionDto {
+    pub fn to_input(&self) -> ProgramPermissionInput {
+        ProgramPermissionInput {
+            program_no: self.program_no.clone(),
+            actions: Some(self.actions.clone()),
+            other_user_data: Some(self.other_user_data.clone()),
+            other_dept_data: Some(self.other_dept_data.clone()),
+            detail_rows: Some(self.detail_rows.clone()),
+        }
+    }
+}
+
+/// 複製權限到另一個權限類別
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CopyPermissionsRequest {
+    pub target_class: String,
+}
+
+/// 依程式整批產生
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct GeneratePermissionsRequest {
+    pub program_nos: Vec<String>,
+}
+
+/// 依選單整批產生／刪除
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MenuPermissionsRequest {
+    pub menu: String,
+    /// 整批產生時，已有的權限是否重設為預設值（預設否，Y10）
+    pub reset_existing: bool,
+}
+
+/// 整批作業結果
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PermissionBatchResultDto {
+    pub added: u64,
+    pub reset: u64,
+    pub removed: u64,
+}

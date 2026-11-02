@@ -10,6 +10,7 @@ shell-group-azz = System Admin (azz)
 shell-nav-program = Program Maintenance
 shell-nav-users = User Maintenance
 shell-nav-classes = Permission Classes
+shell-nav-permissions = Program Permissions
 shell-nav-dictionary = Data Dictionary
 shell-language = Language
 common-action-ok = OK

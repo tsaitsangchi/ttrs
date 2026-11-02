@@ -23,6 +23,7 @@ class-status-active = 有效
 class-status-inactive = 無效
 class-action-activate = 啟用
 class-action-deactivate = 停用
+class-action-permissions = 維護群組執行權限
 class-action-update-menus = 更新所有使用者目錄編號
 class-dialog-new = 新增權限類別
 class-dialog-edit = 修改權限類別 { $code }

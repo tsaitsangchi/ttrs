@@ -62,7 +62,7 @@ async fn class_with_menu(w: &mut ErpWorld, code: String, menu: String) {
 
 #[given(expr = "權限類別 {string} 可執行程式 {string}")]
 async fn class_can_run(w: &mut ErpWorld, code: String, program: String) {
-    w.programs.grant(&program, &code).await.unwrap();
+    w.programs.grant(&w.actor, &program, &code).await.unwrap();
 }
 
 #[given(expr = "使用者停用權限類別 {string}")]

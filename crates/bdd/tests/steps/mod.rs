@@ -8,5 +8,6 @@ mod azz_permission_class_maintenance;
 mod azz_program_maintenance;
 mod azz_program_maintenance_i18n;
 mod azz_program_maintenance_query;
+mod azz_program_permission_maintenance;
 mod azz_user_maintenance;
 mod common;

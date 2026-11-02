@@ -4,7 +4,7 @@ use tracing_subscriber::EnvFilter;
 use ttrs_api::{AppState, actor_from_env, cors_from_env, router};
 use ttrs_app::{
     DataDictionaryService, ItemService, LegacyCatalogService, PermissionClassService, PlantService,
-    ProgramService, UserService, memory::InMemoryStore,
+    ProgramPermissionService, ProgramService, UserService, memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
 
@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     // 有 DATABASE_URL 就用 PostgreSQL（並自動 migrate），否則用記憶體資料方便前端開發
-    let (items, programs, dictionary, legacy, users, classes, plants) =
+    let (items, programs, dictionary, legacy, users, classes, plants, permissions) =
         match std::env::var("DATABASE_URL") {
             Ok(url) => {
                 let pool = ttrs_infra::connect(&url).await?;
@@ -31,7 +31,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     LegacyCatalogService::new(store.clone()),
                     UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
                     PermissionClassService::new(store.clone(), store.clone(), store.clone()),
-                    PlantService::new(store),
+                    PlantService::new(store.clone()),
+                    ProgramPermissionService::new(store.clone(), store.clone(), store),
                 )
             }
             Err(_) => {
@@ -45,7 +46,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     LegacyCatalogService::new(store.clone()),
                     UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
                     PermissionClassService::new(store.clone(), store.clone(), store.clone()),
-                    PlantService::new(store),
+                    PlantService::new(store.clone()),
+                    ProgramPermissionService::new(store.clone(), store.clone(), store),
                 )
             }
         };
@@ -63,6 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         users,
         classes,
         plants,
+        permissions,
         actor,
     });
     if let Some(cors) = cors_from_env() {

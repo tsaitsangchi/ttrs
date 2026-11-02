@@ -10,6 +10,7 @@ use ttrs_app::{
 };
 use ttrs_domain::{
     lang::Lang,
+    permission::ProgramPermission,
     program::{
         IdleAction, IdleControl, ModuleCode, OtherSettings, Program, ProgramNo, ReportExtMode,
         ReportType, RuntimeSettings,
@@ -17,7 +18,10 @@ use ttrs_domain::{
     qbe::{PatternPart, QbeFilter, QbeTerm, QbeValue},
 };
 
-use crate::pg::{PgStore, db_err};
+use crate::{
+    pg::{PgStore, db_err},
+    pg_permission::{INSERT_PERMISSION_IF_ABSENT, insert_permission},
+};
 
 #[derive(FromRow)]
 struct ProgramRow {
@@ -199,7 +203,7 @@ impl ProgramRepository for PgStore {
         &self,
         p: &Program,
         names: &[ProgramName],
-        grant_to: Option<&str>,
+        grant_to: Option<&ProgramPermission>,
     ) -> Result<(), RepoError> {
         let mut tx = self.pool.begin().await.map_err(db_err)?;
         let r = &p.runtime;
@@ -259,16 +263,11 @@ impl ProgramRepository for PgStore {
             .await
             .map_err(db_err)?;
         }
-        if let Some(class) = grant_to {
-            sqlx::query(
-                "INSERT INTO program_permission (class_code, program_no) VALUES ($1, $2)
-                 ON CONFLICT DO NOTHING",
-            )
-            .bind(class)
-            .bind(p.program_no.as_str())
-            .execute(&mut *tx)
-            .await
-            .map_err(db_err)?;
+        if let Some(perm) = grant_to {
+            insert_permission(INSERT_PERMISSION_IF_ABSENT, perm)
+                .execute(&mut *tx)
+                .await
+                .map_err(db_err)?;
         }
         tx.commit().await.map_err(db_err)
     }
@@ -386,16 +385,11 @@ impl ProgramRepository for PgStore {
         Ok(())
     }
 
-    async fn grant(&self, permission_class: &str, no: &ProgramNo) -> Result<(), RepoError> {
-        sqlx::query(
-            "INSERT INTO program_permission (class_code, program_no) VALUES ($1, $2)
-             ON CONFLICT DO NOTHING",
-        )
-        .bind(permission_class)
-        .bind(no.as_str())
-        .execute(&self.pool)
-        .await
-        .map_err(db_err)?;
+    async fn grant(&self, permission: &ProgramPermission) -> Result<(), RepoError> {
+        insert_permission(INSERT_PERMISSION_IF_ABSENT, permission)
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
         Ok(())
     }
 
@@ -407,6 +401,26 @@ impl ProgramRepository for PgStore {
         .fetch_all(&self.pool)
         .await
         .map_err(db_err)
+    }
+
+    async fn menu_children(&self, menu: &str) -> Result<Vec<Program>, RepoError> {
+        sqlx::query_as::<_, ProgramRow>(
+            "SELECT p.program_no, module_code, program_type, report_type, idle_control,
+                    idle_seconds, idle_action, pass_book_no, deferred_print_count,
+                    current_print_count, report_width, run_command, window_style,
+                    report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
+                    sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
+                    remark, designed_on, created_by, created_dept, updated_by, updated_on
+             FROM program p JOIN menu_item m ON m.program_no = p.program_no
+             WHERE m.menu_no = $1 ORDER BY p.program_no COLLATE \"C\"",
+        )
+        .bind(menu)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(db_err)?
+        .into_iter()
+        .map(Program::try_from)
+        .collect()
     }
 
     async fn menus_containing(&self, no: &ProgramNo) -> Result<Vec<String>, RepoError> {

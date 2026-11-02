@@ -7,6 +7,7 @@ pub mod legacy_catalog_service;
 #[cfg(feature = "memory")]
 pub mod memory;
 pub mod permission_class_service;
+pub mod permission_service;
 pub mod plant_service;
 pub mod ports;
 pub mod program_query;
@@ -18,6 +19,7 @@ pub use error::AppError;
 pub use item_service::ItemService;
 pub use legacy_catalog_service::LegacyCatalogService;
 pub use permission_class_service::PermissionClassService;
+pub use permission_service::ProgramPermissionService;
 pub use plant_service::PlantService;
 pub use program_service::{Actor, ProgramService};
 pub use user_service::UserService;

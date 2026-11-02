@@ -23,6 +23,7 @@ class-status-active = Active
 class-status-inactive = Inactive
 class-action-activate = Activate
 class-action-deactivate = Deactivate
+class-action-permissions = Program Permissions
 class-action-update-menus = Update All User Menus
 class-dialog-new = New Permission Class
 class-dialog-edit = Edit Permission Class { $code }

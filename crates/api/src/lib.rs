@@ -14,14 +14,16 @@ use tower_http::{
 };
 use ttrs_app::{
     Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService,
-    PermissionClassService, PlantService, ProgramService, UserService,
+    PermissionClassService, PlantService, ProgramPermissionService, ProgramService, UserService,
     program_service::DEFAULT_LANG,
 };
 use ttrs_shared::{
-    ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
-    IndexDto, ItemDto, LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto,
-    NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PermissionClassDto,
-    PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput, ProgramNameDto,
+    ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CopyPermissionsRequest,
+    CreateItemRequest, GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto,
+    LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto, MenuPermissionsRequest,
+    MigrationDto, NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page,
+    PermissionBatchResultDto, PermissionClassDto, PermissionClassInput, PlantDto, PlantInput,
+    ProgramDto, ProgramInput, ProgramNameDto, ProgramPermissionDto, ProgramPermissionInput,
     QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto,
     UserInput,
 };
@@ -35,6 +37,7 @@ pub struct AppState {
     pub users: UserService,
     pub classes: PermissionClassService,
     pub plants: PlantService,
+    pub permissions: ProgramPermissionService,
     /// 尚未有登入機制前，所有請求都以此使用者身分執行（見 `actor_from_env`）
     pub actor: Actor,
 }
@@ -146,6 +149,33 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/permission-classes/{code}/activate",
             post(activate_class),
+        )
+        // Program Permission Maintenance 程式執行權限維護（TipTop p_zy）
+        .route(
+            "/api/permission-classes/{code}/permissions",
+            get(list_class_permissions)
+                .post(grant_class_permission)
+                .delete(revoke_all_permissions),
+        )
+        .route(
+            "/api/permission-classes/{code}/permissions/{program}",
+            axum::routing::put(update_class_permission).delete(revoke_class_permission),
+        )
+        .route(
+            "/api/permission-classes/{code}/copy-permissions",
+            post(copy_permissions),
+        )
+        .route(
+            "/api/permission-classes/{code}/generate-permissions",
+            post(generate_permissions),
+        )
+        .route(
+            "/api/permission-classes/{code}/generate-permissions-by-menu",
+            post(generate_permissions_by_menu),
+        )
+        .route(
+            "/api/permission-classes/{code}/delete-permissions-by-menu",
+            post(delete_permissions_by_menu),
         )
         .layer(TraceLayer::new_for_http())
         .with_state(state)
@@ -384,6 +414,97 @@ async fn update_user_menus(State(s): State<AppState>) -> ApiResult<Json<UpdatedC
     Ok(Json(UpdatedCountDto { updated }))
 }
 
+// ----- Program Permission Maintenance 程式執行權限維護（TipTop p_zy） -----
+
+async fn list_class_permissions(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ProgramPermissionDto>>> {
+    let lang = q.lang.unwrap_or_else(|| DEFAULT_LANG.to_owned());
+    Ok(Json(s.permissions.list(&code, &lang).await?))
+}
+
+async fn grant_class_permission(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+    Json(req): Json<ProgramPermissionInput>,
+) -> ApiResult<(StatusCode, Json<ProgramPermissionDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.permissions.grant(&s.actor, &code, req).await?),
+    ))
+}
+
+async fn update_class_permission(
+    State(s): State<AppState>,
+    Path((code, program)): Path<(String, String)>,
+    Json(req): Json<ProgramPermissionInput>,
+) -> ApiResult<Json<ProgramPermissionDto>> {
+    Ok(Json(
+        s.permissions.update(&s.actor, &code, &program, req).await?,
+    ))
+}
+
+async fn revoke_class_permission(
+    State(s): State<AppState>,
+    Path((code, program)): Path<(String, String)>,
+) -> ApiResult<StatusCode> {
+    s.permissions.revoke(&code, &program).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn revoke_all_permissions(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+) -> ApiResult<Json<PermissionBatchResultDto>> {
+    Ok(Json(s.permissions.revoke_all(&code).await?))
+}
+
+async fn copy_permissions(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+    Json(req): Json<CopyPermissionsRequest>,
+) -> ApiResult<Json<PermissionBatchResultDto>> {
+    Ok(Json(
+        s.permissions
+            .copy(&s.actor, &code, &req.target_class)
+            .await?,
+    ))
+}
+
+async fn generate_permissions(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+    Json(req): Json<GeneratePermissionsRequest>,
+) -> ApiResult<Json<PermissionBatchResultDto>> {
+    Ok(Json(
+        s.permissions
+            .generate(&s.actor, &code, &req.program_nos)
+            .await?,
+    ))
+}
+
+async fn generate_permissions_by_menu(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+    Json(req): Json<MenuPermissionsRequest>,
+) -> ApiResult<Json<PermissionBatchResultDto>> {
+    Ok(Json(
+        s.permissions
+            .generate_by_menu(&s.actor, &code, &req.menu, req.reset_existing)
+            .await?,
+    ))
+}
+
+async fn delete_permissions_by_menu(
+    State(s): State<AppState>,
+    Path(code): Path<String>,
+    Json(req): Json<MenuPermissionsRequest>,
+) -> ApiResult<Json<PermissionBatchResultDto>> {
+    Ok(Json(s.permissions.delete_by_menu(&code, &req.menu).await?))
+}
+
 pub struct HttpError(AppError);
 
 impl From<AppError> for HttpError {
@@ -399,7 +520,8 @@ impl IntoResponse for HttpError {
             | "PROGRAM_NOT_FOUND"
             | "DICT_NOT_FOUND"
             | "LEGACY_TABLE_NOT_FOUND"
-            | "USER_NOT_FOUND" => StatusCode::NOT_FOUND,
+            | "USER_NOT_FOUND"
+            | "PERMISSION_NOT_FOUND" => StatusCode::NOT_FOUND,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
             | "ITEM_HAS_TRANSACTIONS"
@@ -411,7 +533,8 @@ impl IntoResponse for HttpError {
             | "PERMISSION_CLASS_IN_USE"
             | "PERMISSION_CLASS_HAS_PERMISSIONS"
             | "PLANT_ALREADY_EXISTS"
-            | "PLANT_IN_USE" => StatusCode::CONFLICT,
+            | "PLANT_IN_USE"
+            | "PERMISSION_ALREADY_EXISTS" => StatusCode::CONFLICT,
             "INFRA_ERROR" => StatusCode::INTERNAL_SERVER_ERROR,
             _ => StatusCode::UNPROCESSABLE_ENTITY,
         };
@@ -559,7 +682,9 @@ async fn grant_permission(
     Path(no): Path<String>,
     Json(req): Json<GrantRequest>,
 ) -> ApiResult<StatusCode> {
-    s.programs.grant(&no, &req.permission_class).await?;
+    s.programs
+        .grant(&s.actor, &no, &req.permission_class)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

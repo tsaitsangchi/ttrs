@@ -11,6 +11,7 @@ use ttrs_domain::{
     item::{Item, ItemNo},
     lang::Lang,
     legacy_catalog::LegacyTable,
+    permission::ProgramPermission,
     permission_class::{ClassCode, ClassIdleControl, PermissionClass, PermissionClassAttrs},
     plant::{DEFAULT_TIME_ZONE, Plant, PlantAttrs, PlantId},
     program::{ModuleCode, Program, ProgramNo},
@@ -23,8 +24,8 @@ use crate::{
     ports::{
         AuditEntry, DictionaryRepository, ItemRepository, LegacyCatalogRepository,
         LegacyTableSummary, MasterDataRepository, MigrationSource, PermissionClassRepository,
-        PlantRepository, ProgramName, ProgramRepository, SchemaCatalog, TableSchema,
-        UserRepository,
+        PermissionListItem, PlantRepository, ProgramName, ProgramPermissionRepository,
+        ProgramRepository, SchemaCatalog, TableSchema, UserRepository,
     },
 };
 
@@ -52,7 +53,8 @@ struct State {
     /// (程式代號, 語系) → (名稱, 報表抬頭)（gaz_file）
     names: BTreeMap<(String, Lang), (String, Option<String>)>,
     /// (權限類別, 程式代號)（zy_file）
-    permissions: HashSet<(String, String)>,
+    /// (權限類別, 程式代號) → 程式執行權限（zy_file）
+    permissions: BTreeMap<(String, String), ProgramPermission>,
     audit: Vec<AuditEntry>,
     // 資料字典：資料庫結構與 migration 由測試提供（記憶體版無法讀取真正的資料庫）
     schema: BTreeMap<String, TableSchema>,
@@ -151,7 +153,7 @@ impl InMemoryStore {
     pub fn class_permission_count(&self, class: &str) -> usize {
         self.lock()
             .permissions
-            .iter()
+            .keys()
             .filter(|(c, _)| c == class)
             .count()
     }
@@ -286,7 +288,7 @@ impl ProgramRepository for InMemoryStore {
         &self,
         program: &Program,
         names: &[ProgramName],
-        grant_to: Option<&str>,
+        grant_to: Option<&ProgramPermission>,
     ) -> Result<(), RepoError> {
         let mut s = self.lock();
         if s.programs.contains_key(&program.program_no) {
@@ -301,8 +303,8 @@ impl ProgramRepository for InMemoryStore {
                 (n.name.clone(), n.report_title.clone()),
             );
         }
-        if let Some(class) = grant_to {
-            s.permissions.insert((class.to_owned(), no));
+        if let Some(p) = grant_to {
+            s.permissions.insert(perm_key(p), p.clone());
         }
         Ok(())
     }
@@ -329,9 +331,15 @@ impl ProgramRepository for InMemoryStore {
             .into_iter()
             .map(|((no, lang), name)| ((rename(no, old, new), lang), name))
             .collect();
+        let renamed = ProgramNo::parse(new).expect("程式代號");
         s.permissions = std::mem::take(&mut s.permissions)
             .into_iter()
-            .map(|(class, no)| (class, rename(no, old, new)))
+            .map(|((class, no), mut p)| {
+                if no == old {
+                    p.program = renamed.clone();
+                }
+                ((class, rename(no, old, new)), p)
+            })
             .collect();
         s.menu_items = std::mem::take(&mut s.menu_items)
             .into_iter()
@@ -345,7 +353,7 @@ impl ProgramRepository for InMemoryStore {
         s.programs.remove(no);
         let no = no.as_str();
         s.names.retain(|(n, _), _| n != no);
-        s.permissions.retain(|(_, n)| n != no);
+        s.permissions.retain(|(_, n), _| n != no);
         s.menu_items.retain(|(_, n)| n != no);
         s.audit.push(audit.clone());
         Ok(())
@@ -373,10 +381,11 @@ impl ProgramRepository for InMemoryStore {
         Ok(())
     }
 
-    async fn grant(&self, permission_class: &str, no: &ProgramNo) -> Result<(), RepoError> {
+    async fn grant(&self, permission: &ProgramPermission) -> Result<(), RepoError> {
         self.lock()
             .permissions
-            .insert((permission_class.to_owned(), no.as_str().to_owned()));
+            .entry(perm_key(permission))
+            .or_insert_with(|| permission.clone());
         Ok(())
     }
 
@@ -384,7 +393,7 @@ impl ProgramRepository for InMemoryStore {
         let mut v: Vec<String> = self
             .lock()
             .permissions
-            .iter()
+            .keys()
             .filter(|(_, n)| n == no.as_str())
             .map(|(c, _)| c.clone())
             .collect();
@@ -402,6 +411,19 @@ impl ProgramRepository for InMemoryStore {
             .collect();
         v.sort();
         Ok(v)
+    }
+
+    async fn menu_children(&self, menu: &str) -> Result<Vec<Program>, RepoError> {
+        let s = self.lock();
+        // programs 為 BTreeMap，依程式代號排序
+        Ok(s.programs
+            .values()
+            .filter(|p| {
+                s.menu_items
+                    .contains(&(menu.to_owned(), p.program_no.as_str().to_owned()))
+            })
+            .cloned()
+            .collect())
     }
 
     async fn audit_entries(&self, key: &str) -> Result<Vec<AuditEntry>, RepoError> {
@@ -425,6 +447,10 @@ impl ProgramRepository for InMemoryStore {
     async fn query_definition_exists(&self, query: &str) -> Result<bool, RepoError> {
         Ok(self.lock().query_definitions.contains(query))
     }
+}
+
+fn perm_key(p: &ProgramPermission) -> (String, String) {
+    (p.class.as_str().to_owned(), p.program.as_str().to_owned())
 }
 
 fn rename(no: String, old: &str, new: &str) -> String {
@@ -705,5 +731,72 @@ impl PlantRepository for InMemoryStore {
         }
         s.plants.remove(id);
         Ok(())
+    }
+}
+
+#[async_trait]
+impl ProgramPermissionRepository for InMemoryStore {
+    async fn get(
+        &self,
+        class: &ClassCode,
+        program: &ProgramNo,
+    ) -> Result<Option<ProgramPermission>, RepoError> {
+        let key = (class.as_str().to_owned(), program.as_str().to_owned());
+        Ok(self.lock().permissions.get(&key).cloned())
+    }
+
+    async fn list(&self, class: &ClassCode) -> Result<Vec<PermissionListItem>, RepoError> {
+        let s = self.lock();
+        // BTreeMap 依 (權限類別, 程式代號) 排序（位元組順序，同 PostgreSQL COLLATE "C"）
+        Ok(s.permissions
+            .iter()
+            .filter(|((c, _), _)| c == class.as_str())
+            .map(|((_, no), p)| PermissionListItem {
+                permission: p.clone(),
+                default_actions: s
+                    .programs
+                    .get(&p.program)
+                    .and_then(|prog| prog.other.default_actions.clone()),
+                names: s
+                    .names
+                    .iter()
+                    .filter(|((n, _), _)| n == no)
+                    .map(|((_, lang), (name, report_title))| ProgramName {
+                        lang: lang.clone(),
+                        name: name.clone(),
+                        report_title: report_title.clone(),
+                    })
+                    .collect(),
+            })
+            .collect())
+    }
+
+    async fn insert(&self, permission: &ProgramPermission) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = perm_key(permission);
+        if s.permissions.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        s.permissions.insert(key, permission.clone());
+        Ok(())
+    }
+
+    async fn update(&self, permission: &ProgramPermission) -> Result<(), RepoError> {
+        if let Some(p) = self.lock().permissions.get_mut(&perm_key(permission)) {
+            *p = permission.clone();
+        }
+        Ok(())
+    }
+
+    async fn delete(&self, class: &ClassCode, program: &ProgramNo) -> Result<bool, RepoError> {
+        let key = (class.as_str().to_owned(), program.as_str().to_owned());
+        Ok(self.lock().permissions.remove(&key).is_some())
+    }
+
+    async fn delete_all(&self, class: &ClassCode) -> Result<u64, RepoError> {
+        let mut s = self.lock();
+        let before = s.permissions.len();
+        s.permissions.retain(|(c, _), _| c != class.as_str());
+        Ok((before - s.permissions.len()) as u64)
     }
 }

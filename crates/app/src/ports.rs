@@ -5,6 +5,7 @@ use ttrs_domain::{
     dictionary::{ColumnText, TableDictionary, TableText},
     item::{Item, ItemNo},
     legacy_catalog::LegacyTable,
+    permission::ProgramPermission,
     permission_class::{ClassCode, PermissionClass},
     plant::{Plant, PlantId},
     program::{ModuleCode, Program, ProgramNo},
@@ -57,12 +58,12 @@ pub trait ProgramRepository: Send + Sync {
         offset: u64,
         limit: u64,
     ) -> Result<(Vec<Program>, u64), RepoError>;
-    /// 新增程式與名稱；`grant_to` 有值時同時授權給該權限類別。代號重複回傳 `Conflict`
+    /// 新增程式與名稱；`grant_to` 有值時同時建立該程式權限。代號重複回傳 `Conflict`
     async fn insert(
         &self,
         program: &Program,
         names: &[ProgramName],
-        grant_to: Option<&str>,
+        grant_to: Option<&ProgramPermission>,
     ) -> Result<(), RepoError>;
     async fn update(&self, program: &Program) -> Result<(), RepoError>;
     /// 修改代號，連動名稱、權限、選單。新代號重複回傳 `Conflict`
@@ -72,10 +73,12 @@ pub trait ProgramRepository: Send + Sync {
     async fn names(&self, no: &ProgramNo) -> Result<Vec<ProgramName>, RepoError>;
     /// 新增或更新某語系的名稱與報表抬頭
     async fn set_name(&self, no: &ProgramNo, name: &ProgramName) -> Result<(), RepoError>;
-    /// 授權（已存在則不變，同 p_zz_gen 的 upsert）
-    async fn grant(&self, permission_class: &str, no: &ProgramNo) -> Result<(), RepoError>;
+    /// 授權（已存在則不變；TipTop p_zz_gen 會重設 zy03，新系統不覆寫已調整的權限）
+    async fn grant(&self, permission: &ProgramPermission) -> Result<(), RepoError>;
     async fn permission_classes(&self, no: &ProgramNo) -> Result<Vec<String>, RepoError>;
     async fn menus_containing(&self, no: &ProgramNo) -> Result<Vec<String>, RepoError>;
+    /// 選單直接包含的程式（zm_file，依程式代號排序；子選單為模組 MENU 的程式）
+    async fn menu_children(&self, menu: &str) -> Result<Vec<Program>, RepoError>;
     async fn audit_entries(&self, key: &str) -> Result<Vec<AuditEntry>, RepoError>;
     async fn module_exists(&self, module: &ModuleCode) -> Result<bool, RepoError>;
     async fn permission_class_exists(&self, class: &str) -> Result<bool, RepoError>;
@@ -238,4 +241,35 @@ pub trait PlantRepository: Send + Sync {
     async fn update(&self, plant: &Plant) -> Result<(), RepoError>;
     /// 仍有使用者（預設或可使用營運中心）或業務資料參照時回 InUse，不做連帶刪除（P10）
     async fn delete(&self, id: &PlantId) -> Result<(), RepoError>;
+}
+
+// ---------------------------------------------------------------------------
+// 程式執行權限（TipTop p_zy / zy_file）
+// ---------------------------------------------------------------------------
+
+/// 權限清單的一列：權限＋程式的基本執行功能與名稱（畫面顯示用）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PermissionListItem {
+    pub permission: ProgramPermission,
+    /// 程式的可執行功能（zz04），可勾選的範圍
+    pub default_actions: Option<String>,
+    pub names: Vec<ProgramName>,
+}
+
+#[async_trait]
+pub trait ProgramPermissionRepository: Send + Sync {
+    async fn get(
+        &self,
+        class: &ClassCode,
+        program: &ProgramNo,
+    ) -> Result<Option<ProgramPermission>, RepoError>;
+    /// 依程式代號排序（p_zy.4gl:948-952）
+    async fn list(&self, class: &ClassCode) -> Result<Vec<PermissionListItem>, RepoError>;
+    /// 同一權限類別＋程式重複回 Conflict
+    async fn insert(&self, permission: &ProgramPermission) -> Result<(), RepoError>;
+    async fn update(&self, permission: &ProgramPermission) -> Result<(), RepoError>;
+    /// 回傳是否有刪到資料
+    async fn delete(&self, class: &ClassCode, program: &ProgramNo) -> Result<bool, RepoError>;
+    /// 刪除權限類別的全部權限，回傳筆數
+    async fn delete_all(&self, class: &ClassCode) -> Result<u64, RepoError>;
 }

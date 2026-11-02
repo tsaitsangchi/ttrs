@@ -8,6 +8,8 @@ use chrono::NaiveDate;
 use ttrs_domain::{
     DomainError,
     lang::{Lang, localized, non_empty},
+    permission::{PermissionAttrs, ProgramPermission, parse_actions},
+    permission_class::ClassCode,
     program::{
         IdleAction, IdleControl, ModuleCode, OtherSettings, Program, ProgramAttrs, ProgramNo,
         ReportExtMode, ReportType, RuntimeSettings,
@@ -68,10 +70,14 @@ impl ProgramService {
             .filter(|n| !n.is_blank())
             .collect();
         // 選單不是可執行程式，不授權
-        let grant_to = (!program.module.is_menu() && !actor.permission_class.is_empty())
-            .then_some(actor.permission_class.as_str());
+        let grant_to = match ClassCode::parse(&actor.permission_class) {
+            Ok(class) if !program.module.is_menu() => {
+                Some(default_permission(actor, class, &program))
+            }
+            _ => None,
+        };
 
-        match self.repo.insert(&program, &names, grant_to).await {
+        match self.repo.insert(&program, &names, grant_to.as_ref()).await {
             Ok(()) => self.to_dto(&program).await,
             Err(RepoError::Conflict) => Err(DomainError::ProgramAlreadyExists.into()),
             Err(e) => Err(infra(e)),
@@ -186,8 +192,14 @@ impl ProgramService {
         }
     }
 
-    /// 為權限類別設定程式權限（p_zz.4gl:1589-1603）
-    pub async fn grant(&self, no: &str, permission_class: &str) -> Result<(), AppError> {
+    /// 為權限類別設定程式權限（p_zz.4gl:1589-1603、p_zz_gen :1843-1891）：
+    /// 允許執行功能為程式的全部功能、資料權限 0（已存在則不變）
+    pub async fn grant(
+        &self,
+        actor: &Actor,
+        no: &str,
+        permission_class: &str,
+    ) -> Result<(), AppError> {
         let program = self.load(&ProgramNo::parse(no)?).await?;
         if program.module.is_menu() {
             return Err(DomainError::MenuHasNoPermission.into());
@@ -201,8 +213,9 @@ impl ProgramService {
         {
             return Err(DomainError::PermissionClassNotFound.into());
         }
+        let class = ClassCode::parse(class).map_err(|_| DomainError::PermissionClassNotFound)?;
         self.repo
-            .grant(class, &program.program_no)
+            .grant(&default_permission(actor, class, &program))
             .await
             .map_err(infra)
     }
@@ -404,6 +417,19 @@ fn name_dto(n: &ProgramName) -> ProgramNameDto {
         name: n.name.clone(),
         report_title: n.report_title.clone(),
     }
+}
+
+/// 程式的預設權限（Y3）：允許執行功能為程式的可執行功能（zz04），資料權限 0／0／0
+fn default_permission(actor: &Actor, class: ClassCode, program: &Program) -> ProgramPermission {
+    let actions = parse_actions(program.other.default_actions.as_deref());
+    ProgramPermission::new(
+        class,
+        program.program_no.clone(),
+        PermissionAttrs::defaults(&actions),
+        &actor.user_id,
+        &actor.dept,
+        today(),
+    )
 }
 
 /// 同名變體的雙向轉換（domain ↔ DTO）
