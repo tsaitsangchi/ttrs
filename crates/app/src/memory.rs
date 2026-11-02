@@ -17,6 +17,7 @@ use ttrs_domain::{
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
     user::{User, UserId},
+    user_permission::{SpecialTarget, UserPermission},
 };
 
 use crate::{
@@ -25,7 +26,8 @@ use crate::{
         AuditEntry, DictionaryRepository, ItemRepository, LegacyCatalogRepository,
         LegacyTableSummary, MasterDataRepository, MigrationSource, PermissionClassRepository,
         PermissionListItem, PlantRepository, ProgramName, ProgramPermissionRepository,
-        ProgramRepository, SchemaCatalog, TableSchema, UserRepository,
+        ProgramRepository, SchemaCatalog, TableSchema, UserPermissionItem,
+        UserPermissionRepository, UserRepository,
     },
 };
 
@@ -34,6 +36,8 @@ struct State {
     /// 使用者（zx_file）與可使用營運中心（zxy_file）
     users: BTreeMap<UserId, User>,
     user_plants: BTreeMap<UserId, Vec<PlantId>>,
+    /// (使用者, 項次) → 使用者特殊權限（zxw_file）
+    user_permissions: BTreeMap<(UserId, i32), UserPermission>,
     /// TipTop 對照目錄（舊表代碼 → 對照）
     legacy: BTreeMap<String, LegacyTable>,
     /// 營運中心（azp_file）
@@ -147,6 +151,15 @@ impl InMemoryStore {
             code: code.clone(),
         };
         self.lock().permission_classes.insert(code, pc);
+    }
+
+    /// 測試用：使用者的特殊權限筆數
+    pub fn user_permission_count(&self, user: &str) -> usize {
+        self.lock()
+            .user_permissions
+            .keys()
+            .filter(|(u, _)| u.as_str() == user)
+            .count()
     }
 
     /// 測試用：權限類別的程式權限筆數
@@ -345,6 +358,14 @@ impl ProgramRepository for InMemoryStore {
             .into_iter()
             .map(|(menu, no)| (menu, rename(no, old, new)))
             .collect();
+        // 特殊權限的程式列（同 PostgreSQL 的 ON UPDATE CASCADE）
+        for up in s.user_permissions.values_mut() {
+            if let SpecialTarget::Program { program, .. } = &mut up.target
+                && program.as_str() == old
+            {
+                *program = renamed.clone();
+            }
+        }
         Ok(())
     }
 
@@ -355,6 +376,8 @@ impl ProgramRepository for InMemoryStore {
         s.names.retain(|(n, _), _| n != no);
         s.permissions.retain(|(_, n), _| n != no);
         s.menu_items.retain(|(_, n)| n != no);
+        s.user_permissions
+            .retain(|_, up| up.target.program().is_none_or(|p| p.as_str() != no));
         s.audit.push(audit.clone());
         Ok(())
     }
@@ -625,6 +648,7 @@ impl UserRepository for InMemoryStore {
         let mut s = self.lock();
         s.users.remove(id);
         s.user_plants.remove(id);
+        s.user_permissions.retain(|(u, _), _| u != id);
         Ok(())
     }
 
@@ -679,13 +703,19 @@ impl PermissionClassRepository for InMemoryStore {
     }
 
     async fn user_count(&self, code: &ClassCode) -> Result<u64, RepoError> {
-        let n = self
-            .lock()
+        let s = self.lock();
+        let direct = s
             .users
             .values()
             .filter(|u| u.attrs.permission_class == code.as_str())
             .count();
-        Ok(n as u64)
+        let special: HashSet<&UserId> = s
+            .user_permissions
+            .values()
+            .filter(|up| up.target.class() == Some(code))
+            .map(|up| &up.user_id)
+            .collect();
+        Ok((direct + special.len()) as u64)
     }
 
     async fn permission_count(&self, code: &ClassCode) -> Result<u64, RepoError> {
@@ -798,5 +828,86 @@ impl ProgramPermissionRepository for InMemoryStore {
         let before = s.permissions.len();
         s.permissions.retain(|(c, _), _| c != class.as_str());
         Ok((before - s.permissions.len()) as u64)
+    }
+}
+
+#[async_trait]
+impl UserPermissionRepository for InMemoryStore {
+    async fn list(&self, user: &UserId) -> Result<Vec<UserPermissionItem>, RepoError> {
+        let s = self.lock();
+        // BTreeMap 依 (使用者, 項次) 排序
+        Ok(s.user_permissions
+            .iter()
+            .filter(|((u, _), _)| u == user)
+            .map(|(_, up)| {
+                let (class_name, default_actions, names) = match &up.target {
+                    SpecialTarget::Class(c) => (
+                        s.permission_classes.get(c).map(|pc| pc.attrs.name.clone()),
+                        None,
+                        Vec::new(),
+                    ),
+                    SpecialTarget::Program { program, .. } => (
+                        None,
+                        s.programs
+                            .get(program)
+                            .and_then(|p| p.other.default_actions.clone()),
+                        s.names
+                            .iter()
+                            .filter(|((n, _), _)| n == program.as_str())
+                            .map(|((_, lang), (name, report_title))| ProgramName {
+                                lang: lang.clone(),
+                                name: name.clone(),
+                                report_title: report_title.clone(),
+                            })
+                            .collect(),
+                    ),
+                };
+                UserPermissionItem {
+                    permission: up.clone(),
+                    class_name,
+                    default_actions,
+                    names,
+                }
+            })
+            .collect())
+    }
+
+    async fn insert(&self, permission: &UserPermission) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (permission.user_id.clone(), permission.line_no);
+        let same_target = s.user_permissions.values().any(|up| {
+            up.user_id == permission.user_id
+                && ((up.target.class().is_some() && up.target.class() == permission.target.class())
+                    || (up.target.program().is_some()
+                        && up.target.program() == permission.target.program()))
+        });
+        if s.user_permissions.contains_key(&key) || same_target {
+            return Err(RepoError::Conflict);
+        }
+        s.user_permissions.insert(key, permission.clone());
+        Ok(())
+    }
+
+    async fn update(&self, permission: &UserPermission) -> Result<(), RepoError> {
+        let key = (permission.user_id.clone(), permission.line_no);
+        if let Some(up) = self.lock().user_permissions.get_mut(&key) {
+            *up = permission.clone();
+        }
+        Ok(())
+    }
+
+    async fn delete(&self, user: &UserId, line_no: i32) -> Result<bool, RepoError> {
+        Ok(self
+            .lock()
+            .user_permissions
+            .remove(&(user.clone(), line_no))
+            .is_some())
+    }
+
+    async fn delete_all(&self, user: &UserId) -> Result<u64, RepoError> {
+        let mut s = self.lock();
+        let before = s.user_permissions.len();
+        s.user_permissions.retain(|(u, _), _| u != user);
+        Ok((before - s.user_permissions.len()) as u64)
     }
 }

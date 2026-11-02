@@ -12,5 +12,6 @@ pub mod plant;
 pub mod program;
 pub mod qbe;
 pub mod user;
+pub mod user_permission;
 
 pub use error::DomainError;

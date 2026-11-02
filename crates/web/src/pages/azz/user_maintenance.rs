@@ -203,6 +203,14 @@ pub fn UserMaintenance() -> Element {
                             },
                             if cur.as_ref().is_some_and(|u| !u.active) { {t("user-action-activate")} } else { {t("user-action-deactivate")} }
                         }
+                        // 串接 p_zxw「維護使用者特殊權限」（p_zx action maintain_zxw）
+                        if let Some(u) = cur.as_ref() {
+                            Link {
+                                class: "md-button md-state md-button--outlined",
+                                to: crate::Route::UserPermissionsFor { user: u.user_id.clone() },
+                                {t("user-action-special")}
+                            }
+                        }
                         div { class: "spacer" }
                         TextField { id: "copy-id", label: t("user-field-copy-as"), maxlength: max_len::USER_ID, value: copy_id(), disabled: no_cur, oninput: move |v| copy_id.set(v) }
                         Button {

@@ -10,4 +10,5 @@ mod azz_program_maintenance_i18n;
 mod azz_program_maintenance_query;
 mod azz_program_permission_maintenance;
 mod azz_user_maintenance;
+mod azz_user_permission_maintenance;
 mod common;

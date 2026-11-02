@@ -69,3 +69,5 @@ error-PERMISSION_NOT_FOUND = 此权限类别没有该程序的权限
 error-PERMISSION_ACTION_NOT_ALLOWED = 程序没有提供此功能，不可设置
 error-PERMISSION_LEVEL_INVALID = 数据权限代码不正确
 error-MENU_PROGRAM_INVALID = 必须是菜单程序（模块 MENU）
+error-USER_PERMISSION_DUPLICATE = 此用户已设置相同的权限类别或程序
+error-USER_HAS_SPECIAL_PERMISSIONS = 目标用户已有特殊权限，不可复制

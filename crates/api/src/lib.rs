@@ -14,18 +14,18 @@ use tower_http::{
 };
 use ttrs_app::{
     Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService,
-    PermissionClassService, PlantService, ProgramPermissionService, ProgramService, UserService,
-    program_service::DEFAULT_LANG,
+    PermissionClassService, PlantService, ProgramPermissionService, ProgramService,
+    UserPermissionService, UserService, program_service::DEFAULT_LANG,
 };
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CopyPermissionsRequest,
-    CreateItemRequest, GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto,
-    LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto, MenuPermissionsRequest,
-    MigrationDto, NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page,
-    PermissionBatchResultDto, PermissionClassDto, PermissionClassInput, PlantDto, PlantInput,
+    CopyUserPermissionsRequest, CreateItemRequest, GeneratePermissionsRequest, GrantRequest,
+    IndexDto, ItemDto, LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto,
+    MenuPermissionsRequest, MigrationDto, NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest,
+    Page, PermissionBatchResultDto, PermissionClassDto, PermissionClassInput, PlantDto, PlantInput,
     ProgramDto, ProgramInput, ProgramNameDto, ProgramPermissionDto, ProgramPermissionInput,
     QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto,
-    UserInput,
+    UserInput, UserPermissionDto, UserPermissionInput,
 };
 
 #[derive(Clone)]
@@ -38,6 +38,7 @@ pub struct AppState {
     pub classes: PermissionClassService,
     pub plants: PlantService,
     pub permissions: ProgramPermissionService,
+    pub special: UserPermissionService,
     /// 尚未有登入機制前，所有請求都以此使用者身分執行（見 `actor_from_env`）
     pub actor: Actor,
 }
@@ -120,6 +121,25 @@ pub fn router(state: AppState) -> Router {
         .route("/api/users/{id}/copy", post(copy_user))
         .route("/api/users/{id}/deactivate", post(deactivate_user))
         .route("/api/users/{id}/activate", post(activate_user))
+        // User Special Permission Maintenance 使用者特殊權限維護（TipTop p_zxw）
+        .route(
+            "/api/users/{id}/permissions",
+            get(list_user_permissions)
+                .post(add_user_permission)
+                .delete(remove_all_user_permissions),
+        )
+        .route(
+            "/api/users/{id}/permissions/programs/{program}",
+            axum::routing::put(update_user_program_permission),
+        )
+        .route(
+            "/api/users/{id}/permissions/{line}",
+            axum::routing::delete(remove_user_permission),
+        )
+        .route(
+            "/api/users/{id}/copy-permissions",
+            post(copy_user_permissions),
+        )
         // Plant Maintenance 營運中心維護（TipTop aooi901）
         .route("/api/plants", get(list_plants).post(create_plant))
         .route(
@@ -505,6 +525,63 @@ async fn delete_permissions_by_menu(
     Ok(Json(s.permissions.delete_by_menu(&code, &req.menu).await?))
 }
 
+// ----- User Special Permission Maintenance 使用者特殊權限維護（TipTop p_zxw） -----
+
+async fn list_user_permissions(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<UserPermissionDto>>> {
+    let lang = q.lang.unwrap_or_else(|| DEFAULT_LANG.to_owned());
+    Ok(Json(s.special.list(&id, &lang).await?))
+}
+
+async fn add_user_permission(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+    Json(req): Json<UserPermissionInput>,
+) -> ApiResult<(StatusCode, Json<Vec<UserPermissionDto>>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.special.add(&s.actor, &id, req).await?),
+    ))
+}
+
+async fn update_user_program_permission(
+    State(s): State<AppState>,
+    Path((id, program)): Path<(String, String)>,
+    Json(req): Json<UserPermissionInput>,
+) -> ApiResult<Json<UserPermissionDto>> {
+    Ok(Json(
+        s.special
+            .update_program(&s.actor, &id, &program, req)
+            .await?,
+    ))
+}
+
+async fn remove_user_permission(
+    State(s): State<AppState>,
+    Path((id, line)): Path<(String, i32)>,
+) -> ApiResult<StatusCode> {
+    s.special.remove(&id, line).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn remove_all_user_permissions(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<PermissionBatchResultDto>> {
+    Ok(Json(s.special.remove_all(&id).await?))
+}
+
+async fn copy_user_permissions(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+    Json(req): Json<CopyUserPermissionsRequest>,
+) -> ApiResult<Json<PermissionBatchResultDto>> {
+    Ok(Json(s.special.copy(&s.actor, &id, &req.target_user).await?))
+}
+
 pub struct HttpError(AppError);
 
 impl From<AppError> for HttpError {
@@ -534,7 +611,9 @@ impl IntoResponse for HttpError {
             | "PERMISSION_CLASS_HAS_PERMISSIONS"
             | "PLANT_ALREADY_EXISTS"
             | "PLANT_IN_USE"
-            | "PERMISSION_ALREADY_EXISTS" => StatusCode::CONFLICT,
+            | "PERMISSION_ALREADY_EXISTS"
+            | "USER_PERMISSION_DUPLICATE"
+            | "USER_HAS_SPECIAL_PERMISSIONS" => StatusCode::CONFLICT,
             "INFRA_ERROR" => StatusCode::INTERNAL_SERVER_ERROR,
             _ => StatusCode::UNPROCESSABLE_ENTITY,
         };

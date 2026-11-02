@@ -9,6 +9,7 @@ shell-nav-plants = Plants
 shell-group-azz = System Admin (azz)
 shell-nav-program = Program Maintenance
 shell-nav-users = User Maintenance
+shell-nav-user-permissions = User Special Permissions
 shell-nav-classes = Permission Classes
 shell-nav-permissions = Program Permissions
 shell-nav-dictionary = Data Dictionary

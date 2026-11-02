@@ -44,3 +44,4 @@ user-msg-copied = 已将 { $from } 复制为 { $to }
 user-msg-activated = 已启用用户 { $id }
 user-msg-deactivated = 已停用用户 { $id }
 user-note-password = 密码、密码原则与账号锁定由公司账号系统管理（ADR 0006），本作业不维护密码。
+user-action-special = 维护用户特殊权限

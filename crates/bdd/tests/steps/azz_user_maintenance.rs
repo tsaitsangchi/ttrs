@@ -199,6 +199,11 @@ async fn change_id(w: &mut ErpWorld, id: String, new_id: String) {
     modify(w, &id, |r| r.user_id = new_id).await;
 }
 
+#[when(expr = "使用者將使用者 {string} 的權限類別改為 {string}")]
+async fn change_class(w: &mut ErpWorld, id: String, class: String) {
+    modify(w, &id, |r| r.permission_class = class).await;
+}
+
 #[when(expr = "使用者將使用者 {string} 的偏好語言改為 {string}")]
 async fn change_lang(w: &mut ErpWorld, id: String, lang: String) {
     modify(w, &id, |r| r.lang = Some(lang)).await;

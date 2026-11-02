@@ -161,7 +161,9 @@ impl PermissionClassRepository for PgStore {
     async fn user_count(&self, code: &ClassCode) -> Result<u64, RepoError> {
         count(
             self,
-            "SELECT count(*) FROM user_account WHERE class_code = $1",
+            // 使用者維護的權限類別＋特殊權限的權限類別列（X7）
+            "SELECT (SELECT count(*) FROM user_account WHERE class_code = $1)
+                  + (SELECT count(DISTINCT user_id) FROM user_permission WHERE class_code = $1)",
             code,
         )
         .await

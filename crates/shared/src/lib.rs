@@ -844,3 +844,72 @@ pub struct PermissionBatchResultDto {
     pub reset: u64,
     pub removed: u64,
 }
+
+// ---------------------------------------------------------------------------
+// User Special Permission Maintenance 使用者特殊權限維護（TipTop p_zxw / zxw_file，見 docs/legacy-map/azz.yaml）
+// ---------------------------------------------------------------------------
+
+/// 特殊權限的分類（zxw03：1 權限類別、2 程式編號）
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpecialPermissionKindDto {
+    #[default]
+    Class,
+    Program,
+}
+
+/// 新增或修改特殊權限；程式列的功能與資料權限未指定時，新增用預設值、修改沿用原值
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UserPermissionInput {
+    pub kind: SpecialPermissionKindDto,
+    /// 權限類別代號或程式代號
+    pub target: String,
+    /// 使用者還沒有特殊權限時，先加入使用者原本的權限類別（X1）
+    pub include_own_class: bool,
+    pub actions: Option<Vec<String>>,
+    pub other_user_data: Option<String>,
+    pub other_dept_data: Option<String>,
+    pub detail_rows: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UserPermissionDto {
+    pub user_id: String,
+    pub line_no: i32,
+    pub kind: SpecialPermissionKindDto,
+    pub target: String,
+    /// 權限說明或依 ?lang= 顯示的程式名稱
+    pub target_name: Option<String>,
+    /// 程式列：程式提供的功能（可勾選的範圍）
+    pub available_actions: Vec<String>,
+    pub actions: Vec<String>,
+    pub other_user_data: Option<String>,
+    pub other_dept_data: Option<String>,
+    pub detail_rows: Option<String>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+}
+
+impl UserPermissionDto {
+    pub fn to_input(&self) -> UserPermissionInput {
+        UserPermissionInput {
+            kind: self.kind,
+            target: self.target.clone(),
+            include_own_class: false,
+            actions: Some(self.actions.clone()),
+            other_user_data: self.other_user_data.clone(),
+            other_dept_data: self.other_dept_data.clone(),
+            detail_rows: self.detail_rows.clone(),
+        }
+    }
+}
+
+/// 複製特殊權限到另一個使用者
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CopyUserPermissionsRequest {
+    pub target_user: String,
+}

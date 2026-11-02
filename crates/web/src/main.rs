@@ -13,7 +13,7 @@ use pages::{
     aoo::PlantMaintenance,
     azz::{
         DataDictionary, PermissionClassMaintenance, ProgramMaintenance, ProgramPermissions,
-        ProgramPermissionsFor, UserMaintenance,
+        ProgramPermissionsFor, UserMaintenance, UserPermissions, UserPermissionsFor,
     },
     home::Home,
 };
@@ -44,6 +44,12 @@ enum Route {
         /// User Maintenance 使用者維護（TipTop p_zx）
         #[route("/azz/user-maintenance")]
         UserMaintenance {},
+        /// User Special Permission Maintenance 使用者特殊權限維護（TipTop p_zxw）
+        #[route("/azz/user-permissions")]
+        UserPermissions {},
+        /// 由使用者維護帶入使用者
+        #[route("/azz/user-permissions/:user")]
+        UserPermissionsFor { user: String },
         /// Permission Class Maintenance 權限類別維護（TipTop p_zw）
         #[route("/azz/permission-classes")]
         PermissionClassMaintenance {},
@@ -104,6 +110,7 @@ fn Shell() -> Element {
                 Link { active_class: "active", to: Route::ProgramMaintenance {}, {t("shell-nav-program")} }
                 Link { active_class: "active", to: Route::DataDictionary {}, {t("shell-nav-dictionary")} }
                 Link { active_class: "active", to: Route::UserMaintenance {}, {t("shell-nav-users")} }
+                Link { active_class: "active", to: Route::UserPermissions {}, {t("shell-nav-user-permissions")} }
                 Link { active_class: "active", to: Route::PermissionClassMaintenance {}, {t("shell-nav-classes")} }
                 Link { active_class: "active", to: Route::ProgramPermissions {}, {t("shell-nav-permissions")} }
             }

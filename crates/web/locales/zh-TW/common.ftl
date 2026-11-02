@@ -9,6 +9,7 @@ shell-nav-plants = 營運中心維護
 shell-group-azz = 系統管理 (azz)
 shell-nav-program = 程式維護
 shell-nav-users = 使用者維護
+shell-nav-user-permissions = 使用者特殊權限
 shell-nav-classes = 權限類別維護
 shell-nav-permissions = 程式執行權限
 shell-nav-dictionary = 資料字典維護

@@ -136,6 +136,26 @@ tables:
       - { target: idp_username, note: "公司帳號（UPN，小寫、不可重複），ADR 0006 §2" }
       - { target: idp_subject, note: "公司 IdP 使用者識別碼，首次登入綁定" }
 
+  - legacy: zxw_file
+    target: user_permission
+    program: p_zxw（User Special Permission Maintenance 使用者特殊權限維護）
+    spec: specs/features/azz/user_permission_maintenance.feature
+    note: "有特殊權限的使用者只用特殊權限，不用使用者維護的權限類別（cl_set_priv）；全公司共用一份（X9）"
+    columns:
+      - { legacy: zxw01, type: varchar2(10) NOT NULL, target: user_id, sch: 使用者代號 }
+      - { legacy: zxw02, type: number(5) NOT NULL, target: line_no, sch: 項次, note: "自動給號，只決定順序（X3）" }
+      - { legacy: zxw03, type: varchar2(1), target: kind, sch: "權限分類 1:權限類別 2:程式編號" }
+      - { legacy: zxw04, type: varchar2(20), target: "class_code（kind = 1）/ program_no（kind = 2）", sch: 權限類別, note: "依 zxw03 拆成兩個欄位，各自有外鍵" }
+      - { legacy: zxw05, type: varchar2(3000), target: actions, sch: 允許執行功能, note: "程式列；格式同 zy03（text[]）；權限類別列為 NULL（TQC-5A0094）" }
+      - { legacy: zxw06, type: varchar2(1), target: other_user_data, sch: "資料所有人--權限", note: "程式列；代碼同 zy04" }
+      - { legacy: zxw07, type: varchar2(1), target: other_dept_data, sch: 資料部門權限, note: "程式列；代碼同 zy05" }
+      - { legacy: zxw08, type: varchar2(1), target: detail_rows, sch: 單身權限, note: "程式列；代碼同 zy07" }
+      - { legacy: "(無)", target: "created_by / created_dept / created_on / updated_by / updated_on", note: "TipTop zxw_file 無建立／修改資訊；轉入時空白" }
+    not_ported:
+      - { legacy: ta_zxw01, type: varchar2(1), sch: 確認否, reason: "客製欄位，沒有任何程式讀寫（X10）", verify: true }
+    verify: true
+    verify_note: "X9：請 DBA 確認 TOPPROD 的 ZXW_FILE 是每個營運中心 schema 各一份，還是指向 ds 的同義字；若各營運中心不同需加 plant_id"
+
   - legacy: zxy_file
     target: user_plant
     note: "使用者可使用營運中心；zxy02 使用者名稱為冗餘欄位不搬"

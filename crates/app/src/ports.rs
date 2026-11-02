@@ -11,6 +11,7 @@ use ttrs_domain::{
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
     user::{User, UserId},
+    user_permission::UserPermission,
 };
 
 use crate::error::RepoError;
@@ -221,7 +222,7 @@ pub trait PermissionClassRepository: Send + Sync {
     async fn insert(&self, class: &PermissionClass) -> Result<(), RepoError>;
     async fn update(&self, class: &PermissionClass) -> Result<(), RepoError>;
     async fn delete(&self, code: &ClassCode) -> Result<(), RepoError>;
-    /// 屬於此權限類別的使用者數（zx04）
+    /// 使用此權限類別的使用者數：使用者維護的權限類別（zx04）或特殊權限的權限類別列（zxw03 = 1，X7）
     async fn user_count(&self, code: &ClassCode) -> Result<u64, RepoError>;
     /// 此權限類別的程式權限筆數（zy_file）
     async fn permission_count(&self, code: &ClassCode) -> Result<u64, RepoError>;
@@ -272,4 +273,30 @@ pub trait ProgramPermissionRepository: Send + Sync {
     async fn delete(&self, class: &ClassCode, program: &ProgramNo) -> Result<bool, RepoError>;
     /// 刪除權限類別的全部權限，回傳筆數
     async fn delete_all(&self, class: &ClassCode) -> Result<u64, RepoError>;
+}
+
+// ---------------------------------------------------------------------------
+// 使用者特殊權限（TipTop p_zxw / zxw_file）
+// ---------------------------------------------------------------------------
+
+/// 特殊權限清單的一列：特殊權限＋對象的顯示資料
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UserPermissionItem {
+    pub permission: UserPermission,
+    /// 權限類別列：權限說明（zw02）
+    pub class_name: Option<String>,
+    /// 程式列：程式的可執行功能（zz04）與名稱（gaz_file）
+    pub default_actions: Option<String>,
+    pub names: Vec<ProgramName>,
+}
+
+#[async_trait]
+pub trait UserPermissionRepository: Send + Sync {
+    /// 依項次排序
+    async fn list(&self, user: &UserId) -> Result<Vec<UserPermissionItem>, RepoError>;
+    /// 項次重複，或同一使用者重複同一權限類別或程式，回 Conflict（X3）
+    async fn insert(&self, permission: &UserPermission) -> Result<(), RepoError>;
+    async fn update(&self, permission: &UserPermission) -> Result<(), RepoError>;
+    async fn delete(&self, user: &UserId, line_no: i32) -> Result<bool, RepoError>;
+    async fn delete_all(&self, user: &UserId) -> Result<u64, RepoError>;
 }

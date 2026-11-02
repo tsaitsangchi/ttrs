@@ -17,7 +17,11 @@ use ttrs_shared::{UserDto, UserInput};
 use crate::{
     Actor, AppError,
     error::RepoError,
-    ports::{MasterDataRepository, PermissionClassRepository, ProgramRepository, UserRepository},
+    ports::{
+        MasterDataRepository, PermissionClassRepository, ProgramRepository,
+        UserPermissionRepository, UserRepository,
+    },
+    user_permission_service::move_special_class,
 };
 
 #[derive(Clone)]
@@ -26,6 +30,8 @@ pub struct UserService {
     programs: Arc<dyn ProgramRepository>,
     master: Arc<dyn MasterDataRepository>,
     classes: Arc<dyn PermissionClassRepository>,
+    /// 使用者特殊權限（zxw_file）：改權限類別時連動（X6）
+    special: Arc<dyn UserPermissionRepository>,
 }
 
 impl UserService {
@@ -34,12 +40,14 @@ impl UserService {
         programs: Arc<dyn ProgramRepository>,
         master: Arc<dyn MasterDataRepository>,
         classes: Arc<dyn PermissionClassRepository>,
+        special: Arc<dyn UserPermissionRepository>,
     ) -> Self {
         Self {
             users,
             programs,
             master,
             classes,
+            special,
         }
     }
 
@@ -78,8 +86,20 @@ impl UserService {
         } else {
             plants_after_default_change(&current, &attrs.default_plant, attrs.multi_plant)
         };
+        let old_class = user.attrs.permission_class.clone();
+        let new_class = attrs.permission_class.clone();
         user.update(attrs, &actor.user_id, today());
         self.users.update(&user, &plants).await.map_err(infra)?;
+        if old_class != new_class {
+            move_special_class(
+                self.special.as_ref(),
+                actor,
+                &user.user_id,
+                &old_class,
+                &new_class,
+            )
+            .await?;
+        }
         Ok(to_dto(&user, &plants))
     }
 

@@ -69,3 +69,5 @@ error-PERMISSION_NOT_FOUND = （使用伺服器訊息）
 error-PERMISSION_ACTION_NOT_ALLOWED = （使用伺服器訊息）
 error-PERMISSION_LEVEL_INVALID = （使用伺服器訊息）
 error-MENU_PROGRAM_INVALID = （使用伺服器訊息）
+error-USER_PERMISSION_DUPLICATE = （使用伺服器訊息）
+error-USER_HAS_SPECIAL_PERMISSIONS = （使用伺服器訊息）

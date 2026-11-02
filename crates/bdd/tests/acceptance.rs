@@ -12,8 +12,8 @@ use cucumber::World;
 use sqlx::PgPool;
 use ttrs_app::{
     Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService,
-    PermissionClassService, PlantService, ProgramPermissionService, ProgramService, UserService,
-    memory::InMemoryStore,
+    PermissionClassService, PlantService, ProgramPermissionService, ProgramService,
+    UserPermissionService, UserService, memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
 use ttrs_shared::{
@@ -57,6 +57,7 @@ pub struct ErpWorld {
     pub classes: PermissionClassService,
     pub plants: PlantService,
     pub permissions: ProgramPermissionService,
+    pub special: UserPermissionService,
     /// 最近一次批次作業的處理筆數（更新所有使用者目錄編號）
     pub updated_count: Option<u64>,
 }
@@ -71,57 +72,76 @@ impl fmt::Debug for ErpWorld {
 
 impl ErpWorld {
     async fn init() -> Self {
-        let (backend, items, programs, dictionary, legacy, users, classes, plants, permissions) =
-            match database_url() {
-                Some(url) => {
-                    let pool = ttrs_infra::connect(&url).await.expect("connect PostgreSQL");
-                    ttrs_infra::migrate(&pool).await.expect("run migrations");
-                    sqlx::query("TRUNCATE user_plant, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
+        let (
+            backend,
+            items,
+            programs,
+            dictionary,
+            legacy,
+            users,
+            classes,
+            plants,
+            permissions,
+            special,
+        ) = match database_url() {
+            Some(url) => {
+                let pool = ttrs_infra::connect(&url).await.expect("connect PostgreSQL");
+                ttrs_infra::migrate(&pool).await.expect("run migrations");
+                sqlx::query("TRUNCATE user_permission, user_plant, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, inventory_txn, item, unit, plant \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
                     .expect("truncate tables");
-                    let store = Arc::new(PgStore::new(pool.clone()));
-                    (
-                        Backend::Pg(pool),
-                        ItemService::new(store.clone(), store.clone()),
-                        ProgramService::new(store.clone()),
-                        DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
-                        LegacyCatalogService::new(store.clone()),
-                        UserService::new(
-                            store.clone(),
-                            store.clone(),
-                            store.clone(),
-                            store.clone(),
-                        ),
-                        PermissionClassService::new(store.clone(), store.clone(), store.clone()),
-                        PlantService::new(store.clone()),
-                        ProgramPermissionService::new(store.clone(), store.clone(), store),
-                    )
-                }
-                None => {
-                    let store = InMemoryStore::new();
-                    schema_fixture::load(&store);
-                    let shared = Arc::new(store.clone());
-                    (
-                        Backend::Memory(store),
-                        ItemService::new(shared.clone(), shared.clone()),
-                        ProgramService::new(shared.clone()),
-                        DataDictionaryService::new(shared.clone(), shared.clone(), shared.clone()),
-                        LegacyCatalogService::new(shared.clone()),
-                        UserService::new(
-                            shared.clone(),
-                            shared.clone(),
-                            shared.clone(),
-                            shared.clone(),
-                        ),
-                        PermissionClassService::new(shared.clone(), shared.clone(), shared.clone()),
-                        PlantService::new(shared.clone()),
-                        ProgramPermissionService::new(shared.clone(), shared.clone(), shared),
-                    )
-                }
-            };
+                let store = Arc::new(PgStore::new(pool.clone()));
+                (
+                    Backend::Pg(pool),
+                    ItemService::new(store.clone(), store.clone()),
+                    ProgramService::new(store.clone()),
+                    DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
+                    LegacyCatalogService::new(store.clone()),
+                    UserService::new(
+                        store.clone(),
+                        store.clone(),
+                        store.clone(),
+                        store.clone(),
+                        store.clone(),
+                    ),
+                    PermissionClassService::new(store.clone(), store.clone(), store.clone()),
+                    PlantService::new(store.clone()),
+                    ProgramPermissionService::new(store.clone(), store.clone(), store.clone()),
+                    UserPermissionService::new(store.clone(), store.clone(), store.clone(), store),
+                )
+            }
+            None => {
+                let store = InMemoryStore::new();
+                schema_fixture::load(&store);
+                let shared = Arc::new(store.clone());
+                (
+                    Backend::Memory(store),
+                    ItemService::new(shared.clone(), shared.clone()),
+                    ProgramService::new(shared.clone()),
+                    DataDictionaryService::new(shared.clone(), shared.clone(), shared.clone()),
+                    LegacyCatalogService::new(shared.clone()),
+                    UserService::new(
+                        shared.clone(),
+                        shared.clone(),
+                        shared.clone(),
+                        shared.clone(),
+                        shared.clone(),
+                    ),
+                    PermissionClassService::new(shared.clone(), shared.clone(), shared.clone()),
+                    PlantService::new(shared.clone()),
+                    ProgramPermissionService::new(shared.clone(), shared.clone(), shared.clone()),
+                    UserPermissionService::new(
+                        shared.clone(),
+                        shared.clone(),
+                        shared.clone(),
+                        shared,
+                    ),
+                )
+            }
+        };
         Self {
             backend,
             items,
@@ -144,6 +164,7 @@ impl ErpWorld {
             classes,
             plants,
             permissions,
+            special,
             updated_count: None,
         }
     }

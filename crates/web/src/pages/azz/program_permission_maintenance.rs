@@ -18,9 +18,9 @@ use crate::i18n::{self, t, tf};
 
 /// 選單程式的模組代號（與 ttrs_domain::program::MENU_MODULE 一致）
 const MENU_MODULE: &str = "MENU";
-const USER_LEVELS: [&str; 5] = ["0", "1", "2", "3", "4"];
-const DEPT_LEVELS: [&str; 9] = ["0", "1", "2", "3", "4", "5", "6", "7", "8"];
-const DETAIL_LEVELS: [&str; 4] = ["0", "1", "2", "3"];
+pub(crate) const USER_LEVELS: [&str; 5] = ["0", "1", "2", "3", "4"];
+pub(crate) const DEPT_LEVELS: [&str; 9] = ["0", "1", "2", "3", "4", "5", "6", "7", "8"];
+pub(crate) const DETAIL_LEVELS: [&str; 4] = ["0", "1", "2", "3"];
 
 /// 目前開啟的小視窗
 #[derive(Clone, PartialEq)]
@@ -34,11 +34,11 @@ enum Open {
     DeleteAll,
 }
 
-fn level_label(kind: &str, code: &str) -> String {
+pub(crate) fn level_label(kind: &str, code: &str) -> String {
     t(&format!("perm-{kind}-{code}"))
 }
 
-fn level_options(kind: &str, codes: &[&str]) -> Vec<(String, String)> {
+pub(crate) fn level_options(kind: &str, codes: &[&str]) -> Vec<(String, String)> {
     codes
         .iter()
         .map(|c| ((*c).to_owned(), format!("{c}  {}", level_label(kind, c))))
@@ -46,7 +46,7 @@ fn level_options(kind: &str, codes: &[&str]) -> Vec<(String, String)> {
 }
 
 /// 常見的 TipTop 動作代號有翻譯（Y2）；其他代號照原樣顯示
-fn action_label(id: &str) -> String {
+pub(crate) fn action_label(id: &str) -> String {
     let key = format!("perm-act-{id}");
     let text = t(&key);
     if text == key { id.to_owned() } else { text }

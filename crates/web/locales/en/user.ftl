@@ -44,3 +44,4 @@ user-msg-copied = Copied { $from } to { $to }
 user-msg-activated = Enabled user { $id }
 user-msg-deactivated = Disabled user { $id }
 user-note-password = Passwords, password policy and lockout are managed by the company account system (ADR 0006); this program does not maintain passwords.
+user-action-special = Special Permissions

@@ -10,6 +10,7 @@ mod pg_permission_class;
 mod pg_plant;
 mod pg_program;
 mod pg_user;
+mod pg_user_permission;
 
 pub use pg::PgStore;
 

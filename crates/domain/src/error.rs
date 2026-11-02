@@ -99,6 +99,12 @@ pub enum DomainError {
     #[error("電子郵件格式不正確：{0}")]
     UserEmailInvalid(String),
 
+    // 使用者特殊權限維護（user_permission_maintenance.feature）
+    #[error("此使用者已設定相同的權限類別或程式")]
+    UserPermissionDuplicate,
+    #[error("目標使用者已有特殊權限，不可複製")]
+    UserHasSpecialPermissions,
+
     // 程式執行權限維護（program_permission_maintenance.feature）
     #[error("此權限類別已設定該程式的權限")]
     PermissionAlreadyExists,
@@ -203,6 +209,8 @@ impl DomainError {
             Self::UserSinglePlant => "USER_SINGLE_PLANT",
             Self::IdpAccountInUse(_) => "IDP_ACCOUNT_IN_USE",
             Self::UserEmailInvalid(_) => "USER_EMAIL_INVALID",
+            Self::UserPermissionDuplicate => "USER_PERMISSION_DUPLICATE",
+            Self::UserHasSpecialPermissions => "USER_HAS_SPECIAL_PERMISSIONS",
             Self::PermissionAlreadyExists => "PERMISSION_ALREADY_EXISTS",
             Self::PermissionNotFound => "PERMISSION_NOT_FOUND",
             Self::PermissionActionNotAllowed(_) => "PERMISSION_ACTION_NOT_ALLOWED",

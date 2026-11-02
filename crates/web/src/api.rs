@@ -5,12 +5,13 @@
 
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CopyPermissionsRequest,
-    CreateItemRequest, GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto, LegacyTableDto,
-    LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto, NewPlantIdRequest,
-    NewProgramNoRequest, NewUserIdRequest, Page, PermissionBatchResultDto, PermissionClassDto,
-    PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput, ProgramPermissionDto,
-    ProgramPermissionInput, QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto,
-    UpdatedCountDto, UserDto, UserInput,
+    CopyUserPermissionsRequest, CreateItemRequest, GeneratePermissionsRequest, GrantRequest,
+    IndexDto, ItemDto, LegacyTableDto, LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto,
+    NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PermissionBatchResultDto,
+    PermissionClassDto, PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput,
+    ProgramPermissionDto, ProgramPermissionInput, QueryRequest, TableDictionaryDto,
+    TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto, UserInput, UserPermissionDto,
+    UserPermissionInput,
 };
 
 fn base_url() -> String {
@@ -636,4 +637,71 @@ pub async fn delete_permissions_by_menu(
         reset_existing: false,
     };
     post_batch(class_perm_url(class, "/delete-permissions-by-menu"), &body).await
+}
+
+// ----- User Special Permission Maintenance 使用者特殊權限維護（TipTop p_zxw） -----
+
+/// 程式名稱依目前介面語系顯示
+pub async fn list_user_permissions(user: &str) -> Result<Vec<UserPermissionDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!("{}?lang={lang}", user_url(user, "/permissions"))).await
+}
+
+/// 回傳新增後的全部特殊權限
+pub async fn add_user_permission(
+    user: &str,
+    req: &UserPermissionInput,
+) -> Result<Vec<UserPermissionDto>, String> {
+    let res = reqwest::Client::new()
+        .post(user_url(user, "/permissions"))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn update_user_program_permission(
+    user: &str,
+    program: &str,
+    req: &UserPermissionInput,
+) -> Result<UserPermissionDto, String> {
+    let res = reqwest::Client::new()
+        .put(user_url(
+            user,
+            &format!("/permissions/programs/{}", urlencoding(program)),
+        ))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn remove_user_permission(user: &str, line_no: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(user_url(user, &format!("/permissions/{line_no}")))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn remove_all_user_permissions(user: &str) -> Result<PermissionBatchResultDto, String> {
+    let res = reqwest::Client::new()
+        .delete(user_url(user, "/permissions"))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn copy_user_permissions(
+    user: &str,
+    target: &str,
+) -> Result<PermissionBatchResultDto, String> {
+    let body = CopyUserPermissionsRequest {
+        target_user: target.to_owned(),
+    };
+    post_batch(user_url(user, "/copy-permissions"), &body).await
 }

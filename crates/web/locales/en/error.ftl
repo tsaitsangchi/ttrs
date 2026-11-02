@@ -69,3 +69,5 @@ error-PERMISSION_NOT_FOUND = This class has no permission for the program.
 error-PERMISSION_ACTION_NOT_ALLOWED = The program does not offer this action.
 error-PERMISSION_LEVEL_INVALID = Invalid data permission code.
 error-MENU_PROGRAM_INVALID = Must be a menu program (module MENU).
+error-USER_PERMISSION_DUPLICATE = This user already has the same class or program.
+error-USER_HAS_SPECIAL_PERMISSIONS = The target user already has special permissions.

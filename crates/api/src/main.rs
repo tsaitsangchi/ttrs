@@ -4,7 +4,8 @@ use tracing_subscriber::EnvFilter;
 use ttrs_api::{AppState, actor_from_env, cors_from_env, router};
 use ttrs_app::{
     DataDictionaryService, ItemService, LegacyCatalogService, PermissionClassService, PlantService,
-    ProgramPermissionService, ProgramService, UserService, memory::InMemoryStore,
+    ProgramPermissionService, ProgramService, UserPermissionService, UserService,
+    memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
 
@@ -17,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     // 有 DATABASE_URL 就用 PostgreSQL（並自動 migrate），否則用記憶體資料方便前端開發
-    let (items, programs, dictionary, legacy, users, classes, plants, permissions) =
+    let (items, programs, dictionary, legacy, users, classes, plants, permissions, special) =
         match std::env::var("DATABASE_URL") {
             Ok(url) => {
                 let pool = ttrs_infra::connect(&url).await?;
@@ -29,10 +30,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     ProgramService::new(store.clone()),
                     DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
                     LegacyCatalogService::new(store.clone()),
-                    UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
+                    UserService::new(
+                        store.clone(),
+                        store.clone(),
+                        store.clone(),
+                        store.clone(),
+                        store.clone(),
+                    ),
                     PermissionClassService::new(store.clone(), store.clone(), store.clone()),
                     PlantService::new(store.clone()),
-                    ProgramPermissionService::new(store.clone(), store.clone(), store),
+                    ProgramPermissionService::new(store.clone(), store.clone(), store.clone()),
+                    UserPermissionService::new(store.clone(), store.clone(), store.clone(), store),
                 )
             }
             Err(_) => {
@@ -44,10 +52,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     // 記憶體模式沒有真正的資料庫結構，資料字典只能看到空清單
                     DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
                     LegacyCatalogService::new(store.clone()),
-                    UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
+                    UserService::new(
+                        store.clone(),
+                        store.clone(),
+                        store.clone(),
+                        store.clone(),
+                        store.clone(),
+                    ),
                     PermissionClassService::new(store.clone(), store.clone(), store.clone()),
                     PlantService::new(store.clone()),
-                    ProgramPermissionService::new(store.clone(), store.clone(), store),
+                    ProgramPermissionService::new(store.clone(), store.clone(), store.clone()),
+                    UserPermissionService::new(store.clone(), store.clone(), store.clone(), store),
                 )
             }
         };
@@ -66,6 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         classes,
         plants,
         permissions,
+        special,
         actor,
     });
     if let Some(cors) = cors_from_env() {
