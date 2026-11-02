@@ -99,6 +99,20 @@ pub enum DomainError {
     #[error("電子郵件格式不正確：{0}")]
     UserEmailInvalid(String),
 
+    // 營運中心維護（plant_maintenance.feature）
+    #[error("營運中心代號長度不可超過 {max} 碼")]
+    PlantIdTooLong { max: usize },
+    #[error("營運中心已存在")]
+    PlantAlreadyExists,
+    #[error("營運中心代號不可修改")]
+    PlantIdImmutable,
+    #[error("營運中心名稱不可空白")]
+    PlantNameEmpty,
+    #[error("時區必須是有效的 IANA 時區名稱（例：Asia/Taipei）：{0}")]
+    PlantTimeZoneInvalid(String),
+    #[error("營運中心仍有使用者或業務資料，不可刪除（可改為停用）")]
+    PlantInUse,
+
     // 權限類別維護（permission_class_maintenance.feature）
     #[error("權限類別代號不可空白")]
     PermissionClassCodeEmpty,
@@ -177,6 +191,12 @@ impl DomainError {
             Self::UserSinglePlant => "USER_SINGLE_PLANT",
             Self::IdpAccountInUse(_) => "IDP_ACCOUNT_IN_USE",
             Self::UserEmailInvalid(_) => "USER_EMAIL_INVALID",
+            Self::PlantIdTooLong { .. } => "PLANT_ID_TOO_LONG",
+            Self::PlantAlreadyExists => "PLANT_ALREADY_EXISTS",
+            Self::PlantIdImmutable => "PLANT_ID_IMMUTABLE",
+            Self::PlantNameEmpty => "PLANT_NAME_EMPTY",
+            Self::PlantTimeZoneInvalid(_) => "PLANT_TIME_ZONE_INVALID",
+            Self::PlantInUse => "PLANT_IN_USE",
             Self::PermissionClassCodeEmpty => "PERMISSION_CLASS_CODE_EMPTY",
             Self::PermissionClassCodeTooLong { .. } => "PERMISSION_CLASS_CODE_TOO_LONG",
             Self::PermissionClassAlreadyExists => "PERMISSION_CLASS_ALREADY_EXISTS",

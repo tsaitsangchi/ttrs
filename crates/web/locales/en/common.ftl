@@ -4,6 +4,8 @@
 shell-nav-home = Home
 shell-group-aim = Inventory (aim)
 shell-nav-aimi100 = aimi100 Item Master
+shell-group-aoo = General Management (aoo)
+shell-nav-plants = Plants
 shell-group-azz = System Admin (azz)
 shell-nav-program = Program Maintenance
 shell-nav-users = User Maintenance

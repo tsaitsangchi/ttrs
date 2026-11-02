@@ -66,6 +66,7 @@ fn status_from_db(s: &str) -> Result<ItemStatus, RepoError> {
 pub(crate) fn db_err(e: sqlx::Error) -> RepoError {
     match e.as_database_error() {
         Some(d) if d.is_unique_violation() => RepoError::Conflict,
+        Some(d) if d.is_foreign_key_violation() => RepoError::InUse,
         _ => RepoError::Other(e.to_string()),
     }
 }

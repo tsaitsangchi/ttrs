@@ -12,7 +12,7 @@ use ttrs_domain::{
     lang::Lang,
     legacy_catalog::LegacyTable,
     permission_class::{ClassCode, ClassIdleControl, PermissionClass, PermissionClassAttrs},
-    plant::PlantId,
+    plant::{DEFAULT_TIME_ZONE, Plant, PlantAttrs, PlantId},
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
     user::{User, UserId},
@@ -23,7 +23,8 @@ use crate::{
     ports::{
         AuditEntry, DictionaryRepository, ItemRepository, LegacyCatalogRepository,
         LegacyTableSummary, MasterDataRepository, MigrationSource, PermissionClassRepository,
-        ProgramName, ProgramRepository, SchemaCatalog, TableSchema, UserRepository,
+        PlantRepository, ProgramName, ProgramRepository, SchemaCatalog, TableSchema,
+        UserRepository,
     },
 };
 
@@ -34,7 +35,8 @@ struct State {
     user_plants: BTreeMap<UserId, Vec<PlantId>>,
     /// TipTop 對照目錄（舊表代碼 → 對照）
     legacy: BTreeMap<String, LegacyTable>,
-    plants: HashSet<String>,
+    /// 營運中心（azp_file）
+    plants: BTreeMap<PlantId, Plant>,
     units: HashSet<String>,
     items: BTreeMap<(PlantId, ItemNo), Item>,
     transactions: HashSet<(PlantId, ItemNo)>,
@@ -88,8 +90,26 @@ impl InMemoryStore {
         self.lock().user_plants.get(id).map_or(0, Vec::len)
     }
 
+    /// 營運中心（azp_file）：名稱同代號、其餘為資料庫預設值（同 migrations/0012 的欄位預設）
     pub fn add_plant(&self, plant: &str) {
-        self.lock().plants.insert(plant.to_uppercase());
+        let id = PlantId::parse(plant).expect("營運中心代號");
+        let p = Plant {
+            attrs: PlantAttrs {
+                name: id.as_str().to_owned(),
+                time_zone: DEFAULT_TIME_ZONE.to_owned(),
+                address: None,
+                phone: None,
+                fax: None,
+            },
+            active: true,
+            created_by: String::new(),
+            created_dept: String::new(),
+            created_on: chrono::Local::now().date_naive(),
+            updated_by: None,
+            updated_on: None,
+            id: id.clone(),
+        };
+        self.lock().plants.insert(id, p);
     }
 
     pub fn add_unit(&self, unit: &str) {
@@ -209,7 +229,7 @@ impl ItemRepository for InMemoryStore {
 #[async_trait]
 impl MasterDataRepository for InMemoryStore {
     async fn plant_active(&self, plant: &PlantId) -> Result<bool, RepoError> {
-        Ok(self.lock().plants.contains(plant.as_str()))
+        Ok(self.lock().plants.get(plant).is_some_and(|p| p.active))
     }
 
     async fn unit_exists(&self, unit: &str) -> Result<bool, RepoError> {
@@ -644,5 +664,46 @@ impl PermissionClassRepository for InMemoryStore {
 
     async fn permission_count(&self, code: &ClassCode) -> Result<u64, RepoError> {
         Ok(self.class_permission_count(code.as_str()) as u64)
+    }
+}
+
+#[async_trait]
+impl PlantRepository for InMemoryStore {
+    async fn get(&self, id: &PlantId) -> Result<Option<Plant>, RepoError> {
+        Ok(self.lock().plants.get(id).cloned())
+    }
+
+    async fn list(&self) -> Result<Vec<Plant>, RepoError> {
+        // BTreeMap 依代號排序（位元組順序，同 PostgreSQL COLLATE "C"）
+        Ok(self.lock().plants.values().cloned().collect())
+    }
+
+    async fn insert(&self, plant: &Plant) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.plants.contains_key(&plant.id) {
+            return Err(RepoError::Conflict);
+        }
+        s.plants.insert(plant.id.clone(), plant.clone());
+        Ok(())
+    }
+
+    async fn update(&self, plant: &Plant) -> Result<(), RepoError> {
+        if let Some(p) = self.lock().plants.get_mut(&plant.id) {
+            *p = plant.clone();
+        }
+        Ok(())
+    }
+
+    async fn delete(&self, id: &PlantId) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        // 與 PostgreSQL 的外鍵一致：使用者預設／可使用營運中心、料件（庫存異動經由料件）
+        let referenced = s.users.values().any(|u| &u.attrs.default_plant == id)
+            || s.user_plants.values().any(|ps| ps.contains(id))
+            || s.items.keys().any(|(p, _)| p == id);
+        if referenced {
+            return Err(RepoError::InUse);
+        }
+        s.plants.remove(id);
+        Ok(())
     }
 }

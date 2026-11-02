@@ -5,10 +5,10 @@
 
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
-    IndexDto, ItemDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto, NewProgramNoRequest,
-    NewUserIdRequest, Page, PermissionClassDto, PermissionClassInput, ProgramDto, ProgramInput,
-    QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto,
-    UserInput,
+    IndexDto, ItemDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto, NewPlantIdRequest,
+    NewProgramNoRequest, NewUserIdRequest, Page, PermissionClassDto, PermissionClassInput,
+    PlantDto, PlantInput, ProgramDto, ProgramInput, QueryRequest, TableDictionaryDto,
+    TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto, UserInput,
 };
 
 fn base_url() -> String {
@@ -442,4 +442,66 @@ pub async fn update_user_menus() -> Result<u64, String> {
         .await
         .map_err(|e| e.to_string())?;
     into_result::<UpdatedCountDto>(res).await.map(|r| r.updated)
+}
+
+// ----- Plant Maintenance 營運中心維護（TipTop aooi901） -----
+
+fn plant_url(id: &str, suffix: &str) -> String {
+    url(&format!("/api/plants/{}{suffix}", urlencoding(id)))
+}
+
+pub async fn list_plants() -> Result<Vec<PlantDto>, String> {
+    get_json(url("/api/plants")).await
+}
+
+pub async fn create_plant(req: &PlantInput) -> Result<PlantDto, String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/plants"))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn update_plant(id: &str, req: &PlantInput) -> Result<PlantDto, String> {
+    let res = reqwest::Client::new()
+        .put(plant_url(id, ""))
+        .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn delete_plant(id: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(plant_url(id, ""))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn copy_plant(id: &str, new_id: &str) -> Result<PlantDto, String> {
+    let res = reqwest::Client::new()
+        .post(plant_url(id, "/copy"))
+        .json(&NewPlantIdRequest {
+            new_plant_id: new_id.to_owned(),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+/// 停用或啟用（P9）
+pub async fn set_plant_active(id: &str, active: bool) -> Result<PlantDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    let res = reqwest::Client::new()
+        .post(plant_url(id, suffix))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
 }

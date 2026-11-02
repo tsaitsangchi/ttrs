@@ -10,6 +10,7 @@ use dioxus::prelude::*;
 use i18n::{UiLang, t};
 use pages::{
     aim::ItemList,
+    aoo::PlantMaintenance,
     azz::{DataDictionary, PermissionClassMaintenance, ProgramMaintenance, UserMaintenance},
     home::Home,
 };
@@ -28,6 +29,9 @@ enum Route {
         /// aimi100 料件基本資料
         #[route("/aim/items")]
         ItemList {},
+        /// Plant Maintenance 營運中心維護（TipTop aooi901）
+        #[route("/aoo/plant-maintenance")]
+        PlantMaintenance {},
         /// Program Maintenance 程式維護（TipTop p_zz）
         #[route("/azz/program-maintenance")]
         ProgramMaintenance {},
@@ -85,6 +89,8 @@ fn Shell() -> Element {
                 Link { active_class: "active", to: Route::Home {}, {t("shell-nav-home")} }
                 p { class: "group", {t("shell-group-aim")} }
                 Link { active_class: "active", to: Route::ItemList {}, {t("shell-nav-aimi100")} }
+                p { class: "group", {t("shell-group-aoo")} }
+                Link { active_class: "active", to: Route::PlantMaintenance {}, {t("shell-nav-plants")} }
                 p { class: "group", {t("shell-group-azz")} }
                 Link { active_class: "active", to: Route::ProgramMaintenance {}, {t("shell-nav-program")} }
                 Link { active_class: "active", to: Route::DataDictionary {}, {t("shell-nav-dictionary")} }

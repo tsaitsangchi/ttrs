@@ -704,3 +704,64 @@ impl PermissionClassDto {
 pub struct UpdatedCountDto {
     pub updated: u64,
 }
+
+// ---------------------------------------------------------------------------
+// Plant Maintenance 營運中心維護（TipTop aooi901 / azp_file，見 docs/legacy-map/aoo.yaml）
+// ---------------------------------------------------------------------------
+
+/// 欄位上限（與 ttrs_domain::plant::max_len 一致）
+pub mod plant_max_len {
+    pub const ID: usize = 10;
+    pub const NAME: usize = 80;
+    pub const ADDRESS: usize = 255;
+    pub const PHONE: usize = 40;
+    pub const FAX: usize = 40;
+}
+
+/// 新增／修改營運中心
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PlantInput {
+    pub plant_id: String,
+    pub name: Option<String>,
+    /// IANA 時區名稱；未指定為 Asia/Taipei
+    pub time_zone: Option<String>,
+    pub address: Option<String>,
+    pub phone: Option<String>,
+    pub fax: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlantDto {
+    pub plant_id: String,
+    pub name: String,
+    pub time_zone: String,
+    pub address: Option<String>,
+    pub phone: Option<String>,
+    pub fax: Option<String>,
+    pub active: bool,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+}
+
+impl PlantDto {
+    pub fn to_input(&self) -> PlantInput {
+        PlantInput {
+            plant_id: self.plant_id.clone(),
+            name: Some(self.name.clone()),
+            time_zone: Some(self.time_zone.clone()),
+            address: self.address.clone(),
+            phone: self.phone.clone(),
+            fax: self.fax.clone(),
+        }
+    }
+}
+
+/// 複製營運中心的新代號
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NewPlantIdRequest {
+    pub new_plant_id: String,
+}

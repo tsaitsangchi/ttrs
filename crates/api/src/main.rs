@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
 use ttrs_api::{AppState, actor_from_env, cors_from_env, router};
 use ttrs_app::{
-    DataDictionaryService, ItemService, LegacyCatalogService, PermissionClassService,
+    DataDictionaryService, ItemService, LegacyCatalogService, PermissionClassService, PlantService,
     ProgramService, UserService, memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
@@ -17,36 +17,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     // 有 DATABASE_URL 就用 PostgreSQL（並自動 migrate），否則用記憶體資料方便前端開發
-    let (items, programs, dictionary, legacy, users, classes) = match std::env::var("DATABASE_URL")
-    {
-        Ok(url) => {
-            let pool = ttrs_infra::connect(&url).await?;
-            ttrs_infra::migrate(&pool).await?;
-            tracing::info!("using PostgreSQL");
-            let store = Arc::new(PgStore::new(pool));
-            (
-                ItemService::new(store.clone(), store.clone()),
-                ProgramService::new(store.clone()),
-                DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
-                LegacyCatalogService::new(store.clone()),
-                UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
-                PermissionClassService::new(store.clone(), store.clone(), store),
-            )
-        }
-        Err(_) => {
-            tracing::warn!("DATABASE_URL not set, using in-memory store");
-            let store = Arc::new(InMemoryStore::seeded());
-            (
-                ItemService::new(store.clone(), store.clone()),
-                ProgramService::new(store.clone()),
-                // 記憶體模式沒有真正的資料庫結構，資料字典只能看到空清單
-                DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
-                LegacyCatalogService::new(store.clone()),
-                UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
-                PermissionClassService::new(store.clone(), store.clone(), store),
-            )
-        }
-    };
+    let (items, programs, dictionary, legacy, users, classes, plants) =
+        match std::env::var("DATABASE_URL") {
+            Ok(url) => {
+                let pool = ttrs_infra::connect(&url).await?;
+                ttrs_infra::migrate(&pool).await?;
+                tracing::info!("using PostgreSQL");
+                let store = Arc::new(PgStore::new(pool));
+                (
+                    ItemService::new(store.clone(), store.clone()),
+                    ProgramService::new(store.clone()),
+                    DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
+                    LegacyCatalogService::new(store.clone()),
+                    UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
+                    PermissionClassService::new(store.clone(), store.clone(), store.clone()),
+                    PlantService::new(store),
+                )
+            }
+            Err(_) => {
+                tracing::warn!("DATABASE_URL not set, using in-memory store");
+                let store = Arc::new(InMemoryStore::seeded());
+                (
+                    ItemService::new(store.clone(), store.clone()),
+                    ProgramService::new(store.clone()),
+                    // 記憶體模式沒有真正的資料庫結構，資料字典只能看到空清單
+                    DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
+                    LegacyCatalogService::new(store.clone()),
+                    UserService::new(store.clone(), store.clone(), store.clone(), store.clone()),
+                    PermissionClassService::new(store.clone(), store.clone(), store.clone()),
+                    PlantService::new(store),
+                )
+            }
+        };
 
     let addr = std::env::var("TTRS_API_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".into());
     let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -60,6 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         legacy,
         users,
         classes,
+        plants,
         actor,
     });
     if let Some(cors) = cors_from_env() {

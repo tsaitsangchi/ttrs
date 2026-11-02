@@ -6,7 +6,7 @@ use ttrs_domain::{
     item::{Item, ItemNo},
     legacy_catalog::LegacyTable,
     permission_class::{ClassCode, PermissionClass},
-    plant::PlantId,
+    plant::{Plant, PlantId},
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
     user::{User, UserId},
@@ -222,4 +222,20 @@ pub trait PermissionClassRepository: Send + Sync {
     async fn user_count(&self, code: &ClassCode) -> Result<u64, RepoError>;
     /// 此權限類別的程式權限筆數（zy_file）
     async fn permission_count(&self, code: &ClassCode) -> Result<u64, RepoError>;
+}
+
+// ---------------------------------------------------------------------------
+// 營運中心（TipTop aooi901 / azp_file）
+// ---------------------------------------------------------------------------
+
+#[async_trait]
+pub trait PlantRepository: Send + Sync {
+    async fn get(&self, id: &PlantId) -> Result<Option<Plant>, RepoError>;
+    /// 依代號排序（aooi901.4gl:151-152）
+    async fn list(&self) -> Result<Vec<Plant>, RepoError>;
+    /// 代號重複回 Conflict
+    async fn insert(&self, plant: &Plant) -> Result<(), RepoError>;
+    async fn update(&self, plant: &Plant) -> Result<(), RepoError>;
+    /// 仍有使用者（預設或可使用營運中心）或業務資料參照時回 InUse，不做連帶刪除（P10）
+    async fn delete(&self, id: &PlantId) -> Result<(), RepoError>;
 }

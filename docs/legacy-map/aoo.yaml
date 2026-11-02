@@ -1,0 +1,39 @@
+# TipTop → TTRS 資料對照：整體管理 (aoo)
+# 來源：tiptop/aoo/4gl/aooi901.4gl、tiptop/aoo/4fd/aooi901.4fd、tiptop/aoo/sch/azp_file.sch（資料表定義與欄位中文說明）
+# 新表：migrations/0001_init.sql、0012_plant.sql
+# type：TipTop（Oracle）型別，取自 .sch；sch：.sch 的欄位說明（原文）
+# verify: true 表示意義仍需確認；not_ported 列出不移植的欄位或功能與原因
+
+tables:
+  - legacy: azp_file
+    target: plant
+    program: aooi901（Plant Maintenance 營運中心維護）
+    spec: specs/features/aoo/plant_maintenance.feature
+    note: "TipTop 一個營運中心一個資料庫 schema；新系統為 plant 的一筆資料，業務表以 plant_id 區分（ADR 0001 §4）"
+    migration: "各營運中心 schema 的資料轉入時，plant_id = 該 schema 在 azp_file 的 azp01（以 azp03 對應）"
+    columns:
+      - { legacy: azp01,  type: varchar2(10) NOT NULL, target: plant_id, sch: 營運中心代碼, note: "轉大寫（P3）、建立後不可修改（P4）" }
+      - { legacy: azp02,  type: varchar2(80), target: name, sch: 營運中心名稱, note: "新系統必填、不做多語言（P5）" }
+      - { legacy: azp052, type: varchar2(80), target: time_zone, sch: 時區, note: "GMT 偏移改存 IANA 名稱（P6）；空白為 Asia/Taipei", verify: true, verify_note: "轉檔時 GMT±n 對應的城市清單需與 Key User 確認（如 GMT+8 → Asia/Taipei 或 Asia/Shanghai）" }
+      - { legacy: azp051, type: varchar2(255), target: address, sch: 地址-1 }
+      - { legacy: azp06,  type: varchar2(40), target: phone, sch: 營運中心電話 }
+      - { legacy: azp07,  type: varchar2(40), target: fax, sch: 營運中心傳真 }
+      - { legacy: "(無)", target: active, note: "TipTop 無有效欄位；轉入一律有效（P9）" }
+      - { legacy: "(無)", target: "created_by / created_dept / created_on / updated_by / updated_on", note: "TipTop 無建立／修改資訊；轉入時空白（P12）" }
+    not_ported:
+      - { legacy: azp03,  type: varchar2(20), sch: 資料庫代碼, reason: "營運中心不再是資料庫（P1）；只在轉檔時對應來源 schema" }
+      - { legacy: azp04,  type: varchar2(10), sch: "伺服器(SERVER)編號", reason: "Oracle DB link（P1）" }
+      - { legacy: azp20,  type: varchar2(20), sch: SQL資料庫主機IP, reason: "MSSQL 連線（P1）" }
+      - { legacy: azp053, type: varchar2(1), sch: ERP 資料庫否, reason: "TTRS 營運中心皆為 ERP 營運中心（P2）；值為 N 的資料不轉入", verify: true, verify_note: "請以正式區資料確認沒有實際營運中心為 N" }
+      - { legacy: azp08,  type: varchar2(1), sch: No Use, reason: "未使用" }
+      - { legacy: azp09,  type: varchar2(1), sch: 是否限制上線人數, reason: "上線人數控管改由 IdP／IT 政策（P8）" }
+      - { legacy: azp10,  type: number(10), sch: 可上線人數, reason: "同 azp09（P8）" }
+      - { legacy: "動作 connect_string / mntn_reportdb", reason: "資料庫連線字串維護（P1）" }
+
+  - legacy: gbo_file
+    target: "(不移植)"
+    note: "部門可上線人數設定檔；aooi901 會同步調整上限（P8 不移植）"
+
+  - legacy: zxx_file
+    target: "(待營運中心切換)"
+    note: "使用者目前使用的營運中心；ADR 0006 §5 營運中心切換時另行設計（web 存於 session）"

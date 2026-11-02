@@ -14,14 +14,16 @@ use tower_http::{
 };
 use ttrs_app::{
     Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService,
-    PermissionClassService, ProgramService, UserService, program_service::DEFAULT_LANG,
+    PermissionClassService, PlantService, ProgramService, UserService,
+    program_service::DEFAULT_LANG,
 };
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CreateItemRequest, GrantRequest,
     IndexDto, ItemDto, LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto,
-    NewProgramNoRequest, NewUserIdRequest, Page, PermissionClassDto, PermissionClassInput,
-    ProgramDto, ProgramInput, ProgramNameDto, QueryRequest, TableDictionaryDto,
-    TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto, UserInput,
+    NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PermissionClassDto,
+    PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput, ProgramNameDto,
+    QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto,
+    UserInput,
 };
 
 #[derive(Clone)]
@@ -32,6 +34,7 @@ pub struct AppState {
     pub legacy: LegacyCatalogService,
     pub users: UserService,
     pub classes: PermissionClassService,
+    pub plants: PlantService,
     /// 尚未有登入機制前，所有請求都以此使用者身分執行（見 `actor_from_env`）
     pub actor: Actor,
 }
@@ -114,6 +117,15 @@ pub fn router(state: AppState) -> Router {
         .route("/api/users/{id}/copy", post(copy_user))
         .route("/api/users/{id}/deactivate", post(deactivate_user))
         .route("/api/users/{id}/activate", post(activate_user))
+        // Plant Maintenance 營運中心維護（TipTop aooi901）
+        .route("/api/plants", get(list_plants).post(create_plant))
+        .route(
+            "/api/plants/{id}",
+            get(get_plant).put(update_plant).delete(delete_plant),
+        )
+        .route("/api/plants/{id}/copy", post(copy_plant))
+        .route("/api/plants/{id}/deactivate", post(deactivate_plant))
+        .route("/api/plants/{id}/activate", post(activate_plant))
         // Permission Class Maintenance 權限類別維護（TipTop p_zw）
         .route(
             "/api/permission-classes",
@@ -256,6 +268,64 @@ async fn activate_user(
     Ok(Json(s.users.activate(&s.actor, &id).await?))
 }
 
+// ----- Plant Maintenance 營運中心維護（TipTop aooi901） -----
+
+async fn list_plants(State(s): State<AppState>) -> ApiResult<Json<Vec<PlantDto>>> {
+    Ok(Json(s.plants.list().await?))
+}
+
+async fn create_plant(
+    State(s): State<AppState>,
+    Json(req): Json<PlantInput>,
+) -> ApiResult<(StatusCode, Json<PlantDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.plants.create(&s.actor, req).await?),
+    ))
+}
+
+async fn get_plant(State(s): State<AppState>, Path(id): Path<String>) -> ApiResult<Json<PlantDto>> {
+    Ok(Json(s.plants.get(&id).await?))
+}
+
+async fn update_plant(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+    Json(req): Json<PlantInput>,
+) -> ApiResult<Json<PlantDto>> {
+    Ok(Json(s.plants.update(&s.actor, &id, req).await?))
+}
+
+async fn delete_plant(State(s): State<AppState>, Path(id): Path<String>) -> ApiResult<StatusCode> {
+    s.plants.delete(&id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn copy_plant(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+    Json(req): Json<NewPlantIdRequest>,
+) -> ApiResult<(StatusCode, Json<PlantDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.plants.copy(&s.actor, &id, &req.new_plant_id).await?),
+    ))
+}
+
+async fn deactivate_plant(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<PlantDto>> {
+    Ok(Json(s.plants.deactivate(&s.actor, &id).await?))
+}
+
+async fn activate_plant(
+    State(s): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<Json<PlantDto>> {
+    Ok(Json(s.plants.activate(&s.actor, &id).await?))
+}
+
 // ----- Permission Class Maintenance 權限類別維護（TipTop p_zw） -----
 
 async fn list_classes(State(s): State<AppState>) -> ApiResult<Json<Vec<PermissionClassDto>>> {
@@ -339,7 +409,9 @@ impl IntoResponse for HttpError {
             | "IDP_ACCOUNT_IN_USE"
             | "PERMISSION_CLASS_ALREADY_EXISTS"
             | "PERMISSION_CLASS_IN_USE"
-            | "PERMISSION_CLASS_HAS_PERMISSIONS" => StatusCode::CONFLICT,
+            | "PERMISSION_CLASS_HAS_PERMISSIONS"
+            | "PLANT_ALREADY_EXISTS"
+            | "PLANT_IN_USE" => StatusCode::CONFLICT,
             "INFRA_ERROR" => StatusCode::INTERNAL_SERVER_ERROR,
             _ => StatusCode::UNPROCESSABLE_ENTITY,
         };

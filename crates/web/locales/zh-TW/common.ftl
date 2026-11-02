@@ -4,6 +4,8 @@
 shell-nav-home = 首頁
 shell-group-aim = 庫存管理 (aim)
 shell-nav-aimi100 = aimi100 料件基本資料
+shell-group-aoo = 整體管理 (aoo)
+shell-nav-plants = 營運中心維護
 shell-group-azz = 系統管理 (azz)
 shell-nav-program = 程式維護
 shell-nav-users = 使用者維護

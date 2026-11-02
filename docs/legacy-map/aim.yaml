@@ -25,7 +25,4 @@ tables:
     verify: true
     columns: []
 
-  - legacy: azp_file
-    target: plant
-    verify: true
-    columns: []
+  # azp_file（營運中心）已移至 docs/legacy-map/aoo.yaml（aooi901）
