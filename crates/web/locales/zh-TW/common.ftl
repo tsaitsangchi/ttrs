@@ -3,7 +3,7 @@
 
 shell-nav-home = 首頁
 shell-group-aim = 庫存管理 (aim)
-shell-nav-aimi100 = aimi100 料件基本資料
+shell-nav-items = 料件基本資料
 shell-group-aoo = 整體管理 (aoo)
 shell-nav-plants = 營運中心維護
 shell-group-azz = 系統管理 (azz)
@@ -14,6 +14,8 @@ shell-nav-classes = 權限類別維護
 shell-nav-permissions = 程式執行權限
 shell-nav-dictionary = 資料字典維護
 shell-language = 語言
+shell-switch-plant = 切換營運中心
+shell-not-signed-in = 尚未登入（開發用身分未在使用者維護註冊）
 common-action-ok = 確定
 common-action-cancel = 放棄
 common-action-query = 查詢
@@ -51,3 +53,6 @@ common-multilingual-title = { $field }（各語言）
 common-multilingual-open = 編輯各語言（已填 { $count } 種）
 query-action-clear = 清除查詢條件
 query-msg-tab-not-queryable = 此頁籤的欄位不能作為查詢條件
+common-field-plant = 營運中心
+shell-nav-departments = 部門維護
+shell-nav-employees = 員工維護

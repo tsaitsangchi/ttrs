@@ -41,7 +41,7 @@ fn level_cell(kind: &str, code: &Option<String>) -> String {
 }
 
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "p_zxw";
+const PROGRAM: &str = "user-permission-maintenance";
 
 #[component]
 pub fn UserPermissions() -> Element {

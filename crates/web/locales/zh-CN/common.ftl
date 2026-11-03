@@ -3,7 +3,7 @@
 
 shell-nav-home = 首页
 shell-group-aim = 库存管理 (aim)
-shell-nav-aimi100 = aimi100 料件基本资料
+shell-nav-items = 料件基本资料
 shell-group-aoo = 整体管理 (aoo)
 shell-nav-plants = 营运中心维护
 shell-group-azz = 系统管理 (azz)
@@ -14,6 +14,8 @@ shell-nav-classes = 权限类别维护
 shell-nav-permissions = 程序执行权限
 shell-nav-dictionary = 数据字典维护
 shell-language = 语言
+shell-switch-plant = 切换营运中心
+shell-not-signed-in = 尚未登录（开发用身份未在用户维护注册）
 common-action-ok = 确定
 common-action-cancel = 放弃
 common-action-query = 查询
@@ -51,3 +53,6 @@ common-multilingual-title = { $field }（各语言）
 common-multilingual-open = 编辑各语言（已填 { $count } 种）
 query-action-clear = 清除查询条件
 query-msg-tab-not-queryable = 此页签的栏位不能作为查询条件
+common-field-plant = 营运中心
+shell-nav-departments = 部门维护
+shell-nav-employees = 员工维护

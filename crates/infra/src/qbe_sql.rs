@@ -1,7 +1,7 @@
 //! QBE 篩選 → SQL 條件（各作業查詢共用）：欄位名稱只來自各作業的白名單（`column`），條件值一律 push_bind。
 //! 條件語法見 ttrs_domain::qbe；文字以位元組順序比較、區分大小寫（QBE2）。
 
-use sqlx::{FromRow, PgPool, Postgres, QueryBuilder, postgres::PgRow};
+use sqlx::{FromRow, PgConnection, PgPool, Postgres, QueryBuilder, postgres::PgRow};
 use ttrs_app::error::RepoError;
 use ttrs_domain::{
     authorization::DataScope,
@@ -170,11 +170,31 @@ pub(crate) async fn query_page<R>(
 where
     R: for<'r> FromRow<'r, PgRow> + Send + Unpin,
 {
+    let mut conn = pool.acquire().await.map_err(db_err)?;
+    query_page_in(
+        &mut conn, count, select, push_where, order_by, offset, limit,
+    )
+    .await
+}
+
+/// 同 [`query_page`]，在指定的連線（例如工廠交易）上執行
+pub(crate) async fn query_page_in<R>(
+    conn: &mut PgConnection,
+    count: &'static str,
+    select: &'static str,
+    push_where: impl Fn(&mut QueryBuilder<Postgres>) -> Result<(), RepoError>,
+    order_by: &'static str,
+    offset: u64,
+    limit: u64,
+) -> Result<(Vec<R>, u64), RepoError>
+where
+    R: for<'r> FromRow<'r, PgRow> + Send + Unpin,
+{
     let mut qb = QueryBuilder::<Postgres>::new(count);
     push_where(&mut qb)?;
     let total: i64 = qb
         .build_query_scalar()
-        .fetch_one(pool)
+        .fetch_one(&mut *conn)
         .await
         .map_err(db_err)?;
 
@@ -186,7 +206,7 @@ where
     qb.push_bind(i64::try_from(offset).unwrap_or(i64::MAX));
     let rows = qb
         .build_query_as::<R>()
-        .fetch_all(pool)
+        .fetch_all(&mut *conn)
         .await
         .map_err(db_err)?;
     Ok((rows, u64::try_from(total).unwrap_or(0)))

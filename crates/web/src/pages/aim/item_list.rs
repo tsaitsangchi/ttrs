@@ -11,7 +11,7 @@ use crate::i18n::{t, tf};
 const PLANT: &str = "TW01";
 
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "aimi100";
+const PROGRAM: &str = "item-maintenance";
 
 #[component]
 pub fn ItemList() -> Element {

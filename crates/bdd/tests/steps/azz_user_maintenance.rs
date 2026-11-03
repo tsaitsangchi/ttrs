@@ -48,7 +48,7 @@ fn input(id: &str, name: &str, dept: &str, class: &str, menu: &str, plant: &str)
 
 /// 背景已備妥的標準使用者
 pub(crate) fn standard(id: &str) -> UserInput {
-    input(id, "王小明", "SAL", "CLASS1", "menu_main", "TW01")
+    input(id, "王小明", "SAL", "CLASS1", "menu-main", "TW01")
 }
 
 async fn user(w: &ErpWorld, id: &str) -> UserDto {
@@ -74,6 +74,7 @@ async fn menu_program_exists(w: &mut ErpWorld, no: String) {
         "INSERT INTO module (module_code, name) VALUES ('MENU', 'MENU') ON CONFLICT DO NOTHING";
     seed(w, |s| s.add_module("MENU"), sql, &[]).await;
     let req = ProgramInput {
+        program_type: Some("I".into()),
         program_no: no,
         module_code: "MENU".into(),
         ..Default::default()

@@ -45,17 +45,17 @@
     而且 權限類別 "SALES" 已存在
     而且 權限類別 "TEMP" 已存在
     而且 模組 "AIM" 已存在
-    而且 已有程式 "aimi100" 模組 "AIM"，可執行功能 "insert, query, modify, delete, confirm"
-    而且 已有程式 "aimi101" 模組 "AIM"，可執行功能 "query, output"
-    而且 已有程式 "aimq102" 模組 "AIM"，可執行功能 "query, output"
+    而且 已有程式 "item-maintenance" 模組 "AIM"，可執行功能 "insert, query, modify, delete, confirm"
+    而且 已有程式 "item-master" 模組 "AIM"，可執行功能 "query, output"
+    而且 已有程式 "item-inquiry" 模組 "AIM"，可執行功能 "query, output"
     而且 已有下列程式執行權限:
       | 權限類別 | 程式代號 | 允許執行功能                         | 他人資料權限 | 他部門資料權限 | 單身權限 |
-      | ADMIN    | aimi100  | insert, query, modify, delete, confirm | 0            | 0              | 0        |
-      | ADMIN    | aimi101  | query, output                        | 0            | 0              | 0        |
-      | ADMIN    | aimq102  | query, output                        | 0            | 0              | 0        |
-      | MFG      | aimi100  | query, modify                        | 2            | 4              | 3        |
-      | SALES    | aimi101  | query                                | 0            | 3              | 0        |
-      | SALES    | aimq102  |                                      | 0            | 0              | 0        |
+      | ADMIN    | item-maintenance  | insert, query, modify, delete, confirm | 0            | 0              | 0        |
+      | ADMIN    | item-master  | query, output                        | 0            | 0              | 0        |
+      | ADMIN    | item-inquiry  | query, output                        | 0            | 0              | 0        |
+      | MFG      | item-maintenance  | query, modify                        | 2            | 4              | 3        |
+      | SALES    | item-master  | query                                | 0            | 3              | 0        |
+      | SALES    | item-inquiry  |                                      | 0            | 0              | 0        |
 
   # QBE4、YQ2：沒有條件時包含沒有程式權限的 TEMP；p_zy.4gl:197 依權限類別排序
   場景: 不輸入條件查詢全部權限類別
@@ -69,15 +69,15 @@
       | 欄位     | 條件     |
       | 權限類別 | S*\|T*   |
     那麼 查詢結果應為 "SALES,TEMP"
-    而且 權限類別 "SALES" 符合條件的程式應為 "aimi101,aimq102"
+    而且 權限類別 "SALES" 符合條件的程式應為 "item-inquiry,item-master"
 
   # YQ2、YQ3：有單身條件時只列出有符合程式的權限類別，單身只顯示符合的程式
   場景: 以程式代號查詢
     當 使用者以下列條件查詢程式執行權限:
       | 欄位     | 條件    |
-      | 程式代號 | aimi100 |
+      | 程式代號 | item-maintenance |
     那麼 查詢結果應為 "ADMIN,MFG" 共 2 筆
-    而且 權限類別 "ADMIN" 符合條件的程式應為 "aimi100"
+    而且 權限類別 "ADMIN" 符合條件的程式應為 "item-maintenance"
 
   # YQ4：逐一比對每個功能
   場景大綱: 以允許執行功能查詢
@@ -89,12 +89,12 @@
 
     例子:
       | 條件       | 權限類別        | 檢查類別 | 程式            |
-      | confirm    | ADMIN           | ADMIN    | aimi100         |
-      | *confirm*  | ADMIN           | ADMIN    | aimi100         |
-      | modify     | ADMIN,MFG       | MFG      | aimi100         |
-      | output     | ADMIN           | ADMIN    | aimi101,aimq102 |
-      | <>modify   | ADMIN,SALES     | SALES    | aimi101,aimq102 |
-      | =          | SALES           | SALES    | aimq102         |
+      | confirm    | ADMIN           | ADMIN    | item-maintenance         |
+      | *confirm*  | ADMIN           | ADMIN    | item-maintenance         |
+      | modify     | ADMIN,MFG       | MFG      | item-maintenance         |
+      | output     | ADMIN           | ADMIN    | item-inquiry,item-master |
+      | <>modify   | ADMIN,SALES     | SALES    | item-inquiry,item-master |
+      | =          | SALES           | SALES    | item-inquiry         |
 
   # YQ1：資料權限以代碼查詢
   場景大綱: 以資料權限代碼查詢
@@ -113,15 +113,15 @@
     當 使用者以下列條件查詢程式執行權限:
       | 欄位     | 條件          |
       | 權限類別 | ADMIN\|SALES  |
-      | 程式代號 | aimi101       |
+      | 程式代號 | item-master       |
     那麼 查詢結果應為 "ADMIN,SALES"
-    而且 權限類別 "SALES" 符合條件的程式應為 "aimi101"
+    而且 權限類別 "SALES" 符合條件的程式應為 "item-master"
 
   # 同一列須同時符合所有單身條件（同 TipTop 單一 WHERE）
   場景: 多個單身條件須在同一支程式上成立
     當 使用者以下列條件查詢程式執行權限:
       | 欄位           | 條件    |
-      | 程式代號       | aimi101 |
+      | 程式代號       | item-master |
       | 他部門資料權限 | 3       |
     那麼 查詢結果應為 "SALES"
 

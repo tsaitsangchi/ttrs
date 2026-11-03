@@ -11,8 +11,8 @@ use ttrs_shared::{UserDto, UserInput, user_max_len as max_len};
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Checkbox, Chip, Notification, NotificationKind, Select, Tabs,
-    TextField,
+    Button, ButtonVariant, Card, Checkbox, Chip, Dialog, Notification, NotificationKind, Select,
+    Tabs, TextField,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{
@@ -41,7 +41,7 @@ fn opt(v: String) -> Option<String> {
 }
 
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "p_zx";
+const PROGRAM: &str = "user-maintenance";
 
 #[component]
 pub fn UserMaintenance() -> Element {
@@ -137,6 +137,57 @@ fn UserMaintenancePage() -> Element {
     let ro = matches!(m, Mode::View | Mode::Query);
     let no_cur = cur.is_none();
     let v = form();
+    // 部門開窗（aooi030 部門資料）：以表單上的營運中心取該廠的部門
+    let mut picking = use_signal(|| false);
+    let dept_plant = use_memo(move || form.read().default_plant.clone());
+    let dept_list = use_resource(move || {
+        let p = dept_plant();
+        async move {
+            if p.is_empty() {
+                return Vec::new();
+            }
+            let req = ttrs_shared::QueryRequest {
+                page_size: Some(500),
+                ..Default::default()
+            };
+            api::query_departments(&p, &req)
+                .await
+                .map(|page| page.items)
+                .unwrap_or_default()
+        }
+    });
+    let dept_name = v
+        .dept_code
+        .as_deref()
+        .and_then(|code| {
+            dept_list.read().as_ref().and_then(|ds| {
+                ds.iter()
+                    .find(|d| d.dept_code.eq_ignore_ascii_case(code))
+                    .map(|d| d.name.clone())
+            })
+        })
+        .unwrap_or_default();
+    // 營運中心來自營運中心維護（aooi901）：有效的營運中心，加上目前的值（即使已停用）
+    let plants = use_resource(|| async { api::list_plants().await.unwrap_or_default() });
+    let plant_options = |current: &str| -> Vec<(String, String)> {
+        let mut opts: Vec<(String, String)> = plants
+            .read()
+            .as_ref()
+            .map(|ps| {
+                ps.iter()
+                    .filter(|p| p.active || p.plant_id == current)
+                    .map(|p| (p.plant_id.clone(), format!("{} {}", p.plant_id, p.name)))
+                    .collect()
+            })
+            .unwrap_or_default();
+        if !current.is_empty() && !opts.iter().any(|(k, _)| k == current) {
+            opts.push((current.to_owned(), current.to_owned()));
+        }
+        if current.is_empty() {
+            opts.insert(0, (String::new(), String::new()));
+        }
+        opts
+    };
     let lang_options: Vec<(String, String)> = UiLang::ALL
         .iter()
         .map(|l| (l.code().to_owned(), l.native_name().to_owned()))
@@ -312,6 +363,24 @@ fn UserMaintenancePage() -> Element {
                                     Q { field: "dept_code", label: t("user-field-dept"), query: q, qbe,
                                         TextField { id: "zx03", label: t("user-field-dept"), maxlength: max_len::DEPT, value: v.dept_code.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().dept_code = opt(x) }
                                     }
+                                    if !q {
+                                        div { class: "field-with-action",
+                                            TextField { id: "zx03-name", label: t("user-field-dept-name"), readonly: true, value: dept_name.clone() }
+                                            if !ro {
+                                                Button {
+                                                    variant: ButtonVariant::Outlined,
+                                                    onclick: move |_| {
+                                                        if dept_plant().is_empty() {
+                                                            error.set(Some(t("user-msg-pick-plant-first")));
+                                                        } else {
+                                                            picking.set(true);
+                                                        }
+                                                    },
+                                                    {t("user-action-pick-dept")}
+                                                }
+                                            }
+                                        }
+                                    }
                                     Q { field: "permission_class", label: t("user-field-class"), query: q, qbe,
                                         TextField { id: "zx04", label: t("user-field-class"), value: v.permission_class.clone(), readonly: ro, oninput: move |x| form.write().permission_class = x }
                                     }
@@ -325,7 +394,7 @@ fn UserMaintenancePage() -> Element {
                                         Checkbox { id: "zx07", label: t("user-field-multi-plant"), checked: v.multi_plant, readonly: ro, onchange: move |x| form.write().multi_plant = x }
                                     }
                                     Q { field: "default_plant", label: t("user-field-default-plant"), query: q, qbe,
-                                        TextField { id: "zx08", label: t("user-field-default-plant"), value: v.default_plant.clone(), readonly: ro, oninput: move |x| form.write().default_plant = x }
+                                        Select { id: "zx08", label: t("user-field-default-plant"), options: plant_options(&v.default_plant), value: v.default_plant.clone(), readonly: ro, onchange: move |x| form.write().default_plant = x }
                                     }
                                     Q { field: "email", label: t("user-field-email"), query: q, qbe,
                                         TextField { id: "zx09", label: t("user-field-email"), maxlength: max_len::EMAIL, value: v.email.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().email = opt(x) }
@@ -440,6 +509,42 @@ fn UserMaintenancePage() -> Element {
                 ListPager { page: rec.page, pages }
             }
             p { class: "note", {i18n::t("user-note-password")} }
+
+            // 部門開窗：列出表單營運中心的有效部門，點選代入部門代號（名稱隨之顯示）
+            if picking() {
+                Dialog {
+                    title: tf("user-dialog-pick-dept", &[("plant", dept_plant().as_str())]),
+                    oncancel: move |_| picking.set(false),
+                    actions: rsx! {
+                        Button { variant: ButtonVariant::Text, onclick: move |_| picking.set(false), {t("common-action-cancel")} }
+                    },
+                    div { class: "table-scroll",
+                        table { class: "md-table",
+                            thead { tr {
+                                th { {t("dept-field-code")} }
+                                th { {t("dept-field-name")} }
+                            } }
+                            tbody {
+                                for d in dept_list.read().clone().unwrap_or_default().into_iter().filter(|d| d.active) {
+                                    tr {
+                                        key: "{d.dept_code}",
+                                        class: "md-table__row--clickable",
+                                        onclick: {
+                                            let code = d.dept_code.clone();
+                                            move |_| {
+                                                form.write().dept_code = Some(code.clone());
+                                                picking.set(false);
+                                            }
+                                        },
+                                        td { class: "mono", "{d.dept_code}" }
+                                        td { "{d.name}" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

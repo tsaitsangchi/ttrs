@@ -3,7 +3,9 @@
 use async_trait::async_trait;
 use ttrs_domain::{
     authorization::DataScope,
+    department::{Department, DeptCode},
     dictionary::{ColumnText, TableDictionary, TableText},
+    employee::{Employee, EmployeeId},
     item::{Item, ItemNo},
     legacy_catalog::LegacyTable,
     permission::ProgramPermission,
@@ -85,6 +87,8 @@ pub trait ProgramRepository: Send + Sync {
     async fn module_exists(&self, module: &ModuleCode) -> Result<bool, RepoError>;
     async fn permission_class_exists(&self, class: &str) -> Result<bool, RepoError>;
     async fn query_definition_exists(&self, query: &str) -> Result<bool, RepoError>;
+    /// 使用此 TipTop 程式代號的程式（ADR 0008 P2，不可重複）
+    async fn find_by_tiptop_no(&self, tiptop_no: &str) -> Result<Option<ProgramNo>, RepoError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -217,6 +221,12 @@ pub trait UserRepository: Send + Sync {
     async fn plants(&self, id: &UserId) -> Result<Vec<PlantId>, RepoError>;
     /// 公司帳號（小寫）目前綁定的使用者
     async fn find_by_idp_username(&self, username: &str) -> Result<Option<UserId>, RepoError>;
+    /// 公司帳號識別碼（IdP sub）綁定的使用者（sign_in.feature SQ2）
+    async fn find_by_idp_subject(&self, subject: &str) -> Result<Option<UserId>, RepoError>;
+    /// 首次登入記下公司帳號識別碼；不更新修改者／修改日
+    async fn bind_idp_subject(&self, id: &UserId, subject: &str) -> Result<(), RepoError>;
+    /// 切換營運中心後寫回預設營運中心（aoos901.4gl:231，SQ8）；不更新修改者／修改日
+    async fn set_default_plant(&self, id: &UserId, plant: &PlantId) -> Result<(), RepoError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -336,4 +346,44 @@ pub trait UserPermissionRepository: Send + Sync {
     async fn update(&self, permission: &UserPermission) -> Result<(), RepoError>;
     async fn delete(&self, user: &UserId, line_no: i32) -> Result<bool, RepoError>;
     async fn delete_all(&self, user: &UserId) -> Result<u64, RepoError>;
+}
+
+// ---------------------------------------------------------------------------
+// 部門、員工（TipTop aooi030 gem_file、aooi040 gen_file；工廠層，在營運中心的工廠 schema）
+// ---------------------------------------------------------------------------
+
+#[async_trait]
+pub trait DepartmentRepository: Send + Sync {
+    async fn get(&self, plant: &PlantId, code: &DeptCode) -> Result<Option<Department>, RepoError>;
+    /// QBE 查詢（aooi030.4gl:955）：依部門編號（位元組順序）排序，回傳指定範圍與總筆數
+    async fn query_departments(
+        &self,
+        plant: &PlantId,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Department>, u64), RepoError>;
+    /// 部門編號重複回 Conflict；營運中心不存在回 Other
+    async fn insert(&self, plant: &PlantId, dept: &Department) -> Result<(), RepoError>;
+    async fn update(&self, plant: &PlantId, dept: &Department) -> Result<(), RepoError>;
+    /// 還有員工時回 InUse（DQ5）；回傳是否有刪到資料
+    async fn delete(&self, plant: &PlantId, code: &DeptCode) -> Result<bool, RepoError>;
+}
+
+#[async_trait]
+pub trait EmployeeRepository: Send + Sync {
+    async fn get(&self, plant: &PlantId, id: &EmployeeId) -> Result<Option<Employee>, RepoError>;
+    /// QBE 查詢（aooi040.4gl:692）：依員工編號（位元組順序）排序，回傳指定範圍與總筆數
+    async fn query_employees(
+        &self,
+        plant: &PlantId,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Employee>, u64), RepoError>;
+    /// 員工編號重複回 Conflict
+    async fn insert(&self, plant: &PlantId, employee: &Employee) -> Result<(), RepoError>;
+    async fn update(&self, plant: &PlantId, employee: &Employee) -> Result<(), RepoError>;
+    /// 回傳是否有刪到資料
+    async fn delete(&self, plant: &PlantId, id: &EmployeeId) -> Result<bool, RepoError>;
 }

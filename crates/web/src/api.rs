@@ -5,13 +5,14 @@
 
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CopyPermissionsRequest,
-    CopyUserPermissionsRequest, CreateItemRequest, GeneratePermissionsRequest, GrantRequest,
+    CopyUserPermissionsRequest, CreateItemRequest, DepartmentAccountingInput, DepartmentDto,
+    DepartmentInput, EmployeeDto, EmployeeInput, GeneratePermissionsRequest, GrantRequest,
     IndexDto, ItemDto, LegacyTableDto, LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto,
     MyPermissionDto, NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page,
     PermissionBatchResultDto, PermissionClassDto, PermissionClassInput, PlantDto, PlantInput,
     ProgramDto, ProgramInput, ProgramPermissionDto, ProgramPermissionInput, QueryRequest,
-    TableDictionaryDto, TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto, UserInput,
-    UserPermissionDto, UserPermissionInput,
+    SessionDto, SwitchPlantInput, TableDictionaryDto, TableDictionaryInput, TableTextDto,
+    UpdatedCountDto, UserDto, UserInput, UserPermissionDto, UserPermissionInput,
 };
 
 fn base_url() -> String {
@@ -121,6 +122,24 @@ async fn no_content(res: reqwest::Response) -> Result<(), String> {
     } else {
         Err(error_message(res).await)
     }
+}
+
+/// 目前的連線（sign_in.feature）：登入者、目前營運中心、可切換的營運中心
+pub async fn session() -> Result<SessionDto, String> {
+    get_json(url("/api/session")).await
+}
+
+/// 切換營運中心（aoos901）
+pub async fn switch_plant(plant: &str) -> Result<SessionDto, String> {
+    let res = reqwest::Client::new()
+        .put(url("/api/session/plant"))
+        .json(&SwitchPlantInput {
+            plant_id: plant.to_owned(),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
 }
 
 /// 目前使用者在此作業的有效權限（authorization.feature AQ13）
@@ -405,6 +424,11 @@ fn class_url(code: &str, suffix: &str) -> String {
         "/api/permission-classes/{}{suffix}",
         urlencoding(code)
     ))
+}
+
+/// 全部營運中心（下拉選單用的參考清單，authorization.feature AQ4）
+pub async fn list_plants() -> Result<Vec<PlantDto>, String> {
+    get_json(url("/api/plants")).await
 }
 
 pub async fn list_classes() -> Result<Vec<PermissionClassDto>, String> {
@@ -740,4 +764,145 @@ pub async fn copy_user_permissions(
         target_user: target.to_owned(),
     };
     post_batch(user_url(user, "/copy-permissions"), &body).await
+}
+
+// ----- 部門維護（aooi030）、員工維護（aooi040）：工廠層，路徑帶營運中心 -----
+
+fn plant_part_url(plant: &str, part: &str, key: &str, suffix: &str) -> String {
+    let base = format!("/api/plants/{}/{part}", urlencoding(plant));
+    if key.is_empty() {
+        url(&format!("{base}{suffix}"))
+    } else {
+        url(&format!("{base}/{}{suffix}", urlencoding(key)))
+    }
+}
+
+async fn send_json<T: serde::de::DeserializeOwned, B: serde::Serialize>(
+    method: reqwest::Method,
+    u: String,
+    body: Option<&B>,
+) -> Result<T, String> {
+    let mut req = reqwest::Client::new().request(method, u);
+    if let Some(b) = body {
+        req = req.json(b);
+    }
+    let res = req.send().await.map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn query_departments(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<DepartmentDto>, String> {
+    post_query(plant_part_url(plant, "departments", "", "/query"), req).await
+}
+
+pub async fn create_department(
+    plant: &str,
+    req: &DepartmentInput,
+) -> Result<DepartmentDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "departments", "", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_department(
+    plant: &str,
+    code: &str,
+    req: &DepartmentInput,
+) -> Result<DepartmentDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        plant_part_url(plant, "departments", code, ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn set_department_accounting(
+    plant: &str,
+    code: &str,
+    req: &DepartmentAccountingInput,
+) -> Result<DepartmentDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        plant_part_url(plant, "departments", code, "/accounting"),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn set_department_active(
+    plant: &str,
+    code: &str,
+    active: bool,
+) -> Result<DepartmentDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        plant_part_url(plant, "departments", code, suffix),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_department(plant: &str, code: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(plant_part_url(plant, "departments", code, ""))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn query_employees(plant: &str, req: &QueryRequest) -> Result<Page<EmployeeDto>, String> {
+    post_query(plant_part_url(plant, "employees", "", "/query"), req).await
+}
+
+pub async fn create_employee(plant: &str, req: &EmployeeInput) -> Result<EmployeeDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "employees", "", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_employee(
+    plant: &str,
+    id: &str,
+    req: &EmployeeInput,
+) -> Result<EmployeeDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        plant_part_url(plant, "employees", id, ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn set_employee_active(
+    plant: &str,
+    id: &str,
+    active: bool,
+) -> Result<EmployeeDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        plant_part_url(plant, "employees", id, suffix),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_employee(plant: &str, id: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(plant_part_url(plant, "employees", id, ""))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
 }

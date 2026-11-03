@@ -12,8 +12,9 @@ use ttrs_shared::{IdleActionDto, IdleControlDto, QbeCondition, ReportExtModeDto,
 use crate::ports::ProgramName;
 
 /// (鍵值, 型別)
-const FIELDS: [(&str, FieldType); 27] = [
+const FIELDS: [(&str, FieldType); 28] = [
     ("program_no", FieldType::Text),
+    ("tiptop_program_no", FieldType::Text),
     ("module_code", FieldType::Text),
     ("name", FieldType::Text),
     ("program_group", FieldType::Text),
@@ -146,6 +147,7 @@ pub fn values(p: &Program, names: &[ProgramName], field: &str) -> Vec<Option<Qbe
     let o = &p.other;
     let one = match field {
         "program_no" => code(p.program_no.as_str()),
+        "tiptop_program_no" => text(&p.tiptop_program_no),
         "module_code" => code(p.module.as_str()),
         "name" => {
             return if names.is_empty() {

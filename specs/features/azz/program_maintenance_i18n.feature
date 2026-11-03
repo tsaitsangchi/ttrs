@@ -29,34 +29,34 @@
     假設 模組 "AIM" 已存在
     而且 權限類別 "CLASS1" 已存在
     而且 目前使用者為 "tiptop"，所屬部門 "MIS"，權限類別 "CLASS1"
-    而且 已有程式 "aimi100" 模組 "AIM"
+    而且 已有程式 "item-maintenance" 模組 "AIM"
 
   # gaz_file 主鍵 (gaz01, gaz02)：每個語系一筆
   場景: 依語系分別維護程式名稱與報表抬頭
-    當 使用者以語系 "zh-TW" 將程式 "aimi100" 命名為 "料件基本資料維護作業"，報表抬頭 "料件清單"
-    而且 使用者以語系 "en" 將程式 "aimi100" 命名為 "Item Master Maintenance"，報表抬頭 "Item List"
-    那麼 程式 "aimi100" 的語系名稱應為:
+    當 使用者以語系 "zh-TW" 將程式 "item-maintenance" 命名為 "料件基本資料維護作業"，報表抬頭 "料件清單"
+    而且 使用者以語系 "en" 將程式 "item-maintenance" 命名為 "Item Master Maintenance"，報表抬頭 "Item List"
+    那麼 程式 "item-maintenance" 的語系名稱應為:
       | 語系  | 名稱                    | 報表抬頭  |
       | zh-TW | 料件基本資料維護作業    | 料件清單  |
       | en    | Item Master Maintenance | Item List |
       | zh-CN |                         |           |
 
   場景: 修改某一語系不影響其他語系
-    假設 程式 "aimi100" 在語系 "zh-TW" 名稱為 "料件基本資料維護作業"
-    而且 程式 "aimi100" 在語系 "en" 名稱為 "Item Master Maintenance"
-    當 使用者以語系 "en" 將程式 "aimi100" 命名為 "Item Maintenance"，報表抬頭 ""
-    那麼 程式 "aimi100" 在語系 "zh-TW" 的名稱應為 "料件基本資料維護作業"
-    而且 程式 "aimi100" 在語系 "en" 的名稱應為 "Item Maintenance"
+    假設 程式 "item-maintenance" 在語系 "zh-TW" 名稱為 "料件基本資料維護作業"
+    而且 程式 "item-maintenance" 在語系 "en" 名稱為 "Item Master Maintenance"
+    當 使用者以語系 "en" 將程式 "item-maintenance" 命名為 "Item Maintenance"，報表抬頭 ""
+    那麼 程式 "item-maintenance" 在語系 "zh-TW" 的名稱應為 "料件基本資料維護作業"
+    而且 程式 "item-maintenance" 在語系 "en" 的名稱應為 "Item Maintenance"
 
   場景: 不支援的語系
-    當 使用者以語系 "ja" 將程式 "aimi100" 命名為 "品目マスタ"，報表抬頭 ""
+    當 使用者以語系 "ja" 將程式 "item-maintenance" 命名為 "品目マスタ"，報表抬頭 ""
     那麼 應出現錯誤 "LANGUAGE_NOT_SUPPORTED"
 
   # L2：p_zz_update_zz03 依 g_lang 取名稱；缺少時退回繁中
   場景大綱: 依使用者語系顯示程式名稱
-    假設 程式 "aimi100" 在語系 "zh-TW" 名稱為 "料件基本資料維護作業"
-    而且 程式 "aimi100" 在語系 "en" 名稱為 "Item Master Maintenance"
-    當 使用者以語系 "<語系>" 查看程式 "aimi100"
+    假設 程式 "item-maintenance" 在語系 "zh-TW" 名稱為 "料件基本資料維護作業"
+    而且 程式 "item-maintenance" 在語系 "en" 名稱為 "Item Master Maintenance"
+    當 使用者以語系 "<語系>" 查看程式 "item-maintenance"
     那麼 顯示的程式名稱應為 "<名稱>"
 
     例子:
@@ -67,23 +67,23 @@
 
   # :1973-2101 複製時名稱一併複製（所有語系）
   場景: 複製程式時所有語系名稱一併複製
-    假設 程式 "aimi100" 在語系 "zh-TW" 名稱為 "料件基本資料維護作業"
-    而且 程式 "aimi100" 在語系 "en" 名稱為 "Item Master Maintenance"
-    當 使用者將程式 "aimi100" 複製為 "aimi100c"
-    那麼 程式 "aimi100c" 在語系 "en" 的名稱應為 "Item Master Maintenance"
-    而且 程式 "aimi100c" 在語系 "zh-TW" 的名稱應為 "料件基本資料維護作業"
+    假設 程式 "item-maintenance" 在語系 "zh-TW" 名稱為 "料件基本資料維護作業"
+    而且 程式 "item-maintenance" 在語系 "en" 名稱為 "Item Master Maintenance"
+    當 使用者將程式 "item-maintenance" 複製為 "item-maintenance-copy"
+    那麼 程式 "item-maintenance-copy" 在語系 "en" 的名稱應為 "Item Master Maintenance"
+    而且 程式 "item-maintenance-copy" 在語系 "zh-TW" 的名稱應為 "料件基本資料維護作業"
 
   # :343-346 以名稱查詢時，任一語系符合即符合
   場景: 以英文名稱查詢程式
-    假設 程式 "aimi100" 在語系 "en" 名稱為 "Item Master Maintenance"
+    假設 程式 "item-maintenance" 在語系 "en" 名稱為 "Item Master Maintenance"
     當 使用者以下列條件查詢程式:
       | 欄位     | 條件   |
       | 程式名稱 | Item*  |
-    那麼 查詢結果應為 "aimi100"
+    那麼 查詢結果應為 "item-maintenance"
 
   # gaz_file.sch：gaz03 varchar2(500)、gaz06 varchar2(255)；每個語系各自檢核
   場景大綱: 各語系名稱長度不可超過上限
-    當 使用者以語系 "<語系>" 將程式 "aimi100" 的 "<項目>" 設為 <長度> 個字元
+    當 使用者以語系 "<語系>" 將程式 "item-maintenance" 的 "<項目>" 設為 <長度> 個字元
     那麼 應出現錯誤 "FIELD_TOO_LONG"
 
     例子:

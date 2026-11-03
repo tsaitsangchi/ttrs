@@ -4,6 +4,7 @@
 #   - tiptop/azz/4gl/p_zz.4gl :281-359 p_zz_curs（CONSTRUCT 欄位、SQL 組法、排序、筆數）
 #   - tiptop/azz/4gl/p_zz.4gl :1154-1240 p_zz_q / p_zz_fetch（筆數顯示、F/P/N/L/跳筆）
 #   - QBE 條件語法：Genero BDL CONSTRUCT 的執行期行為，不在 TipTop p_zz 原始碼內，需 Key User 確認實際使用方式
+# 2026-11-03 依 ADR 0008 改用英文程式代號為範例（程式類別欄位必填、TipTop 程式代號可查）；依草稿確認（Key User，2026-11-03）。
 # 狀態：QBE1–QBE7 依草稿假設確認（2026-10-29），進入 Red
 #
 # 設計：QBE 解析器做成共用模組（之後各維護作業共用），Program Maintenance 是第一個使用的作業。
@@ -38,76 +39,84 @@
     而且 權限類別 "CLASS1" 已存在
     而且 目前使用者為 "tiptop"，所屬部門 "MIS"，權限類別 "CLASS1"
     而且 已有下列程式:
-      | 程式代號 | 模組 | 名稱               | 報表類型 | 報表寬度 |
-      | aimi100  | AIM  | 料件基本資料維護作業 | 無       |          |
-      | aimi101  | AIM  | 料件分群碼維護作業   | 無       |          |
-      | aimq102  | AIM  | 料件查詢作業         | 無       |          |
-      | aimr400  | AIM  | 料件清單             | 明細表   | 132      |
-      | agli100  | AGL  | 會計科目維護作業     | 無       |          |
-      | aglr300  | AGL  | 總帳明細表           | 明細表   | 80       |
-      | p_query  | AZZ  | 自訂查詢             | 無       |          |
+      | 程式代號               | 模組 | 程式類別 | 名稱                 | 報表類型 | 報表寬度 |
+      | item-maintenance       | AIM  | I        | 料件基本資料維護作業 | 無       |          |
+      | item-group-maintenance | AIM  | I        | 料件分群碼維護作業   | 無       |          |
+      | item-inquiry           | AIM  | Q        | 料件查詢作業         | 無       |          |
+      | item-list-report       | AIM  | R        | 料件清單             | 明細表   | 132      |
+      | account-maintenance    | AGL  | I        | 會計科目維護作業     | 無       |          |
+      | general-ledger-report  | AGL  | R        | 總帳明細表           | 明細表   | 80       |
+      | custom-query           | AZZ  | I        | 自訂查詢             | 無       |          |
 
   # :350-351 依程式代號排序
   場景: 不輸入條件查詢全部，依程式代號排序
     當 使用者以下列條件查詢程式:
       | 欄位 | 條件 |
-    那麼 查詢結果應為 "agli100,aglr300,aimi100,aimi101,aimq102,aimr400,p_query" 共 7 筆
+    那麼 查詢結果應為 "account-maintenance,custom-query,general-ledger-report,item-group-maintenance,item-inquiry,item-list-report,item-maintenance" 共 7 筆
 
   場景大綱: 程式代號的 QBE 條件
     當 使用者以程式代號 "<條件>" 查詢程式
     那麼 查詢結果應為 "<結果>"
 
     例子: 比對與萬用字元
-      | 條件            | 結果                            |
-      | aimi100         | aimi100                         |
-      | aim*            | aimi100,aimi101,aimq102,aimr400 |
-      | aimi10?         | aimi100,aimi101                 |
-      | *r*             | aglr300,aimr400,p_query         |
+      | 條件             | 結果                                                                 |
+      | item-maintenance | item-maintenance                                                     |
+      | item-*           | item-group-maintenance,item-inquiry,item-list-report,item-maintenance |
+      | item-inquir?     | item-inquiry                                                         |
+      | *report*         | general-ledger-report,item-list-report                               |
 
     例子: 或、範圍、比較
-      | 條件            | 結果                            |
-      | aimi100\|agli100 | agli100,aimi100                 |
-      | aimi100:aimq102 | aimi100,aimi101,aimq102         |
-      | >aimr           | aimr400,p_query                 |
-      | <=agli100       | agli100                         |
-      | <>aimi100       | agli100,aglr300,aimi101,aimq102,aimr400,p_query |
+      | 條件                                     | 結果                                                                 |
+      | item-maintenance\|account-maintenance    | account-maintenance,item-maintenance                                 |
+      | item-group-maintenance:item-list-report  | item-group-maintenance,item-inquiry,item-list-report                 |
+      | >item-list                               | item-list-report,item-maintenance                                    |
+      | <=account-maintenance                    | account-maintenance                                                  |
+      | <>item-maintenance                       | account-maintenance,custom-query,general-ledger-report,item-group-maintenance,item-inquiry,item-list-report |
 
-    # Gherkin 表格內 \\ 代表一個反斜線，下列條件實際為 aim\*；同理 \| 代表 |
+    # Gherkin 表格內 \\ 代表一個反斜線，下列條件實際為 item\*；同理 \| 代表 |
     例子: 跳脫（星號本身不是萬用字元）
-      | 條件            | 結果 |
-      | aim\\*           |      |
+      | 條件     | 結果 |
+      | item\\* |      |
 
   場景: 只輸入等號表示查詢空值
     當 使用者以下列條件查詢程式:
       | 欄位     | 條件 |
       | 報表寬度 | =    |
-    那麼 查詢結果應為 "agli100,aimi100,aimi101,aimq102,p_query"
+    那麼 查詢結果應為 "account-maintenance,custom-query,item-group-maintenance,item-inquiry,item-maintenance"
 
   場景: 數字欄位的範圍條件
     當 使用者以下列條件查詢程式:
       | 欄位     | 條件     |
       | 報表寬度 | 100:200  |
-    那麼 查詢結果應為 "aimr400"
+    那麼 查詢結果應為 "item-list-report"
 
   場景: 下拉欄位以顯示文字為條件
     當 使用者以下列條件查詢程式:
       | 欄位     | 條件   |
       | 報表類型 | 明細表 |
-    那麼 查詢結果應為 "aglr300,aimr400"
+    那麼 查詢結果應為 "general-ledger-report,item-list-report"
 
   場景: 多個欄位的條件同時成立（AND）
     當 使用者以下列條件查詢程式:
-      | 欄位     | 條件 |
-      | 模組     | AIM  |
-      | 程式代號 | *r*  |
-    那麼 查詢結果應為 "aimr400"
+      | 欄位     | 條件     |
+      | 模組     | AIM      |
+      | 程式代號 | *report* |
+    那麼 查詢結果應為 "item-list-report"
 
   # :343-346 有名稱條件時才 join gaz_file；名稱多語系時同一程式只算一筆（UNIQUE）
   場景: 以程式名稱查詢
     當 使用者以下列條件查詢程式:
       | 欄位     | 條件  |
       | 程式名稱 | 料件* |
-    那麼 查詢結果應為 "aimi100,aimi101,aimq102,aimr400" 共 4 筆
+    那麼 查詢結果應為 "item-group-maintenance,item-inquiry,item-list-report,item-maintenance" 共 4 筆
+
+  # ADR 0008 P2 TipTop 程式代號可查詢
+  場景: 以 TipTop 程式代號查詢
+    假設 程式 "item-maintenance" 的 TipTop 程式代號為 "aimi100"
+    當 使用者以下列條件查詢程式:
+      | 欄位            | 條件  |
+      | TipTop 程式代號 | aimi* |
+    那麼 查詢結果應為 "item-maintenance"
 
   場景: 日期欄位的範圍條件
     當 使用者以下列條件查詢程式:
@@ -130,5 +139,5 @@
 
   # QBE7 分頁；:367-370 先算筆數再取資料
   場景: 查詢結果分頁
-    當 使用者以程式代號 "a*" 查詢程式，每頁 2 筆，取第 2 頁
-    那麼 查詢結果應為 "aimi100,aimi101" 共 6 筆
+    當 使用者以程式代號 "item-*" 查詢程式，每頁 2 筆，取第 2 頁
+    那麼 查詢結果應為 "item-list-report,item-maintenance" 共 4 筆

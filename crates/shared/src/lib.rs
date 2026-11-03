@@ -155,7 +155,7 @@ pub struct ProgramInput {
     pub lang: Option<String>,
     pub program_no: String,
     pub module_code: String,
-    /// 未給時由程式代號推導（a 開頭 7 碼取第 4 碼）
+    /// 必填；模組為 MENU 時為 M（ADR 0008 P3）
     pub program_type: Option<String>,
     /// 預設語系名稱（gaz03）
     pub name: Option<String>,
@@ -185,6 +185,8 @@ pub struct ProgramInput {
     pub report_title: Option<String>,
     /// 設計日期（zz09），未給時為今天
     pub designed_on: Option<NaiveDate>,
+    /// TipTop 程式代號（zz01，ADR 0008 P2）：選填，只用於轉檔與對照
+    pub tiptop_program_no: Option<String>,
     /// 各語系的名稱與報表抬頭，一次儲存（ADR 0005，畫面的 MultilingualField）；
     /// 有給時取代 `lang`、`name`、`report_title`。修改時名稱空白代表清除該語系
     pub names: Vec<ProgramNameDto>,
@@ -221,6 +223,7 @@ pub struct ProgramDto {
     pub remark: Option<String>,
     pub report_title: Option<String>,
     pub designed_on: NaiveDate,
+    pub tiptop_program_no: Option<String>,
     pub created_by: String,
     pub created_dept: String,
     pub updated_by: Option<String>,
@@ -259,6 +262,7 @@ impl ProgramDto {
             remark: self.remark.clone(),
             report_title: self.report_title.clone(),
             designed_on: Some(self.designed_on),
+            tiptop_program_no: self.tiptop_program_no.clone(),
             // 只沿用預設語系的 name/report_title；各語系一次儲存時由呼叫端填 names
             names: Vec::new(),
         }
@@ -336,7 +340,8 @@ pub struct Page<T> {
 /// 程式維護欄位長度上限（字元），供畫面 maxlength 使用。
 /// 來源與檢核在 `ttrs_domain::program::max_len`；兩者由 ttrs-app 的單元測試保證一致。
 pub mod program_max_len {
-    pub const PROGRAM_NO: usize = 20;
+    pub const PROGRAM_NO: usize = 40;
+    pub const TIPTOP_PROGRAM_NO: usize = 20;
     pub const MODULE_CODE: usize = 10;
     pub const DEFAULT_ACTIONS: usize = 3000;
     pub const RUN_COMMAND: usize = 60;
@@ -733,6 +738,37 @@ pub struct PlantInput {
     pub schema_name: Option<String>,
 }
 
+/// 登入後的連線資訊（sign_in.feature SQ9）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SessionDto {
+    /// zx01 使用者代號
+    pub user_id: String,
+    pub name: Option<String>,
+    pub dept_code: Option<String>,
+    pub permission_class: String,
+    /// zx06 偏好語言（畫面語系預設）
+    pub lang: String,
+    /// zx07 多營運中心使用者（可切換營運中心）
+    pub multi_plant: bool,
+    /// 目前營運中心
+    pub plant: String,
+    pub plant_name: String,
+    /// 可切換的營運中心（q_zxy），依代號排序
+    pub plants: Vec<PlantOptionDto>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlantOptionDto {
+    pub plant_id: String,
+    pub name: String,
+}
+
+/// 切換營運中心（aoos901）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SwitchPlantInput {
+    pub plant_id: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlantDto {
     pub plant_id: String,
@@ -936,4 +972,130 @@ impl UserPermissionDto {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CopyUserPermissionsRequest {
     pub target_user: String,
+}
+
+// ---------------------------------------------------------------------------
+// Department Maintenance 部門維護（aooi030 / gem_file；工廠層）
+// ---------------------------------------------------------------------------
+
+/// 部門基本欄位（新增、修改）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DepartmentInput {
+    pub dept_code: String,
+    pub name: Option<String>,
+    pub full_name: Option<String>,
+}
+
+/// 部門會計欄位（aooi030「會計資料維護」）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DepartmentAccountingInput {
+    pub accounting_dept: bool,
+    /// 費用類別 M 管理、P 製造、R 研發、S 銷售
+    pub expense_type: Option<String>,
+    /// 管理類別 1 成本中心、2 利潤中心、3 其他
+    pub control_type: String,
+    /// 對應成本中心；管理類別 1、2 時未給為本部門
+    pub cost_center: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DepartmentDto {
+    pub dept_code: String,
+    pub name: String,
+    pub full_name: Option<String>,
+    pub accounting_dept: bool,
+    pub expense_type: Option<String>,
+    pub control_type: String,
+    pub cost_center: Option<String>,
+    /// 對應成本中心的部門簡稱
+    pub cost_center_name: Option<String>,
+    pub active: bool,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+}
+
+impl DepartmentDto {
+    pub fn to_input(&self) -> DepartmentInput {
+        DepartmentInput {
+            dept_code: self.dept_code.clone(),
+            name: Some(self.name.clone()),
+            full_name: self.full_name.clone(),
+        }
+    }
+
+    pub fn to_accounting(&self) -> DepartmentAccountingInput {
+        DepartmentAccountingInput {
+            accounting_dept: self.accounting_dept,
+            expense_type: self.expense_type.clone(),
+            control_type: self.control_type.clone(),
+            cost_center: self.cost_center.clone(),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::department::max_len 一致）
+pub mod department_max_len {
+    pub const CODE: usize = 10;
+    pub const NAME: usize = 80;
+    pub const FULL_NAME: usize = 80;
+}
+
+// ---------------------------------------------------------------------------
+// Employee Maintenance 員工維護（aooi040 / gen_file；工廠層）
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EmployeeInput {
+    pub employee_id: String,
+    pub name: Option<String>,
+    pub dept_code: Option<String>,
+    pub title: Option<String>,
+    pub extension: Option<String>,
+    pub email: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EmployeeDto {
+    pub employee_id: String,
+    pub name: String,
+    pub dept_code: Option<String>,
+    /// 部門簡稱
+    pub dept_name: Option<String>,
+    pub title: Option<String>,
+    pub extension: Option<String>,
+    pub email: Option<String>,
+    pub active: bool,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+}
+
+impl EmployeeDto {
+    pub fn to_input(&self) -> EmployeeInput {
+        EmployeeInput {
+            employee_id: self.employee_id.clone(),
+            name: Some(self.name.clone()),
+            dept_code: self.dept_code.clone(),
+            title: self.title.clone(),
+            extension: self.extension.clone(),
+            email: self.email.clone(),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::employee::max_len 一致）
+pub mod employee_max_len {
+    pub const ID: usize = 10;
+    pub const NAME: usize = 40;
+    pub const TITLE: usize = 80;
+    pub const EXTENSION: usize = 5;
+    pub const EMAIL: usize = 80;
 }

@@ -15,19 +15,22 @@ use tower_http::{
     trace::TraceLayer,
 };
 use ttrs_app::{
-    Actor, ActorKind, AppError, Authorizer, DataDictionaryService, ItemService,
-    LegacyCatalogService, PermissionClassService, PlantService, ProgramPermissionService,
-    ProgramService, Services, UserPermissionService, UserService, program_service::DEFAULT_LANG,
+    Actor, ActorKind, AppError, Authorizer, DataDictionaryService, DepartmentService,
+    EmployeeService, ItemService, LegacyCatalogService, PermissionClassService, PlantService,
+    ProgramPermissionService, ProgramService, Services, SignInService, UserPermissionService,
+    UserService, program_service::DEFAULT_LANG,
 };
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CopyPermissionsRequest,
-    CopyUserPermissionsRequest, CreateItemRequest, GeneratePermissionsRequest, GrantRequest,
+    CopyUserPermissionsRequest, CreateItemRequest, DepartmentAccountingInput, DepartmentDto,
+    DepartmentInput, EmployeeDto, EmployeeInput, GeneratePermissionsRequest, GrantRequest,
     IndexDto, ItemDto, LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto,
     MenuPermissionsRequest, MigrationDto, MyPermissionDto, NewPlantIdRequest, NewProgramNoRequest,
     NewUserIdRequest, Page, PermissionBatchResultDto, PermissionClassDto, PermissionClassInput,
     PlantDto, PlantInput, ProgramDto, ProgramInput, ProgramNameDto, ProgramPermissionDto,
-    ProgramPermissionInput, QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto,
-    UpdatedCountDto, UserDto, UserInput, UserPermissionDto, UserPermissionInput,
+    ProgramPermissionInput, QueryRequest, SessionDto, SwitchPlantInput, TableDictionaryDto,
+    TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto, UserInput, UserPermissionDto,
+    UserPermissionInput,
 };
 
 #[derive(Clone)]
@@ -41,6 +44,9 @@ pub struct AppState {
     pub plants: PlantService,
     pub permissions: ProgramPermissionService,
     pub special: UserPermissionService,
+    pub departments: DepartmentService,
+    pub employees: EmployeeService,
+    pub sign_in: SignInService,
     /// 權限檢查（ADR 0006 §4）：各 use case 已在 app 層檢查，這裡只供查詢有效權限
     pub authorizer: Arc<dyn Authorizer>,
     /// 尚未有登入機制前，所有請求都以此使用者身分執行（見 `actor_from_env`）
@@ -59,6 +65,9 @@ impl AppState {
             plants,
             permissions,
             special,
+            departments,
+            employees,
+            sign_in,
             authorizer,
         } = services;
         Self {
@@ -71,6 +80,9 @@ impl AppState {
             plants,
             permissions,
             special,
+            departments,
+            employees,
+            sign_in,
             authorizer,
             actor,
         }
@@ -92,6 +104,9 @@ pub fn actor_from_env() -> Actor {
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(|| async { "ok" }))
+        // 目前的連線與切換營運中心（sign_in.feature）。公司 SSO（ADR 0006 §1）接上前以開發用身分為登入者
+        .route("/api/session", get(current_session))
+        .route("/api/session/plant", axum::routing::put(switch_plant))
         // 目前使用者的有效權限（authorization.feature AQ13）
         .route("/api/me/permissions/{program}", get(my_permission))
         .route("/api/items", get(list_items).post(create_item))
@@ -177,6 +192,47 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/users/{id}/copy-permissions",
             post(copy_user_permissions),
+        )
+        // Department Maintenance 部門維護（TipTop aooi030；工廠層）
+        .route("/api/plants/{plant}/departments", post(create_department))
+        .route(
+            "/api/plants/{plant}/departments/query",
+            post(query_departments),
+        )
+        .route(
+            "/api/plants/{plant}/departments/{code}",
+            get(get_department)
+                .put(update_department)
+                .delete(delete_department),
+        )
+        .route(
+            "/api/plants/{plant}/departments/{code}/accounting",
+            axum::routing::put(set_department_accounting),
+        )
+        .route(
+            "/api/plants/{plant}/departments/{code}/deactivate",
+            post(deactivate_department),
+        )
+        .route(
+            "/api/plants/{plant}/departments/{code}/activate",
+            post(activate_department),
+        )
+        // Employee Maintenance 員工維護（TipTop aooi040；工廠層）
+        .route("/api/plants/{plant}/employees", post(create_employee))
+        .route("/api/plants/{plant}/employees/query", post(query_employees))
+        .route(
+            "/api/plants/{plant}/employees/{id}",
+            get(get_employee)
+                .put(update_employee)
+                .delete(delete_employee),
+        )
+        .route(
+            "/api/plants/{plant}/employees/{id}/deactivate",
+            post(deactivate_employee),
+        )
+        .route(
+            "/api/plants/{plant}/employees/{id}/activate",
+            post(activate_employee),
         )
         // Plant Maintenance 營運中心維護（TipTop aooi901）
         .route("/api/plants", get(list_plants).post(create_plant))
@@ -691,7 +747,11 @@ impl IntoResponse for HttpError {
             | "DICT_NOT_FOUND"
             | "LEGACY_TABLE_NOT_FOUND"
             | "USER_NOT_FOUND"
-            | "PERMISSION_NOT_FOUND" => StatusCode::NOT_FOUND,
+            | "PERMISSION_NOT_FOUND"
+            | "DEPARTMENT_NOT_FOUND"
+            | "EMPLOYEE_NOT_FOUND" => StatusCode::NOT_FOUND,
+            "USER_NOT_REGISTERED" | "USER_INACTIVE" | "USER_EXPIRED" => StatusCode::UNAUTHORIZED,
+            "PLANT_NOT_ALLOWED" => StatusCode::FORBIDDEN,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
             | "ITEM_HAS_TRANSACTIONS"
@@ -705,6 +765,9 @@ impl IntoResponse for HttpError {
             | "PLANT_ALREADY_EXISTS"
             | "PLANT_IN_USE"
             | "PLANT_SCHEMA_DUPLICATE"
+            | "DEPARTMENT_ALREADY_EXISTS"
+            | "DEPARTMENT_IN_USE"
+            | "EMPLOYEE_ALREADY_EXISTS"
             | "PERMISSION_ALREADY_EXISTS"
             | "USER_PERMISSION_DUPLICATE"
             | "USER_HAS_SPECIAL_PERMISSIONS" => StatusCode::CONFLICT,
@@ -724,6 +787,21 @@ impl IntoResponse for HttpError {
 }
 
 type ApiResult<T> = Result<T, HttpError>;
+
+async fn current_session(State(s): State<AppState>) -> ApiResult<Json<SessionDto>> {
+    Ok(Json(s.sign_in.revalidate(&s.actor.user_id).await?))
+}
+
+async fn switch_plant(
+    State(s): State<AppState>,
+    Json(input): Json<SwitchPlantInput>,
+) -> ApiResult<Json<SessionDto>> {
+    Ok(Json(
+        s.sign_in
+            .switch_plant(&s.actor.user_id, &input.plant_id)
+            .await?,
+    ))
+}
 
 async fn my_permission(
     State(s): State<AppState>,
@@ -1008,4 +1086,134 @@ async fn export_dictionary(
         format!("\u{feff}{csv}"),
     )
         .into_response())
+}
+
+// ----- 部門維護（aooi030）、員工維護（aooi040）：工廠層，路徑帶營運中心 -----
+
+async fn query_departments(
+    State(s): State<AppState>,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<DepartmentDto>>> {
+    Ok(Json(s.departments.query(&s.actor, &plant, req).await?))
+}
+
+async fn create_department(
+    State(s): State<AppState>,
+    Path(plant): Path<String>,
+    Json(req): Json<DepartmentInput>,
+) -> ApiResult<(StatusCode, Json<DepartmentDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.departments.create(&s.actor, &plant, req).await?),
+    ))
+}
+
+async fn get_department(
+    State(s): State<AppState>,
+    Path((plant, code)): Path<(String, String)>,
+) -> ApiResult<Json<DepartmentDto>> {
+    Ok(Json(s.departments.get(&s.actor, &plant, &code).await?))
+}
+
+async fn update_department(
+    State(s): State<AppState>,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<DepartmentInput>,
+) -> ApiResult<Json<DepartmentDto>> {
+    Ok(Json(
+        s.departments.update(&s.actor, &plant, &code, req).await?,
+    ))
+}
+
+async fn set_department_accounting(
+    State(s): State<AppState>,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<DepartmentAccountingInput>,
+) -> ApiResult<Json<DepartmentDto>> {
+    Ok(Json(
+        s.departments
+            .set_accounting(&s.actor, &plant, &code, req)
+            .await?,
+    ))
+}
+
+async fn deactivate_department(
+    State(s): State<AppState>,
+    Path((plant, code)): Path<(String, String)>,
+) -> ApiResult<Json<DepartmentDto>> {
+    Ok(Json(
+        s.departments.deactivate(&s.actor, &plant, &code).await?,
+    ))
+}
+
+async fn activate_department(
+    State(s): State<AppState>,
+    Path((plant, code)): Path<(String, String)>,
+) -> ApiResult<Json<DepartmentDto>> {
+    Ok(Json(s.departments.activate(&s.actor, &plant, &code).await?))
+}
+
+async fn delete_department(
+    State(s): State<AppState>,
+    Path((plant, code)): Path<(String, String)>,
+) -> ApiResult<StatusCode> {
+    s.departments.delete(&s.actor, &plant, &code).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn query_employees(
+    State(s): State<AppState>,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<EmployeeDto>>> {
+    Ok(Json(s.employees.query(&s.actor, &plant, req).await?))
+}
+
+async fn create_employee(
+    State(s): State<AppState>,
+    Path(plant): Path<String>,
+    Json(req): Json<EmployeeInput>,
+) -> ApiResult<(StatusCode, Json<EmployeeDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.employees.create(&s.actor, &plant, req).await?),
+    ))
+}
+
+async fn get_employee(
+    State(s): State<AppState>,
+    Path((plant, id)): Path<(String, String)>,
+) -> ApiResult<Json<EmployeeDto>> {
+    Ok(Json(s.employees.get(&s.actor, &plant, &id).await?))
+}
+
+async fn update_employee(
+    State(s): State<AppState>,
+    Path((plant, id)): Path<(String, String)>,
+    Json(req): Json<EmployeeInput>,
+) -> ApiResult<Json<EmployeeDto>> {
+    Ok(Json(s.employees.update(&s.actor, &plant, &id, req).await?))
+}
+
+async fn deactivate_employee(
+    State(s): State<AppState>,
+    Path((plant, id)): Path<(String, String)>,
+) -> ApiResult<Json<EmployeeDto>> {
+    Ok(Json(s.employees.deactivate(&s.actor, &plant, &id).await?))
+}
+
+async fn activate_employee(
+    State(s): State<AppState>,
+    Path((plant, id)): Path<(String, String)>,
+) -> ApiResult<Json<EmployeeDto>> {
+    Ok(Json(s.employees.activate(&s.actor, &plant, &id).await?))
+}
+
+async fn delete_employee(
+    State(s): State<AppState>,
+    Path((plant, id)): Path<(String, String)>,
+) -> ApiResult<StatusCode> {
+    s.employees.delete(&s.actor, &plant, &id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }

@@ -12,16 +12,17 @@ use std::{fmt, sync::Arc};
 use cucumber::World;
 use sqlx::PgPool;
 use ttrs_app::{
-    Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService,
-    PermissionClassService, PlantService, ProgramPermissionService, ProgramService, Services,
-    UserPermissionService, UserService, memory::InMemoryStore,
+    Actor, AppError, DataDictionaryService, DepartmentService, EmployeeService, ItemService,
+    LegacyCatalogService, PermissionClassService, PlantService, ProgramPermissionService,
+    ProgramService, Services, SignInService, UserPermissionService, UserService,
+    memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
 
 use crate::toggle_authorizer::ToggleAuthorizer;
 use ttrs_shared::{
     ColumnInfoDto, ConstraintDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto,
-    MyPermissionDto, ProgramDto, QbeCondition, TableDictionaryDto,
+    MyPermissionDto, ProgramDto, QbeCondition, SessionDto, TableDictionaryDto,
 };
 
 pub enum Backend {
@@ -65,10 +66,15 @@ pub struct ErpWorld {
     pub plants: PlantService,
     pub permissions: ProgramPermissionService,
     pub special: UserPermissionService,
+    pub departments: DepartmentService,
+    pub employees: EmployeeService,
     /// 最近一次批次作業的處理筆數（更新所有使用者目錄編號）
     pub updated_count: Option<u64>,
     /// 最近一次查看的有效權限（authorization.feature）
     pub my_permission: Option<MyPermissionDto>,
+    pub sign_in: SignInService,
+    /// 目前登入的連線（sign_in.feature）
+    pub session: Option<SessionDto>,
 }
 
 impl fmt::Debug for ErpWorld {
@@ -119,6 +125,9 @@ impl ErpWorld {
             plants,
             permissions,
             special,
+            departments,
+            employees,
+            sign_in,
             authorizer: _,
         } = services;
         Self {
@@ -146,8 +155,12 @@ impl ErpWorld {
             plants,
             permissions,
             special,
+            departments,
+            employees,
             updated_count: None,
             my_permission: None,
+            sign_in,
+            session: None,
         }
     }
 }

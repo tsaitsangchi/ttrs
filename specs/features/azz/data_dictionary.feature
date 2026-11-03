@@ -115,7 +115,7 @@
     當 使用者查看資料表 "program" 的欄位
     那麼 欄位 "program_no" 應為:
       | 項目     | 值          |
-      | 型別     | varchar(20) |
+      | 型別     | varchar(40) |
       | 不可空白 | 是          |
       | 主鍵     | 是          |
     而且 欄位 "remark" 應為:
@@ -182,7 +182,7 @@
     假設 資料表 "program" 已有字典，模組 "AZZ"
     而且 資料表 "program" 欄位 "program_no" 在語系 "zh-TW" 已說明為 "程式代號"
     當 使用者以語系 "zh-TW" 匯出資料表 "program" 的資料字典
-    那麼 匯出內容應包含一列 "program_no,varchar(20),程式代號,"
+    那麼 匯出內容應包含一列 "program_no,varchar(40),程式代號,"
 
   # D9（ADR 0005 共用退回規則）
   場景: 依顯示語系查看字典，無翻譯時退回繁中
@@ -197,4 +197,4 @@
     假設 資料表 "program" 已有字典，模組 "AZZ"
     而且 資料表 "program" 欄位 "program_no" 在語系 "zh-TW" 已說明為 "程式代號"
     當 使用者以語系 "en" 匯出資料表 "program" 的資料字典
-    那麼 匯出內容應包含一列 "program_no,varchar(20),程式代號,"
+    那麼 匯出內容應包含一列 "program_no,varchar(40),程式代號,"

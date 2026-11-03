@@ -100,7 +100,7 @@ fn opt(v: String) -> Option<String> {
 }
 
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "p_zw";
+const PROGRAM: &str = "permission-class-maintenance";
 
 #[component]
 pub fn PermissionClassMaintenance() -> Element {

@@ -3,7 +3,7 @@
 
 home-title = Welcome to TTRS
 home-intro = TipTop ERP port (Rust + PostgreSQL). Choose a program from the menu on the left.
-item-title = aimi100 Item Master
+item-title = Item Master
 item-field-item-no = Item no.
 item-field-name = Name
 item-field-spec = Specification

@@ -368,9 +368,11 @@ mod tests {
 
     #[test]
     fn header_and_detail_split() {
-        let (h, d) =
-            program_permission::filters(&[cond("class_code", "A*"), cond("program_no", "aimi100")])
-                .unwrap();
+        let (h, d) = program_permission::filters(&[
+            cond("class_code", "A*"),
+            cond("program_no", "item-maintenance"),
+        ])
+        .unwrap();
         assert_eq!((h.len(), d.len()), (1, 1));
     }
 
@@ -378,5 +380,79 @@ mod tests {
     fn paging_defaults() {
         let p = paging(&QueryRequest::default());
         assert_eq!((p.page, p.page_size, p.offset), (1, 50, 0));
+    }
+}
+
+/// 部門維護（aooi030，DQ8）：CONSTRUCT 的 8 個欄位（aooi030.4gl:888-891）
+pub mod department {
+    use ttrs_domain::{department::Department, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: [Field; 8] = [
+        cased("dept_code", Case::Upper),
+        field("name", FieldType::Text),
+        field("full_name", FieldType::Text),
+        field("accounting_dept", FieldType::Flag),
+        cased("expense_type", Case::Upper),
+        field("control_type", FieldType::Text),
+        cased("cost_center", Case::Upper),
+        field("active", FieldType::Flag),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, &FIELDS, as_is)
+    }
+
+    pub fn value(d: &Department, field: &str) -> FieldValue {
+        let a = &d.accounting;
+        match field {
+            "dept_code" => text(d.code.as_str()),
+            "name" => text(&d.attrs.name),
+            "full_name" => opt_text(d.attrs.full_name.as_deref()),
+            "accounting_dept" => flag(a.accounting_dept),
+            "expense_type" => opt_text(a.expense_type.map(|e| e.code())),
+            "control_type" => text(a.control_type.code()),
+            "cost_center" => opt_text(a.cost_center.as_ref().map(|c| c.as_str())),
+            "active" => flag(d.active),
+            _ => FieldValue::One(None),
+        }
+    }
+}
+
+/// 員工維護（aooi040，EQ8）：CONSTRUCT 的 7 個欄位（aooi040.4gl:628-630）
+pub mod employee {
+    use ttrs_domain::{employee::Employee, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: [Field; 7] = [
+        cased("employee_id", Case::Upper),
+        field("name", FieldType::Text),
+        cased("dept_code", Case::Upper),
+        field("title", FieldType::Text),
+        field("extension", FieldType::Text),
+        field("email", FieldType::Text),
+        field("active", FieldType::Flag),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, &FIELDS, as_is)
+    }
+
+    pub fn value(e: &Employee, field: &str) -> FieldValue {
+        let a = &e.attrs;
+        match field {
+            "employee_id" => text(e.id.as_str()),
+            "name" => text(&a.name),
+            "dept_code" => opt_text(a.dept_code.as_ref().map(|d| d.as_str())),
+            "title" => opt_text(a.title.as_deref()),
+            "extension" => opt_text(a.extension.as_deref()),
+            "email" => opt_text(a.email.as_deref()),
+            "active" => flag(e.active),
+            _ => FieldValue::One(None),
+        }
     }
 }

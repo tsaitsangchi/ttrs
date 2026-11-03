@@ -62,7 +62,7 @@ fn opt(v: String) -> Option<String> {
 }
 
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "aooi901";
+const PROGRAM: &str = "plant-maintenance";
 
 #[component]
 pub fn PlantMaintenance() -> Element {

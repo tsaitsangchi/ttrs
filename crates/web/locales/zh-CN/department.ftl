@@ -1,0 +1,39 @@
+# Department Maintenance 部門維護（TipTop aooi030）
+# 語系：zh-CN。ID 規則見 docs/adr/0005-i18n.md；三個語系的 ID 必須一致。
+
+dept-breadcrumb = 整体管理 / Department Maintenance
+dept-title = 部门维护
+dept-list-title = 部门
+dept-field-code = 部门编号
+dept-field-name = 部门简称
+dept-field-full-name = 部门全称
+dept-field-accounting = 会计部门
+dept-field-expense = 费用类别
+dept-field-control = 管理类别
+dept-field-cost-center = 对应成本中心
+dept-field-active = 资料有效
+dept-opt-none = （无）
+dept-opt-expense-m = 管理费用
+dept-opt-expense-p = 制造费用
+dept-opt-expense-r = 研发费用
+dept-opt-expense-s = 销售费用
+dept-opt-control-1 = 成本中心
+dept-opt-control-2 = 利润中心
+dept-opt-control-3 = 其他
+dept-opt-yes = 是
+dept-opt-no = 否
+dept-status-active = 有效
+dept-status-inactive = 无效
+dept-action-accounting = 会计资料维护
+dept-action-activate = 启用
+dept-action-deactivate = 停用
+dept-dialog-new = 新增部门
+dept-dialog-edit = 修改部门 { $code }
+dept-dialog-accounting = 会计资料维护：{ $code }
+dept-msg-saved = 部门 { $code } 已保存
+dept-msg-deleted = 部门 { $code } 已删除
+dept-msg-activated = 部门 { $code } 已启用
+dept-msg-deactivated = 部门 { $code } 已停用
+dept-hint-qbe-expense = M 管理、P 制造、R 研发、S 销售
+dept-hint-qbe-control = 1 成本中心、2 利润中心、3 其他
+dept-hint-cost-center = 管理类别为成本中心或利润中心时必填，空白为本部门

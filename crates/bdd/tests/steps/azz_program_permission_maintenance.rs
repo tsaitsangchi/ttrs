@@ -43,6 +43,7 @@ async fn program_with_actions(
     default_actions: String,
 ) {
     let req = ProgramInput {
+        program_type: Some("I".into()),
         program_no: no,
         module_code: module,
         default_actions: Some(default_actions),

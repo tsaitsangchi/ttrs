@@ -60,7 +60,7 @@ Handled by the IdP (including MFA, lockout, password policy), not ported: `zx10`
 
 ### 4. Authorization: keep TipTop's model
 
-- Data imports directly: permission class (zw), program permission (zy), user permission (zxw), department permission group (zyw), custom action mapping (gbl).
+- Data imports after program-code mapping (ADR 0008 E7): permission class (zw), program permission (zy), user permission (zxw), department permission group (zyw), custom action mapping (gbl). TipTop program codes (zz01) are translated to English program codes via `program.tiptop_program_no`; rows for programs not ported are skipped and listed.
 - **Action vocabulary** uses TipTop action IDs (`insert`, `modify`, `delete`, `query`, `output`, `detail`, `reproduce`, `invalid`, `confirm`, …), so the comma-separated `zy03` list imports as is.
 - **Effective permission** = the `cl_set_priv` merge rules (union of actions, most permissive data permission), implemented as a pure domain function and covered by the p_zy spec BDD.
 - **Enforced in the app layer**: each use case declares its (program code, action); `Authorizer` (an app port) loads the effective permission;

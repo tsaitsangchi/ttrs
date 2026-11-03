@@ -80,14 +80,14 @@
     而且 權限類別 "CLASS1" 已存在
     而且 權限類別 "SALES" 已存在
     而且 模組 "AIM" 已存在
-    而且 已有程式 "aimi100" 模組 "AIM"，可執行功能 "insert, query, modify, delete, reproduce"
-    而且 已有程式 "aimi101" 模組 "AIM"，可執行功能 "query, output"
+    而且 已有程式 "item-maintenance" 模組 "AIM"，可執行功能 "insert, query, modify, delete, reproduce"
+    而且 已有程式 "item-master" 模組 "AIM"，可執行功能 "query, output"
 
   # p_zy.4gl:700-741、916-933 新增：允許執行功能帶入程式的基本執行功能，資料權限預設 0（Y3）
   場景: 新增程式權限帶入預設值
-    當 使用者為權限類別 "SALES" 新增程式 "aimi100" 的權限
+    當 使用者為權限類別 "SALES" 新增程式 "item-maintenance" 的權限
     那麼 操作應成功
-    而且 權限類別 "SALES" 的程式 "aimi100" 權限應為:
+    而且 權限類別 "SALES" 的程式 "item-maintenance" 權限應為:
       | 欄位           | 值                                       |
       | 允許執行功能   | insert, query, modify, delete, reproduce |
       | 他人資料權限   | 0                                        |
@@ -97,42 +97,42 @@
 
   # Y1 動作代號去空白、轉小寫，依程式的功能順序存放
   場景: 允許執行功能依程式的功能順序存放
-    當 使用者為權限類別 "SALES" 新增程式 "aimi100" 的權限，允許執行功能 " QUERY , insert "
+    當 使用者為權限類別 "SALES" 新增程式 "item-maintenance" 的權限，允許執行功能 " QUERY , insert "
     那麼 操作應成功
-    而且 權限類別 "SALES" 的程式 "aimi100" 允許執行功能應為 "insert, query"
+    而且 權限類別 "SALES" 的程式 "item-maintenance" 允許執行功能應為 "insert, query"
 
   # s_act_define.4gl:98-165 只能勾選程式提供的功能（Y1）
   場景: 不可設定程式沒有提供的功能
-    當 使用者為權限類別 "SALES" 新增程式 "aimi101" 的權限，允許執行功能 "query, delete"
+    當 使用者為權限類別 "SALES" 新增程式 "item-master" 的權限，允許執行功能 "query, delete"
     那麼 應出現錯誤 "PERMISSION_ACTION_NOT_ALLOWED"
 
   場景: 允許執行功能可以全部不勾
-    當 使用者為權限類別 "SALES" 新增程式 "aimi101" 的權限，允許執行功能 ""
+    當 使用者為權限類別 "SALES" 新增程式 "item-master" 的權限，允許執行功能 ""
     那麼 操作應成功
-    而且 權限類別 "SALES" 的程式 "aimi101" 允許執行功能應為 ""
+    而且 權限類別 "SALES" 的程式 "item-master" 允許執行功能應為 ""
 
   # p_zy.4gl:765-783 同一權限類別的程式不可重複（-239）
   場景: 同一權限類別不可重複設定同一程式
-    假設 權限類別 "SALES" 可執行程式 "aimi100"
-    當 使用者為權限類別 "SALES" 新增程式 "aimi100" 的權限
+    假設 權限類別 "SALES" 可執行程式 "item-maintenance"
+    當 使用者為權限類別 "SALES" 新增程式 "item-maintenance" 的權限
     那麼 應出現錯誤 "PERMISSION_ALREADY_EXISTS"
 
   # p_zy.4gl:916-924 程式必須存在；Y6 選單程式不設定權限
   場景大綱: 程式必須存在且不是選單
-    假設 選單程式 "menu_inv" 已存在
+    假設 選單程式 "menu-inv" 已存在
     當 使用者為權限類別 "SALES" 新增程式 "<程式>" 的權限
     那麼 應出現錯誤 "<錯誤>"
 
     例子:
       | 程式     | 錯誤                   |
-      | aimi999  | PROGRAM_NOT_FOUND      |
-      | menu_inv | MENU_HAS_NO_PERMISSION |
+      | item-unknown  | PROGRAM_NOT_FOUND      |
+      | menu-inv | MENU_HAS_NO_PERMISSION |
 
   # p_zy.4gl:389-401、638-643 權限類別必須存在且有效（azz-218，Y5）
   場景大綱: 權限類別必須存在且有效
     假設 權限類別 "TEMP" 已存在
     而且 使用者停用權限類別 "TEMP"
-    當 使用者為權限類別 "<權限類別>" 新增程式 "aimi100" 的權限
+    當 使用者為權限類別 "<權限類別>" 新增程式 "item-maintenance" 的權限
     那麼 應出現錯誤 "<錯誤>"
 
     例子:
@@ -142,8 +142,8 @@
 
   # p_zy.per zy04 0–4、zy05 0–8、zy07 0–3（Y4）
   場景大綱: 資料權限代碼必須在範圍內
-    假設 權限類別 "SALES" 可執行程式 "aimi100"
-    當 使用者將權限類別 "SALES" 的程式 "aimi100" 的<欄位>設為 "<代碼>"
+    假設 權限類別 "SALES" 可執行程式 "item-maintenance"
+    當 使用者將權限類別 "SALES" 的程式 "item-maintenance" 的<欄位>設為 "<代碼>"
     那麼 應出現錯誤 "PERMISSION_LEVEL_INVALID"
 
     例子:
@@ -154,33 +154,33 @@
 
   # p_zy.4gl:785-817 修改；Y12 記錄修改者
   場景: 修改程式權限記錄修改者
-    假設 權限類別 "SALES" 可執行程式 "aimi100"
-    當 使用者將權限類別 "SALES" 的程式 "aimi100" 的他部門資料權限設為 "7"
+    假設 權限類別 "SALES" 可執行程式 "item-maintenance"
+    當 使用者將權限類別 "SALES" 的程式 "item-maintenance" 的他部門資料權限設為 "7"
     那麼 操作應成功
-    而且 權限類別 "SALES" 的程式 "aimi100" 權限應為:
+    而且 權限類別 "SALES" 的程式 "item-maintenance" 權限應為:
       | 欄位           | 值     |
       | 他部門資料權限 | 7      |
       | 最後修改者     | tiptop |
 
   # p_zy.4gl:743-763 移除單一程式權限
   場景: 移除單一程式權限
-    假設 權限類別 "SALES" 可執行程式 "aimi100"
-    當 使用者移除權限類別 "SALES" 的程式 "aimi100" 的權限
+    假設 權限類別 "SALES" 可執行程式 "item-maintenance"
+    當 使用者移除權限類別 "SALES" 的程式 "item-maintenance" 的權限
     那麼 操作應成功
-    而且 權限類別 "SALES" 應不擁有程式 "aimi100" 的權限
+    而且 權限類別 "SALES" 應不擁有程式 "item-maintenance" 的權限
 
   # p_zy.4gl:561-593 有使用者屬於此權限類別時不可刪除全部權限（azz-217，Y7）
   場景: 有使用者的權限類別不可刪除全部權限
     假設 營運中心 "TW01" 已啟用
-    而且 選單程式 "menu_main" 已存在
-    而且 權限類別 "SALES" 可執行程式 "aimi100"
-    而且 已有使用者 "u001"，權限類別 "SALES"，選單 "menu_main"
+    而且 選單程式 "menu-main" 已存在
+    而且 權限類別 "SALES" 可執行程式 "item-maintenance"
+    而且 已有使用者 "u001"，權限類別 "SALES"，選單 "menu-main"
     當 使用者刪除權限類別 "SALES" 的全部權限
     那麼 應出現錯誤 "PERMISSION_CLASS_IN_USE"
 
   場景: 刪除權限類別的全部權限
-    假設 權限類別 "SALES" 可執行程式 "aimi100"
-    而且 權限類別 "SALES" 可執行程式 "aimi101"
+    假設 權限類別 "SALES" 可執行程式 "item-maintenance"
+    而且 權限類別 "SALES" 可執行程式 "item-master"
     當 使用者刪除權限類別 "SALES" 的全部權限
     那麼 操作應成功
     而且 權限類別 "SALES" 應沒有程式權限
@@ -188,54 +188,54 @@
   # p_zy.4gl:1164-1255 複製到另一個權限類別：目標需存在、有效且尚無權限（Y8）
   場景: 複製權限到另一個權限類別
     假設 權限類別 "MFG" 已存在
-    而且 權限類別 "SALES" 可執行程式 "aimi100"
-    而且 使用者將權限類別 "SALES" 的程式 "aimi100" 的他人資料權限設為 "3"
+    而且 權限類別 "SALES" 可執行程式 "item-maintenance"
+    而且 使用者將權限類別 "SALES" 的程式 "item-maintenance" 的他人資料權限設為 "3"
     當 使用者將權限類別 "SALES" 的權限複製到 "MFG"
     那麼 操作應成功
-    而且 權限類別 "MFG" 的程式 "aimi100" 權限應為:
+    而且 權限類別 "MFG" 的程式 "item-maintenance" 權限應為:
       | 欄位         | 值     |
       | 他人資料權限 | 3      |
       | 資料所有者   | tiptop |
 
   場景: 複製的目標權限類別已有權限時不可複製
     假設 權限類別 "MFG" 已存在
-    而且 權限類別 "SALES" 可執行程式 "aimi100"
-    而且 權限類別 "MFG" 可執行程式 "aimi101"
+    而且 權限類別 "SALES" 可執行程式 "item-maintenance"
+    而且 權限類別 "MFG" 可執行程式 "item-master"
     當 使用者將權限類別 "SALES" 的權限複製到 "MFG"
     那麼 應出現錯誤 "PERMISSION_CLASS_HAS_PERMISSIONS"
 
   # p_zy.4gl:1257-1488 依程式整批產生：已有的程式略過（Y9）
   場景: 依程式整批產生權限
-    假設 權限類別 "SALES" 可執行程式 "aimi100"
-    而且 使用者將權限類別 "SALES" 的程式 "aimi100" 的他人資料權限設為 "3"
-    當 使用者為權限類別 "SALES" 依程式整批產生 "aimi100、aimi101" 的權限
+    假設 權限類別 "SALES" 可執行程式 "item-maintenance"
+    而且 使用者將權限類別 "SALES" 的程式 "item-maintenance" 的他人資料權限設為 "3"
+    當 使用者為權限類別 "SALES" 依程式整批產生 "item-maintenance、item-master" 的權限
     那麼 新增的權限筆數應為 1
-    而且 權限類別 "SALES" 的程式 "aimi101" 允許執行功能應為 "query, output"
-    而且 權限類別 "SALES" 的程式 "aimi100" 權限應為:
+    而且 權限類別 "SALES" 的程式 "item-master" 允許執行功能應為 "query, output"
+    而且 權限類別 "SALES" 的程式 "item-maintenance" 權限應為:
       | 欄位         | 值 |
       | 他人資料權限 | 3  |
 
   # p_zy.4gl:1490-1694 依選單整批產生：含子選單內的程式，選單本身不設定（Y6、Y10）
   場景: 依選單整批產生權限
-    假設 選單程式 "menu_inv" 已存在
-    而且 選單程式 "menu_sub" 已存在
-    而且 選單 "menu_inv" 包含程式 "aimi100"
-    而且 選單 "menu_inv" 包含程式 "menu_sub"
-    而且 選單 "menu_sub" 包含程式 "aimi101"
-    當 使用者為權限類別 "SALES" 依選單 "menu_inv" 整批產生權限
+    假設 選單程式 "menu-inv" 已存在
+    而且 選單程式 "menu-sub" 已存在
+    而且 選單 "menu-inv" 包含程式 "item-maintenance"
+    而且 選單 "menu-inv" 包含程式 "menu-sub"
+    而且 選單 "menu-sub" 包含程式 "item-master"
+    當 使用者為權限類別 "SALES" 依選單 "menu-inv" 整批產生權限
     那麼 新增的權限筆數應為 2
-    而且 權限類別 "SALES" 應擁有程式 "aimi100" 的權限
-    而且 權限類別 "SALES" 應擁有程式 "aimi101" 的權限
-    而且 權限類別 "SALES" 應不擁有程式 "menu_sub" 的權限
+    而且 權限類別 "SALES" 應擁有程式 "item-maintenance" 的權限
+    而且 權限類別 "SALES" 應擁有程式 "item-master" 的權限
+    而且 權限類別 "SALES" 應不擁有程式 "menu-sub" 的權限
 
   # Y10 已有的程式權限預設不變；勾選「重設為預設值」時才重設（TipTop p_zy_k2 預設全部重設）
   場景大綱: 依選單整批產生時已有的權限
-    假設 選單程式 "menu_inv" 已存在
-    而且 選單 "menu_inv" 包含程式 "aimi100"
-    而且 權限類別 "SALES" 可執行程式 "aimi100"
-    而且 使用者將權限類別 "SALES" 的程式 "aimi100" 的他人資料權限設為 "3"
-    當 使用者為權限類別 "SALES" 依選單 "menu_inv" 整批產生權限，重設已有權限 "<重設>"
-    那麼 權限類別 "SALES" 的程式 "aimi100" 權限應為:
+    假設 選單程式 "menu-inv" 已存在
+    而且 選單 "menu-inv" 包含程式 "item-maintenance"
+    而且 權限類別 "SALES" 可執行程式 "item-maintenance"
+    而且 使用者將權限類別 "SALES" 的程式 "item-maintenance" 的他人資料權限設為 "3"
+    當 使用者為權限類別 "SALES" 依選單 "menu-inv" 整批產生權限，重設已有權限 "<重設>"
+    那麼 權限類別 "SALES" 的程式 "item-maintenance" 權限應為:
       | 欄位         | 值       |
       | 他人資料權限 | <結果>   |
 
@@ -245,18 +245,18 @@
       | 是   | 0    |
 
   場景: 整批產生的選單必須是選單程式
-    當 使用者為權限類別 "SALES" 依選單 "aimi100" 整批產生權限
+    當 使用者為權限類別 "SALES" 依選單 "item-maintenance" 整批產生權限
     那麼 應出現錯誤 "MENU_PROGRAM_INVALID"
 
   # p_zy.4gl:1696-1857 依選單整批刪除（含子選單內的程式，Y11）
   場景: 依選單整批刪除權限
-    假設 選單程式 "menu_inv" 已存在
-    而且 選單程式 "menu_sub" 已存在
-    而且 選單 "menu_inv" 包含程式 "menu_sub"
-    而且 選單 "menu_sub" 包含程式 "aimi101"
-    而且 權限類別 "SALES" 可執行程式 "aimi100"
-    而且 權限類別 "SALES" 可執行程式 "aimi101"
-    當 使用者為權限類別 "SALES" 依選單 "menu_inv" 整批刪除權限
+    假設 選單程式 "menu-inv" 已存在
+    而且 選單程式 "menu-sub" 已存在
+    而且 選單 "menu-inv" 包含程式 "menu-sub"
+    而且 選單 "menu-sub" 包含程式 "item-master"
+    而且 權限類別 "SALES" 可執行程式 "item-maintenance"
+    而且 權限類別 "SALES" 可執行程式 "item-master"
+    當 使用者為權限類別 "SALES" 依選單 "menu-inv" 整批刪除權限
     那麼 操作應成功
-    而且 權限類別 "SALES" 應不擁有程式 "aimi101" 的權限
-    而且 權限類別 "SALES" 應擁有程式 "aimi100" 的權限
+    而且 權限類別 "SALES" 應不擁有程式 "item-master" 的權限
+    而且 權限類別 "SALES" 應擁有程式 "item-maintenance" 的權限

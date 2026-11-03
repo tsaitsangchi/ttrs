@@ -17,7 +17,7 @@ use crate::{
 };
 
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "aimi100";
+const PROGRAM: &str = "item-maintenance";
 
 #[derive(Clone)]
 pub struct ItemService {

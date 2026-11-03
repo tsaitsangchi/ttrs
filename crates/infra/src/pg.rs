@@ -164,7 +164,7 @@ impl ItemRepository for PgStore {
 }
 
 impl PgStore {
-    async fn required_plant_tx(
+    pub(crate) async fn required_plant_tx(
         &self,
         plant: &PlantId,
     ) -> Result<sqlx::Transaction<'static, sqlx::Postgres>, RepoError> {

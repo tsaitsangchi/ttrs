@@ -24,37 +24,65 @@ use crate::{
     ports::{ProgramPermissionRepository, UserPermissionRepository},
 };
 
-/// TTRS 已移植、經 Authorizer 檢查的作業：(程式代號, 模組, 功能清單)。
-/// 起始資料（AQ11）：登錄這些程式並給權限類別 ADMIN 全部功能；須與 migrations/0015_authorization_seed.sql 對齊
-pub const PORTED_PROGRAMS: &[(&str, &str, &str)] = &[
+/// TTRS 已移植、經 Authorizer 檢查的作業：(英文程式代號, TipTop 程式代號, 模組, 功能清單)
+/// （docs/adr/0008-english-program-codes.md、docs/legacy-map/programs.yaml）。
+/// 起始資料（AQ11）：登錄這些程式並給權限類別 ADMIN 全部功能；須與 migrations/0015、0017、0018 對齊
+pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
     (
+        "program-maintenance",
         "p_zz",
         "AZZ",
         "insert, query, modify, delete, reproduce, authorization",
     ),
     (
+        "data-dictionary",
         "p_zta",
         "AZZ",
         "insert, query, modify, delete, maintain_table_description, maintain_field_description, exporttoexcel, zta_import",
     ),
     (
+        "user-maintenance",
         "p_zx",
         "AZZ",
         "insert, query, modify, delete, reproduce, invalid",
     ),
-    ("p_zw", "AZZ", "query, detail"),
-    ("aooi901", "AOO", "insert, query, modify, delete, reproduce"),
     (
+        "permission-class-maintenance",
+        "p_zw",
+        "AZZ",
+        "query, detail",
+    ),
+    (
+        "plant-maintenance",
+        "aooi901",
+        "AOO",
+        "insert, query, modify, delete, reproduce",
+    ),
+    (
+        "program-permission-maintenance",
         "p_zy",
         "AZZ",
         "query, delete, reproduce, detail, batch_gen_by_prog, batch_gen_by_menu, batch_del_by_menu",
     ),
-    ("p_zxw", "AZZ", "query, delete, reproduce, detail"),
     (
+        "user-permission-maintenance",
+        "p_zxw",
+        "AZZ",
+        "query, delete, reproduce, detail",
+    ),
+    (
+        "item-maintenance",
         "aimi100",
         "AIM",
         "insert, query, delete, confirm, notconfirm",
     ),
+    (
+        "department-maintenance",
+        "aooi030",
+        "AOO",
+        "query, detail, account",
+    ),
+    ("employee-maintenance", "aooi040", "AOO", "query, detail"),
 ];
 
 /// 身分種類（ADR 0006 §6）

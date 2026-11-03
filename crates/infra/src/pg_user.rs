@@ -119,7 +119,14 @@ async fn replace_plants(
         .execute(&mut **tx)
         .await
         .map_err(db_err)?;
-    for p in plants {
+    // zxy03＝ALL 記在 user_account.all_plants（migration 0019）
+    sqlx::query("UPDATE user_account SET all_plants = $2 WHERE user_id = $1")
+        .bind(user.as_str())
+        .bind(plants.iter().any(PlantId::is_all))
+        .execute(&mut **tx)
+        .await
+        .map_err(db_err)?;
+    for p in plants.iter().filter(|p| !p.is_all()) {
         sqlx::query("INSERT INTO user_plant (user_id, plant_id) VALUES ($1, $2)")
             .bind(user.as_str())
             .bind(p.as_str())
@@ -262,9 +269,22 @@ impl UserRepository for PgStore {
         .fetch_all(&self.pool)
         .await
         .map_err(db_err)?;
-        rows.into_iter()
+        let mut plants = rows
+            .into_iter()
             .map(|(p,)| PlantId::parse(&p).map_err(|_| bad("plant_id", &p)))
-            .collect()
+            .collect::<Result<Vec<_>, _>>()?;
+        let (all,): (bool,) =
+            sqlx::query_as("SELECT all_plants FROM user_account WHERE user_id = $1")
+                .bind(id.as_str())
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(db_err)?
+                .unwrap_or((false,));
+        if all {
+            plants.push(PlantId::all());
+            plants.sort();
+        }
+        Ok(plants)
     }
 
     async fn find_by_idp_username(&self, username: &str) -> Result<Option<UserId>, RepoError> {
@@ -277,5 +297,36 @@ impl UserRepository for PgStore {
         .map_err(db_err)?;
         row.map(|(id,)| UserId::parse(&id).map_err(|_| bad("user_id", &id)))
             .transpose()
+    }
+
+    async fn find_by_idp_subject(&self, subject: &str) -> Result<Option<UserId>, RepoError> {
+        let row: Option<(String,)> =
+            sqlx::query_as("SELECT user_id FROM user_account WHERE idp_subject = $1")
+                .bind(subject)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(db_err)?;
+        row.map(|(id,)| UserId::parse(&id).map_err(|_| bad("user_id", &id)))
+            .transpose()
+    }
+
+    async fn bind_idp_subject(&self, id: &UserId, subject: &str) -> Result<(), RepoError> {
+        sqlx::query("UPDATE user_account SET idp_subject = $2 WHERE user_id = $1")
+            .bind(id.as_str())
+            .bind(subject)
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
+        Ok(())
+    }
+
+    async fn set_default_plant(&self, id: &UserId, plant: &PlantId) -> Result<(), RepoError> {
+        sqlx::query("UPDATE user_account SET default_plant = $2 WHERE user_id = $1")
+            .bind(id.as_str())
+            .bind(plant.as_str())
+            .execute(&self.pool)
+            .await
+            .map_err(db_err)?;
+        Ok(())
     }
 }

@@ -74,6 +74,11 @@
 #   aimi100  查詢、查看料件                              query                               aimi100.4gl:791-1203
 #   aimi100  新增／刪除料件                              insert / delete
 #   aimi100  確認／取消確認料件                          confirm / notconfirm                aimi100.4gl:1178, 1203
+#   aooi030  查詢部門                                   query                               aooi030.4gl:163-166
+#   aooi030  新增／修改／停用／刪除部門（基本欄位）       detail                       R+ R-   aooi030.4gl:231-232
+#   aooi030  會計資料維護                               account                             aooi030.4gl:167-170
+#   aooi040  查詢員工                                   query
+#   aooi040  新增／修改／停用／刪除員工                   detail                       R+ R-   aooi040.4gl
 #   參考清單（下拉選單、開窗、欄位檢查）：程式、權限類別、使用者、營運中心的全部清單，只要求登入（AQ4）
 #
 # 確認事項（皆採草稿）：
@@ -145,7 +150,7 @@
     而且 模組 "AOO" 已存在
     而且 模組 "AIM" 已存在
     而且 已登錄 TTRS 已移植的作業
-    而且 已有程式 "aimi101" 模組 "AIM"，可執行功能 "query, modify"
+    而且 已有程式 "item-master" 模組 "AIM"，可執行功能 "query, modify"
     而且 營運中心 "TW01" 已啟用
     而且 單位 "PCS" 已存在
     而且 已有使用者 "u001"，資料所有者 "u001"，所有部門 "SAL"
@@ -154,8 +159,8 @@
 
   # cl_setup.4gl:551-567 沒有特殊權限時用權限類別的程式列（AQ1）
   場景: 沒有特殊權限時用權限類別的權限
-    假設 權限類別 "SALES" 對作業 "p_zx" 的權限為 "query, modify"，他人資料 "3"，他部門資料 "4"，單身 "0"
-    當 查看目前使用者在作業 "p_zx" 的有效權限
+    假設 權限類別 "SALES" 對作業 "user-maintenance" 的權限為 "query, modify"，他人資料 "3"，他部門資料 "4"，單身 "0"
+    當 查看目前使用者在作業 "user-maintenance" 的有效權限
     那麼 有效權限應為:
       | 欄位         | 值            |
       | 允許執行功能 | query, modify |
@@ -166,22 +171,22 @@
   # cl_setup.4gl:560-563 權限類別沒有這支作業（lib-214）
   場景: 權限類別沒有本作業的權限
     當 目前使用者執行 "查詢使用者"
-    那麼 應被拒絕，作業 "p_zx"、功能 "query"、原因 "沒有本作業權限"
+    那麼 應被拒絕，作業 "user-maintenance"、功能 "query"、原因 "沒有本作業權限"
 
   # cl_setup.4gl:569-589 有特殊權限時只用特殊權限，不看自己的權限類別（AQ1）
   場景: 有特殊權限的使用者只用特殊權限
-    假設 權限類別 "SALES" 對作業 "p_zx" 的權限為 "query"，他人資料 "0"，他部門資料 "0"，單身 "0"
-    而且 權限類別 "MGR" 對作業 "p_zz" 的權限為 "query"，他人資料 "0"，他部門資料 "0"，單身 "0"
+    假設 權限類別 "SALES" 對作業 "user-maintenance" 的權限為 "query"，他人資料 "0"，他部門資料 "0"，單身 "0"
+    而且 權限類別 "MGR" 對作業 "program-maintenance" 的權限為 "query"，他人資料 "0"，他部門資料 "0"，單身 "0"
     而且 使用者 "u001" 有特殊權限類別 "MGR"
     當 目前使用者執行 "查詢使用者"
-    那麼 應被拒絕，作業 "p_zx"、功能 "query"、原因 "沒有本作業權限"
+    那麼 應被拒絕，作業 "user-maintenance"、功能 "query"、原因 "沒有本作業權限"
 
   # cl_setup.4gl:591-602, 605-655 類別列與程式列一起合併；功能取聯集，依出現順序（AQ1）
   場景: 特殊權限的類別列與程式列合併功能
-    假設 權限類別 "MGR" 對作業 "p_zx" 的權限為 "query, modify"，他人資料 "3"，他部門資料 "3"，單身 "3"
+    假設 權限類別 "MGR" 對作業 "user-maintenance" 的權限為 "query, modify"，他人資料 "3"，他部門資料 "3"，單身 "3"
     而且 使用者 "u001" 有特殊權限類別 "MGR"
-    而且 使用者 "u001" 有特殊權限程式 "p_zx"，允許執行功能 "query, delete"，他人資料 "2"，他部門資料 "4"，單身 "1"
-    當 查看目前使用者在作業 "p_zx" 的有效權限
+    而且 使用者 "u001" 有特殊權限程式 "user-maintenance"，允許執行功能 "query, delete"，他人資料 "2"，他部門資料 "4"，單身 "1"
+    當 查看目前使用者在作業 "user-maintenance" 的有效權限
     那麼 有效權限應為:
       | 欄位         | 值                    |
       | 允許執行功能 | query, modify, delete |
@@ -191,11 +196,11 @@
 
   # cl_setup.4gl:656-696 他人資料取聯集（查詢、修改、刪除各自有一列允許就允許）
   場景大綱: 他人資料權限的合併
-    假設 權限類別 "MGR" 對作業 "p_zx" 的權限為 "query"，他人資料 "<甲>"，他部門資料 "0"，單身 "0"
-    而且 權限類別 "AUDIT" 對作業 "p_zx" 的權限為 "query"，他人資料 "<乙>"，他部門資料 "0"，單身 "0"
+    假設 權限類別 "MGR" 對作業 "user-maintenance" 的權限為 "query"，他人資料 "<甲>"，他部門資料 "0"，單身 "0"
+    而且 權限類別 "AUDIT" 對作業 "user-maintenance" 的權限為 "query"，他人資料 "<乙>"，他部門資料 "0"，單身 "0"
     而且 使用者 "u001" 有特殊權限類別 "MGR"
     而且 使用者 "u001" 有特殊權限類別 "AUDIT"
-    當 查看目前使用者在作業 "p_zx" 的有效權限
+    當 查看目前使用者在作業 "user-maintenance" 的有效權限
     那麼 有效權限的他人資料應為 "<結果>"
 
     例子:
@@ -209,11 +214,11 @@
 
   # cl_setup.4gl:698-790 他部門資料取聯集；5–8 照 MOD-7B0137 對照表，沒有剛好的代碼時取較寬的（AQ1）
   場景大綱: 他部門資料權限的合併
-    假設 權限類別 "MGR" 對作業 "p_zx" 的權限為 "query"，他人資料 "0"，他部門資料 "<甲>"，單身 "0"
-    而且 權限類別 "AUDIT" 對作業 "p_zx" 的權限為 "query"，他人資料 "0"，他部門資料 "<乙>"，單身 "0"
+    假設 權限類別 "MGR" 對作業 "user-maintenance" 的權限為 "query"，他人資料 "0"，他部門資料 "<甲>"，單身 "0"
+    而且 權限類別 "AUDIT" 對作業 "user-maintenance" 的權限為 "query"，他人資料 "0"，他部門資料 "<乙>"，單身 "0"
     而且 使用者 "u001" 有特殊權限類別 "MGR"
     而且 使用者 "u001" 有特殊權限類別 "AUDIT"
-    當 查看目前使用者在作業 "p_zx" 的有效權限
+    當 查看目前使用者在作業 "user-maintenance" 的有效權限
     那麼 有效權限的他部門資料應為 "<結果>"
 
     例子:
@@ -234,11 +239,11 @@
 
   # cl_setup.4gl:828-852 單身權限取聯集
   場景大綱: 單身權限的合併
-    假設 權限類別 "MGR" 對作業 "p_zy" 的權限為 "query, detail"，他人資料 "0"，他部門資料 "0"，單身 "<甲>"
-    而且 權限類別 "AUDIT" 對作業 "p_zy" 的權限為 "query, detail"，他人資料 "0"，他部門資料 "0"，單身 "<乙>"
+    假設 權限類別 "MGR" 對作業 "program-permission-maintenance" 的權限為 "query, detail"，他人資料 "0"，他部門資料 "0"，單身 "<甲>"
+    而且 權限類別 "AUDIT" 對作業 "program-permission-maintenance" 的權限為 "query, detail"，他人資料 "0"，他部門資料 "0"，單身 "<乙>"
     而且 使用者 "u001" 有特殊權限類別 "MGR"
     而且 使用者 "u001" 有特殊權限類別 "AUDIT"
-    當 查看目前使用者在作業 "p_zy" 的有效權限
+    當 查看目前使用者在作業 "program-permission-maintenance" 的有效權限
     那麼 有效權限的單身應為 "<結果>"
 
     例子:
@@ -259,77 +264,85 @@
 
     例子:
       | 作業    | 功能                       | 操作                       |
-      | p_zz    | query                      | 查詢程式                   |
-      | p_zz    | query                      | 查看程式 aimi101           |
-      | p_zz    | insert                     | 新增程式 aimi200           |
-      | p_zz    | modify                     | 修改程式 aimi101           |
-      | p_zz    | modify                     | 設定程式 aimi101 的名稱    |
-      | p_zz    | delete                     | 刪除程式 aimi101           |
-      | p_zz    | reproduce                  | 複製程式 aimi101           |
-      | p_zz    | authorization              | 授權程式 aimi101 給 MGR    |
-      | p_zta   | query                      | 查詢資料字典               |
-      | p_zta   | query                      | 查看資料表 item 的欄位     |
-      | p_zta   | insert                     | 新增資料字典 item          |
-      | p_zta   | modify                     | 修改資料字典 item          |
-      | p_zta   | delete                     | 刪除資料字典 item          |
-      | p_zta   | maintain_table_description | 設定資料表 item 的說明     |
-      | p_zta   | maintain_field_description | 設定欄位 item.name 的說明  |
-      | p_zta   | exporttoexcel              | 匯出資料字典 item          |
-      | p_zta   | query                      | 查詢 TipTop 對照目錄       |
-      | p_zta   | zta_import                 | 匯入 TipTop 對照目錄       |
-      | p_zx    | query                      | 查詢使用者                 |
-      | p_zx    | query                      | 查看使用者 u001            |
-      | p_zx    | insert                     | 新增使用者 u100            |
-      | p_zx    | modify                     | 修改使用者 u001            |
-      | p_zx    | delete                     | 刪除使用者 u001            |
-      | p_zx    | reproduce                  | 複製使用者 u001            |
-      | p_zx    | invalid                    | 停用使用者 u001            |
-      | p_zx    | invalid                    | 啟用使用者 u001            |
-      | p_zw    | query                      | 查詢權限類別               |
-      | p_zw    | query                      | 查看權限類別 MGR           |
-      | p_zw    | detail                     | 新增權限類別 NEW           |
-      | p_zw    | detail                     | 修改權限類別 MGR           |
-      | p_zw    | detail                     | 停用權限類別 MGR           |
-      | p_zw    | detail                     | 刪除權限類別 MGR           |
-      | p_zw    | detail                     | 更新所有使用者選單         |
-      | aooi901 | query                      | 查詢營運中心               |
-      | aooi901 | query                      | 查看營運中心 TW01          |
-      | aooi901 | insert                     | 新增營運中心 TW09          |
-      | aooi901 | modify                     | 修改營運中心 TW01          |
-      | aooi901 | modify                     | 停用營運中心 TW01          |
-      | aooi901 | delete                     | 刪除營運中心 TW01          |
-      | aooi901 | reproduce                  | 複製營運中心 TW01          |
-      | p_zy    | query                      | 查詢程式執行權限           |
-      | p_zy    | query                      | 查看權限類別 MGR 的權限    |
-      | p_zy    | detail                     | 新增 MGR 的程式列 aimi100  |
-      | p_zy    | detail                     | 修改 MGR 的程式列 aimi100  |
-      | p_zy    | detail                     | 移除 MGR 的程式列 aimi100  |
-      | p_zy    | delete                     | 刪除 MGR 的全部權限        |
-      | p_zy    | reproduce                  | 複製 MGR 的權限到 AUDIT    |
-      | p_zy    | batch_gen_by_prog          | 依程式產生 MGR 的權限      |
-      | p_zy    | batch_gen_by_menu          | 依選單產生 MGR 的權限      |
-      | p_zy    | batch_del_by_menu          | 依選單刪除 MGR 的權限      |
-      | p_zxw   | query                      | 查看使用者 u001 的特殊權限 |
-      | p_zxw   | detail                     | 新增 u001 的特殊權限列     |
-      | p_zxw   | detail                     | 修改 u001 的特殊權限程式列 |
-      | p_zxw   | detail                     | 移除 u001 的特殊權限列     |
-      | p_zxw   | delete                     | 刪除 u001 的全部特殊權限   |
-      | p_zxw   | reproduce                  | 複製 u001 的特殊權限       |
-      | aimi100 | query                      | 查詢料件                   |
-      | aimi100 | insert                     | 新增料件 A001              |
-      | aimi100 | delete                     | 刪除料件 A001              |
-      | aimi100 | confirm                    | 確認料件 A001              |
-      | aimi100 | notconfirm                 | 取消確認料件 A001          |
+      | program-maintenance    | query                      | 查詢程式                   |
+      | program-maintenance    | query                      | 查看程式 item-master           |
+      | program-maintenance    | insert                     | 新增程式 item-batch           |
+      | program-maintenance    | modify                     | 修改程式 item-master           |
+      | program-maintenance    | modify                     | 設定程式 item-master 的名稱    |
+      | program-maintenance    | delete                     | 刪除程式 item-master           |
+      | program-maintenance    | reproduce                  | 複製程式 item-master           |
+      | program-maintenance    | authorization              | 授權程式 item-master 給 MGR    |
+      | data-dictionary   | query                      | 查詢資料字典               |
+      | data-dictionary   | query                      | 查看資料表 item 的欄位     |
+      | data-dictionary   | insert                     | 新增資料字典 item          |
+      | data-dictionary   | modify                     | 修改資料字典 item          |
+      | data-dictionary   | delete                     | 刪除資料字典 item          |
+      | data-dictionary   | maintain_table_description | 設定資料表 item 的說明     |
+      | data-dictionary   | maintain_field_description | 設定欄位 item.name 的說明  |
+      | data-dictionary   | exporttoexcel              | 匯出資料字典 item          |
+      | data-dictionary   | query                      | 查詢 TipTop 對照目錄       |
+      | data-dictionary   | zta_import                 | 匯入 TipTop 對照目錄       |
+      | user-maintenance    | query                      | 查詢使用者                 |
+      | user-maintenance    | query                      | 查看使用者 u001            |
+      | user-maintenance    | insert                     | 新增使用者 u100            |
+      | user-maintenance    | modify                     | 修改使用者 u001            |
+      | user-maintenance    | delete                     | 刪除使用者 u001            |
+      | user-maintenance    | reproduce                  | 複製使用者 u001            |
+      | user-maintenance    | invalid                    | 停用使用者 u001            |
+      | user-maintenance    | invalid                    | 啟用使用者 u001            |
+      | permission-class-maintenance    | query                      | 查詢權限類別               |
+      | permission-class-maintenance    | query                      | 查看權限類別 MGR           |
+      | permission-class-maintenance    | detail                     | 新增權限類別 NEW           |
+      | permission-class-maintenance    | detail                     | 修改權限類別 MGR           |
+      | permission-class-maintenance    | detail                     | 停用權限類別 MGR           |
+      | permission-class-maintenance    | detail                     | 刪除權限類別 MGR           |
+      | permission-class-maintenance    | detail                     | 更新所有使用者選單         |
+      | plant-maintenance | query                      | 查詢營運中心               |
+      | plant-maintenance | query                      | 查看營運中心 TW01          |
+      | plant-maintenance | insert                     | 新增營運中心 TW09          |
+      | plant-maintenance | modify                     | 修改營運中心 TW01          |
+      | plant-maintenance | modify                     | 停用營運中心 TW01          |
+      | plant-maintenance | delete                     | 刪除營運中心 TW01          |
+      | plant-maintenance | reproduce                  | 複製營運中心 TW01          |
+      | program-permission-maintenance    | query                      | 查詢程式執行權限           |
+      | program-permission-maintenance    | query                      | 查看權限類別 MGR 的權限    |
+      | program-permission-maintenance    | detail                     | 新增 MGR 的程式列 item-maintenance  |
+      | program-permission-maintenance    | detail                     | 修改 MGR 的程式列 item-maintenance  |
+      | program-permission-maintenance    | detail                     | 移除 MGR 的程式列 item-maintenance  |
+      | program-permission-maintenance    | delete                     | 刪除 MGR 的全部權限        |
+      | program-permission-maintenance    | reproduce                  | 複製 MGR 的權限到 AUDIT    |
+      | program-permission-maintenance    | batch_gen_by_prog          | 依程式產生 MGR 的權限      |
+      | program-permission-maintenance    | batch_gen_by_menu          | 依選單產生 MGR 的權限      |
+      | program-permission-maintenance    | batch_del_by_menu          | 依選單刪除 MGR 的權限      |
+      | user-permission-maintenance   | query                      | 查看使用者 u001 的特殊權限 |
+      | user-permission-maintenance   | detail                     | 新增 u001 的特殊權限列     |
+      | user-permission-maintenance   | detail                     | 修改 u001 的特殊權限程式列 |
+      | user-permission-maintenance   | detail                     | 移除 u001 的特殊權限列     |
+      | user-permission-maintenance   | delete                     | 刪除 u001 的全部特殊權限   |
+      | user-permission-maintenance   | reproduce                  | 複製 u001 的特殊權限       |
+      | item-maintenance | query                      | 查詢料件                   |
+      | item-maintenance | insert                     | 新增料件 A001              |
+      | item-maintenance | delete                     | 刪除料件 A001              |
+      | item-maintenance | confirm                    | 確認料件 A001              |
+      | item-maintenance | notconfirm                 | 取消確認料件 A001          |
+      | department-maintenance | query                      | 查詢部門                   |
+      | department-maintenance | detail                     | 新增部門 D01               |
+      | department-maintenance | detail                     | 修改部門 D01               |
+      | department-maintenance | account                    | 修改部門 D01 的會計資料    |
+      | department-maintenance | detail                     | 刪除部門 D01               |
+      | employee-maintenance | query                      | 查詢員工                   |
+      | employee-maintenance | detail                     | 新增員工 E01               |
+      | employee-maintenance | detail                     | 刪除員工 E01               |
 
   # AQ2 權限檢查在輸入檢查之前
   場景: 沒有權限時先回權限錯誤
-    假設 權限類別 "SALES" 對作業 "p_zx" 的權限為 "query"，他人資料 "0"，他部門資料 "0"，單身 "0"
+    假設 權限類別 "SALES" 對作業 "user-maintenance" 的權限為 "query"，他人資料 "0"，他部門資料 "0"，單身 "0"
     當 目前使用者執行 "新增使用者，代號空白"
-    那麼 應被拒絕，作業 "p_zx"、功能 "insert"、原因 "沒有此功能"
+    那麼 應被拒絕，作業 "user-maintenance"、功能 "insert"、原因 "沒有此功能"
 
   # cl_set_priv DOWNSHIFT、cl_chk_act_auth equalsIgnoreCase：功能代號不分大小寫
   場景: 功能代號不分大小寫
-    假設 權限類別 "SALES" 對作業 "p_zx" 的權限為 "QUERY"，他人資料 "0"，他部門資料 "0"，單身 "0"
+    假設 權限類別 "SALES" 對作業 "user-maintenance" 的權限為 "QUERY"，他人資料 "0"，他部門資料 "0"，單身 "0"
     當 目前使用者執行 "查詢使用者"
     那麼 不應被權限拒絕
 
@@ -342,7 +355,7 @@
     而且 已有使用者 "u003"，資料所有者 "u009"，所有部門 "MFG"
     而且 已有使用者 "u004"，資料所有者 "u001"，所有部門 "SAL"
     而且 已有使用者 "u005"，資料所有者 "u001"，所有部門 "MFG"
-    而且 權限類別 "SALES" 對作業 "p_zx" 的權限為 "query, modify, delete"，他人資料 "<他人>"，他部門資料 "<他部門>"，單身 "0"
+    而且 權限類別 "SALES" 對作業 "user-maintenance" 的權限為 "query, modify, delete"，他人資料 "<他人>"，他部門資料 "<他部門>"，單身 "0"
     當 目前使用者執行 "<操作>"
     那麼 <結果>
 
@@ -350,26 +363,26 @@
       | 他人 | 他部門 | 操作            | 結果                                                  |
       | 0    | 0      | 修改使用者 u002 | 不應被權限拒絕                                        |
       | 1    | 0      | 修改使用者 u002 | 不應被權限拒絕                                        |
-      | 1    | 0      | 刪除使用者 u002 | 應被拒絕，作業 "p_zx"、功能 "delete"、原因 "他人資料"   |
-      | 2    | 0      | 修改使用者 u002 | 應被拒絕，作業 "p_zx"、功能 "modify"、原因 "他人資料"   |
+      | 1    | 0      | 刪除使用者 u002 | 應被拒絕，作業 "user-maintenance"、功能 "delete"、原因 "他人資料"   |
+      | 2    | 0      | 修改使用者 u002 | 應被拒絕，作業 "user-maintenance"、功能 "modify"、原因 "他人資料"   |
       | 2    | 0      | 刪除使用者 u002 | 不應被權限拒絕                                        |
-      | 3    | 0      | 刪除使用者 u002 | 應被拒絕，作業 "p_zx"、功能 "delete"、原因 "他人資料"   |
+      | 3    | 0      | 刪除使用者 u002 | 應被拒絕，作業 "user-maintenance"、功能 "delete"、原因 "他人資料"   |
       | 0    | 1      | 修改使用者 u003 | 不應被權限拒絕                                        |
-      | 0    | 1      | 刪除使用者 u003 | 應被拒絕，作業 "p_zx"、功能 "delete"、原因 "他部門資料" |
-      | 0    | 2      | 修改使用者 u003 | 應被拒絕，作業 "p_zx"、功能 "modify"、原因 "他部門資料" |
+      | 0    | 1      | 刪除使用者 u003 | 應被拒絕，作業 "user-maintenance"、功能 "delete"、原因 "他部門資料" |
+      | 0    | 2      | 修改使用者 u003 | 應被拒絕，作業 "user-maintenance"、功能 "modify"、原因 "他部門資料" |
       | 0    | 2      | 刪除使用者 u003 | 不應被權限拒絕                                        |
-      | 0    | 3      | 修改使用者 u003 | 應被拒絕，作業 "p_zx"、功能 "modify"、原因 "他部門資料" |
+      | 0    | 3      | 修改使用者 u003 | 應被拒絕，作業 "user-maintenance"、功能 "modify"、原因 "他部門資料" |
       | 0    | 3      | 修改使用者 u002 | 不應被權限拒絕                                        |
       | 3    | 3      | 修改使用者 u004 | 不應被權限拒絕                                        |
       | 3    | 3      | 刪除使用者 u004 | 不應被權限拒絕                                        |
-      | 0    | 3      | 修改使用者 u005 | 應被拒絕，作業 "p_zx"、功能 "modify"、原因 "他部門資料" |
+      | 0    | 3      | 修改使用者 u005 | 應被拒絕，作業 "user-maintenance"、功能 "modify"、原因 "他部門資料" |
 
   # AQ6 他部門資料 5–8：p_zyw 移植前相關部門只有自己的部門；
   # TipTop 的 cl_chk_act_auth 對 5、8 允許修改、6、8 允許刪除任何部門（只靠查詢過濾），TTRS 另外檢查部門
   場景大綱: 相關部門權限在部門群組移植前只含自己的部門
     假設 已有使用者 "u002"，資料所有者 "u009"，所有部門 "SAL"
     而且 已有使用者 "u003"，資料所有者 "u009"，所有部門 "MFG"
-    而且 權限類別 "SALES" 對作業 "p_zx" 的權限為 "query, modify, delete"，他人資料 "0"，他部門資料 "<他部門>"，單身 "0"
+    而且 權限類別 "SALES" 對作業 "user-maintenance" 的權限為 "query, modify, delete"，他人資料 "0"，他部門資料 "<他部門>"，單身 "0"
     當 目前使用者執行 "<操作>"
     那麼 <結果>
 
@@ -377,15 +390,15 @@
       | 他部門 | 操作            | 結果                                                  |
       | 8      | 修改使用者 u002 | 不應被權限拒絕                                        |
       | 8      | 刪除使用者 u002 | 不應被權限拒絕                                        |
-      | 8      | 修改使用者 u003 | 應被拒絕，作業 "p_zx"、功能 "modify"、原因 "他部門資料" |
-      | 6      | 刪除使用者 u003 | 應被拒絕，作業 "p_zx"、功能 "delete"、原因 "他部門資料" |
+      | 8      | 修改使用者 u003 | 應被拒絕，作業 "user-maintenance"、功能 "modify"、原因 "他部門資料" |
+      | 6      | 刪除使用者 u003 | 應被拒絕，作業 "user-maintenance"、功能 "delete"、原因 "他部門資料" |
 
   # p_zz.4gl:1262-1263 程式維護也檢查資料所有者（AQ5）
   場景: 程式維護檢查資料所有者
-    假設 已有程式 "aimi102" 模組 "AIM"，資料所有者 "u009"，所有部門 "SAL"
-    而且 權限類別 "SALES" 對作業 "p_zz" 的權限為 "query, modify, delete"，他人資料 "2"，他部門資料 "0"，單身 "0"
-    當 目前使用者執行 "修改程式 aimi102"
-    那麼 應被拒絕，作業 "p_zz"、功能 "modify"、原因 "他人資料"
+    假設 已有程式 "item-unit" 模組 "AIM"，資料所有者 "u009"，所有部門 "SAL"
+    而且 權限類別 "SALES" 對作業 "program-maintenance" 的權限為 "query, modify, delete"，他人資料 "2"，他部門資料 "0"，單身 "0"
+    當 目前使用者執行 "修改程式 item-unit"
+    那麼 應被拒絕，作業 "program-maintenance"、功能 "modify"、原因 "他人資料"
 
   # AQ5 TipTop 沒設資料所有者的作業不檢查資料權限
   場景大綱: 沒有資料權限的作業不檢查資料所有者
@@ -397,8 +410,8 @@
 
     例子:
       | 作業    | 操作               |
-      | aooi901 | 修改營運中心 TW02  |
-      | p_zw    | 修改權限類別 OTHER |
+      | plant-maintenance | 修改營運中心 TW02  |
+      | permission-class-maintenance    | 修改權限類別 OTHER |
 
   # ---------- 資料權限：查詢（p_zx.4gl:194-204）----------
 
@@ -407,7 +420,7 @@
     假設 已有使用者 "u002"，資料所有者 "u009"，所有部門 "SAL"
     而且 已有使用者 "u003"，資料所有者 "u009"，所有部門 "MFG"
     而且 已有使用者 "u004"，資料所有者 "u001"，所有部門 "MFG"
-    而且 權限類別 "SALES" 對作業 "p_zx" 的權限為 "query"，他人資料 "<他人>"，他部門資料 "<他部門>"，單身 "0"
+    而且 權限類別 "SALES" 對作業 "user-maintenance" 的權限為 "query"，他人資料 "<他人>"，他部門資料 "<他部門>"，單身 "0"
     當 目前使用者以條件 "使用者代號 u00*" 查詢使用者
     那麼 查詢結果應為 "<結果>"
 
@@ -422,9 +435,9 @@
   # AQ6 查不到的資料以代號直接查看、修改也拒絕
   場景大綱: 被資料權限過濾的使用者不能直接查看或修改
     假設 已有使用者 "u003"，資料所有者 "u009"，所有部門 "MFG"
-    而且 權限類別 "SALES" 對作業 "p_zx" 的權限為 "query, modify"，他人資料 "0"，他部門資料 "4"，單身 "0"
+    而且 權限類別 "SALES" 對作業 "user-maintenance" 的權限為 "query, modify"，他人資料 "0"，他部門資料 "4"，單身 "0"
     當 目前使用者執行 "<操作>"
-    那麼 應被拒絕，作業 "p_zx"、功能 "<功能>"、原因 "他部門資料"
+    那麼 應被拒絕，作業 "user-maintenance"、功能 "<功能>"、原因 "他部門資料"
 
     例子:
       | 操作            | 功能   |
@@ -434,19 +447,19 @@
   # ---------- 單身權限（cl_detail_input_auth.4gl:45-72）----------
 
   場景大綱: 單身新增列、移除列另看單身權限
-    假設 已有程式 "aimi200" 模組 "AIM"，可執行功能 "query"
-    而且 權限類別 "MGR" 可執行程式 "aimi100"
-    而且 權限類別 "SALES" 對作業 "p_zy" 的權限為 "query, detail"，他人資料 "0"，他部門資料 "0"，單身 "<單身>"
+    假設 已有程式 "item-batch" 模組 "AIM"，可執行功能 "query"
+    而且 權限類別 "MGR" 可執行程式 "item-maintenance"
+    而且 權限類別 "SALES" 對作業 "program-permission-maintenance" 的權限為 "query, detail"，他人資料 "0"，他部門資料 "0"，單身 "<單身>"
     當 目前使用者執行 "<操作>"
     那麼 <結果>
 
     例子:
       | 單身 | 操作                      | 結果                                              |
-      | 1    | 新增 MGR 的程式列 aimi200 | 不應被權限拒絕                                    |
-      | 2    | 新增 MGR 的程式列 aimi200 | 應被拒絕，作業 "p_zy"、功能 "detail"、原因 "單身" |
-      | 1    | 移除 MGR 的程式列 aimi100 | 應被拒絕，作業 "p_zy"、功能 "detail"、原因 "單身" |
-      | 2    | 移除 MGR 的程式列 aimi100 | 不應被權限拒絕                                    |
-      | 3    | 修改 MGR 的程式列 aimi100 | 不應被權限拒絕                                    |
+      | 1    | 新增 MGR 的程式列 item-batch | 不應被權限拒絕                                    |
+      | 2    | 新增 MGR 的程式列 item-batch | 應被拒絕，作業 "program-permission-maintenance"、功能 "detail"、原因 "單身" |
+      | 1    | 移除 MGR 的程式列 item-maintenance | 應被拒絕，作業 "program-permission-maintenance"、功能 "detail"、原因 "單身" |
+      | 2    | 移除 MGR 的程式列 item-maintenance | 不應被權限拒絕                                    |
+      | 3    | 修改 MGR 的程式列 item-maintenance | 不應被權限拒絕                                    |
 
   # ---------- 參考清單（AQ4）----------
 
@@ -464,7 +477,7 @@
   # ---------- AI 代理（ADR 0006 §6，AQ9）----------
 
   場景大綱: AI 代理只能執行查詢與草稿類功能
-    假設 權限類別 "SALES" 對作業 "p_zx" 擁有全部功能，他人資料 "0"，他部門資料 "0"，單身 "0"
+    假設 權限類別 "SALES" 對作業 "user-maintenance" 擁有全部功能，他人資料 "0"，他部門資料 "0"，單身 "0"
     而且 目前使用者以 AI 代理身分操作
     當 目前使用者執行 "<操作>"
     那麼 <結果>
@@ -473,5 +486,5 @@
       | 操作            | 結果                                                    |
       | 查詢使用者      | 不應被權限拒絕                                          |
       | 修改使用者 u001 | 不應被權限拒絕                                          |
-      | 刪除使用者 u001 | 應被拒絕，作業 "p_zx"、功能 "delete"、原因 "AI 不可執行"  |
-      | 停用使用者 u001 | 應被拒絕，作業 "p_zx"、功能 "invalid"、原因 "AI 不可執行" |
+      | 刪除使用者 u001 | 應被拒絕，作業 "user-maintenance"、功能 "delete"、原因 "AI 不可執行"  |
+      | 停用使用者 u001 | 應被拒絕，作業 "user-maintenance"、功能 "invalid"、原因 "AI 不可執行" |

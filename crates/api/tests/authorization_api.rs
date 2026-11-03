@@ -51,7 +51,7 @@ async fn denied_returns_403_with_program_and_action() {
     assert_eq!(res.status(), StatusCode::FORBIDDEN);
     let err: ApiError = body(res).await;
     assert_eq!(err.code, "PERMISSION_DENIED");
-    assert!(err.message.contains("p_zx"), "{}", err.message);
+    assert!(err.message.contains("user-maintenance"), "{}", err.message);
 }
 
 #[tokio::test]
@@ -69,7 +69,7 @@ async fn my_permission_for_admin_and_unknown_program() {
     let app = app(actor_from_env());
     let res = app
         .clone()
-        .oneshot(get("/api/me/permissions/p_zx"))
+        .oneshot(get("/api/me/permissions/user-maintenance"))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);

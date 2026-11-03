@@ -18,6 +18,8 @@ fn field_key(label: &str) -> &'static str {
         "報表寬度" => "report_width",
         "最後修改日期" => "updated_on",
         "可執行功能" => "default_actions",
+        "程式類別" => "program_type",
+        "TipTop 程式代號" => "tiptop_program_no",
         other => panic!("未知欄位：{other}"),
     }
 }
@@ -39,14 +41,15 @@ async fn existing_programs(w: &mut ErpWorld, step: &Step) {
     for r in rows(step) {
         let report_type = ReportTypeDto::ALL
             .into_iter()
-            .find(|t| t.label() == r[3])
-            .unwrap_or_else(|| panic!("未知報表類型：{}", r[3]));
+            .find(|t| t.label() == r[4])
+            .unwrap_or_else(|| panic!("未知報表類型：{}", r[4]));
         let req = ProgramInput {
             program_no: r[0].clone(),
             module_code: r[1].clone(),
-            name: Some(r[2].clone()),
+            program_type: Some(r[2].clone()),
+            name: Some(r[3].clone()),
             report_type: Some(report_type),
-            report_width: (!r[4].is_empty()).then(|| r[4].parse().unwrap()),
+            report_width: (!r[5].is_empty()).then(|| r[5].parse().unwrap()),
             ..Default::default()
         };
         w.programs.create(&w.actor, req).await.unwrap();

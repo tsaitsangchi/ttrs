@@ -39,7 +39,19 @@ impl PlantId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// 使用者可使用營運中心的「全部營運中心」（zxy03＝ALL，s_chkdbs）
+    pub fn all() -> Self {
+        Self(ALL_PLANTS.to_owned())
+    }
+
+    pub fn is_all(&self) -> bool {
+        self.0 == ALL_PLANTS
+    }
 }
+
+/// zxy03＝ALL：可使用全部營運中心（sign_in.feature SQ5）
+pub const ALL_PLANTS: &str = "ALL";
 
 /// 資料庫代碼（azp03）＝工廠 schema 名稱（ADR 0007 §1、P13）：`ds` 加兩位數字，存小寫；建立後不可修改
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]

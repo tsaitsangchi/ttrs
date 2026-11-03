@@ -31,7 +31,7 @@ use crate::{
 };
 
 /// 權限檢查用的程式代號；TipTop 沒有設定資料所有者，不檢查資料權限（AQ5）
-const PROGRAM: &str = "p_zta";
+const PROGRAM: &str = "data-dictionary";
 
 #[derive(Clone)]
 pub struct DataDictionaryService {

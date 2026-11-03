@@ -1,7 +1,7 @@
 //! 介面多語言（繁中 zh-TW、英文 en、簡中 zh-CN）— ADR 0005
 //!
 //! - 翻譯在 `crates/web/locales/<語系>/*.ftl`（Fluent），編譯時內嵌；畫面以訊息 ID 取用：
-//!   `t("program-field-program-no")`、`tf("program-msg-saved", &[("no", "aimi100")])`
+//!   `t("program-field-program-no")`、`tf("program-msg-saved", &[("no", "item-maintenance")])`
 //! - 找不到翻譯時依序退回 zh-TW，再退回 ID 本身（方便發現漏翻）
 //! - 語系決定順序：網址 `?lang=` → 瀏覽器記住的語系 → zh-TW（日後加使用者設定）
 //! - 錯誤訊息依 `error-<錯誤代碼>` 翻譯，zh-TW 與未翻譯的代碼顯示伺服器訊息
@@ -64,6 +64,8 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-TW/user.ftl"),
         include_str!("../locales/zh-TW/permission.ftl"),
         include_str!("../locales/zh-TW/plant.ftl"),
+        include_str!("../locales/zh-TW/department.ftl"),
+        include_str!("../locales/zh-TW/employee.ftl"),
         include_str!("../locales/zh-TW/program_permission.ftl"),
         include_str!("../locales/zh-TW/user_permission.ftl"),
     ],
@@ -76,6 +78,8 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/en/user.ftl"),
         include_str!("../locales/en/permission.ftl"),
         include_str!("../locales/en/plant.ftl"),
+        include_str!("../locales/en/department.ftl"),
+        include_str!("../locales/en/employee.ftl"),
         include_str!("../locales/en/program_permission.ftl"),
         include_str!("../locales/en/user_permission.ftl"),
     ],
@@ -88,6 +92,8 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-CN/user.ftl"),
         include_str!("../locales/zh-CN/permission.ftl"),
         include_str!("../locales/zh-CN/plant.ftl"),
+        include_str!("../locales/zh-CN/department.ftl"),
+        include_str!("../locales/zh-CN/employee.ftl"),
         include_str!("../locales/zh-CN/program_permission.ftl"),
         include_str!("../locales/zh-CN/user_permission.ftl"),
     ],
@@ -186,7 +192,7 @@ pub fn t(id: &str) -> String {
     translate(id, None)
 }
 
-/// 含參數的翻譯，如 `tf("program-msg-saved", &[("no", "aimi100")])`
+/// 含參數的翻譯，如 `tf("program-msg-saved", &[("no", "item-maintenance")])`
 pub fn tf(id: &str, args: &[(&str, &str)]) -> String {
     let mut fa = FluentArgs::new();
     for (k, v) in args {
@@ -274,8 +280,17 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 13] = [
+        const TRANSLATED: [(&str, &str); 16] = [
             ("main.rs", include_str!("main.rs")),
+            (
+                "pages/aoo/department_maintenance.rs",
+                include_str!("pages/aoo/department_maintenance.rs"),
+            ),
+            (
+                "pages/aoo/employee_maintenance.rs",
+                include_str!("pages/aoo/employee_maintenance.rs"),
+            ),
+            ("components/plant.rs", include_str!("components/plant.rs")),
             (
                 "components/multilingual.rs",
                 include_str!("components/multilingual.rs"),

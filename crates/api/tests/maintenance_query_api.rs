@@ -22,17 +22,17 @@ async fn app() -> Router {
     for (uri, body) in [
         (
             "/api/programs",
-            serde_json::json!({ "program_no": "menu_main", "module_code": "MENU" }),
+            serde_json::json!({ "program_no": "menu-main", "module_code": "MENU" }),
         ),
         (
             "/api/programs",
-            serde_json::json!({ "program_no": "aimi109", "module_code": "AIM", "default_actions": "query" }),
+            serde_json::json!({ "program_no": "item-price", "module_code": "AIM", "program_type": "I", "default_actions": "query" }),
         ),
         (
             "/api/users",
             serde_json::json!({
                 "user_id": "u001", "name": "王小明", "dept_code": "sal", "permission_class": "ADMIN",
-                "menu": "menu_main", "default_plant": "TW01"
+                "menu": "menu-main", "default_plant": "TW01"
             }),
         ),
     ] {
@@ -124,7 +124,7 @@ async fn program_permissions_query_and_class_detail() {
     let res = app
         .oneshot(post(
             "/api/permission-classes/ADMIN/permission-query",
-            condition("program_no", "aimi109"),
+            condition("program_no", "item-price"),
         ))
         .await
         .unwrap();

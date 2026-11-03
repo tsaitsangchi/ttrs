@@ -22,7 +22,7 @@ async fn app() -> Router {
         .oneshot(request(
             "POST",
             "/api/programs",
-            Some(serde_json::json!({ "program_no": "menu_main", "module_code": "MENU" })),
+            Some(serde_json::json!({ "program_no": "menu-main", "module_code": "MENU" })),
         ))
         .await
         .unwrap();
@@ -46,7 +46,7 @@ async fn body<T: serde::de::DeserializeOwned>(res: axum::response::Response) -> 
 fn new_user(id: &str) -> serde_json::Value {
     serde_json::json!({
         "user_id": id, "name": "王小明", "permission_class": "ADMIN",
-        "menu": "menu_main", "default_plant": "TW01"
+        "menu": "menu-main", "default_plant": "TW01"
     })
 }
 
@@ -96,7 +96,7 @@ async fn create_get_duplicate_and_delete() {
 #[tokio::test]
 async fn invalid_menu_returns_422() {
     let mut u = new_user("u002");
-    u["menu"] = "aimi100".into();
+    u["menu"] = "item-maintenance".into();
     let res = app()
         .await
         .oneshot(request("POST", "/api/users", Some(u)))

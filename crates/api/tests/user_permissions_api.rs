@@ -20,8 +20,8 @@ async fn app() -> Router {
     let store = Arc::new(store);
     let app = router(AppState::new(Services::new(store), actor_from_env()));
     for body in [
-        serde_json::json!({ "program_no": "menu_main", "module_code": "MENU" }),
-        serde_json::json!({ "program_no": "aimi109", "module_code": "AIM", "default_actions": "insert, query" }),
+        serde_json::json!({ "program_no": "menu-main", "module_code": "MENU" }),
+        serde_json::json!({ "program_no": "item-price", "module_code": "AIM", "program_type": "I", "default_actions": "insert, query" }),
     ] {
         let res = app
             .clone()
@@ -33,7 +33,7 @@ async fn app() -> Router {
     for id in ["u001", "u002"] {
         let user = serde_json::json!({
             "user_id": id, "name": "王小明", "permission_class": "ADMIN",
-            "menu": "menu_main", "default_plant": "TW01"
+            "menu": "menu-main", "default_plant": "TW01"
         });
         let res = app
             .clone()
@@ -95,7 +95,7 @@ async fn add_with_own_class_update_and_remove() {
         .oneshot(request(
             "POST",
             "/api/users/u001/permissions",
-            Some(serde_json::json!({ "kind": "program", "target": "aimi109" })),
+            Some(serde_json::json!({ "kind": "program", "target": "item-price" })),
         ))
         .await
         .unwrap();
@@ -104,7 +104,7 @@ async fn add_with_own_class_update_and_remove() {
         .clone()
         .oneshot(request(
             "PUT",
-            "/api/users/u001/permissions/programs/aimi109",
+            "/api/users/u001/permissions/programs/item-price",
             Some(serde_json::json!({ "actions": ["query"], "detail_rows": "3" })),
         ))
         .await

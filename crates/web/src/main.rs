@@ -10,7 +10,7 @@ use dioxus::prelude::*;
 use i18n::{UiLang, t};
 use pages::{
     aim::ItemList,
-    aoo::PlantMaintenance,
+    aoo::{DepartmentMaintenance, EmployeeMaintenance, PlantMaintenance},
     azz::{
         DataDictionary, PermissionClassMaintenance, ProgramMaintenance, ProgramPermissions,
         ProgramPermissionsFor, UserMaintenance, UserPermissions, UserPermissionsFor,
@@ -35,6 +35,10 @@ enum Route {
         /// Plant Maintenance 營運中心維護（TipTop aooi901）
         #[route("/aoo/plant-maintenance")]
         PlantMaintenance {},
+        #[route("/aoo/department-maintenance")]
+        DepartmentMaintenance {},
+        #[route("/aoo/employee-maintenance")]
+        EmployeeMaintenance {},
         /// Program Maintenance 程式維護（TipTop p_zz）
         #[route("/azz/program-maintenance")]
         ProgramMaintenance {},
@@ -69,6 +73,8 @@ fn main() {
 fn App() -> Element {
     // 介面語系（L3）：啟動時讀取瀏覽器記住的語系；供外框切換
     use_context_provider(|| Signal::new(i18n::load()));
+    // 目前的連線（sign_in.feature）：登入者與目前營運中心，供外框與工廠層作業使用
+    use_context_provider(|| Signal::new(None::<Result<ttrs_shared::SessionDto, String>>));
     rsx! {
         document::Link { rel: "stylesheet", href: M3_COLORS_CSS }
         document::Link { rel: "stylesheet", href: M3_CSS }
@@ -81,6 +87,11 @@ fn App() -> Element {
 fn Shell() -> Element {
     let mut lang = use_context::<Signal<UiLang>>();
     let current = lang();
+    let mut session = use_context::<Signal<Option<Result<ttrs_shared::SessionDto, String>>>>();
+    use_future(move || async move {
+        session.set(Some(api::session().await));
+    });
+    let mut switch_error = use_signal(|| None::<String>);
     rsx! {
         // M3 淺色主題；深色改為 md-theme-dark
         div { class: "shell md-theme-light", lang: current.code(),
@@ -101,11 +112,45 @@ fn Shell() -> Element {
                     }
                     h1 { "TTRS ERP" }
                 }
+                // 登入者與目前營運中心；多營運中心使用者可切換（aoos901）
+                match session() {
+                    Some(Ok(s)) => rsx! {
+                        div { class: "session",
+                            div { class: "session-text",
+                                div { class: "session-user", "{s.user_id} {s.name.clone().unwrap_or_default()}" }
+                                div { class: "session-plant", "{s.plant} {s.plant_name}" }
+                            }
+                            if s.multi_plant && s.plants.len() > 1 {
+                                MenuButton {
+                                    label: t("shell-switch-plant"),
+                                    path: icons::PLANT,
+                                    items: s.plants.iter().map(|p| (p.plant_id.clone(), format!("{} {}", p.plant_id, p.name))).collect::<Vec<_>>(),
+                                    selected: s.plant.clone(),
+                                    onselect: move |plant: String| async move {
+                                        match api::switch_plant(&plant).await {
+                                            Ok(s) => { switch_error.set(None); session.set(Some(Ok(s))); }
+                                            Err(e) => switch_error.set(Some(e)),
+                                        }
+                                    },
+                                }
+                            }
+                        }
+                        if let Some(e) = switch_error() {
+                            p { class: "session-error", "{e}" }
+                        }
+                    },
+                    Some(Err(e)) => rsx! {
+                        p { class: "session-error", title: "{e}", {t("shell-not-signed-in")} }
+                    },
+                    None => rsx! {},
+                }
                 Link { active_class: "active", to: Route::Home {}, {t("shell-nav-home")} }
                 p { class: "group", {t("shell-group-aim")} }
-                Link { active_class: "active", to: Route::ItemList {}, {t("shell-nav-aimi100")} }
+                Link { active_class: "active", to: Route::ItemList {}, {t("shell-nav-items")} }
                 p { class: "group", {t("shell-group-aoo")} }
                 Link { active_class: "active", to: Route::PlantMaintenance {}, {t("shell-nav-plants")} }
+                Link { active_class: "active", to: Route::DepartmentMaintenance {}, {t("shell-nav-departments")} }
+                Link { active_class: "active", to: Route::EmployeeMaintenance {}, {t("shell-nav-employees")} }
                 p { class: "group", {t("shell-group-azz")} }
                 Link { active_class: "active", to: Route::ProgramMaintenance {}, {t("shell-nav-program")} }
                 Link { active_class: "active", to: Route::DataDictionary {}, {t("shell-nav-dictionary")} }

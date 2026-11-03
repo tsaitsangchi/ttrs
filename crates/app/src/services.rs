@@ -3,13 +3,14 @@
 use std::sync::Arc;
 
 use crate::{
-    Authorizer, DataDictionaryService, ItemService, LegacyCatalogService, PermissionAuthorizer,
-    PermissionClassService, PlantService, ProgramPermissionService, ProgramService,
-    UserPermissionService, UserService,
+    Authorizer, DataDictionaryService, DepartmentService, EmployeeService, ItemService,
+    LegacyCatalogService, PermissionAuthorizer, PermissionClassService, PlantService,
+    ProgramPermissionService, ProgramService, SignInService, UserPermissionService, UserService,
     ports::{
-        DictionaryRepository, ItemRepository, LegacyCatalogRepository, MasterDataRepository,
-        PermissionClassRepository, PlantRepository, ProgramPermissionRepository, ProgramRepository,
-        SchemaCatalog, UserPermissionRepository, UserRepository,
+        DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemRepository,
+        LegacyCatalogRepository, MasterDataRepository, PermissionClassRepository, PlantRepository,
+        ProgramPermissionRepository, ProgramRepository, SchemaCatalog, UserPermissionRepository,
+        UserRepository,
     },
 };
 
@@ -26,6 +27,8 @@ pub trait Store:
     + PlantRepository
     + ProgramPermissionRepository
     + UserPermissionRepository
+    + DepartmentRepository
+    + EmployeeRepository
     + 'static
 {
 }
@@ -42,6 +45,8 @@ impl<T> Store for T where
         + PlantRepository
         + ProgramPermissionRepository
         + UserPermissionRepository
+        + DepartmentRepository
+        + EmployeeRepository
         + 'static
 {
 }
@@ -57,6 +62,9 @@ pub struct Services {
     pub plants: PlantService,
     pub permissions: ProgramPermissionService,
     pub special: UserPermissionService,
+    pub departments: DepartmentService,
+    pub employees: EmployeeService,
+    pub sign_in: SignInService,
     pub authorizer: Arc<dyn Authorizer>,
 }
 
@@ -100,6 +108,9 @@ impl Services {
                 store.clone(),
                 store.clone(),
             ),
+            departments: DepartmentService::new(a.clone(), store.clone(), store.clone()),
+            sign_in: SignInService::new(store.clone(), store.clone()),
+            employees: EmployeeService::new(a.clone(), store.clone(), store.clone(), store.clone()),
             special: UserPermissionService::new(
                 a,
                 store.clone(),

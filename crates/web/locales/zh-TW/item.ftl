@@ -3,7 +3,7 @@
 
 home-title = 歡迎使用 TTRS
 home-intro = TipTop ERP 移植版（Rust + PostgreSQL）。請由左側選單選擇作業。
-item-title = aimi100 料件基本資料
+item-title = 料件基本資料
 item-field-item-no = 料件編號
 item-field-name = 品名
 item-field-spec = 規格

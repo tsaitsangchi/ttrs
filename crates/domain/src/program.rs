@@ -16,7 +16,8 @@ const LEDGER_MODULES: [&str; 4] = ["AGL", "CGL", "GGL", "CGGL"];
 /// 欄位長度上限，取自 TipTop 資料表定義（tiptop/azz/sch/zz_file.sch、gaz_file.sch 的 varchar2 長度），
 /// 以字元計（TipTop 的長度語意為位元組或字元未定，取寬鬆者）
 pub mod max_len {
-    pub const PROGRAM_NO: usize = 20; // zz01
+    pub const PROGRAM_NO: usize = 40; // 英文程式代號（ADR 0008；TipTop zz01 為 20）
+    pub const TIPTOP_PROGRAM_NO: usize = 20; // zz01
     pub const MODULE_CODE: usize = 10; // zz011
     pub const DEFAULT_ACTIONS: usize = 3000; // zz04
     pub const RUN_COMMAND: usize = 60; // zz08
@@ -44,13 +45,14 @@ pub fn check_length(
 /// 選單不是模組資料，而是 TipTop p_zz 額外加入的固定選項
 pub const MENU_MODULE: &str = "MENU";
 
-/// 程式代號：去除前後空白，保留大小寫（TipTop 程式代號為小寫，如 aimi100）。
+/// 程式代號：英文代號（docs/adr/0008-english-program-codes.md，P1）——小寫英文、數字與連字號，
+/// 英文字母開頭，最多 40 字；輸入轉小寫。TipTop 代號另存 `Program::tiptop_program_no`
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ProgramNo(String);
 
 impl ProgramNo {
     pub fn parse(raw: &str) -> Result<Self, DomainError> {
-        let v = raw.trim();
+        let v = raw.trim().to_lowercase();
         if v.is_empty() {
             return Err(DomainError::ProgramNoEmpty);
         }
@@ -59,27 +61,17 @@ impl ProgramNo {
                 max: max_len::PROGRAM_NO,
             });
         }
-        Ok(Self(v.to_owned()))
+        let valid = v.starts_with(|c: char| c.is_ascii_lowercase())
+            && v.chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+        if !valid {
+            return Err(DomainError::ProgramNoInvalid(raw.trim().to_owned()));
+        }
+        Ok(Self(v))
     }
 
     pub fn as_str(&self) -> &str {
         &self.0
-    }
-
-    /// 標準命名「a 開頭、7 碼」（如 aimi100）：第 4 碼為程式類別（p_zz.4gl:917-918）
-    fn is_standard(&self) -> bool {
-        self.0.starts_with('a') && self.0.chars().count() == 7
-    }
-
-    fn derived_type(&self) -> Option<String> {
-        self.is_standard()
-            .then(|| {
-                self.0
-                    .chars()
-                    .nth(3)
-                    .map(|c| c.to_ascii_uppercase().to_string())
-            })
-            .flatten()
     }
 }
 
@@ -190,6 +182,8 @@ pub struct ProgramAttrs {
     pub other: OtherSettings,
     /// 設計日期（zz09），未給時為今天
     pub designed_on: Option<NaiveDate>,
+    /// TipTop 程式代號（zz01，P2）：選填，只用於轉檔與對照
+    pub tiptop_program_no: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -208,6 +202,8 @@ pub struct Program {
     pub runtime: RuntimeSettings,
     pub other: OtherSettings,
     pub designed_on: NaiveDate,
+    /// TipTop 程式代號（zz01，P2）
+    pub tiptop_program_no: Option<String>,
     pub created_by: String,
     pub created_dept: String,
     pub updated_by: Option<String>,
@@ -240,6 +236,7 @@ impl Program {
             runtime: RuntimeSettings::default(),
             other: OtherSettings::default(),
             designed_on: today,
+            tiptop_program_no: None,
             created_by: created_by.to_owned(),
             created_dept: created_dept.to_owned(),
             updated_by: None,
@@ -266,10 +263,11 @@ impl Program {
         Ok(())
     }
 
-    /// 複製為新代號：建立者改為目前使用者，執行指令依新代號重產，日期改為今天（p_zz.4gl:2045-2056）
+    /// 複製為新代號：建立者改為目前使用者，日期改為今天（p_zz.4gl:2045-2056）；執行指令沿用來源、
+    /// TipTop 程式代號不複製（不可重複）（P2、P4）
     pub fn copy_as(&self, new_no: ProgramNo, user: &str, dept: &str, today: NaiveDate) -> Self {
         let mut p = self.clone();
-        p.runtime.run_command = Some(standard_run_command(p.module.as_str(), new_no.as_str()));
+        p.tiptop_program_no = None;
         p.program_no = new_no;
         p.created_by = user.to_owned();
         p.created_dept = dept.to_owned();
@@ -279,23 +277,30 @@ impl Program {
         p
     }
 
-    /// 執行指令經由 p_query 執行（p_query 本身除外）時，須有同代號的查詢定義（p_zz.4gl:973-982）
-    pub fn requires_query_definition(&self) -> bool {
-        self.program_no.as_str() != "p_query"
-            && self
-                .runtime
-                .run_command
-                .as_deref()
-                .is_some_and(|c| c.contains("p_query"))
+    /// 執行指令為「p_query <查詢單代號>」時的查詢單代號，須已有查詢定義（p_zz.4gl:973-982，P5）
+    pub fn query_definition_id(&self) -> Option<&str> {
+        let mut words = self.runtime.run_command.as_deref()?.split_whitespace();
+        words.find(|w| *w == "p_query")?;
+        words.next()
     }
 
     fn apply(&mut self, a: ProgramAttrs, today: NaiveDate) -> Result<(), DomainError> {
         check_lengths(&a)?;
-        self.program_type = a
-            .program_type
-            .map(|t| t.trim().to_uppercase())
-            .filter(|t| !t.is_empty())
-            .or_else(|| self.program_no.derived_type());
+        // 程式類別必填；選單為 M（P3，原 p_zz.4gl:917-918 由代號推導）
+        self.program_type = if self.module.is_menu() {
+            Some("M".to_owned())
+        } else {
+            Some(
+                a.program_type
+                    .map(|t| t.trim().to_uppercase())
+                    .filter(|t| !t.is_empty())
+                    .ok_or(DomainError::ProgramTypeRequired)?,
+            )
+        };
+        self.tiptop_program_no = a
+            .tiptop_program_no
+            .map(|t| t.trim().to_lowercase())
+            .filter(|t| !t.is_empty());
         self.report_type = a.report_type.unwrap_or(ReportType::None);
         if self.program_type.as_deref() == Some("R") && self.report_type == ReportType::None {
             return Err(DomainError::ReportTypeRequired);
@@ -318,26 +323,10 @@ impl Program {
         // 報表副檔名預設「固定」（p_zz.4gl:791）
         self.runtime.report_ext_mode = self.runtime.report_ext_mode.or(Some(ReportExtMode::Fixed));
         self.other = a.other;
+        // 執行指令照輸入保存，不再依標準命名自動產生（P4）
         self.designed_on = a.designed_on.unwrap_or(today);
-        // 標準命名且未給執行指令時，自動產生（p_zz.4gl:917-926）
-        if self
-            .runtime
-            .run_command
-            .as_deref()
-            .is_none_or(|c| c.trim().is_empty())
-        {
-            self.runtime.run_command = self.program_no.is_standard().then(|| {
-                let system: String = self.program_no.as_str().chars().take(3).collect();
-                standard_run_command(&system, self.program_no.as_str())
-            });
-        }
         Ok(())
     }
-}
-
-/// Unix 格式的執行指令，如 `$FGLRUN $AIMi/aimi100`（Windows 格式不採用，見規格檔頭）
-fn standard_run_command(system: &str, program_no: &str) -> String {
-    format!("$FGLRUN ${}i/{program_no}", system.to_uppercase())
 }
 
 fn check_lengths(a: &ProgramAttrs) -> Result<(), DomainError> {
@@ -345,6 +334,11 @@ fn check_lengths(a: &ProgramAttrs) -> Result<(), DomainError> {
     let o = &a.other;
     for (field, value, max) in [
         ("執行指令", r.run_command.as_deref(), max_len::RUN_COMMAND),
+        (
+            "TipTop 程式代號",
+            a.tiptop_program_no.as_deref(),
+            max_len::TIPTOP_PROGRAM_NO,
+        ),
         (
             "程式群組",
             r.program_group.as_deref(),
@@ -425,29 +419,54 @@ mod tests {
         )
     }
 
-    #[test]
-    fn derives_type_and_run_command_from_standard_no() {
-        let p = new("aimi100", "AIM", ProgramAttrs::default()).unwrap();
-        assert_eq!(p.program_type.as_deref(), Some("I"));
-        assert_eq!(
-            p.runtime.run_command.as_deref(),
-            Some("$FGLRUN $AIMi/aimi100")
-        );
+    fn typed(t: &str) -> ProgramAttrs {
+        ProgramAttrs {
+            program_type: Some(t.into()),
+            ..ProgramAttrs::default()
+        }
     }
 
     #[test]
-    fn non_standard_no_has_no_type() {
-        let p = new("p_query", "AZZ", ProgramAttrs::default()).unwrap();
-        assert_eq!(p.program_type, None);
+    fn english_program_no_rules() {
+        assert_eq!(
+            ProgramNo::parse(" Item-Maintenance ").unwrap().as_str(),
+            "item-maintenance"
+        );
+        for bad in ["item_maintenance", "1item", "item maintenance"] {
+            assert_eq!(
+                ProgramNo::parse(bad).unwrap_err().code(),
+                "PROGRAM_NO_INVALID",
+                "{bad}"
+            );
+        }
+    }
+
+    #[test]
+    fn program_type_required_except_menu() {
+        assert_eq!(
+            new("item-maintenance", "AIM", ProgramAttrs::default()),
+            Err(DomainError::ProgramTypeRequired)
+        );
+        let menu = new("menu-aim", "MENU", ProgramAttrs::default()).unwrap();
+        assert_eq!(menu.program_type.as_deref(), Some("M"));
+        let p = new("item-maintenance", "AIM", typed("i")).unwrap();
         assert_eq!(p.runtime.run_command, None);
     }
 
     #[test]
     fn report_program_requires_report_type() {
         assert_eq!(
-            new("aimr400", "AIM", ProgramAttrs::default()),
+            new("item-list-report", "AIM", typed("R")),
             Err(DomainError::ReportTypeRequired)
         );
+    }
+
+    #[test]
+    fn query_definition_from_run_command() {
+        let mut a = typed("Q");
+        a.runtime.run_command = Some("$FGLRUN p_query aimq900".into());
+        let p = new("item-query", "AIM", a).unwrap();
+        assert_eq!(p.query_definition_id(), Some("aimq900"));
     }
 
     #[test]

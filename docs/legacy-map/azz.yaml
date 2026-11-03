@@ -199,11 +199,15 @@ tables:
   - legacy: zxy_file
     target: user_plant
     scope: system
-    note: "使用者可使用營運中心；zxy02 使用者名稱為冗餘欄位不搬"
+    note: "使用者可使用營運中心；zxy02 使用者名稱為冗餘欄位不搬。登入與切換營運中心檢查（s_chkdbs）見 specs/features/azz/sign_in.feature"
     columns:
       - { legacy: zxy01, type: varchar2(10) NOT NULL, target: user_id }
       - { legacy: zxy02, type: varchar2(80), sch: 使用者名稱, note: 不搬（冗餘） }
-      - { legacy: zxy03, type: varchar2(10) NOT NULL, target: plant_id }
+      - { legacy: zxy03, type: varchar2(10) NOT NULL, target: plant_id, note: "zxy03＝ALL（全部營運中心）→ user_account.all_plants＝true，不寫 user_plant（migration 0019，SQ5）" }
+
+  - legacy: gbq_file
+    target: (不移植)
+    note: "執行中程序記錄（weblogin 登入時寫入 FGLSERVER、營運中心）；Genero 執行環境專用，目前營運中心改存在登入連線（sign_in.feature SQ10）"
 
   - legacy: gbt_file
     target: (不移植)

@@ -39,12 +39,12 @@ fn constraint(
     }
 }
 
-/// program（0003 建立、0005 改名、0006 加欄位、0007 改名與長度）
+/// program（0003 建立、0005 改名、0006 加欄位、0007 改名與長度、0018 英文程式代號）
 fn program() -> TableSchema {
     TableSchema {
         name: "program".into(),
         columns: vec![
-            col("program_no", "varchar(20)", true, None),
+            col("program_no", "varchar(40)", true, None),
             col("module_code", "varchar(10)", true, None),
             col("program_type", "varchar(1)", false, None),
             col("report_type", "text", true, Some("'5'::text")),
@@ -74,6 +74,7 @@ fn program() -> TableSchema {
             col("remark", "varchar(255)", false, None),
             col("designed_on", "date", true, Some("CURRENT_DATE")),
             col("updated_on", "date", true, Some("CURRENT_DATE")),
+            col("tiptop_program_no", "varchar(20)", false, None),
         ],
         indexes: vec![],
         constraints: vec![constraint(

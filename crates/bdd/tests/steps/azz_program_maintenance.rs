@@ -11,6 +11,7 @@ use crate::{Backend, ErpWorld};
 
 fn input(no: &str, module: &str) -> ProgramInput {
     ProgramInput {
+        program_type: Some("I".into()),
         program_no: no.into(),
         module_code: module.into(),
         ..Default::default()
@@ -150,6 +151,52 @@ async fn create(w: &mut ErpWorld, req: ProgramInput) {
 #[when(expr = "使用者新增程式 {string} 模組 {string}")]
 async fn create_program(w: &mut ErpWorld, no: String, module: String) {
     create(w, input(&no, &module)).await;
+}
+
+#[when(expr = "使用者新增程式 {string} 模組 {string}，程式類別 {string}")]
+async fn create_with_type(w: &mut ErpWorld, no: String, module: String, kind: String) {
+    let req = ProgramInput {
+        program_type: (!kind.is_empty()).then_some(kind),
+        ..input(&no, &module)
+    };
+    create(w, req).await;
+}
+
+fn with_tiptop_no(no: &str, module: &str, tiptop: String) -> ProgramInput {
+    ProgramInput {
+        tiptop_program_no: Some(tiptop),
+        ..input(no, module)
+    }
+}
+
+#[when(expr = "使用者新增程式 {string} 模組 {string}，TipTop 程式代號 {string}")]
+async fn create_with_tiptop_no(w: &mut ErpWorld, no: String, module: String, tiptop: String) {
+    create(w, with_tiptop_no(&no, &module, tiptop)).await;
+}
+
+#[given(expr = "已有程式 {string} 模組 {string}，TipTop 程式代號 {string}")]
+async fn existing_with_tiptop_no(w: &mut ErpWorld, no: String, module: String, tiptop: String) {
+    w.programs
+        .create(&w.actor, with_tiptop_no(&no, &module, tiptop))
+        .await
+        .unwrap();
+}
+
+#[given(expr = "程式 {string} 的 TipTop 程式代號為 {string}")]
+async fn set_tiptop_no(w: &mut ErpWorld, no: String, tiptop: String) {
+    let req = ProgramInput {
+        tiptop_program_no: Some(tiptop),
+        ..program(w, &no).await.to_input()
+    };
+    w.programs.update(&w.actor, &no, req).await.unwrap();
+}
+
+#[then(expr = "程式 {string} 的 TipTop 程式代號應為 {string}")]
+async fn tiptop_no(w: &mut ErpWorld, no: String, expected: String) {
+    assert_eq!(
+        program(w, &no).await.tiptop_program_no.unwrap_or_default(),
+        expected
+    );
 }
 
 #[when(expr = "使用者新增程式 {string} 模組 {string}，報表類型 {string}")]

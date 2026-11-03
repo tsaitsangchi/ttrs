@@ -69,7 +69,7 @@ enum Mode {
 }
 
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "p_zz";
+const PROGRAM: &str = "program-maintenance";
 
 #[component]
 pub fn ProgramMaintenance() -> Element {
@@ -447,6 +447,17 @@ fn ProgramMaintenancePage() -> Element {
                                     readonly: ro,
                                 }
                             }
+                            // ADR 0008：TipTop 程式代號（zz01），只供轉檔與對照
+                            Q { field: "tiptop_program_no", label: t("program-field-tiptop-no"), query: q, qbe,
+                                TextField {
+                                    id: "tiptop_program_no",
+                                    maxlength: Some(max_len::TIPTOP_PROGRAM_NO),
+                                    label: t("program-field-tiptop-no"),
+                                    readonly: ro,
+                                    value: f.tiptop_program_no.clone().unwrap_or_default(),
+                                    oninput: move |v| form.write().tiptop_program_no = non_empty(v),
+                                }
+                            }
                         }
                     } else {
                         div { class: "form-grid cols-4",
@@ -515,7 +526,7 @@ fn ProgramMaintenancePage() -> Element {
                                                 Select {
                                                     id: "zz03",
                                                     label: t("program-field-type"),
-                                                    options: with_blank(&t("program-hint-type-auto"), PROGRAM_TYPES.iter().map(|(c, l)| (c.to_string(), t(l).to_string()))),
+                                                    options: with_blank(&t("program-hint-type-menu"), PROGRAM_TYPES.iter().map(|(c, l)| (c.to_string(), t(l).to_string()))),
                                                     value: f.program_type.clone().unwrap_or_default(),
                                                     readonly: ro,
                                                     onchange: move |v| form.write().program_type = non_empty(v),

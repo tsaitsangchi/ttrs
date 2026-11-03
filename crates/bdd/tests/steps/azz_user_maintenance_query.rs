@@ -51,7 +51,7 @@ async fn existing_users(w: &mut ErpWorld, step: &Step) {
             name: text(&r[1]),
             dept_code: text(&r[2]),
             permission_class: r[3].clone(),
-            menu: "menu_main".into(),
+            menu: "menu-main".into(),
             default_plant: r[4].clone(),
             email: text(&r[5]),
             idp_username: text(&r[6]),

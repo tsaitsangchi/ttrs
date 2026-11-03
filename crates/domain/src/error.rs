@@ -38,6 +38,12 @@ pub enum DomainError {
     FieldTooLong { field: &'static str, max: usize },
     #[error("程式已存在")]
     ProgramAlreadyExists,
+    #[error("程式代號只能用小寫英文、數字與連字號，且以英文字母開頭：{0}")]
+    ProgramNoInvalid(String),
+    #[error("程式類別不可空白")]
+    ProgramTypeRequired,
+    #[error("TipTop 程式代號已被其他程式使用")]
+    ProgramTiptopNoDuplicate,
     #[error("程式不存在")]
     ProgramNotFound,
     #[error("所屬模組不可空白")]
@@ -96,6 +102,18 @@ pub enum DomainError {
     UserSinglePlant,
     #[error("公司帳號已綁定其他使用者：{0}")]
     IdpAccountInUse(String),
+
+    // 登入（sign_in.feature）
+    #[error("此公司帳號尚未在 TTRS 註冊，請洽系統管理員")]
+    UserNotRegistered,
+    #[error("使用者已停用")]
+    UserInactive,
+    #[error("使用者已超過有效日期")]
+    UserExpired,
+    #[error("沒有使用營運中心 {0} 的權限")]
+    PlantNotAllowed(String),
+    #[error("營運中心 {0} 已停用")]
+    PlantInactive(String),
     #[error("電子郵件格式不正確：{0}")]
     UserEmailInvalid(String),
 
@@ -173,6 +191,46 @@ pub enum DomainError {
     #[error("資料庫代碼 ds01–ds99 已用完")]
     PlantSchemaExhausted,
 
+    // 部門維護（aooi030，department_maintenance.feature）
+    #[error("部門編號不可空白")]
+    DepartmentCodeEmpty,
+    #[error("部門編號長度不可超過 {max} 碼")]
+    DepartmentCodeTooLong { max: usize },
+    #[error("部門簡稱不可空白")]
+    DepartmentNameEmpty,
+    #[error("部門已存在")]
+    DepartmentAlreadyExists,
+    #[error("部門不存在")]
+    DepartmentNotFound,
+    #[error("部門已無效")]
+    DepartmentInactive,
+    #[error("部門編號建立後不可修改")]
+    DepartmentCodeImmutable,
+    #[error("費用類別只能是 M 管理、P 製造、R 研發、S 銷售：{0}")]
+    DepartmentExpenseTypeInvalid(String),
+    #[error("管理類別只能是 1 成本中心、2 利潤中心、3 其他：{0}")]
+    DepartmentControlTypeInvalid(String),
+    #[error("對應成本中心須為有效的部門：{0}")]
+    DepartmentCostCenterInvalid(String),
+    #[error("部門仍有員工，不可刪除")]
+    DepartmentInUse,
+
+    // 員工維護（aooi040，employee_maintenance.feature）
+    #[error("員工編號不可空白")]
+    EmployeeIdEmpty,
+    #[error("員工編號長度不可超過 {max} 碼")]
+    EmployeeIdTooLong { max: usize },
+    #[error("員工姓名不可空白")]
+    EmployeeNameEmpty,
+    #[error("員工已存在")]
+    EmployeeAlreadyExists,
+    #[error("員工不存在")]
+    EmployeeNotFound,
+    #[error("員工編號建立後不可修改")]
+    EmployeeIdImmutable,
+    #[error("E-mail 格式不正確：{0}")]
+    EmployeeEmailInvalid(String),
+
     // 權限檢查（authorization.feature）
     #[error("{}", .reason.message(.program, .action))]
     PermissionDenied {
@@ -200,6 +258,9 @@ impl DomainError {
             Self::ProgramNoTooLong { .. } => "PROGRAM_NO_TOO_LONG",
             Self::FieldTooLong { .. } => "FIELD_TOO_LONG",
             Self::ProgramAlreadyExists => "PROGRAM_ALREADY_EXISTS",
+            Self::ProgramNoInvalid(_) => "PROGRAM_NO_INVALID",
+            Self::ProgramTypeRequired => "PROGRAM_TYPE_REQUIRED",
+            Self::ProgramTiptopNoDuplicate => "PROGRAM_TIPTOP_NO_DUPLICATE",
             Self::ProgramNotFound => "PROGRAM_NOT_FOUND",
             Self::ModuleEmpty => "MODULE_EMPTY",
             Self::ModuleNotFound => "MODULE_NOT_FOUND",
@@ -226,6 +287,11 @@ impl DomainError {
             Self::UserMenuInvalid(_) => "USER_MENU_INVALID",
             Self::UserSinglePlant => "USER_SINGLE_PLANT",
             Self::IdpAccountInUse(_) => "IDP_ACCOUNT_IN_USE",
+            Self::UserNotRegistered => "USER_NOT_REGISTERED",
+            Self::UserInactive => "USER_INACTIVE",
+            Self::UserExpired => "USER_EXPIRED",
+            Self::PlantNotAllowed(_) => "PLANT_NOT_ALLOWED",
+            Self::PlantInactive(_) => "PLANT_INACTIVE",
             Self::UserEmailInvalid(_) => "USER_EMAIL_INVALID",
             Self::UserPermissionDuplicate => "USER_PERMISSION_DUPLICATE",
             Self::UserHasSpecialPermissions => "USER_HAS_SPECIAL_PERMISSIONS",
@@ -258,6 +324,24 @@ impl DomainError {
             Self::PlantSchemaDuplicate => "PLANT_SCHEMA_DUPLICATE",
             Self::PlantSchemaImmutable => "PLANT_SCHEMA_IMMUTABLE",
             Self::PlantSchemaExhausted => "PLANT_SCHEMA_EXHAUSTED",
+            Self::DepartmentCodeEmpty => "DEPARTMENT_CODE_EMPTY",
+            Self::DepartmentCodeTooLong { .. } => "DEPARTMENT_CODE_TOO_LONG",
+            Self::DepartmentNameEmpty => "DEPARTMENT_NAME_EMPTY",
+            Self::DepartmentAlreadyExists => "DEPARTMENT_ALREADY_EXISTS",
+            Self::DepartmentNotFound => "DEPARTMENT_NOT_FOUND",
+            Self::DepartmentInactive => "DEPARTMENT_INACTIVE",
+            Self::DepartmentCodeImmutable => "DEPARTMENT_CODE_IMMUTABLE",
+            Self::DepartmentExpenseTypeInvalid(_) => "DEPARTMENT_EXPENSE_TYPE_INVALID",
+            Self::DepartmentControlTypeInvalid(_) => "DEPARTMENT_CONTROL_TYPE_INVALID",
+            Self::DepartmentCostCenterInvalid(_) => "DEPARTMENT_COST_CENTER_INVALID",
+            Self::DepartmentInUse => "DEPARTMENT_IN_USE",
+            Self::EmployeeIdEmpty => "EMPLOYEE_ID_EMPTY",
+            Self::EmployeeIdTooLong { .. } => "EMPLOYEE_ID_TOO_LONG",
+            Self::EmployeeNameEmpty => "EMPLOYEE_NAME_EMPTY",
+            Self::EmployeeAlreadyExists => "EMPLOYEE_ALREADY_EXISTS",
+            Self::EmployeeNotFound => "EMPLOYEE_NOT_FOUND",
+            Self::EmployeeIdImmutable => "EMPLOYEE_ID_IMMUTABLE",
+            Self::EmployeeEmailInvalid(_) => "EMPLOYEE_EMAIL_INVALID",
             Self::PermissionDenied { .. } => "PERMISSION_DENIED",
         }
     }

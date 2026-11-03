@@ -46,7 +46,7 @@ fn create(table: &str) -> Request<Body> {
     json(
         "POST",
         "/api/dictionary/tables",
-        serde_json::json!({ "table_name": table, "module_code": "AZZ", "table_type": "master" }),
+        serde_json::json!({ "table_name": table, "module_code": "AZZ", "program_type": "I", "table_type": "master" }),
     )
 }
 

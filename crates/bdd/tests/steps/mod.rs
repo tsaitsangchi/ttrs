@@ -1,6 +1,7 @@
 //! 步驟定義依 TipTop 模組分檔。共用的「那麼」步驟放 common.rs。
 
 mod aim_item;
+mod aoo_department_employee;
 mod aoo_plant_maintenance;
 mod aoo_plant_maintenance_query;
 mod azz_authorization;
@@ -13,6 +14,7 @@ mod azz_program_maintenance_i18n;
 mod azz_program_maintenance_query;
 mod azz_program_permission_maintenance;
 mod azz_program_permission_maintenance_query;
+mod azz_sign_in;
 mod azz_user_maintenance;
 mod azz_user_maintenance_query;
 mod azz_user_permission_maintenance;

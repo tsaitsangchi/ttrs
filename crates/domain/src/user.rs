@@ -106,7 +106,7 @@ impl UserAttrs {
 }
 
 /// 基本電子郵件格式（U8）：local@domain，domain 含「.」，不含空白
-fn is_email(s: &str) -> bool {
+pub(crate) fn is_email(s: &str) -> bool {
     let Some((local, domain)) = s.split_once('@') else {
         return false;
     };

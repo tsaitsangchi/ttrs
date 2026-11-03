@@ -23,7 +23,7 @@ async fn app() -> Router {
         .oneshot(request(
             "POST",
             "/api/programs",
-            Some(serde_json::json!({ "program_no": "menu_sales", "module_code": "MENU" })),
+            Some(serde_json::json!({ "program_no": "menu-sales", "module_code": "MENU" })),
         ))
         .await
         .unwrap();
@@ -48,7 +48,7 @@ async fn body<T: serde::de::DeserializeOwned>(res: axum::response::Response) -> 
 async fn create_duplicate_deactivate_and_delete() {
     let app = app().await;
     let sales = serde_json::json!({
-        "class_code": "SALES", "name": "業務人員", "default_menu": "menu_sales"
+        "class_code": "SALES", "name": "業務人員", "default_menu": "menu-sales"
     });
     let res = app
         .clone()
@@ -102,7 +102,7 @@ async fn class_in_use_returns_409_and_menus_update() {
         .oneshot(request(
             "PUT",
             "/api/permission-classes/ADMIN",
-            Some(serde_json::json!({ "name": "系統管理員", "default_menu": "menu_sales" })),
+            Some(serde_json::json!({ "name": "系統管理員", "default_menu": "menu-sales" })),
         ))
         .await
         .unwrap();

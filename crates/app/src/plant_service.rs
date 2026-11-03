@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// 權限檢查用的程式代號；TipTop 沒有設定資料所有者，不檢查資料權限（AQ5）
-const PROGRAM: &str = "aooi901";
+const PROGRAM: &str = "plant-maintenance";
 
 #[derive(Clone)]
 pub struct PlantService {

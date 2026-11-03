@@ -50,6 +50,7 @@ struct ProgramRow {
     allow_key_update: bool,
     remark: Option<String>,
     designed_on: NaiveDate,
+    tiptop_program_no: Option<String>,
     created_by: String,
     created_dept: String,
     updated_by: Option<String>,
@@ -114,6 +115,7 @@ impl TryFrom<ProgramRow> for Program {
                 remark: r.remark,
             },
             designed_on: r.designed_on,
+            tiptop_program_no: r.tiptop_program_no,
             created_by: r.created_by,
             created_dept: r.created_dept,
             updated_by: r.updated_by,
@@ -131,7 +133,7 @@ impl ProgramRepository for PgStore {
                     current_print_count, report_width, run_command, window_style,
                     report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
                     sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
-                    remark, designed_on, created_by, created_dept, updated_by, updated_on
+                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on
              FROM program WHERE program_no = $1",
         )
         .bind(no.as_str())
@@ -162,7 +164,7 @@ impl ProgramRepository for PgStore {
                     current_print_count, report_width, run_command, window_style,
                     report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
                     sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
-                    remark, designed_on, created_by, created_dept, updated_by, updated_on
+                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on
              FROM program p WHERE TRUE",
         );
         push_filters(&mut rows, filters)?;
@@ -189,7 +191,7 @@ impl ProgramRepository for PgStore {
                     current_print_count, report_width, run_command, window_style,
                     report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
                     sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
-                    remark, designed_on, created_by, created_dept, updated_by, updated_on
+                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on
              FROM program ORDER BY program_no",
         )
         .fetch_all(&self.pool)
@@ -215,9 +217,9 @@ impl ProgramRepository for PgStore {
                     window_style, report_ext_mode, program_group, fixed_print_method,
                     fixed_print_condition, sql_explain, log_errors, created_by, created_dept,
                     updated_by, default_actions, print_conditions, allow_key_update, remark,
-                    designed_on, updated_on)
+                    designed_on, updated_on, tiptop_program_no)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
-                     $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)",
+                     $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29)",
         )
         .bind(p.program_no.as_str())
         .bind(p.module.as_str())
@@ -247,6 +249,7 @@ impl ProgramRepository for PgStore {
         .bind(&p.other.remark)
         .bind(p.designed_on)
         .bind(p.updated_on)
+        .bind(&p.tiptop_program_no)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
@@ -283,7 +286,8 @@ impl ProgramRepository for PgStore {
                     program_group = $15, fixed_print_method = $16, fixed_print_condition = $17,
                     sql_explain = $18, log_errors = $19, updated_by = $20,
                     default_actions = $21, print_conditions = $22, allow_key_update = $23,
-                    remark = $24, designed_on = $25, updated_on = $26, updated_at = now()
+                    remark = $24, designed_on = $25, updated_on = $26, tiptop_program_no = $27,
+                    updated_at = now()
              WHERE program_no = $1",
         )
         .bind(p.program_no.as_str())
@@ -312,6 +316,7 @@ impl ProgramRepository for PgStore {
         .bind(&p.other.remark)
         .bind(p.designed_on)
         .bind(p.updated_on)
+        .bind(&p.tiptop_program_no)
         .execute(&self.pool)
         .await
         .map_err(db_err)?;
@@ -411,7 +416,7 @@ impl ProgramRepository for PgStore {
                     current_print_count, report_width, run_command, window_style,
                     report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
                     sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
-                    remark, designed_on, created_by, created_dept, updated_by, updated_on
+                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on
              FROM program p JOIN menu_item m ON m.program_no = p.program_no
              WHERE m.menu_no = $1 ORDER BY p.program_no COLLATE \"C\"",
         )
@@ -467,6 +472,17 @@ impl ProgramRepository for PgStore {
             .map_err(db_err)
     }
 
+    async fn find_by_tiptop_no(&self, tiptop_no: &str) -> Result<Option<ProgramNo>, RepoError> {
+        let no: Option<String> =
+            sqlx::query_scalar("SELECT program_no FROM program WHERE tiptop_program_no = $1")
+                .bind(tiptop_no)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(db_err)?;
+        no.map(|n| ProgramNo::parse(&n).map_err(|_| bad("program_no", &n)))
+            .transpose()
+    }
+
     async fn query_definition_exists(&self, query: &str) -> Result<bool, RepoError> {
         sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM query_definition WHERE query_no = $1)")
             .bind(query)
@@ -482,6 +498,7 @@ impl ProgramRepository for PgStore {
 fn column(field: &str) -> Option<(&'static str, bool)> {
     Some(match field {
         "program_no" => ("p.program_no", true),
+        "tiptop_program_no" => ("p.tiptop_program_no", true),
         "module_code" => ("p.module_code", true),
         "program_group" => ("p.program_group", true),
         "window_style" => ("p.window_style", true),

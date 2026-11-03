@@ -32,7 +32,7 @@ pub use ttrs_domain::lang::DEFAULT_LANG;
 /// 寫入異動紀錄時的作業代號
 const AUDIT_PROGRAM: &str = "program-maintenance";
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "p_zz";
+const PROGRAM: &str = "program-maintenance";
 
 #[derive(Clone)]
 pub struct ProgramService {
@@ -58,7 +58,7 @@ impl ProgramService {
             &actor.dept,
             today(),
         )?;
-        self.check_query_definition(&program).await?;
+        self.check_query_definition(&program, None).await?;
 
         let names: Vec<ProgramName> = input_names(&input)?
             .into_iter()
@@ -148,7 +148,7 @@ impl ProgramService {
         let module = self.module(&input.module_code).await?;
         program.update(module, attrs(&input), &actor.user_id, today())?;
         let names = input_names(&input)?;
-        self.check_query_definition(&program).await?;
+        self.check_query_definition(&program, Some(&old)).await?;
 
         if new != old {
             match self.repo.change_no(&old, &new).await {
@@ -311,15 +311,25 @@ impl ProgramService {
         Ok(module)
     }
 
-    async fn check_query_definition(&self, program: &Program) -> Result<(), AppError> {
-        if program.requires_query_definition()
-            && !self
-                .repo
-                .query_definition_exists(program.program_no.as_str())
-                .await
-                .map_err(infra)?
+    /// 執行指令為 p_query <查詢單代號> 時，查詢單須已有查詢定義（Q5、ADR 0008 P5）；
+    /// TipTop 程式代號不可與其他程式重複（P2）
+    /// `own` 為修改前的代號（修改時代號可能改變）
+    async fn check_query_definition(
+        &self,
+        program: &Program,
+        own: Option<&ProgramNo>,
+    ) -> Result<(), AppError> {
+        if let Some(id) = program.query_definition_id()
+            && !self.repo.query_definition_exists(id).await.map_err(infra)?
         {
             return Err(DomainError::QueryDefinitionNotFound.into());
+        }
+        if let Some(tiptop) = &program.tiptop_program_no
+            && let Some(owner) = self.repo.find_by_tiptop_no(tiptop).await.map_err(infra)?
+            && owner != program.program_no
+            && Some(&owner) != own
+        {
+            return Err(DomainError::ProgramTiptopNoDuplicate.into());
         }
         Ok(())
     }
@@ -373,6 +383,7 @@ impl ProgramService {
             remark: o.remark.clone(),
             report_title,
             designed_on: p.designed_on,
+            tiptop_program_no: p.tiptop_program_no.clone(),
             created_by: p.created_by.clone(),
             created_dept: p.created_dept.clone(),
             updated_by: p.updated_by.clone(),
@@ -413,6 +424,7 @@ fn attrs(i: &ProgramInput) -> ProgramAttrs {
             remark: i.remark.clone(),
         },
         designed_on: i.designed_on,
+        tiptop_program_no: i.tiptop_program_no.clone(),
     }
 }
 

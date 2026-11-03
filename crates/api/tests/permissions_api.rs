@@ -24,7 +24,7 @@ async fn app() -> Router {
             "POST",
             "/api/programs",
             Some(serde_json::json!({
-                "program_no": "aimi109", "module_code": "AIM", "name": "料件基本資料",
+                "program_no": "item-price", "module_code": "AIM", "program_type": "I", "name": "料件基本資料",
                 "default_actions": "insert, query, modify, delete"
             })),
         ))
@@ -55,7 +55,7 @@ async fn grant_list_update_and_revoke() {
         .oneshot(request(
             "POST",
             "/api/permission-classes/SALES/permissions",
-            Some(serde_json::json!({ "program_no": "aimi109" })),
+            Some(serde_json::json!({ "program_no": "item-price" })),
         ))
         .await
         .unwrap();
@@ -69,7 +69,7 @@ async fn grant_list_update_and_revoke() {
         .oneshot(request(
             "POST",
             "/api/permission-classes/SALES/permissions",
-            Some(serde_json::json!({ "program_no": "aimi109" })),
+            Some(serde_json::json!({ "program_no": "item-price" })),
         ))
         .await
         .unwrap();
@@ -83,7 +83,7 @@ async fn grant_list_update_and_revoke() {
         .clone()
         .oneshot(request(
             "PUT",
-            "/api/permission-classes/SALES/permissions/aimi109",
+            "/api/permission-classes/SALES/permissions/item-price",
             Some(serde_json::json!({ "actions": ["query"], "other_dept_data": "7" })),
         ))
         .await
@@ -110,7 +110,7 @@ async fn grant_list_update_and_revoke() {
         .clone()
         .oneshot(request(
             "DELETE",
-            "/api/permission-classes/SALES/permissions/aimi109",
+            "/api/permission-classes/SALES/permissions/item-price",
             None,
         ))
         .await
@@ -119,7 +119,7 @@ async fn grant_list_update_and_revoke() {
     let res = app
         .oneshot(request(
             "DELETE",
-            "/api/permission-classes/SALES/permissions/aimi109",
+            "/api/permission-classes/SALES/permissions/item-price",
             None,
         ))
         .await
@@ -136,7 +136,7 @@ async fn invalid_action_422_and_copy() {
         .oneshot(request(
             "POST",
             "/api/permission-classes/SALES/permissions",
-            Some(serde_json::json!({ "program_no": "aimi109", "actions": ["confirm"] })),
+            Some(serde_json::json!({ "program_no": "item-price", "actions": ["confirm"] })),
         ))
         .await
         .unwrap();

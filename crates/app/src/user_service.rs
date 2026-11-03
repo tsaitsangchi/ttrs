@@ -27,7 +27,7 @@ use crate::{
 };
 
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "p_zx";
+const PROGRAM: &str = "user-maintenance";
 
 #[derive(Clone)]
 pub struct UserService {

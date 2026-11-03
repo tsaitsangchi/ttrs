@@ -85,7 +85,7 @@ impl Header {
 }
 
 /// 權限檢查用的程式代號（TipTop 對照目錄也歸在 p_zta，authorization.feature AQ3）
-const PROGRAM: &str = "p_zta";
+const PROGRAM: &str = "data-dictionary";
 
 /// 資料字典維護；工具列可切換到 TipTop 對照目錄（legacy_catalog.feature C1）
 #[component]

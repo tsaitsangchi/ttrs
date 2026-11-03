@@ -1,0 +1,21 @@
+# TipTop 程式代號 → TTRS 英文程式代號（docs/adr/0008-english-program-codes.md）
+# TTRS 的程式鍵值（program.program_no）是英文代號；TipTop 代號存 program.tiptop_program_no，只用於轉檔與對照。
+# 格式：小寫英文、數字與連字號，英文字母開頭，最多 40 字（E1）。移植新作業時在此加一列，並在規格檔頭註明。
+# 轉檔：zz_file 只轉入此表有的程式；zy_file、zxw_file、zm_file 依此表對照，對照不到的列不轉入並列出清單（E4）。
+
+programs:
+  - { tiptop: p_zz,    english: program-maintenance,            spec: specs/features/azz/program_maintenance.feature }
+  - { tiptop: p_zta,   english: data-dictionary,                spec: specs/features/azz/data_dictionary.feature }
+  - { tiptop: p_zx,    english: user-maintenance,               spec: specs/features/azz/user_maintenance.feature }
+  - { tiptop: p_zxw,   english: user-permission-maintenance,    spec: specs/features/azz/user_permission_maintenance.feature }
+  - { tiptop: p_zw,    english: permission-class-maintenance,   spec: specs/features/azz/permission_class_maintenance.feature }
+  - { tiptop: p_zy,    english: program-permission-maintenance, spec: specs/features/azz/program_permission_maintenance.feature }
+  - { tiptop: aooi901, english: plant-maintenance,              spec: specs/features/aoo/plant_maintenance.feature }
+  - { tiptop: aooi030, english: department-maintenance,         spec: specs/features/aoo/department_maintenance.feature }
+  - { tiptop: aooi040, english: employee-maintenance,           spec: specs/features/aoo/employee_maintenance.feature }
+  - { tiptop: aimi100, english: item-maintenance,               spec: specs/features/aim/item_master.feature }
+  # 登入與切換營運中心：每個已註冊使用者都能用，不登錄為程式、不檢查程式執行權限（sign_in.feature SQ9）
+  - { tiptop: weblogin, english: sign-in,                       spec: specs/features/azz/sign_in.feature, registered: false }
+  - { tiptop: aoos901,  english: switch-plant,                  spec: specs/features/azz/sign_in.feature, registered: false }
+
+# 選單程式（模組 MENU）：menu- 加原名轉成 kebab-case（E5），例如 menu_main → menu-main

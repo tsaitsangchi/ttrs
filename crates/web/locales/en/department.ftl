@@ -1,0 +1,39 @@
+# Department Maintenance 部門維護（TipTop aooi030）
+# 語系：en。ID 規則見 docs/adr/0005-i18n.md；三個語系的 ID 必須一致。
+
+dept-breadcrumb = Basic Data / Department Maintenance
+dept-title = Department Maintenance
+dept-list-title = Departments
+dept-field-code = Department Code
+dept-field-name = Short Name
+dept-field-full-name = Full Name
+dept-field-accounting = Accounting Dept.
+dept-field-expense = Expense Category
+dept-field-control = Control Type
+dept-field-cost-center = Cost Center
+dept-field-active = Active
+dept-opt-none = (none)
+dept-opt-expense-m = Administration
+dept-opt-expense-p = Production
+dept-opt-expense-r = R&D
+dept-opt-expense-s = Sales
+dept-opt-control-1 = Cost Center
+dept-opt-control-2 = Profit Center
+dept-opt-control-3 = Other
+dept-opt-yes = Yes
+dept-opt-no = No
+dept-status-active = Active
+dept-status-inactive = Inactive
+dept-action-accounting = Accounting Data
+dept-action-activate = Activate
+dept-action-deactivate = Deactivate
+dept-dialog-new = New Department
+dept-dialog-edit = Edit Department { $code }
+dept-dialog-accounting = Accounting Data: { $code }
+dept-msg-saved = Department { $code } saved
+dept-msg-deleted = Department { $code } deleted
+dept-msg-activated = Department { $code } activated
+dept-msg-deactivated = Department { $code } deactivated
+dept-hint-qbe-expense = M admin, P production, R R&D, S sales
+dept-hint-qbe-control = 1 cost center, 2 profit center, 3 other
+dept-hint-cost-center = Required for cost or profit centers; blank means this department

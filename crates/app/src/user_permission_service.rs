@@ -31,7 +31,7 @@ use crate::{
 };
 
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "p_zxw";
+const PROGRAM: &str = "user-permission-maintenance";
 
 #[derive(Clone)]
 pub struct UserPermissionService {

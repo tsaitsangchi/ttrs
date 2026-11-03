@@ -2,6 +2,8 @@
 
 pub mod authorization;
 pub mod data_dictionary_service;
+pub mod department_service;
+pub mod employee_service;
 pub mod error;
 pub mod item_service;
 pub mod legacy_catalog_service;
@@ -15,11 +17,14 @@ pub mod program_query;
 pub mod program_service;
 pub mod query;
 pub mod services;
+pub mod sign_in_service;
 pub mod user_permission_service;
 pub mod user_service;
 
 pub use authorization::{Actor, ActorKind, Authorizer, PermissionAuthorizer};
 pub use data_dictionary_service::DataDictionaryService;
+pub use department_service::DepartmentService;
+pub use employee_service::EmployeeService;
 pub use error::AppError;
 pub use item_service::ItemService;
 pub use legacy_catalog_service::LegacyCatalogService;
@@ -28,5 +33,6 @@ pub use permission_service::ProgramPermissionService;
 pub use plant_service::PlantService;
 pub use program_service::ProgramService;
 pub use services::Services;
+pub use sign_in_service::{SignInIdentity, SignInService};
 pub use user_permission_service::UserPermissionService;
 pub use user_service::UserService;

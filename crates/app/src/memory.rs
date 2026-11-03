@@ -1,5 +1,6 @@
 //! 記憶體版 repository，行為需與 PostgreSQL 版一致（含唯一鍵衝突）。
 
+use chrono::NaiveDate;
 use std::{
     collections::{BTreeMap, HashSet},
     sync::{Arc, Mutex},
@@ -8,7 +9,9 @@ use std::{
 use async_trait::async_trait;
 use ttrs_domain::{
     authorization::DataScope,
+    department::{Department, DeptCode},
     dictionary::{ColumnText, TableDictionary, TableText},
+    employee::{Employee, EmployeeId},
     item::{Item, ItemNo},
     lang::Lang,
     legacy_catalog::LegacyTable,
@@ -24,11 +27,11 @@ use ttrs_domain::{
 use crate::{
     error::RepoError,
     ports::{
-        AuditEntry, DictionaryRepository, ItemRepository, LegacyCatalogRepository,
-        LegacyTableSummary, MasterDataRepository, MigrationSource, PermissionClassRepository,
-        PermissionListItem, PlantRepository, ProgramName, ProgramPermissionRepository,
-        ProgramRepository, SchemaCatalog, TableSchema, UserPermissionItem,
-        UserPermissionRepository, UserRepository,
+        AuditEntry, DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemRepository,
+        LegacyCatalogRepository, LegacyTableSummary, MasterDataRepository, MigrationSource,
+        PermissionClassRepository, PermissionListItem, PlantRepository, ProgramName,
+        ProgramPermissionRepository, ProgramRepository, SchemaCatalog, TableSchema,
+        UserPermissionItem, UserPermissionRepository, UserRepository,
     },
     query,
 };
@@ -46,6 +49,9 @@ struct State {
     plants: BTreeMap<PlantId, Plant>,
     /// 已建立的工廠 schema（PostgreSQL 版為 schema＋資料庫角色＋工廠 migration，ADR 0007）
     plant_schemas: HashSet<String>,
+    /// 部門（gem_file）、員工（gen_file）：工廠層，以營運中心區分
+    departments: BTreeMap<(PlantId, DeptCode), Department>,
+    employees: BTreeMap<(PlantId, EmployeeId), Employee>,
     units: HashSet<String>,
     items: BTreeMap<(PlantId, ItemNo), Item>,
     transactions: HashSet<(PlantId, ItemNo)>,
@@ -101,9 +107,11 @@ impl InMemoryStore {
     pub fn add_ported_programs(&self, grant_to: Option<&str>) {
         let today = chrono::Local::now().date_naive();
         let mut s = self.lock();
-        for (no, module, actions) in crate::authorization::PORTED_PROGRAMS {
+        for (no, tiptop, module, actions) in crate::authorization::PORTED_PROGRAMS {
             let no = ProgramNo::parse(no).expect("程式代號");
             let attrs = ProgramAttrs {
+                program_type: Some("I".to_owned()),
+                tiptop_program_no: Some((*tiptop).to_owned()),
                 other: OtherSettings {
                     default_actions: Some((*actions).to_owned()),
                     ..OtherSettings::default()
@@ -158,6 +166,24 @@ impl InMemoryStore {
     /// 測試用：工廠 schema 是否已建立
     pub fn plant_schema_exists(&self, schema: &str) -> bool {
         self.lock().plant_schemas.contains(schema)
+    }
+
+    /// 可使用營運中心加入 ALL（zxy03＝ALL，sign_in.feature SQ5）
+    pub fn set_user_all_plants(&self, user: &str) {
+        let id = UserId::parse(user).expect("使用者代號");
+        let mut s = self.lock();
+        let plants = s.user_plants.entry(id).or_default();
+        if !plants.iter().any(PlantId::is_all) {
+            plants.push(PlantId::all());
+        }
+    }
+
+    /// 直接設定有效日期（不經使用者維護，資料有效不變）
+    pub fn set_user_valid_until(&self, user: &str, date: Option<NaiveDate>) {
+        let id = UserId::parse(user).expect("使用者代號");
+        if let Some(u) = self.lock().users.get_mut(&id) {
+            u.attrs.valid_until = date;
+        }
     }
 
     pub fn add_unit(&self, unit: &str) {
@@ -517,6 +543,15 @@ impl ProgramRepository for InMemoryStore {
     async fn query_definition_exists(&self, query: &str) -> Result<bool, RepoError> {
         Ok(self.lock().query_definitions.contains(query))
     }
+
+    async fn find_by_tiptop_no(&self, tiptop_no: &str) -> Result<Option<ProgramNo>, RepoError> {
+        Ok(self
+            .lock()
+            .programs
+            .values()
+            .find(|p| p.tiptop_program_no.as_deref() == Some(tiptop_no))
+            .map(|p| p.program_no.clone()))
+    }
 }
 
 fn perm_key(p: &ProgramPermission) -> (String, String) {
@@ -729,8 +764,36 @@ impl UserRepository for InMemoryStore {
             .lock()
             .users
             .values()
-            .find(|u| u.attrs.idp_username.as_deref() == Some(username))
+            .find(|u| {
+                u.attrs
+                    .idp_username
+                    .as_deref()
+                    .is_some_and(|a| a.eq_ignore_ascii_case(username))
+            })
             .map(|u| u.user_id.clone()))
+    }
+
+    async fn find_by_idp_subject(&self, subject: &str) -> Result<Option<UserId>, RepoError> {
+        Ok(self
+            .lock()
+            .users
+            .values()
+            .find(|u| u.idp_subject.as_deref() == Some(subject))
+            .map(|u| u.user_id.clone()))
+    }
+
+    async fn bind_idp_subject(&self, id: &UserId, subject: &str) -> Result<(), RepoError> {
+        if let Some(u) = self.lock().users.get_mut(id) {
+            u.idp_subject = Some(subject.to_owned());
+        }
+        Ok(())
+    }
+
+    async fn set_default_plant(&self, id: &UserId, plant: &PlantId) -> Result<(), RepoError> {
+        if let Some(u) = self.lock().users.get_mut(id) {
+            u.attrs.default_plant = plant.clone();
+        }
+        Ok(())
     }
 }
 
@@ -862,7 +925,9 @@ impl PlantRepository for InMemoryStore {
         // 與 PostgreSQL 一致：使用者預設／可使用營運中心（外鍵）、工廠 schema 內有資料（料件、庫存異動）
         let referenced = s.users.values().any(|u| &u.attrs.default_plant == id)
             || s.user_plants.values().any(|ps| ps.contains(id))
-            || s.items.keys().any(|(p, _)| p == id);
+            || s.items.keys().any(|(p, _)| p == id)
+            || s.departments.keys().any(|(p, _)| p == id)
+            || s.employees.keys().any(|(p, _)| p == id);
         if referenced {
             return Err(RepoError::InUse);
         }
@@ -1044,5 +1109,141 @@ impl UserPermissionRepository for InMemoryStore {
         let before = s.user_permissions.len();
         s.user_permissions.retain(|(u, _), _| u != user);
         Ok((before - s.user_permissions.len()) as u64)
+    }
+}
+
+#[async_trait]
+impl DepartmentRepository for InMemoryStore {
+    async fn get(&self, plant: &PlantId, code: &DeptCode) -> Result<Option<Department>, RepoError> {
+        Ok(self
+            .lock()
+            .departments
+            .get(&(plant.clone(), code.clone()))
+            .cloned())
+    }
+
+    async fn query_departments(
+        &self,
+        plant: &PlantId,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Department>, u64), RepoError> {
+        let hits = self
+            .lock()
+            .departments
+            .iter()
+            .filter(|((p, _), d)| {
+                p == plant && query::matches_all(filters, |f| query::department::value(d, f))
+            })
+            .map(|(_, d)| d.clone())
+            .collect();
+        Ok(page_of(hits, offset, limit))
+    }
+
+    async fn insert(&self, plant: &PlantId, dept: &Department) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.plants.contains_key(plant) {
+            return Err(RepoError::Other(format!(
+                "營運中心不存在：{}",
+                plant.as_str()
+            )));
+        }
+        let key = (plant.clone(), dept.code.clone());
+        if s.departments.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        s.departments.insert(key, dept.clone());
+        Ok(())
+    }
+
+    async fn update(&self, plant: &PlantId, dept: &Department) -> Result<(), RepoError> {
+        if let Some(d) = self
+            .lock()
+            .departments
+            .get_mut(&(plant.clone(), dept.code.clone()))
+        {
+            *d = dept.clone();
+        }
+        Ok(())
+    }
+
+    async fn delete(&self, plant: &PlantId, code: &DeptCode) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        // 與 PostgreSQL 的外鍵一致：還有員工時不可刪除
+        if s.employees
+            .iter()
+            .any(|((p, _), e)| p == plant && e.attrs.dept_code.as_ref() == Some(code))
+        {
+            return Err(RepoError::InUse);
+        }
+        Ok(s.departments
+            .remove(&(plant.clone(), code.clone()))
+            .is_some())
+    }
+}
+
+#[async_trait]
+impl EmployeeRepository for InMemoryStore {
+    async fn get(&self, plant: &PlantId, id: &EmployeeId) -> Result<Option<Employee>, RepoError> {
+        Ok(self
+            .lock()
+            .employees
+            .get(&(plant.clone(), id.clone()))
+            .cloned())
+    }
+
+    async fn query_employees(
+        &self,
+        plant: &PlantId,
+        filters: &[QbeFilter],
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Employee>, u64), RepoError> {
+        let hits = self
+            .lock()
+            .employees
+            .iter()
+            .filter(|((p, _), e)| {
+                p == plant && query::matches_all(filters, |f| query::employee::value(e, f))
+            })
+            .map(|(_, e)| e.clone())
+            .collect();
+        Ok(page_of(hits, offset, limit))
+    }
+
+    async fn insert(&self, plant: &PlantId, employee: &Employee) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.plants.contains_key(plant) {
+            return Err(RepoError::Other(format!(
+                "營運中心不存在：{}",
+                plant.as_str()
+            )));
+        }
+        let key = (plant.clone(), employee.id.clone());
+        if s.employees.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        s.employees.insert(key, employee.clone());
+        Ok(())
+    }
+
+    async fn update(&self, plant: &PlantId, employee: &Employee) -> Result<(), RepoError> {
+        if let Some(e) = self
+            .lock()
+            .employees
+            .get_mut(&(plant.clone(), employee.id.clone()))
+        {
+            *e = employee.clone();
+        }
+        Ok(())
+    }
+
+    async fn delete(&self, plant: &PlantId, id: &EmployeeId) -> Result<bool, RepoError> {
+        Ok(self
+            .lock()
+            .employees
+            .remove(&(plant.clone(), id.clone()))
+            .is_some())
     }
 }

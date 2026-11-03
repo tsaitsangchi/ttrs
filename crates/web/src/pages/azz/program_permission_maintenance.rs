@@ -61,7 +61,7 @@ pub(crate) fn action_label(id: &str) -> String {
 }
 
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "p_zy";
+const PROGRAM: &str = "program-permission-maintenance";
 
 #[component]
 pub fn ProgramPermissions() -> Element {

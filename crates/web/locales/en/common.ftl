@@ -3,7 +3,7 @@
 
 shell-nav-home = Home
 shell-group-aim = Inventory (aim)
-shell-nav-aimi100 = aimi100 Item Master
+shell-nav-items = Item Master
 shell-group-aoo = General Management (aoo)
 shell-nav-plants = Plants
 shell-group-azz = System Admin (azz)
@@ -14,6 +14,8 @@ shell-nav-classes = Permission Classes
 shell-nav-permissions = Program Permissions
 shell-nav-dictionary = Data Dictionary
 shell-language = Language
+shell-switch-plant = Switch plant
+shell-not-signed-in = Not signed in (the development identity is not registered in User Maintenance)
 common-action-ok = OK
 common-action-cancel = Cancel
 common-action-query = Query
@@ -51,3 +53,6 @@ common-multilingual-title = { $field } (all languages)
 common-multilingual-open = Edit languages ({ $count } filled)
 query-action-clear = Clear query
 query-msg-tab-not-queryable = Fields on this tab cannot be used as query conditions
+common-field-plant = Plant
+shell-nav-departments = Departments
+shell-nav-employees = Employees

@@ -33,7 +33,7 @@ use crate::{
 /// 選單展開的最大層數（TipTop p_zy_bom mfg2733）
 const MAX_MENU_DEPTH: usize = 20;
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "p_zy";
+const PROGRAM: &str = "program-permission-maintenance";
 
 #[derive(Clone)]
 pub struct ProgramPermissionService {

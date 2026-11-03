@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// 權限檢查用的程式代號
-const PROGRAM: &str = "p_zta";
+const PROGRAM: &str = "data-dictionary";
 
 #[derive(Clone)]
 pub struct LegacyCatalogService {

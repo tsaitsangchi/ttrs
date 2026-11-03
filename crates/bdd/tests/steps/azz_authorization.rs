@@ -51,7 +51,7 @@ fn split_actions(s: &str) -> Vec<String> {
 
 /// 已移植作業的全部功能（PORTED_PROGRAMS）
 fn program_actions(program: &str) -> Vec<String> {
-    let (_, _, actions) = PORTED_PROGRAMS
+    let (_, _, _, actions) = PORTED_PROGRAMS
         .iter()
         .find(|(no, ..)| *no == program)
         .unwrap_or_else(|| panic!("{program} 不是已移植的作業"));
@@ -86,7 +86,8 @@ async fn ensure_menu(w: &ErpWorld) {
         "INSERT INTO module (module_code, name) VALUES ('MENU', 'MENU') ON CONFLICT DO NOTHING";
     seed(w, |s| s.add_module("MENU"), sql, &[]).await;
     let req = ProgramInput {
-        program_no: "menu_main".into(),
+        program_type: Some("I".into()),
+        program_no: "menu-main".into(),
         module_code: "MENU".into(),
         ..Default::default()
     };
@@ -103,7 +104,7 @@ fn user_input(id: &str) -> UserInput {
         name: Some(id.into()),
         dept_code: Some("SAL".into()),
         permission_class: "SALES".into(),
-        menu: "menu_main".into(),
+        menu: "menu-main".into(),
         default_plant: "TW01".into(),
         ..Default::default()
     }
@@ -130,6 +131,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["查看程式", no] => w.programs.get(a, no).await.map(drop),
         ["新增程式", no] => {
             let req = ProgramInput {
+                program_type: Some("I".into()),
                 program_no: (*no).into(),
                 module_code: "AIM".into(),
                 ..Default::default()
@@ -150,7 +152,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             w.programs.set_name(a, no, name).await
         }
         ["刪除程式", no] => w.programs.delete(a, no).await,
-        ["複製程式", no] => w.programs.copy(a, no, "aimi201").await.map(drop),
+        ["複製程式", no] => w.programs.copy(a, no, "item-lot").await.map(drop),
         ["授權程式", no, "給", class] => w.programs.grant(a, no, class).await,
         // p_zta 資料字典維護（含 TipTop 對照目錄）
         ["查詢資料字典"] => w.dictionary.list(a).await.map(drop),
@@ -239,17 +241,17 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["複製", class, "的權限到", to] => w.permissions.copy(a, class, to).await.map(drop),
         ["依程式產生", class, "的權限"] => w
             .permissions
-            .generate(a, class, &["aimi101".to_owned()])
+            .generate(a, class, &["item-master".to_owned()])
             .await
             .map(drop),
         ["依選單產生", class, "的權限"] => w
             .permissions
-            .generate_by_menu(a, class, "menu_main", false)
+            .generate_by_menu(a, class, "menu-main", false)
             .await
             .map(drop),
         ["依選單刪除", class, "的權限"] => w
             .permissions
-            .delete_by_menu(a, class, "menu_main")
+            .delete_by_menu(a, class, "menu-main")
             .await
             .map(drop),
         // p_zxw 使用者特殊權限維護
@@ -267,11 +269,11 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["修改", id, "的特殊權限程式列"] => {
             let input = UserPermissionInput {
                 kind: SpecialPermissionKindDto::Program,
-                target: "aimi101".into(),
+                target: "item-master".into(),
                 ..Default::default()
             };
             w.special
-                .update_program(a, id, "aimi101", input)
+                .update_program(a, id, "item-master", input)
                 .await
                 .map(drop)
         }
@@ -293,6 +295,54 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["刪除料件", no] => w.items.delete(a, "TW01", no).await,
         ["確認料件", no] => w.items.confirm(a, "TW01", no).await.map(drop),
         ["取消確認料件", no] => w.items.unconfirm(a, "TW01", no).await.map(drop),
+        // aooi030 部門維護、aooi040 員工維護（工廠層，營運中心 TW01）
+        ["查詢部門"] => w
+            .departments
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增部門", code] => {
+            let req = ttrs_shared::DepartmentInput {
+                dept_code: (*code).into(),
+                name: Some("部門".into()),
+                full_name: None,
+            };
+            w.departments.create(a, "TW01", req).await.map(drop)
+        }
+        ["修改部門", code] => {
+            let req = ttrs_shared::DepartmentInput {
+                dept_code: (*code).into(),
+                name: Some("部門".into()),
+                full_name: None,
+            };
+            w.departments.update(a, "TW01", code, req).await.map(drop)
+        }
+        ["修改部門", code, "的會計資料"] => {
+            let req = ttrs_shared::DepartmentAccountingInput {
+                accounting_dept: true,
+                control_type: "3".into(),
+                ..Default::default()
+            };
+            w.departments
+                .set_accounting(a, "TW01", code, req)
+                .await
+                .map(drop)
+        }
+        ["刪除部門", code] => w.departments.delete(a, "TW01", code).await,
+        ["查詢員工"] => w
+            .employees
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增員工", id] => {
+            let req = ttrs_shared::EmployeeInput {
+                employee_id: (*id).into(),
+                name: Some("員工".into()),
+                ..Default::default()
+            };
+            w.employees.create(a, "TW01", req).await.map(drop)
+        }
+        ["刪除員工", id] => w.employees.delete(a, "TW01", id).await,
         _ => panic!("未定義的操作：{op}（{}）", arg(0)),
     }
 }
@@ -345,9 +395,11 @@ async fn run(w: &mut ErpWorld, op: &str) {
 
 #[given("已登錄 TTRS 已移植的作業")]
 async fn ported_programs(w: &mut ErpWorld) {
-    for (no, module, actions) in PORTED_PROGRAMS {
+    for (no, tiptop, module, actions) in PORTED_PROGRAMS {
         let req = ProgramInput {
+            program_type: Some("I".into()),
             program_no: (*no).into(),
+            tiptop_program_no: Some((*tiptop).into()),
             module_code: (*module).into(),
             default_actions: Some((*actions).into()),
             ..Default::default()
@@ -377,6 +429,7 @@ async fn program_owned_by(
     dept: String,
 ) {
     let req = ProgramInput {
+        program_type: Some("I".into()),
         program_no: no,
         module_code: module,
         ..Default::default()
