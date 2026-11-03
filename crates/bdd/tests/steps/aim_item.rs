@@ -44,15 +44,24 @@ async fn item_has_txn(w: &mut ErpWorld, plant: String, no: String) {
             );
         }
         Backend::Pg(pool) => {
+            // 庫存異動在營運中心的工廠 schema（ADR 0007）
+            let mut tx = pool.begin().await.unwrap();
             sqlx::query(
-                "INSERT INTO inventory_txn (plant_id, item_no, txn_date, doc_no, doc_line, qty, unit_code)
-                 VALUES ($1, $2, CURRENT_DATE, 'TEST-0001', 1, 1, 'PCS')",
+                "SELECT set_config('search_path', schema_name, true) FROM plant WHERE plant_id = $1",
             )
             .bind(&plant)
-            .bind(&no)
-            .execute(pool)
+            .execute(&mut *tx)
             .await
             .unwrap();
+            sqlx::query(
+                "INSERT INTO inventory_txn (item_no, txn_date, doc_no, doc_line, qty, unit_code)
+                 VALUES ($1, CURRENT_DATE, 'TEST-0001', 1, 1, 'PCS')",
+            )
+            .bind(&no)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
+            tx.commit().await.unwrap();
         }
     }
 }
@@ -99,4 +108,10 @@ async fn item_absent(w: &mut ErpWorld, plant: String, no: String) {
         Err(AppError::Domain(DomainError::ItemNotFound)) => {}
         other => panic!("預期料件不存在，實際：{other:?}"),
     }
+}
+
+#[then(expr = "{string} 應沒有料件")]
+async fn no_items(w: &mut ErpWorld, plant: String) {
+    let items = w.items.list(&w.actor, &plant).await.unwrap();
+    assert!(items.is_empty(), "{plant} 仍有料件：{items:?}");
 }

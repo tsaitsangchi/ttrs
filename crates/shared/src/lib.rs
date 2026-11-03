@@ -729,12 +729,16 @@ pub struct PlantInput {
     pub address: Option<String>,
     pub phone: Option<String>,
     pub fax: Option<String>,
+    /// 資料庫代碼（azp03，工廠 schema 名稱，P13）：新增時空白為下一個未使用的號碼；建立後不可修改
+    pub schema_name: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlantDto {
     pub plant_id: String,
     pub name: String,
+    /// 資料庫代碼（工廠 schema 名稱，如 ds01）
+    pub schema_name: String,
     pub time_zone: String,
     pub address: Option<String>,
     pub phone: Option<String>,
@@ -756,6 +760,7 @@ impl PlantDto {
             address: self.address.clone(),
             phone: self.phone.clone(),
             fax: self.fax.clone(),
+            schema_name: Some(self.schema_name.clone()),
         }
     }
 }

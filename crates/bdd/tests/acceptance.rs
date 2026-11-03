@@ -85,8 +85,12 @@ impl ErpWorld {
             Some(url) => {
                 let pool = ttrs_infra::connect(&url).await.expect("connect PostgreSQL");
                 ttrs_infra::migrate(&pool).await.expect("run migrations");
+                // 上一個情境建立的工廠 schema 與角色（ADR 0007）
+                ttrs_infra::drop_all_plant_schemas(&pool)
+                    .await
+                    .expect("drop plant schemas");
                 sqlx::query("TRUNCATE user_permission, user_plant, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
-                     program, permission_class, module, inventory_txn, item, unit, plant \
+                     program, permission_class, module, unit, plant \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await

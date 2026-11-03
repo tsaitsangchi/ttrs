@@ -71,16 +71,20 @@ pub(crate) fn db_err(e: sqlx::Error) -> RepoError {
     }
 }
 
+/// 料件與庫存異動在工廠 schema（ADR 0007）：每個方法在工廠交易內執行
 #[async_trait]
 impl ItemRepository for PgStore {
     async fn get(&self, plant: &PlantId, no: &ItemNo) -> Result<Option<Item>, RepoError> {
+        let Some(mut tx) = self.plant_tx(plant).await? else {
+            return Ok(None);
+        };
         sqlx::query_as::<_, ItemRow>(
-            "SELECT plant_id, item_no, name, spec, stock_unit, status
-             FROM item WHERE plant_id = $1 AND item_no = $2",
+            "SELECT $1::text AS plant_id, item_no, name, spec, stock_unit, status
+             FROM item WHERE item_no = $2",
         )
         .bind(plant.as_str())
         .bind(no.as_str())
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *tx)
         .await
         .map_err(db_err)?
         .map(Item::try_from)
@@ -88,12 +92,15 @@ impl ItemRepository for PgStore {
     }
 
     async fn list(&self, plant: &PlantId) -> Result<Vec<Item>, RepoError> {
+        let Some(mut tx) = self.plant_tx(plant).await? else {
+            return Ok(Vec::new());
+        };
         sqlx::query_as::<_, ItemRow>(
-            "SELECT plant_id, item_no, name, spec, stock_unit, status
-             FROM item WHERE plant_id = $1 ORDER BY item_no",
+            "SELECT $1::text AS plant_id, item_no, name, spec, stock_unit, status
+             FROM item ORDER BY item_no",
         )
         .bind(plant.as_str())
-        .fetch_all(&self.pool)
+        .fetch_all(&mut *tx)
         .await
         .map_err(db_err)?
         .into_iter()
@@ -102,58 +109,68 @@ impl ItemRepository for PgStore {
     }
 
     async fn insert(&self, item: &Item) -> Result<(), RepoError> {
+        let mut tx = self.required_plant_tx(&item.plant_id).await?;
         sqlx::query(
-            "INSERT INTO item (plant_id, item_no, name, spec, stock_unit, status)
-             VALUES ($1, $2, $3, $4, $5, $6)",
+            "INSERT INTO item (item_no, name, spec, stock_unit, status) VALUES ($1, $2, $3, $4, $5)",
         )
-        .bind(item.plant_id.as_str())
         .bind(item.item_no.as_str())
         .bind(&item.name)
         .bind(&item.spec)
         .bind(&item.stock_unit)
         .bind(status_to_db(item.status))
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(db_err)?;
-        Ok(())
+        tx.commit().await.map_err(db_err)
     }
 
     async fn update(&self, item: &Item) -> Result<(), RepoError> {
+        let mut tx = self.required_plant_tx(&item.plant_id).await?;
         sqlx::query(
-            "UPDATE item SET name = $3, spec = $4, stock_unit = $5, status = $6, updated_at = now()
-             WHERE plant_id = $1 AND item_no = $2",
+            "UPDATE item SET name = $2, spec = $3, stock_unit = $4, status = $5, updated_at = now()
+             WHERE item_no = $1",
         )
-        .bind(item.plant_id.as_str())
         .bind(item.item_no.as_str())
         .bind(&item.name)
         .bind(&item.spec)
         .bind(&item.stock_unit)
         .bind(status_to_db(item.status))
-        .execute(&self.pool)
+        .execute(&mut *tx)
         .await
         .map_err(db_err)?;
-        Ok(())
+        tx.commit().await.map_err(db_err)
     }
 
     async fn delete(&self, plant: &PlantId, no: &ItemNo) -> Result<(), RepoError> {
-        sqlx::query("DELETE FROM item WHERE plant_id = $1 AND item_no = $2")
-            .bind(plant.as_str())
+        let mut tx = self.required_plant_tx(plant).await?;
+        sqlx::query("DELETE FROM item WHERE item_no = $1")
             .bind(no.as_str())
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .map_err(db_err)?;
-        Ok(())
+        tx.commit().await.map_err(db_err)
     }
 
     async fn has_transactions(&self, plant: &PlantId, no: &ItemNo) -> Result<bool, RepoError> {
-        sqlx::query_scalar(
-            "SELECT EXISTS (SELECT 1 FROM inventory_txn WHERE plant_id = $1 AND item_no = $2)",
-        )
-        .bind(plant.as_str())
-        .bind(no.as_str())
-        .fetch_one(&self.pool)
-        .await
-        .map_err(db_err)
+        let Some(mut tx) = self.plant_tx(plant).await? else {
+            return Ok(false);
+        };
+        sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM inventory_txn WHERE item_no = $1)")
+            .bind(no.as_str())
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(db_err)
+    }
+}
+
+impl PgStore {
+    async fn required_plant_tx(
+        &self,
+        plant: &PlantId,
+    ) -> Result<sqlx::Transaction<'static, sqlx::Postgres>, RepoError> {
+        self.plant_tx(plant)
+            .await?
+            .ok_or_else(|| RepoError::Other(format!("營運中心不存在：{}", plant.as_str())))
     }
 }
 

@@ -9,6 +9,7 @@
 tables:
   - legacy: gao_file
     target: module
+    scope: system
     note: 模組維護作業檔。TipTop p_zz 另有固定選項 MENU（不在 gao_file），SUB/CSUB/LIB/CLIB/QRY/CQRY 不可選
     columns:
       - { legacy: gao01, type: varchar2(10) NOT NULL, target: module_code, sch: 模組名稱（模組代號） }
@@ -24,6 +25,7 @@ tables:
 
   - legacy: zz_file
     target: program
+    scope: system
     program: p_zz
     new_program: Program Maintenance（/azz/program-maintenance）
     note: "程式資料檔（.sch：檔案名稱「程式資料檔」）；主鍵 zz01"
@@ -71,6 +73,7 @@ tables:
 
   - legacy: gaz_file
     target: program_name
+    scope: system
     note: "程式名稱多語言記錄檔；主鍵 (gaz01, gaz02, gaz05)。顯示時該語系無名稱退回繁中（L2）"
     columns:
       - { legacy: gaz01, type: varchar2(20) NOT NULL, target: program_no, sch: 程式代碼 }
@@ -84,6 +87,7 @@ tables:
 
   - legacy: zy_file
     target: program_permission
+    scope: system
     program: p_zy（Program Permission Maintenance 程式執行權限維護）
     spec: specs/features/azz/program_permission_maintenance.feature
     query: "Q.查詢 CONSTRUCT zy01＋zy02/03/04/05/07（p_zy.4gl:154）→ ttrs_app::query::program_permission；specs/features/azz/program_permission_maintenance_query.feature（YQ1–YQ5）。只有單頭條件時含沒有程式權限的權限類別（YQ2，TipTop 查不到）；單身只顯示符合條件的程式（YQ3）；zy03 逐一比對每個功能（YQ4，TipTop 比對整串文字）"
@@ -111,6 +115,7 @@ tables:
 
   - legacy: zw_file
     target: permission_class
+    scope: system
     program: p_zw（Permission Class Maintenance 權限類別維護）
     spec: specs/features/azz/permission_class_maintenance.feature
     query: "Q.查詢 CONSTRUCT zw01–zw06、zwacti（p_zw.4gl:192）→ ttrs_app::query::permission_class；specs/features/azz/permission_class_maintenance_query.feature（WQ1–WQ4）。zw04/zw05 可輸入代碼或顯示文字"
@@ -133,6 +138,7 @@ tables:
 
   - legacy: zx_file
     target: user_account
+    scope: system
     program: p_zx（User Maintenance 使用者維護）
     spec: specs/features/azz/user_maintenance.feature
     query: "Q.查詢 CONSTRUCT 19 欄位（p_zx.4gl:118-121）中有對應的 15 欄＋公司帳號 → ttrs_app::query::user；specs/features/azz/user_maintenance_query.feature（UQ1–UQ5）。zx11/zx12/zx15/zx19 不移植不可查；zx03、zx08 條件轉大寫、公司帳號轉小寫；資料權限條件（p_zx.4gl:194-204）待 Authorizer（UQ4）"
@@ -169,6 +175,7 @@ tables:
 
   - legacy: zxw_file
     target: user_permission
+    scope: system
     program: p_zxw（User Special Permission Maintenance 使用者特殊權限維護）
     spec: specs/features/azz/user_permission_maintenance.feature
     note: "有特殊權限的使用者只用特殊權限，不用使用者維護的權限類別（cl_set_priv）；全公司共用一份（X9）"
@@ -191,6 +198,7 @@ tables:
 
   - legacy: zxy_file
     target: user_plant
+    scope: system
     note: "使用者可使用營運中心；zxy02 使用者名稱為冗餘欄位不搬"
     columns:
       - { legacy: zxy01, type: varchar2(10) NOT NULL, target: user_id }
@@ -203,6 +211,7 @@ tables:
 
   - legacy: zm_file
     target: menu_item
+    scope: system
     note: "目錄檔；主鍵 (zm01, zm03)"
     mismatch: true   # 新系統主鍵為 (menu_no, program_no) 且無序號；TipTop 以序號排列、同一程式可重複出現
     columns:
@@ -213,6 +222,7 @@ tables:
 
   - legacy: zai_file
     target: query_definition
+    scope: system
     note: "自定義查詢設定主頁（p_query）；主鍵 (zai01, zai05)。TipTop p_zz 只檢查存在與否（Q5）"
     columns:
       - { legacy: zai01, type: varchar2(80) NOT NULL, target: query_no, sch: 查詢單ID, note: "= 衍生程式代號" }
@@ -221,6 +231,7 @@ tables:
 
   - legacy: azo_file
     target: audit_log
+    scope: system
     note: "系統重要資料修改記錄檔（tiptop/aoo/sch/azo_file.sch）；無主鍵"
     columns:
       - { legacy: azo01, type: varchar2(20), target: program, sch: 程式編號, note: "TTRS 目前寫作業識別（如 program-maintenance），不是 TipTop 程式代號", mismatch: true }
@@ -236,6 +247,7 @@ tables:
   # ---------------------------------------------------------------------------
   - legacy: zta_file
     target: table_dictionary
+    scope: system
     program: p_zta
     new_program: Data Dictionary Maintenance
     note: "檔案名稱檔；主鍵 (zta01, zta02)。新系統單一資料庫，鍵值只剩資料表名稱（D1：須已存在於資料庫）"
@@ -258,6 +270,7 @@ tables:
 
   - legacy: gat_file
     target: table_dictionary / table_dictionary_text
+    scope: system
     note: "檔案名稱多語言對照檔；主鍵 (gat01, gat02)。gat06 模組、gat07 類型在 TipTop 寫入每個語言列（:1552、:1576），新系統放表頭（各語言共用）"
     columns:
       - { legacy: gat01, type: varchar2(15) NOT NULL, target: table_name }
@@ -270,6 +283,7 @@ tables:
 
   - legacy: gaq_file
     target: column_dictionary_text
+    scope: system
     note: "欄位多語言說明檔；主鍵 (gaq01, gaq02)。TipTop 以欄位代碼為全系統唯一鍵，新系統改 (table_name, column_name, lang)（D2）"
     columns:
       - { legacy: gaq01, type: varchar2(20) NOT NULL, target: column_name, note: 新系統加上 table_name }

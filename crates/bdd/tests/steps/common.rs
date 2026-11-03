@@ -1,6 +1,6 @@
 use cucumber::{gherkin::Step, given, then};
 use ttrs_app::AppError;
-use ttrs_shared::{Page, QbeCondition, QueryRequest};
+use ttrs_shared::{Page, PlantInput, QbeCondition, QueryRequest};
 
 use crate::{Backend, ErpWorld};
 
@@ -70,18 +70,15 @@ fn result_count(w: &mut ErpWorld, total: u64) {
     assert_eq!(query_keys(w).1, total);
 }
 
+/// 經營運中心維護建立，PostgreSQL 版一併建立工廠 schema（ADR 0007）；資料庫代碼依建立順序給號
 #[given(expr = "營運中心 {string} 已啟用")]
 async fn plant_active(w: &mut ErpWorld, plant: String) {
-    match &w.backend {
-        Backend::Memory(s) => s.add_plant(&plant),
-        Backend::Pg(pool) => {
-            sqlx::query("INSERT INTO plant (plant_id, name) VALUES ($1, $1)")
-                .bind(&plant)
-                .execute(pool)
-                .await
-                .unwrap();
-        }
-    }
+    let req = PlantInput {
+        plant_id: plant.clone(),
+        name: Some(plant),
+        ..Default::default()
+    };
+    w.plants.create(&w.actor, req).await.unwrap();
 }
 
 #[given(expr = "單位 {string} 已存在")]

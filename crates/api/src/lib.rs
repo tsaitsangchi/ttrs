@@ -704,6 +704,7 @@ impl IntoResponse for HttpError {
             | "PERMISSION_CLASS_HAS_PERMISSIONS"
             | "PLANT_ALREADY_EXISTS"
             | "PLANT_IN_USE"
+            | "PLANT_SCHEMA_DUPLICATE"
             | "PERMISSION_ALREADY_EXISTS"
             | "USER_PERMISSION_DUPLICATE"
             | "USER_HAS_SPECIAL_PERMISSIONS" => StatusCode::CONFLICT,

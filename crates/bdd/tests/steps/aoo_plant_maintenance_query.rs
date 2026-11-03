@@ -18,7 +18,9 @@ fn field_key(label: &str) -> &'static str {
         "營運中心電話" => "phone",
         "營運中心傳真" => "fax",
         "資料有效" => "active",
-        "資料庫代碼" => "database_code",
+        "資料庫代碼" => "schema_name",
+        // azp04 不移植，用來驗證不可查的欄位
+        "伺服器編號" => "server_no",
         other => panic!("未知欄位：{other}"),
     }
 }
@@ -43,6 +45,7 @@ async fn existing_plants(w: &mut ErpWorld, step: &Step) {
             address: text(&r[3]),
             phone: text(&r[4]),
             fax: text(&r[5]),
+            schema_name: None,
         };
         w.plants.create(&w.actor, req).await.unwrap();
         if r[6] == "否" {

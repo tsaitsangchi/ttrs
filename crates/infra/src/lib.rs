@@ -11,9 +11,13 @@ mod pg_plant;
 mod pg_program;
 mod pg_user;
 mod pg_user_permission;
+mod plant_schema;
 mod qbe_sql;
 
 pub use pg::PgStore;
+pub use plant_schema::{
+    PLANT_MIGRATOR, drop_all_plant_schemas, plant_role_exists, plant_schema_version,
+};
 
 use sqlx::{PgPool, migrate::Migrator, postgres::PgPoolOptions};
 
@@ -27,6 +31,8 @@ pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
         .await
 }
 
+/// 先套用共用 schema 的 migrations，再對每個工廠 schema 套用工廠 migrations（ADR 0007 §4）
 pub async fn migrate(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
-    MIGRATOR.run(pool).await
+    MIGRATOR.run(pool).await?;
+    plant_schema::migrate_plants(pool).await
 }

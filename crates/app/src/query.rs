@@ -190,9 +190,10 @@ pub mod plant {
 
     use super::*;
 
-    /// CONSTRUCT 中有 TTRS 對應的 6 個欄位＋資料有效（PQ1）
-    pub const FIELDS: [Field; 7] = [
+    /// CONSTRUCT 中有 TTRS 對應的 6 個欄位＋資料有效（PQ1）＋資料庫代碼（PQ5，存小寫）
+    pub const FIELDS: [Field; 8] = [
         cased("plant_id", Case::Upper),
+        cased("schema_name", Case::Lower),
         field("name", FieldType::Text),
         field("time_zone", FieldType::Text),
         field("address", FieldType::Text),
@@ -209,6 +210,7 @@ pub mod plant {
         let a = &p.attrs;
         match field {
             "plant_id" => text(p.id.as_str()),
+            "schema_name" => text(p.schema.as_str()),
             "name" => text(&a.name),
             "time_zone" => text(&a.time_zone),
             "address" => opt_text(a.address.as_deref()),

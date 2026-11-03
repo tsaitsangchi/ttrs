@@ -62,9 +62,10 @@
 - 目前使用者帶目前營運中心（同 ADR 0006 §5：web 存 session，bearer 用戶端用 `X-TTRS-Plant` 標頭，
   每次檢查是否在可使用營運中心內；非多營運中心使用者固定為預設營運中心）。
 - 每個 use case 一個交易，開頭：
-  `SET LOCAL ROLE ttrs_ds01; SET LOCAL search_path = ds01, public`。
+  `SET LOCAL ROLE ttrs_ds01; SET LOCAL search_path = ds01`（共用 schema 的表要寫明 `public.`）。
   SQL 不寫 schema 名稱，仍符合 sqlx 只接受字面 SQL 的規定；這等於 TipTop 的切換資料庫。
-- **每廠一個資料庫角色**（`ttrs_` 加 schema 名稱，例如 `ttrs_ds01`）：只能存取自己的工廠 schema 與共用 schema。
+- **每廠一個資料庫角色**（資料庫名稱加 schema 名稱，例如正式資料庫 `ttrs` 的 `ttrs_ds01`；角色是整台 PostgreSQL 共用的，
+  名稱帶資料庫名稱，測試資料庫 `ttrs_test` 的角色才不會和正式區衝突）：只能存取自己的工廠 schema 與共用 schema。
   API 的連線角色 `ttrs_app` 是各廠角色的成員，本身不能直接存取工廠 schema。
   即使 search_path 設錯，也讀不到別廠的資料（取代第一版的 RLS）。
 - 「今天」依營運中心的時區（P6）計算。
@@ -177,6 +178,12 @@
 3. 料件、庫存異動改為工廠層 migration。
 4. 營運中心切換：目前使用者帶營運中心、session 或標頭、可使用營運中心檢查。
 5. PostgreSQL 版 BDD 建立測試工廠 schema，驗證隔離（設錯營運中心時讀不到別廠資料）。
+
+進度（2026-11-03）：第 1–3 步完成——migrations/0016（`plant.schema_name`、建立／移除 schema 與角色的資料庫函式）、
+`migrations/plant/`、`ttrs_infra::plant_schema`（啟動時與新增營運中心時套用工廠 migration、工廠交易）、
+料件與庫存異動改在工廠 schema、營運中心 P13–P15。工廠交易目前以 repository 方法為單位（每次呼叫一個交易），
+整個 use case 一個交易待需要跨多次寫入的作業時再做。第 4 步營運中心切換需要另寫規格（cl_user 營運中心切換）；
+第 5 步的隔離驗證情境隨第 4 步一起寫。
 
 主檔拋轉（aooi600、aooi602 與拋轉程式）在移植主檔作業時另走萃取流程。
 

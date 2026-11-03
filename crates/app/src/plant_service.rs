@@ -1,14 +1,15 @@
 //! Plant Maintenance 營運中心維護 use case（TipTop: aooi901）
 //! 規格：specs/features/aoo/plant_maintenance.feature（P1–P12）
 //!
-//! TipTop 新增營運中心需先由 DBA 建 schema；新系統只新增一筆 plant 資料，不建任何表格（ADR 0001 §4）。
+//! TipTop 新增營運中心需先由 DBA 建 schema；新系統一廠一個 PostgreSQL schema，新增營運中心時由系統建立
+//! （資料庫代碼＝schema 名稱，P13–P15，docs/adr/0007-multi-plant.md §5）。
 
 use std::sync::Arc;
 
 use chrono::NaiveDate;
 use ttrs_domain::{
     DomainError,
-    plant::{Plant, PlantAttrs, PlantId},
+    plant::{Plant, PlantAttrs, PlantId, PlantSchema},
 };
 use ttrs_shared::{Page, PlantDto, PlantInput, QueryRequest};
 
@@ -35,7 +36,9 @@ impl PlantService {
     pub async fn create(&self, actor: &Actor, input: PlantInput) -> Result<PlantDto, AppError> {
         self.authorize(actor, "insert").await?;
         let id = PlantId::parse(&input.plant_id)?;
-        let plant = Plant::new(id, attrs(&input)?, &actor.user_id, &actor.dept, today());
+        let attrs = attrs(&input)?;
+        let schema = self.new_schema(input.schema_name.as_deref()).await?;
+        let plant = Plant::new(id, schema, attrs, &actor.user_id, &actor.dept, today());
         self.insert(plant).await
     }
 
@@ -50,6 +53,13 @@ impl PlantService {
         let mut plant = self.load(id).await?;
         if !input.plant_id.trim().is_empty() && PlantId::parse(&input.plant_id)? != plant.id {
             return Err(DomainError::PlantIdImmutable.into());
+        }
+        // 資料庫代碼建立後不可修改（P13 d）
+        if let Some(schema) = input.schema_name.as_deref().map(str::trim)
+            && !schema.is_empty()
+            && !schema.eq_ignore_ascii_case(plant.schema.as_str())
+        {
+            return Err(DomainError::PlantSchemaImmutable.into());
         }
         plant.update(attrs(&input)?, &actor.user_id, today());
         self.plants.update(&plant).await.map_err(infra)?;
@@ -116,8 +126,24 @@ impl PlantService {
         self.authorize(actor, "reproduce").await?;
         let source = self.load(id).await?;
         let new_id = PlantId::parse(new_id)?;
-        self.insert(source.copy_as(new_id, &actor.user_id, &actor.dept, today()))
+        let schema = self.new_schema(None).await?;
+        self.insert(source.copy_as(new_id, schema, &actor.user_id, &actor.dept, today()))
             .await
+    }
+
+    /// 新營運中心的資料庫代碼：有輸入就檢核，空白給下一個未使用的號碼；不可與其他營運中心重複（P13 a–c）
+    async fn new_schema(&self, raw: Option<&str>) -> Result<PlantSchema, AppError> {
+        let used = self.plants.schema_names().await.map_err(infra)?;
+        match raw.map(str::trim).filter(|s| !s.is_empty()) {
+            None => Ok(PlantSchema::next_free(&used)?),
+            Some(raw) => {
+                let schema = PlantSchema::parse(raw)?;
+                if used.contains(&schema) {
+                    return Err(DomainError::PlantSchemaDuplicate.into());
+                }
+                Ok(schema)
+            }
+        }
     }
 
     async fn insert(&self, plant: Plant) -> Result<PlantDto, AppError> {
@@ -179,6 +205,7 @@ fn to_dto(p: &Plant) -> PlantDto {
     PlantDto {
         plant_id: p.id.as_str().to_owned(),
         name: a.name.clone(),
+        schema_name: p.schema.as_str().to_owned(),
         time_zone: a.time_zone.clone(),
         address: a.address.clone(),
         phone: a.phone.clone(),

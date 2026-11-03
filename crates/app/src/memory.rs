@@ -14,7 +14,7 @@ use ttrs_domain::{
     legacy_catalog::LegacyTable,
     permission::{PermissionAttrs, ProgramPermission, parse_actions},
     permission_class::{ClassCode, ClassIdleControl, PermissionClass, PermissionClassAttrs},
-    plant::{DEFAULT_TIME_ZONE, Plant, PlantAttrs, PlantId},
+    plant::{DEFAULT_TIME_ZONE, Plant, PlantAttrs, PlantId, PlantSchema},
     program::{ModuleCode, OtherSettings, Program, ProgramAttrs, ProgramNo},
     qbe::QbeFilter,
     user::{User, UserId},
@@ -44,6 +44,8 @@ struct State {
     legacy: BTreeMap<String, LegacyTable>,
     /// 營運中心（azp_file）
     plants: BTreeMap<PlantId, Plant>,
+    /// 已建立的工廠 schema（PostgreSQL 版為 schema＋資料庫角色＋工廠 migration，ADR 0007）
+    plant_schemas: HashSet<String>,
     units: HashSet<String>,
     items: BTreeMap<(PlantId, ItemNo), Item>,
     transactions: HashSet<(PlantId, ItemNo)>,
@@ -126,10 +128,15 @@ impl InMemoryStore {
         self.lock().user_plants.get(id).map_or(0, Vec::len)
     }
 
-    /// 營運中心（azp_file）：名稱同代號、其餘為資料庫預設值（同 migrations/0012 的欄位預設）
+    /// 營運中心（azp_file）：名稱同代號、資料庫代碼為下一個未使用的號碼，其餘為資料庫預設值
     pub fn add_plant(&self, plant: &str) {
         let id = PlantId::parse(plant).expect("營運中心代號");
+        let mut s = self.lock();
+        let used: Vec<PlantSchema> = s.plants.values().map(|p| p.schema.clone()).collect();
+        let schema = PlantSchema::next_free(&used).expect("資料庫代碼");
+        s.plant_schemas.insert(schema.as_str().to_owned());
         let p = Plant {
+            schema,
             attrs: PlantAttrs {
                 name: id.as_str().to_owned(),
                 time_zone: DEFAULT_TIME_ZONE.to_owned(),
@@ -145,7 +152,12 @@ impl InMemoryStore {
             updated_on: None,
             id: id.clone(),
         };
-        self.lock().plants.insert(id, p);
+        s.plants.insert(id, p);
+    }
+
+    /// 測試用：工廠 schema 是否已建立
+    pub fn plant_schema_exists(&self, schema: &str) -> bool {
+        self.lock().plant_schemas.contains(schema)
     }
 
     pub fn add_unit(&self, unit: &str) {
@@ -819,11 +831,21 @@ impl PlantRepository for InMemoryStore {
         Ok(page_of(hits, offset, limit))
     }
 
+    async fn schema_names(&self) -> Result<Vec<PlantSchema>, RepoError> {
+        Ok(self
+            .lock()
+            .plants
+            .values()
+            .map(|p| p.schema.clone())
+            .collect())
+    }
+
     async fn insert(&self, plant: &Plant) -> Result<(), RepoError> {
         let mut s = self.lock();
-        if s.plants.contains_key(&plant.id) {
+        if s.plants.contains_key(&plant.id) || s.plants.values().any(|p| p.schema == plant.schema) {
             return Err(RepoError::Conflict);
         }
+        s.plant_schemas.insert(plant.schema.as_str().to_owned());
         s.plants.insert(plant.id.clone(), plant.clone());
         Ok(())
     }
@@ -837,14 +859,16 @@ impl PlantRepository for InMemoryStore {
 
     async fn delete(&self, id: &PlantId) -> Result<(), RepoError> {
         let mut s = self.lock();
-        // 與 PostgreSQL 的外鍵一致：使用者預設／可使用營運中心、料件（庫存異動經由料件）
+        // 與 PostgreSQL 一致：使用者預設／可使用營運中心（外鍵）、工廠 schema 內有資料（料件、庫存異動）
         let referenced = s.users.values().any(|u| &u.attrs.default_plant == id)
             || s.user_plants.values().any(|ps| ps.contains(id))
             || s.items.keys().any(|(p, _)| p == id);
         if referenced {
             return Err(RepoError::InUse);
         }
-        s.plants.remove(id);
+        if let Some(p) = s.plants.remove(id) {
+            s.plant_schemas.remove(p.schema.as_str());
+        }
         Ok(())
     }
 }

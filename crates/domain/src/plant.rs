@@ -1,8 +1,8 @@
-//! 營運中心（TipTop: aooi901 / azp_file；TipTop 一個營運中心一個資料庫 schema）
-//! 新系統採單一 schema + plant_id 欄位隔離，見 docs/adr/0001-architecture.md。
-//! 規格：specs/features/aoo/plant_maintenance.feature（P1–P12）
+//! 營運中心（TipTop: aooi901 / azp_file；一個營運中心一個資料庫 schema）
+//! 新系統同樣一廠一個 PostgreSQL schema，名稱即資料庫代碼 azp03（docs/adr/0007-multi-plant.md）。
+//! 規格：specs/features/aoo/plant_maintenance.feature（P1–P15）
 //!
-//! 資料庫連線欄位（azp03 schema、azp04 DB link、azp20 MSSQL IP）與上線人數控管（azp09、azp10）不移植（P1、P8）。
+//! DB link（azp04）、MSSQL IP（azp20）與上線人數控管（azp09、azp10）不移植（P1、P8）。
 
 use chrono::NaiveDate;
 
@@ -34,6 +34,34 @@ impl PlantId {
             return Err(DomainError::PlantIdTooLong { max: max_len::ID });
         }
         Ok(Self(v.to_uppercase()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// 資料庫代碼（azp03）＝工廠 schema 名稱（ADR 0007 §1、P13）：`ds` 加兩位數字，存小寫；建立後不可修改
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct PlantSchema(String);
+
+impl PlantSchema {
+    pub fn parse(raw: &str) -> Result<Self, DomainError> {
+        let v = raw.trim().to_lowercase();
+        let digits = v.strip_prefix("ds").unwrap_or_default();
+        if digits.len() == 2 && digits.bytes().all(|b| b.is_ascii_digit()) {
+            Ok(Self(v))
+        } else {
+            Err(DomainError::PlantSchemaInvalid(raw.trim().to_owned()))
+        }
+    }
+
+    /// 下一個未使用的號碼（ds01 起，P13 b）
+    pub fn next_free(used: &[PlantSchema]) -> Result<Self, DomainError> {
+        (1..=99)
+            .map(|n| Self(format!("ds{n:02}")))
+            .find(|s| !used.contains(s))
+            .ok_or(DomainError::PlantSchemaExhausted)
     }
 
     pub fn as_str(&self) -> &str {
@@ -91,6 +119,8 @@ impl PlantAttrs {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Plant {
     pub id: PlantId,
+    /// 資料庫代碼（azp03）＝工廠 schema（P13）
+    pub schema: PlantSchema,
     pub attrs: PlantAttrs,
     /// 資料有效（TipTop azp_file 無此欄，P9）
     pub active: bool,
@@ -105,6 +135,7 @@ impl Plant {
     /// 新增：資料有效；資料所有者／部門＝目前使用者（P9、P12）
     pub fn new(
         id: PlantId,
+        schema: PlantSchema,
         attrs: PlantAttrs,
         actor: &str,
         actor_dept: &str,
@@ -112,6 +143,7 @@ impl Plant {
     ) -> Self {
         Self {
             id,
+            schema,
             attrs,
             active: true,
             created_by: actor.to_owned(),
@@ -133,9 +165,16 @@ impl Plant {
         self.touch(actor, today);
     }
 
-    /// 複製：新代號，其餘欄位沿用來源（aooi901.4gl:994-1046，P11）
-    pub fn copy_as(&self, id: PlantId, actor: &str, actor_dept: &str, today: NaiveDate) -> Self {
-        Self::new(id, self.attrs.clone(), actor, actor_dept, today)
+    /// 複製：新代號與新的資料庫代碼，其餘欄位沿用來源（aooi901.4gl:994-1046，P11、P14）
+    pub fn copy_as(
+        &self,
+        id: PlantId,
+        schema: PlantSchema,
+        actor: &str,
+        actor_dept: &str,
+        today: NaiveDate,
+    ) -> Self {
+        Self::new(id, schema, self.attrs.clone(), actor, actor_dept, today)
     }
 
     fn touch(&mut self, actor: &str, today: NaiveDate) {
@@ -170,6 +209,23 @@ mod tests {
             parse_time_zone(Some("Taipei")).unwrap_err().code(),
             "PLANT_TIME_ZONE_INVALID"
         );
+    }
+
+    #[test]
+    fn schema_rules() {
+        assert_eq!(PlantSchema::parse(" DS05 ").unwrap().as_str(), "ds05");
+        for bad in ["ds1", "ds100", "db01", "ds0a", ""] {
+            assert_eq!(
+                PlantSchema::parse(bad).unwrap_err().code(),
+                "PLANT_SCHEMA_INVALID",
+                "{bad}"
+            );
+        }
+        let used = [
+            PlantSchema::parse("ds01").unwrap(),
+            PlantSchema::parse("ds03").unwrap(),
+        ];
+        assert_eq!(PlantSchema::next_free(&used).unwrap().as_str(), "ds02");
     }
 
     #[test]

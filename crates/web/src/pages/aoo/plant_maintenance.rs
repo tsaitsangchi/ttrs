@@ -322,6 +322,10 @@ fn PlantMaintenancePage() -> Element {
                         Q { field: "name", label: t("plant-field-name"), query: q, qbe,
                             TextField { id: "azp02", label: t("plant-field-name"), maxlength: max_len::NAME, value: v.name.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().name = opt(x) }
                         }
+                        // 資料庫代碼＝工廠 schema（P13）：新增時可輸入，空白自動給號；建立後唯讀
+                        Q { field: "schema_name", label: t("plant-field-schema-name"), hint_text: "ds*", query: q, qbe,
+                            TextField { id: "azp03", label: t("plant-field-schema-name"), maxlength: 4, placeholder: if m == Mode::New { t("plant-hint-schema-name") } else { String::new() }, value: v.schema_name.clone().unwrap_or_default(), readonly: m != Mode::New, oninput: move |x| form.write().schema_name = opt(x) }
+                        }
                         Q { field: "time_zone", label: t("plant-field-time-zone"), hint_text: "Asia/*", query: q, qbe,
                             Select { id: "azp052", label: t("plant-field-time-zone"), options: tz_options, value: tz, readonly: ro, onchange: move |x| form.write().time_zone = Some(x) }
                         }

@@ -51,7 +51,7 @@ bdd：驗收測試，執行 specs/features/**/*.feature
 3. **Red**：在 `crates/bdd/tests/steps/<模組>_<名稱>.rs` 寫步驟，`make bdd` 必須先失敗。
 4. **Green**：依序實作 domain → app → infra → api → web，直到 `make test` 全過。
 5. **對照**：更新 `docs/legacy-map/<模組>.yaml`（舊表/欄位 → 新表/欄位）。
-   `scripts/tiptop/legacy_map_check.py` 檢查已對應的表每個 .sch 欄位都有列出（沒有 legacy/ 時略過）。
+   `scripts/tiptop/legacy_map_check.py` 檢查已對應的表每個 .sch 欄位都有列出、並標了 `scope`（沒有 legacy/ 時略過）。
 6. **檢查**：`make check`（fmt + clippy -D warnings + test + legacy-map 檢查）全綠才算完成。
 
 ## 規則

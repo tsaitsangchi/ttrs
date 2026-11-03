@@ -4,7 +4,7 @@ use chrono::{Local, NaiveDate};
 use cucumber::{gherkin::Step, given, then, when};
 use ttrs_shared::{PlantDto, PlantInput};
 
-use crate::ErpWorld;
+use crate::{Backend, ErpWorld};
 
 fn date_label(d: Option<NaiveDate>) -> String {
     match d {
@@ -48,7 +48,48 @@ async fn plant_contact_set(w: &mut ErpWorld, id: String, address: String, phone:
     w.plants.update(&w.actor, &id, req).await.unwrap();
 }
 
+#[given(expr = "已新增營運中心 {string}，資料庫代碼 {string}")]
+async fn plant_with_schema(w: &mut ErpWorld, id: String, schema: String) {
+    let req = PlantInput {
+        plant_id: id.clone(),
+        name: Some(id),
+        schema_name: Some(schema),
+        ..Default::default()
+    };
+    w.plants.create(&w.actor, req).await.unwrap();
+}
+
+/// 前提：背景建立的營運中心依建立順序取得資料庫代碼
+#[given(expr = "營運中心 {string} 的資料庫代碼為 {string}")]
+async fn schema_is(w: &mut ErpWorld, id: String, expected: String) {
+    assert_eq!(plant(w, &id).await.schema_name, expected);
+}
+
 // ----- 當 -----
+
+#[when(expr = "使用者新增營運中心 {string}，名稱 {string}，時區 {string}，資料庫代碼 {string}")]
+async fn create_plant_with_schema(
+    w: &mut ErpWorld,
+    id: String,
+    name: String,
+    time_zone: String,
+    schema: String,
+) {
+    let req = PlantInput {
+        plant_id: id,
+        name: Some(name),
+        time_zone: Some(time_zone),
+        schema_name: Some(schema),
+        ..Default::default()
+    };
+    let result = w.plants.create(&w.actor, req).await;
+    w.last = Some(result.map(|_| ()));
+}
+
+#[when(expr = "使用者將營運中心 {string} 的資料庫代碼改為 {string}")]
+async fn change_schema(w: &mut ErpWorld, id: String, schema: String) {
+    modify(w, &id, |r| r.schema_name = Some(schema)).await;
+}
 
 #[when(expr = "使用者新增營運中心 {string}，名稱 {string}，時區 {string}")]
 async fn create_plant(w: &mut ErpWorld, id: String, name: String, time_zone: String) {
@@ -149,4 +190,66 @@ async fn should_not_exist(w: &mut ErpWorld, id: String) {
         Err(e) => assert_eq!(e.code(), "PLANT_NOT_FOUND"),
         Ok(p) => panic!("營運中心仍存在：{p:?}"),
     }
+}
+
+#[then(expr = "營運中心 {string} 的資料庫代碼應為 {string}")]
+async fn schema_should_be(w: &mut ErpWorld, id: String, expected: String) {
+    assert_eq!(plant(w, &id).await.schema_name, expected);
+}
+
+#[then(expr = "工廠 schema {string} 應已建立並套用全部工廠 migration")]
+async fn plant_schema_ready(w: &mut ErpWorld, schema: String) {
+    match &w.backend {
+        Backend::Memory(s) => assert!(
+            s.plant_schema_exists(&schema),
+            "工廠 schema {schema} 不存在"
+        ),
+        Backend::Pg(pool) => {
+            let applied = ttrs_infra::plant_schema_version(pool, &schema)
+                .await
+                .unwrap()
+                .unwrap_or_else(|| panic!("工廠 schema {schema} 不存在"));
+            assert_eq!(
+                applied,
+                ttrs_infra::PLANT_MIGRATOR.iter().count(),
+                "已套用的工廠 migration 數"
+            );
+        }
+    }
+}
+
+#[then(expr = "工廠 schema {string} 應不存在")]
+async fn plant_schema_gone(w: &mut ErpWorld, schema: String) {
+    let exists = match &w.backend {
+        Backend::Memory(s) => s.plant_schema_exists(&schema),
+        Backend::Pg(pool) => ttrs_infra::plant_schema_version(pool, &schema)
+            .await
+            .unwrap()
+            .is_some(),
+    };
+    assert!(!exists, "工廠 schema {schema} 仍存在");
+}
+
+/// 記憶體版沒有資料庫角色，以工廠 schema 代表
+async fn plant_role_exists(w: &ErpWorld, schema: &str) -> bool {
+    match &w.backend {
+        Backend::Memory(s) => s.plant_schema_exists(schema),
+        Backend::Pg(pool) => ttrs_infra::plant_role_exists(pool, schema).await.unwrap(),
+    }
+}
+
+#[then(expr = "工廠 schema {string} 應有自己的資料庫角色")]
+async fn plant_role_created(w: &mut ErpWorld, schema: String) {
+    assert!(
+        plant_role_exists(w, &schema).await,
+        "工廠 schema {schema} 沒有資料庫角色"
+    );
+}
+
+#[then(expr = "工廠 schema {string} 的資料庫角色應不存在")]
+async fn plant_role_dropped(w: &mut ErpWorld, schema: String) {
+    assert!(
+        !plant_role_exists(w, &schema).await,
+        "工廠 schema {schema} 的資料庫角色仍存在"
+    );
 }

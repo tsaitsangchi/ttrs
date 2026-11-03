@@ -5,8 +5,7 @@
 #           action labels tiptop/config/4ad/0/aoo/aooi901.4ad; no topcust override. Line numbers are noted on each scenario.
 # Data model: docs/adr/0001-architecture.md §4 (one schema + plant_id), docs/adr/0006-authentication-authorization.md §5
 # Status: P1–P12 confirmed (Key User, 2026-11-02; all as proposed). P13–P15 (database code = plant schema,
-#         ADR 0007) confirmed (Key User, 2026-11-03; as drafted). Their scenarios keep @draft until implementation
-#         starts (it needs the ADR 0007 schema-per-plant infrastructure), then enter Red.
+#         ADR 0007) confirmed (Key User, 2026-11-03; as drafted); entering Red
 #
 # Scope:
 #   - Maintain plants: plant code, name, time zone, address, phone, fax, active code; add / query / modify / delete / copy / deactivate
@@ -72,8 +71,9 @@
 #       g. Screen: label 資料庫代碼 right after the plant name (4fd order azp01, azp02, azp03); read-only when
 #          modifying; not in the plant list.
 #       h. legacy-map aoo.yaml: azp03 → plant.schema_name.
-#  P14. Adding a plant (and copying one, P11) creates its schema and database role ttrs_<schema> and applies all
-#       plant migrations as one step: if any part fails, nothing is created (ADR 0007 §5, Q12). Copy copies only the
+#  P14. Adding a plant (and copying one, P11) creates its schema and database role <database>_<schema> (ttrs_ds01 in
+#       the ttrs database: roles are shared by every database on the server, so the name carries the database)
+#       and applies all plant migrations as one step: if any part fails, nothing is created (ADR 0007 §5, Q12). Copy copies only the
 #       plant record (name, time zone, address, phone, fax), never business data.
 #  P15. Deleting a plant (only when unused, P10) also drops its schema and role.
 
@@ -185,10 +185,9 @@
     當 使用者將營運中心 "TW01" 複製為 "CN01"
     那麼 應出現錯誤 "PLANT_ALREADY_EXISTS"
 
-  # ---------- P13–P15 資料庫代碼與工廠 schema（ADR 0007；已確認，實作開始時移除 @draft）----------
+  # ---------- P13–P15 資料庫代碼與工廠 schema（ADR 0007）----------
 
   # P13 b 新增時帶入下一個未使用的資料庫代碼
-  @draft
   場景: 新增營運中心時帶入下一個資料庫代碼
     假設 營運中心 "TW01" 的資料庫代碼為 "ds01"
     當 使用者新增營運中心 "CN01"，名稱 "昆山廠"，時區 ""
@@ -196,14 +195,12 @@
     而且 營運中心 "CN01" 的資料庫代碼應為 "ds02"
 
   # P13 a 自行輸入時轉小寫
-  @draft
   場景: 新增營運中心時自行輸入資料庫代碼
     當 使用者新增營運中心 "CN01"，名稱 "昆山廠"，時區 ""，資料庫代碼 "DS05"
     那麼 操作應成功
     而且 營運中心 "CN01" 的資料庫代碼應為 "ds05"
 
   # P13 a 格式為 ds 加兩位數字
-  @draft
   場景大綱: 資料庫代碼格式不符
     當 使用者新增營運中心 "CN01"，名稱 "昆山廠"，時區 ""，資料庫代碼 "<資料庫代碼>"
     那麼 應出現錯誤 "PLANT_SCHEMA_INVALID"
@@ -216,28 +213,24 @@
       | ds0a       |
 
   # P13 c azp_file.sch 唯一索引 azp_02
-  @draft
   場景: 資料庫代碼不可與其他營運中心重複
     假設 營運中心 "TW01" 的資料庫代碼為 "ds01"
     當 使用者新增營運中心 "CN01"，名稱 "昆山廠"，時區 ""，資料庫代碼 "ds01"
     那麼 應出現錯誤 "PLANT_SCHEMA_DUPLICATE"
 
   # P13 d 建立後不可修改
-  @draft
   場景: 資料庫代碼建立後不可修改
     當 使用者將營運中心 "TW01" 的資料庫代碼改為 "ds09"
     那麼 應出現錯誤 "PLANT_SCHEMA_IMMUTABLE"
 
   # P14 新增營運中心時建立工廠 schema 與角色並套用工廠 migration
-  @draft
   場景: 新增營運中心時建立工廠 schema
     當 使用者新增營運中心 "CN01"，名稱 "昆山廠"，時區 ""，資料庫代碼 "ds05"
     那麼 操作應成功
     而且 工廠 schema "ds05" 應已建立並套用全部工廠 migration
-    而且 資料庫角色 "ttrs_ds05" 應已建立
+    而且 工廠 schema "ds05" 應有自己的資料庫角色
 
   # P14 複製營運中心：帶下一個資料庫代碼並建立 schema，只複製營運中心資料
-  @draft
   場景: 複製營運中心時建立新的工廠 schema
     假設 營運中心 "TW01" 的資料庫代碼為 "ds01"
     而且 單位 "PCS" 已存在
@@ -249,10 +242,9 @@
     而且 "TW02" 應沒有料件
 
   # P15 刪除營運中心時移除工廠 schema 與角色
-  @draft
   場景: 刪除營運中心時移除工廠 schema
     假設 已新增營運中心 "CN09"，資料庫代碼 "ds09"
     當 使用者刪除營運中心 "CN09"
     那麼 操作應成功
     而且 工廠 schema "ds09" 應不存在
-    而且 資料庫角色 "ttrs_ds09" 應不存在
+    而且 工廠 schema "ds09" 的資料庫角色應不存在

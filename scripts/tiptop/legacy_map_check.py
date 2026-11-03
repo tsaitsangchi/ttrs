@@ -5,6 +5,7 @@
   - 表的 `columns`（有對應的新欄位）或 `not_ported`（不移植，附原因）必須涵蓋該表全部 .sch 欄位
   - `target` 以「(」開頭（如 "(不移植)"）是整張表的決定，不逐欄檢查，但要有 note 或 reason
   - `pending: "原因"` 表示尚未逐欄萃取（例如程式還沒正式移植），只列為提醒、不算失敗
+  - 有對應新表的項目要標 `scope`：system（系統層）、group（集團層）、plant（工廠層）（docs/adr/0007 §2）
   - 欄位清單取自 legacy/catalog/tables.json（scripts/tiptop/sch_catalog.py build；客製 topcust 已覆蓋標準）
 
 legacy/ 不進版控：沒有 legacy/catalog/tables.json 時略過檢查（exit 0）。需要 PyYAML。
@@ -24,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "legacy" / "catalog" / "tables.json"
 MAPS = ROOT / "docs" / "legacy-map"
 TOKEN = re.compile(r"[a-z][a-z0-9_]*")
+SCOPES = ("system", "group", "plant")
 
 
 def entry_text(entry: object) -> str:
@@ -60,6 +62,9 @@ def main() -> int:
                     print(f"失敗 {where}：整表的決定需要 note 或 reason")
                     failures += 1
                 continue
+            if table.get("scope") not in SCOPES:
+                print(f"失敗 {where}：scope 須為 {'／'.join(SCOPES)}")
+                failures += 1
             if table.get("pending"):
                 print(f"提醒 {where}：尚未逐欄萃取（{table['pending']}）")
                 continue

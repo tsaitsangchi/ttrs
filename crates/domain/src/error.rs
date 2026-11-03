@@ -163,6 +163,16 @@ pub enum DomainError {
     #[error("TipTop 對照目錄沒有資料表 {0}")]
     LegacyTableNotFound(String),
 
+    // 營運中心資料庫代碼＝工廠 schema（plant_maintenance.feature P13，ADR 0007）
+    #[error("資料庫代碼須為 ds 加兩位數字（例如 ds01）：{0}")]
+    PlantSchemaInvalid(String),
+    #[error("資料庫代碼已被其他營運中心使用")]
+    PlantSchemaDuplicate,
+    #[error("資料庫代碼建立後不可修改")]
+    PlantSchemaImmutable,
+    #[error("資料庫代碼 ds01–ds99 已用完")]
+    PlantSchemaExhausted,
+
     // 權限檢查（authorization.feature）
     #[error("{}", .reason.message(.program, .action))]
     PermissionDenied {
@@ -244,6 +254,10 @@ impl DomainError {
             Self::LegacyNameInvalid(_) => "LEGACY_NAME_INVALID",
             Self::LegacyNameDuplicate(_) => "LEGACY_NAME_DUPLICATE",
             Self::LegacyTableNotFound(_) => "LEGACY_TABLE_NOT_FOUND",
+            Self::PlantSchemaInvalid(_) => "PLANT_SCHEMA_INVALID",
+            Self::PlantSchemaDuplicate => "PLANT_SCHEMA_DUPLICATE",
+            Self::PlantSchemaImmutable => "PLANT_SCHEMA_IMMUTABLE",
+            Self::PlantSchemaExhausted => "PLANT_SCHEMA_EXHAUSTED",
             Self::PermissionDenied { .. } => "PERMISSION_DENIED",
         }
     }

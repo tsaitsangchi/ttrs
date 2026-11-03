@@ -8,7 +8,7 @@ use ttrs_domain::{
     legacy_catalog::LegacyTable,
     permission::ProgramPermission,
     permission_class::{ClassCode, PermissionClass},
-    plant::{Plant, PlantId},
+    plant::{Plant, PlantId, PlantSchema},
     program::{ModuleCode, Program, ProgramNo},
     qbe::QbeFilter,
     user::{User, UserId},
@@ -261,10 +261,14 @@ pub trait PlantRepository: Send + Sync {
         offset: u64,
         limit: u64,
     ) -> Result<(Vec<Plant>, u64), RepoError>;
-    /// 代號重複回 Conflict
+    /// 全部營運中心已使用的資料庫代碼（P13 給號與重複檢查）
+    async fn schema_names(&self) -> Result<Vec<PlantSchema>, RepoError>;
+    /// 代號或資料庫代碼重複回 Conflict。一併建立工廠 schema 與資料庫角色並套用全部工廠 migration，
+    /// 任何一步失敗就全部不建（P14，ADR 0007 §5）
     async fn insert(&self, plant: &Plant) -> Result<(), RepoError>;
     async fn update(&self, plant: &Plant) -> Result<(), RepoError>;
-    /// 仍有使用者（預設或可使用營運中心）或業務資料參照時回 InUse，不做連帶刪除（P10）
+    /// 仍有使用者（預設或可使用營運中心）或工廠 schema 內有任何資料時回 InUse，不做連帶刪除（P10）；
+    /// 刪除時一併移除工廠 schema 與資料庫角色（P15）
     async fn delete(&self, id: &PlantId) -> Result<(), RepoError>;
 }
 

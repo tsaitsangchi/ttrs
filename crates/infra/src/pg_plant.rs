@@ -1,18 +1,19 @@
 //! 營運中心維護（plant_maintenance.feature）的 PostgreSQL 實作；
-//! 表結構見 migrations/0001_init.sql、0012_plant.sql
+//! 表結構見 migrations/0001_init.sql、0012_plant.sql、0016_plant_schema.sql（一廠一個 schema，ADR 0007）
 
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use sqlx::FromRow;
 use ttrs_app::{error::RepoError, ports::PlantRepository};
 use ttrs_domain::{
-    plant::{Plant, PlantAttrs, PlantId},
+    plant::{Plant, PlantAttrs, PlantId, PlantSchema},
     qbe::QbeFilter,
 };
 
 use crate::{
     PgStore,
     pg::db_err,
+    plant_schema::prepare,
     qbe_sql::{Column, push_filters, query_page},
 };
 
@@ -26,6 +27,7 @@ fn plant_column(field: &str) -> Option<Column> {
         "phone" => Column::Scalar("p.phone", true),
         "fax" => Column::Scalar("p.fax", true),
         "active" => Column::Scalar("p.active", false),
+        "schema_name" => Column::Scalar("p.schema_name", true),
         _ => return None,
     })
 }
@@ -33,6 +35,7 @@ fn plant_column(field: &str) -> Option<Column> {
 #[derive(FromRow)]
 struct PlantRow {
     plant_id: String,
+    schema_name: String,
     name: String,
     time_zone: String,
     address: Option<String>,
@@ -50,7 +53,7 @@ struct PlantRow {
 macro_rules! select_plant {
     ($rest:literal) => {
         concat!(
-            "SELECT plant_id, name, time_zone, address, phone, fax, active, ",
+            "SELECT plant_id, schema_name, name, time_zone, address, phone, fax, active, ",
             "created_by, created_dept, created_on, updated_by, updated_on FROM plant ",
             $rest
         )
@@ -64,6 +67,9 @@ impl TryFrom<PlantRow> for Plant {
         Ok(Plant {
             id: PlantId::parse(&r.plant_id).map_err(|_| {
                 RepoError::Other(format!("資料庫內容不合法：plant_id={}", r.plant_id))
+            })?,
+            schema: PlantSchema::parse(&r.schema_name).map_err(|_| {
+                RepoError::Other(format!("資料庫內容不合法：schema_name={}", r.schema_name))
             })?,
             attrs: PlantAttrs {
                 name: r.name,
@@ -127,12 +133,27 @@ impl PlantRepository for PgStore {
         Ok((plants, total))
     }
 
+    async fn schema_names(&self) -> Result<Vec<PlantSchema>, RepoError> {
+        let names: Vec<String> = sqlx::query_scalar("SELECT schema_name FROM plant")
+            .fetch_all(&self.pool)
+            .await
+            .map_err(db_err)?;
+        names
+            .iter()
+            .map(|n| {
+                PlantSchema::parse(n)
+                    .map_err(|_| RepoError::Other(format!("資料庫內容不合法：schema_name={n}")))
+            })
+            .collect()
+    }
+
     async fn insert(&self, p: &Plant) -> Result<(), RepoError> {
         let a = &p.attrs;
+        let mut tx = self.pool.begin().await.map_err(db_err)?;
         sqlx::query(
-            "INSERT INTO plant (plant_id, name, time_zone, address, phone, fax, active,
+            "INSERT INTO plant (plant_id, schema_name, name, time_zone, address, phone, fax, active,
                  created_by, created_dept, created_on, updated_by, updated_on)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+             VALUES ($1, $13, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
         )
         .bind(p.id.as_str())
         .bind(&a.name)
@@ -146,10 +167,15 @@ impl PlantRepository for PgStore {
         .bind(p.created_on)
         .bind(&p.updated_by)
         .bind(p.updated_on)
-        .execute(&self.pool)
+        .bind(p.schema.as_str())
+        .execute(&mut *tx)
         .await
         .map_err(db_err)?;
-        Ok(())
+        // 同一個交易建立工廠 schema、角色並套用工廠 migration；失敗則全部不建（P14）
+        prepare(&mut tx, p.schema.as_str())
+            .await
+            .map_err(|e| RepoError::Other(format!("建立工廠 schema 失敗：{e}")))?;
+        tx.commit().await.map_err(db_err)
     }
 
     async fn update(&self, p: &Plant) -> Result<(), RepoError> {
@@ -175,12 +201,36 @@ impl PlantRepository for PgStore {
     }
 
     async fn delete(&self, id: &PlantId) -> Result<(), RepoError> {
-        // 仍被使用者或業務資料參照時，外鍵擋下並由 db_err 轉成 InUse（P10）
-        sqlx::query("DELETE FROM plant WHERE plant_id = $1")
-            .bind(id.as_str())
-            .execute(&self.pool)
+        let mut tx = self.pool.begin().await.map_err(db_err)?;
+        let schema: Option<String> =
+            sqlx::query_scalar("SELECT schema_name FROM plant WHERE plant_id = $1 FOR UPDATE")
+                .bind(id.as_str())
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(db_err)?;
+        let Some(schema) = schema else {
+            return Ok(());
+        };
+        // 工廠 schema 內有任何資料時不可刪除（P10）
+        let has_data: bool = sqlx::query_scalar("SELECT ttrs_plant_schema_has_data($1)")
+            .bind(&schema)
+            .fetch_one(&mut *tx)
             .await
             .map_err(db_err)?;
-        Ok(())
+        if has_data {
+            return Err(RepoError::InUse);
+        }
+        // 仍被使用者參照時外鍵擋下，由 db_err 轉成 InUse（P10）
+        sqlx::query("DELETE FROM plant WHERE plant_id = $1")
+            .bind(id.as_str())
+            .execute(&mut *tx)
+            .await
+            .map_err(db_err)?;
+        sqlx::query("SELECT ttrs_drop_plant_schema($1)")
+            .bind(&schema)
+            .execute(&mut *tx)
+            .await
+            .map_err(db_err)?;
+        tx.commit().await.map_err(db_err)
     }
 }
