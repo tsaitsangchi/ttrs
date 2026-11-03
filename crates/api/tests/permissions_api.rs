@@ -10,42 +10,21 @@ use axum::{
 };
 use tower::ServiceExt;
 use ttrs_api::{AppState, actor_from_env, router};
-use ttrs_app::{
-    DataDictionaryService, ItemService, LegacyCatalogService, PermissionClassService, PlantService,
-    ProgramPermissionService, ProgramService, UserPermissionService, UserService,
-    memory::InMemoryStore,
-};
+use ttrs_app::{Services, authorization::PORTED_PROGRAMS, memory::InMemoryStore};
 use ttrs_shared::{ApiError, PermissionBatchResultDto, ProgramPermissionDto};
 
 async fn app() -> Router {
     let store = InMemoryStore::seeded();
     store.add_permission_class("SALES");
     let store = Arc::new(store);
-    let app = router(AppState {
-        items: ItemService::new(store.clone(), store.clone()),
-        programs: ProgramService::new(store.clone()),
-        dictionary: DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
-        legacy: LegacyCatalogService::new(store.clone()),
-        users: UserService::new(
-            store.clone(),
-            store.clone(),
-            store.clone(),
-            store.clone(),
-            store.clone(),
-        ),
-        classes: PermissionClassService::new(store.clone(), store.clone(), store.clone()),
-        plants: PlantService::new(store.clone()),
-        permissions: ProgramPermissionService::new(store.clone(), store.clone(), store.clone()),
-        special: UserPermissionService::new(store.clone(), store.clone(), store.clone(), store),
-        actor: actor_from_env(),
-    });
+    let app = router(AppState::new(Services::new(store), actor_from_env()));
     let res = app
         .clone()
         .oneshot(request(
             "POST",
             "/api/programs",
             Some(serde_json::json!({
-                "program_no": "aimi100", "module_code": "AIM", "name": "料件基本資料",
+                "program_no": "aimi109", "module_code": "AIM", "name": "料件基本資料",
                 "default_actions": "insert, query, modify, delete"
             })),
         ))
@@ -76,7 +55,7 @@ async fn grant_list_update_and_revoke() {
         .oneshot(request(
             "POST",
             "/api/permission-classes/SALES/permissions",
-            Some(serde_json::json!({ "program_no": "aimi100" })),
+            Some(serde_json::json!({ "program_no": "aimi109" })),
         ))
         .await
         .unwrap();
@@ -90,7 +69,7 @@ async fn grant_list_update_and_revoke() {
         .oneshot(request(
             "POST",
             "/api/permission-classes/SALES/permissions",
-            Some(serde_json::json!({ "program_no": "aimi100" })),
+            Some(serde_json::json!({ "program_no": "aimi109" })),
         ))
         .await
         .unwrap();
@@ -104,7 +83,7 @@ async fn grant_list_update_and_revoke() {
         .clone()
         .oneshot(request(
             "PUT",
-            "/api/permission-classes/SALES/permissions/aimi100",
+            "/api/permission-classes/SALES/permissions/aimi109",
             Some(serde_json::json!({ "actions": ["query"], "other_dept_data": "7" })),
         ))
         .await
@@ -131,7 +110,7 @@ async fn grant_list_update_and_revoke() {
         .clone()
         .oneshot(request(
             "DELETE",
-            "/api/permission-classes/SALES/permissions/aimi100",
+            "/api/permission-classes/SALES/permissions/aimi109",
             None,
         ))
         .await
@@ -140,7 +119,7 @@ async fn grant_list_update_and_revoke() {
     let res = app
         .oneshot(request(
             "DELETE",
-            "/api/permission-classes/SALES/permissions/aimi100",
+            "/api/permission-classes/SALES/permissions/aimi109",
             None,
         ))
         .await
@@ -157,7 +136,7 @@ async fn invalid_action_422_and_copy() {
         .oneshot(request(
             "POST",
             "/api/permission-classes/SALES/permissions",
-            Some(serde_json::json!({ "program_no": "aimi100", "actions": ["confirm"] })),
+            Some(serde_json::json!({ "program_no": "aimi109", "actions": ["confirm"] })),
         ))
         .await
         .unwrap();
@@ -167,7 +146,7 @@ async fn invalid_action_422_and_copy() {
         "PERMISSION_ACTION_NOT_ALLOWED"
     );
 
-    // 新增程式時已自動授權給建立者的權限類別 ADMIN；複製到尚無權限的 SALES
+    // 新增程式時已自動授權給建立者的權限類別 ADMIN（另有起始資料的已移植作業）；複製到尚無權限的 SALES
     let res = app
         .oneshot(request(
             "POST",
@@ -177,5 +156,9 @@ async fn invalid_action_422_and_copy() {
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
-    assert_eq!(body::<PermissionBatchResultDto>(res).await.added, 1);
+    let ported = PORTED_PROGRAMS.len() as u64;
+    assert_eq!(
+        body::<PermissionBatchResultDto>(res).await.added,
+        ported + 1
+    );
 }

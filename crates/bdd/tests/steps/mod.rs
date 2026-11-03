@@ -3,6 +3,7 @@
 mod aim_item;
 mod aoo_plant_maintenance;
 mod aoo_plant_maintenance_query;
+mod azz_authorization;
 mod azz_data_dictionary;
 mod azz_legacy_catalog;
 mod azz_permission_class_maintenance;

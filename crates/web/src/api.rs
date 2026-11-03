@@ -7,11 +7,11 @@ use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CopyPermissionsRequest,
     CopyUserPermissionsRequest, CreateItemRequest, GeneratePermissionsRequest, GrantRequest,
     IndexDto, ItemDto, LegacyTableDto, LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto,
-    NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PermissionBatchResultDto,
-    PermissionClassDto, PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput,
-    ProgramPermissionDto, ProgramPermissionInput, QueryRequest, TableDictionaryDto,
-    TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto, UserInput, UserPermissionDto,
-    UserPermissionInput,
+    MyPermissionDto, NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page,
+    PermissionBatchResultDto, PermissionClassDto, PermissionClassInput, PlantDto, PlantInput,
+    ProgramDto, ProgramInput, ProgramPermissionDto, ProgramPermissionInput, QueryRequest,
+    TableDictionaryDto, TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto, UserInput,
+    UserPermissionDto, UserPermissionInput,
 };
 
 fn base_url() -> String {
@@ -121,6 +121,11 @@ async fn no_content(res: reqwest::Response) -> Result<(), String> {
     } else {
         Err(error_message(res).await)
     }
+}
+
+/// 目前使用者在此作業的有效權限（authorization.feature AQ13）
+pub async fn my_permission(program: &str) -> Result<MyPermissionDto, String> {
+    get_json(url(&format!("/api/me/permissions/{program}"))).await
 }
 
 /// QBE 查詢（條件語法見 ttrs_domain::qbe）

@@ -25,7 +25,7 @@ async fn set_name(
 }
 
 async fn name_in(w: &ErpWorld, no: &str, lang: &str) -> (String, String) {
-    let names = w.programs.names(no).await.unwrap();
+    let names = w.programs.names(&w.actor, no).await.unwrap();
     names
         .into_iter()
         .find(|n| n.lang == lang)
@@ -57,7 +57,12 @@ async fn set_length(w: &mut ErpWorld, lang: String, no: String, item: String, le
 
 #[when(expr = "使用者以語系 {string} 查看程式 {string}")]
 async fn view_localized(w: &mut ErpWorld, lang: String, no: String) {
-    w.displayed_program = Some(w.programs.get_localized(&no, &lang).await.unwrap());
+    w.displayed_program = Some(
+        w.programs
+            .get_localized(&w.actor, &no, &lang)
+            .await
+            .unwrap(),
+    );
 }
 
 #[then(expr = "程式 {string} 的語系名稱應為:")]

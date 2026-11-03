@@ -5,6 +5,7 @@
 
 mod schema_fixture;
 mod steps;
+mod toggle_authorizer;
 
 use std::{fmt, sync::Arc};
 
@@ -12,13 +13,15 @@ use cucumber::World;
 use sqlx::PgPool;
 use ttrs_app::{
     Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService,
-    PermissionClassService, PlantService, ProgramPermissionService, ProgramService,
+    PermissionClassService, PlantService, ProgramPermissionService, ProgramService, Services,
     UserPermissionService, UserService, memory::InMemoryStore,
 };
 use ttrs_infra::PgStore;
+
+use crate::toggle_authorizer::ToggleAuthorizer;
 use ttrs_shared::{
-    ColumnInfoDto, ConstraintDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto, ProgramDto,
-    QbeCondition, TableDictionaryDto,
+    ColumnInfoDto, ConstraintDto, LegacyTableDto, LegacyTableSummaryDto, MigrationDto,
+    MyPermissionDto, ProgramDto, QbeCondition, TableDictionaryDto,
 };
 
 pub enum Backend {
@@ -30,6 +33,8 @@ pub enum Backend {
 #[world(init = Self::init)]
 pub struct ErpWorld {
     pub backend: Backend,
+    /// 權限檢查開關（authorization.feature AQ12）：預設不檢查，權限規格的操作步驟才啟用
+    pub authz: Arc<ToggleAuthorizer>,
     pub items: ItemService,
     pub programs: ProgramService,
     /// 目前登入的使用者（程式維護等需要記錄建立者/權限類別的作業）
@@ -62,6 +67,8 @@ pub struct ErpWorld {
     pub special: UserPermissionService,
     /// 最近一次批次作業的處理筆數（更新所有使用者目錄編號）
     pub updated_count: Option<u64>,
+    /// 最近一次查看的有效權限（authorization.feature）
+    pub my_permission: Option<MyPermissionDto>,
 }
 
 impl fmt::Debug for ErpWorld {
@@ -74,18 +81,7 @@ impl fmt::Debug for ErpWorld {
 
 impl ErpWorld {
     async fn init() -> Self {
-        let (
-            backend,
-            items,
-            programs,
-            dictionary,
-            legacy,
-            users,
-            classes,
-            plants,
-            permissions,
-            special,
-        ) = match database_url() {
+        let (backend, services, authz) = match database_url() {
             Some(url) => {
                 let pool = ttrs_infra::connect(&url).await.expect("connect PostgreSQL");
                 ttrs_infra::migrate(&pool).await.expect("run migrations");
@@ -96,56 +92,34 @@ impl ErpWorld {
                     .await
                     .expect("truncate tables");
                 let store = Arc::new(PgStore::new(pool.clone()));
-                (
-                    Backend::Pg(pool),
-                    ItemService::new(store.clone(), store.clone()),
-                    ProgramService::new(store.clone()),
-                    DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
-                    LegacyCatalogService::new(store.clone()),
-                    UserService::new(
-                        store.clone(),
-                        store.clone(),
-                        store.clone(),
-                        store.clone(),
-                        store.clone(),
-                    ),
-                    PermissionClassService::new(store.clone(), store.clone(), store.clone()),
-                    PlantService::new(store.clone()),
-                    ProgramPermissionService::new(store.clone(), store.clone(), store.clone()),
-                    UserPermissionService::new(store.clone(), store.clone(), store.clone(), store),
-                )
+                let authz = ToggleAuthorizer::new(store.clone(), store.clone());
+                let services = Services::with_authorizer(store, authz.clone());
+                (Backend::Pg(pool), services, authz)
             }
             None => {
                 let store = InMemoryStore::new();
                 schema_fixture::load(&store);
                 let shared = Arc::new(store.clone());
-                (
-                    Backend::Memory(store),
-                    ItemService::new(shared.clone(), shared.clone()),
-                    ProgramService::new(shared.clone()),
-                    DataDictionaryService::new(shared.clone(), shared.clone(), shared.clone()),
-                    LegacyCatalogService::new(shared.clone()),
-                    UserService::new(
-                        shared.clone(),
-                        shared.clone(),
-                        shared.clone(),
-                        shared.clone(),
-                        shared.clone(),
-                    ),
-                    PermissionClassService::new(shared.clone(), shared.clone(), shared.clone()),
-                    PlantService::new(shared.clone()),
-                    ProgramPermissionService::new(shared.clone(), shared.clone(), shared.clone()),
-                    UserPermissionService::new(
-                        shared.clone(),
-                        shared.clone(),
-                        shared.clone(),
-                        shared,
-                    ),
-                )
+                let authz = ToggleAuthorizer::new(shared.clone(), shared.clone());
+                let services = Services::with_authorizer(shared, authz.clone());
+                (Backend::Memory(store), services, authz)
             }
         };
+        let Services {
+            items,
+            programs,
+            dictionary,
+            legacy,
+            users,
+            classes,
+            plants,
+            permissions,
+            special,
+            authorizer: _,
+        } = services;
         Self {
             backend,
+            authz,
             items,
             programs,
             actor: Actor::default(),
@@ -169,6 +143,7 @@ impl ErpWorld {
             permissions,
             special,
             updated_count: None,
+            my_permission: None,
         }
     }
 }

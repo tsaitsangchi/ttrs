@@ -6690,6 +6690,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "thiserror 2.0.21",
+ "tracing",
  "ttrs-domain",
  "ttrs-shared",
 ]
@@ -6698,6 +6699,7 @@ dependencies = [
 name = "ttrs-bdd"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "chrono",
  "cucumber",
  "sqlx",

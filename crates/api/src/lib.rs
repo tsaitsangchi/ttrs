@@ -1,5 +1,7 @@
 //! 路由與錯誤對應。handler 只做轉譯，業務邏輯一律在 ttrs-app。
 
+use std::sync::Arc;
+
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
@@ -13,19 +15,19 @@ use tower_http::{
     trace::TraceLayer,
 };
 use ttrs_app::{
-    Actor, AppError, DataDictionaryService, ItemService, LegacyCatalogService,
-    PermissionClassService, PlantService, ProgramPermissionService, ProgramService,
-    UserPermissionService, UserService, program_service::DEFAULT_LANG,
+    Actor, ActorKind, AppError, Authorizer, DataDictionaryService, ItemService,
+    LegacyCatalogService, PermissionClassService, PlantService, ProgramPermissionService,
+    ProgramService, Services, UserPermissionService, UserService, program_service::DEFAULT_LANG,
 };
 use ttrs_shared::{
     ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CopyPermissionsRequest,
     CopyUserPermissionsRequest, CreateItemRequest, GeneratePermissionsRequest, GrantRequest,
     IndexDto, ItemDto, LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto,
-    MenuPermissionsRequest, MigrationDto, NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest,
-    Page, PermissionBatchResultDto, PermissionClassDto, PermissionClassInput, PlantDto, PlantInput,
-    ProgramDto, ProgramInput, ProgramNameDto, ProgramPermissionDto, ProgramPermissionInput,
-    QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto,
-    UserInput, UserPermissionDto, UserPermissionInput,
+    MenuPermissionsRequest, MigrationDto, MyPermissionDto, NewPlantIdRequest, NewProgramNoRequest,
+    NewUserIdRequest, Page, PermissionBatchResultDto, PermissionClassDto, PermissionClassInput,
+    PlantDto, PlantInput, ProgramDto, ProgramInput, ProgramNameDto, ProgramPermissionDto,
+    ProgramPermissionInput, QueryRequest, TableDictionaryDto, TableDictionaryInput, TableTextDto,
+    UpdatedCountDto, UserDto, UserInput, UserPermissionDto, UserPermissionInput,
 };
 
 #[derive(Clone)]
@@ -39,8 +41,40 @@ pub struct AppState {
     pub plants: PlantService,
     pub permissions: ProgramPermissionService,
     pub special: UserPermissionService,
+    /// 權限檢查（ADR 0006 §4）：各 use case 已在 app 層檢查，這裡只供查詢有效權限
+    pub authorizer: Arc<dyn Authorizer>,
     /// 尚未有登入機制前，所有請求都以此使用者身分執行（見 `actor_from_env`）
     pub actor: Actor,
+}
+
+impl AppState {
+    pub fn new(services: Services, actor: Actor) -> Self {
+        let Services {
+            items,
+            programs,
+            dictionary,
+            legacy,
+            users,
+            classes,
+            plants,
+            permissions,
+            special,
+            authorizer,
+        } = services;
+        Self {
+            items,
+            programs,
+            dictionary,
+            legacy,
+            users,
+            classes,
+            plants,
+            permissions,
+            special,
+            authorizer,
+            actor,
+        }
+    }
 }
 
 /// 開發期的操作者身分：`TTRS_USER`、`TTRS_DEPT`、`TTRS_PERMISSION_CLASS`。
@@ -51,12 +85,15 @@ pub fn actor_from_env() -> Actor {
         user_id: var("TTRS_USER", "tiptop"),
         dept: var("TTRS_DEPT", "MIS"),
         permission_class: var("TTRS_PERMISSION_CLASS", "ADMIN"),
+        kind: ActorKind::Person,
     }
 }
 
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(|| async { "ok" }))
+        // 目前使用者的有效權限（authorization.feature AQ13）
+        .route("/api/me/permissions/{program}", get(my_permission))
         .route("/api/items", get(list_items).post(create_item))
         .route("/api/items/{plant}/{no}", get(get_item).delete(delete_item))
         .route("/api/items/{plant}/{no}/confirm", post(confirm_item))
@@ -245,14 +282,14 @@ async fn search_legacy(
     State(s): State<AppState>,
     Query(q): Query<SearchQuery>,
 ) -> ApiResult<Json<Vec<LegacyTableSummaryDto>>> {
-    Ok(Json(s.legacy.search(&q.q).await?))
+    Ok(Json(s.legacy.search(&s.actor, &q.q).await?))
 }
 
 async fn get_legacy(
     State(s): State<AppState>,
     Path(legacy): Path<String>,
 ) -> ApiResult<Json<LegacyTableDto>> {
-    Ok(Json(s.legacy.get(&legacy).await?))
+    Ok(Json(s.legacy.get(&s.actor, &legacy).await?))
 }
 
 /// 整批取代（C2）；名稱不合法或重複時 422 且不寫入（C6）
@@ -260,7 +297,7 @@ async fn import_legacy(
     State(s): State<AppState>,
     Json(req): Json<Vec<LegacyTableDto>>,
 ) -> ApiResult<Json<LegacyImportResultDto>> {
-    Ok(Json(s.legacy.import(req).await?))
+    Ok(Json(s.legacy.import(&s.actor, req).await?))
 }
 
 /// 已移植資料表對應的 TipTop 舊表；沒有對照時回傳 null（C1）
@@ -268,7 +305,7 @@ async fn table_legacy(
     State(s): State<AppState>,
     Path(table): Path<String>,
 ) -> ApiResult<Json<Option<LegacyTableDto>>> {
-    Ok(Json(s.legacy.for_table(&table).await?))
+    Ok(Json(s.legacy.for_table(&s.actor, &table).await?))
 }
 
 // ----- User Maintenance 使用者維護（TipTop p_zx） -----
@@ -282,7 +319,7 @@ async fn query_users(
     State(s): State<AppState>,
     Json(req): Json<QueryRequest>,
 ) -> ApiResult<Json<Page<UserDto>>> {
-    Ok(Json(s.users.query(req).await?))
+    Ok(Json(s.users.query(&s.actor, req).await?))
 }
 
 async fn create_user(
@@ -296,7 +333,7 @@ async fn create_user(
 }
 
 async fn get_user(State(s): State<AppState>, Path(id): Path<String>) -> ApiResult<Json<UserDto>> {
-    Ok(Json(s.users.get(&id).await?))
+    Ok(Json(s.users.get(&s.actor, &id).await?))
 }
 
 async fn update_user(
@@ -308,7 +345,7 @@ async fn update_user(
 }
 
 async fn delete_user(State(s): State<AppState>, Path(id): Path<String>) -> ApiResult<StatusCode> {
-    s.users.delete(&id).await?;
+    s.users.delete(&s.actor, &id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -348,7 +385,7 @@ async fn query_plants(
     State(s): State<AppState>,
     Json(req): Json<QueryRequest>,
 ) -> ApiResult<Json<Page<PlantDto>>> {
-    Ok(Json(s.plants.query(req).await?))
+    Ok(Json(s.plants.query(&s.actor, req).await?))
 }
 
 async fn create_plant(
@@ -362,7 +399,7 @@ async fn create_plant(
 }
 
 async fn get_plant(State(s): State<AppState>, Path(id): Path<String>) -> ApiResult<Json<PlantDto>> {
-    Ok(Json(s.plants.get(&id).await?))
+    Ok(Json(s.plants.get(&s.actor, &id).await?))
 }
 
 async fn update_plant(
@@ -374,7 +411,7 @@ async fn update_plant(
 }
 
 async fn delete_plant(State(s): State<AppState>, Path(id): Path<String>) -> ApiResult<StatusCode> {
-    s.plants.delete(&id).await?;
+    s.plants.delete(&s.actor, &id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -414,7 +451,7 @@ async fn query_classes(
     State(s): State<AppState>,
     Json(req): Json<QueryRequest>,
 ) -> ApiResult<Json<Page<PermissionClassDto>>> {
-    Ok(Json(s.classes.query(req).await?))
+    Ok(Json(s.classes.query(&s.actor, req).await?))
 }
 
 async fn create_class(
@@ -431,7 +468,7 @@ async fn get_class(
     State(s): State<AppState>,
     Path(code): Path<String>,
 ) -> ApiResult<Json<PermissionClassDto>> {
-    Ok(Json(s.classes.get(&code).await?))
+    Ok(Json(s.classes.get(&s.actor, &code).await?))
 }
 
 async fn update_class(
@@ -446,7 +483,7 @@ async fn delete_class(
     State(s): State<AppState>,
     Path(code): Path<String>,
 ) -> ApiResult<StatusCode> {
-    s.classes.delete(&code).await?;
+    s.classes.delete(&s.actor, &code).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -476,7 +513,7 @@ async fn query_program_permissions(
     State(s): State<AppState>,
     Json(req): Json<QueryRequest>,
 ) -> ApiResult<Json<Page<PermissionClassDto>>> {
-    Ok(Json(s.permissions.query(req).await?))
+    Ok(Json(s.permissions.query(&s.actor, req).await?))
 }
 
 /// 權限類別符合同一組查詢條件的程式（單身，YQ3）
@@ -485,7 +522,7 @@ async fn query_class_permissions(
     Path(code): Path<String>,
     Json(req): Json<QueryRequest>,
 ) -> ApiResult<Json<Vec<ProgramPermissionDto>>> {
-    Ok(Json(s.permissions.query_class(&code, req).await?))
+    Ok(Json(s.permissions.query_class(&s.actor, &code, req).await?))
 }
 
 async fn list_class_permissions(
@@ -494,7 +531,7 @@ async fn list_class_permissions(
     Query(q): Query<LangQuery>,
 ) -> ApiResult<Json<Vec<ProgramPermissionDto>>> {
     let lang = q.lang.unwrap_or_else(|| DEFAULT_LANG.to_owned());
-    Ok(Json(s.permissions.list(&code, &lang).await?))
+    Ok(Json(s.permissions.list(&s.actor, &code, &lang).await?))
 }
 
 async fn grant_class_permission(
@@ -522,7 +559,7 @@ async fn revoke_class_permission(
     State(s): State<AppState>,
     Path((code, program)): Path<(String, String)>,
 ) -> ApiResult<StatusCode> {
-    s.permissions.revoke(&code, &program).await?;
+    s.permissions.revoke(&s.actor, &code, &program).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -530,7 +567,7 @@ async fn revoke_all_permissions(
     State(s): State<AppState>,
     Path(code): Path<String>,
 ) -> ApiResult<Json<PermissionBatchResultDto>> {
-    Ok(Json(s.permissions.revoke_all(&code).await?))
+    Ok(Json(s.permissions.revoke_all(&s.actor, &code).await?))
 }
 
 async fn copy_permissions(
@@ -574,7 +611,11 @@ async fn delete_permissions_by_menu(
     Path(code): Path<String>,
     Json(req): Json<MenuPermissionsRequest>,
 ) -> ApiResult<Json<PermissionBatchResultDto>> {
-    Ok(Json(s.permissions.delete_by_menu(&code, &req.menu).await?))
+    Ok(Json(
+        s.permissions
+            .delete_by_menu(&s.actor, &code, &req.menu)
+            .await?,
+    ))
 }
 
 // ----- User Special Permission Maintenance 使用者特殊權限維護（TipTop p_zxw） -----
@@ -585,7 +626,7 @@ async fn list_user_permissions(
     Query(q): Query<LangQuery>,
 ) -> ApiResult<Json<Vec<UserPermissionDto>>> {
     let lang = q.lang.unwrap_or_else(|| DEFAULT_LANG.to_owned());
-    Ok(Json(s.special.list(&id, &lang).await?))
+    Ok(Json(s.special.list(&s.actor, &id, &lang).await?))
 }
 
 async fn add_user_permission(
@@ -615,7 +656,7 @@ async fn remove_user_permission(
     State(s): State<AppState>,
     Path((id, line)): Path<(String, i32)>,
 ) -> ApiResult<StatusCode> {
-    s.special.remove(&id, line).await?;
+    s.special.remove(&s.actor, &id, line).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -623,7 +664,7 @@ async fn remove_all_user_permissions(
     State(s): State<AppState>,
     Path(id): Path<String>,
 ) -> ApiResult<Json<PermissionBatchResultDto>> {
-    Ok(Json(s.special.remove_all(&id).await?))
+    Ok(Json(s.special.remove_all(&s.actor, &id).await?))
 }
 
 async fn copy_user_permissions(
@@ -666,6 +707,7 @@ impl IntoResponse for HttpError {
             | "PERMISSION_ALREADY_EXISTS"
             | "USER_PERMISSION_DUPLICATE"
             | "USER_HAS_SPECIAL_PERMISSIONS" => StatusCode::CONFLICT,
+            "PERMISSION_DENIED" => StatusCode::FORBIDDEN,
             "INFRA_ERROR" => StatusCode::INTERNAL_SERVER_ERROR,
             _ => StatusCode::UNPROCESSABLE_ENTITY,
         };
@@ -682,6 +724,15 @@ impl IntoResponse for HttpError {
 
 type ApiResult<T> = Result<T, HttpError>;
 
+async fn my_permission(
+    State(s): State<AppState>,
+    Path(program): Path<String>,
+) -> ApiResult<Json<MyPermissionDto>> {
+    Ok(Json(
+        ttrs_app::authorization::my_permission(s.authorizer.as_ref(), &s.actor, &program).await?,
+    ))
+}
+
 #[derive(Deserialize)]
 struct PlantQuery {
     plant: String,
@@ -691,42 +742,45 @@ async fn list_items(
     State(s): State<AppState>,
     Query(q): Query<PlantQuery>,
 ) -> ApiResult<Json<Vec<ItemDto>>> {
-    Ok(Json(s.items.list(&q.plant).await?))
+    Ok(Json(s.items.list(&s.actor, &q.plant).await?))
 }
 
 async fn create_item(
     State(s): State<AppState>,
     Json(req): Json<CreateItemRequest>,
 ) -> ApiResult<(StatusCode, Json<ItemDto>)> {
-    Ok((StatusCode::CREATED, Json(s.items.create(req).await?)))
+    Ok((
+        StatusCode::CREATED,
+        Json(s.items.create(&s.actor, req).await?),
+    ))
 }
 
 async fn get_item(
     State(s): State<AppState>,
     Path((plant, no)): Path<(String, String)>,
 ) -> ApiResult<Json<ItemDto>> {
-    Ok(Json(s.items.get(&plant, &no).await?))
+    Ok(Json(s.items.get(&s.actor, &plant, &no).await?))
 }
 
 async fn confirm_item(
     State(s): State<AppState>,
     Path((plant, no)): Path<(String, String)>,
 ) -> ApiResult<Json<ItemDto>> {
-    Ok(Json(s.items.confirm(&plant, &no).await?))
+    Ok(Json(s.items.confirm(&s.actor, &plant, &no).await?))
 }
 
 async fn unconfirm_item(
     State(s): State<AppState>,
     Path((plant, no)): Path<(String, String)>,
 ) -> ApiResult<Json<ItemDto>> {
-    Ok(Json(s.items.unconfirm(&plant, &no).await?))
+    Ok(Json(s.items.unconfirm(&s.actor, &plant, &no).await?))
 }
 
 async fn delete_item(
     State(s): State<AppState>,
     Path((plant, no)): Path<(String, String)>,
 ) -> ApiResult<StatusCode> {
-    s.items.delete(&plant, &no).await?;
+    s.items.delete(&s.actor, &plant, &no).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -741,7 +795,7 @@ async fn query_programs(
     State(s): State<AppState>,
     Json(req): Json<QueryRequest>,
 ) -> ApiResult<Json<Page<ProgramDto>>> {
-    Ok(Json(s.programs.query(req).await?))
+    Ok(Json(s.programs.query(&s.actor, req).await?))
 }
 
 async fn create_program(
@@ -761,8 +815,8 @@ async fn get_program(
     Query(q): Query<LangQuery>,
 ) -> ApiResult<Json<ProgramDto>> {
     Ok(Json(match q.lang {
-        Some(lang) => s.programs.get_localized(&no, &lang).await?,
-        None => s.programs.get(&no).await?,
+        Some(lang) => s.programs.get_localized(&s.actor, &no, &lang).await?,
+        None => s.programs.get(&s.actor, &no).await?,
     }))
 }
 
@@ -805,7 +859,7 @@ async fn list_permissions(
     State(s): State<AppState>,
     Path(no): Path<String>,
 ) -> ApiResult<Json<Vec<String>>> {
-    Ok(Json(s.programs.permission_classes(&no).await?))
+    Ok(Json(s.programs.permission_classes(&s.actor, &no).await?))
 }
 
 async fn grant_permission(
@@ -822,7 +876,7 @@ async fn grant_permission(
 // ----- Data Dictionary Maintenance 資料字典維護（TipTop p_zta） -----
 
 async fn schema_tables(State(s): State<AppState>) -> ApiResult<Json<Vec<String>>> {
-    Ok(Json(s.dictionary.schema_tables().await?))
+    Ok(Json(s.dictionary.schema_tables(&s.actor).await?))
 }
 
 /// `?lang=` 決定顯示語系（ADR 0005）；回應的 `texts` 含所有語系
@@ -831,7 +885,7 @@ async fn list_dictionaries(
     Query(q): Query<LangQuery>,
 ) -> ApiResult<Json<Vec<TableDictionaryDto>>> {
     let lang = q.lang.as_deref().unwrap_or(DEFAULT_LANG);
-    Ok(Json(s.dictionary.list_localized(lang).await?))
+    Ok(Json(s.dictionary.list_localized(&s.actor, lang).await?))
 }
 
 async fn create_dictionary(
@@ -850,7 +904,9 @@ async fn get_dictionary(
     Query(q): Query<LangQuery>,
 ) -> ApiResult<Json<TableDictionaryDto>> {
     let lang = q.lang.as_deref().unwrap_or(DEFAULT_LANG);
-    Ok(Json(s.dictionary.get_localized(&table, lang).await?))
+    Ok(Json(
+        s.dictionary.get_localized(&s.actor, &table, lang).await?,
+    ))
 }
 
 async fn update_dictionary(
@@ -858,14 +914,14 @@ async fn update_dictionary(
     Path(table): Path<String>,
     Json(req): Json<TableDictionaryInput>,
 ) -> ApiResult<Json<TableDictionaryDto>> {
-    Ok(Json(s.dictionary.update(&table, req).await?))
+    Ok(Json(s.dictionary.update(&s.actor, &table, req).await?))
 }
 
 async fn delete_dictionary(
     State(s): State<AppState>,
     Path(table): Path<String>,
 ) -> ApiResult<StatusCode> {
-    s.dictionary.delete(&table).await?;
+    s.dictionary.delete(&s.actor, &table).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -873,7 +929,7 @@ async fn table_texts(
     State(s): State<AppState>,
     Path(table): Path<String>,
 ) -> ApiResult<Json<Vec<TableTextDto>>> {
-    Ok(Json(s.dictionary.table_texts(&table).await?))
+    Ok(Json(s.dictionary.table_texts(&s.actor, &table).await?))
 }
 
 async fn set_table_text(
@@ -881,7 +937,7 @@ async fn set_table_text(
     Path(table): Path<String>,
     Json(req): Json<TableTextDto>,
 ) -> ApiResult<StatusCode> {
-    s.dictionary.set_table_text(&table, req).await?;
+    s.dictionary.set_table_text(&s.actor, &table, req).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -889,14 +945,14 @@ async fn table_columns(
     State(s): State<AppState>,
     Path(table): Path<String>,
 ) -> ApiResult<Json<Vec<ColumnInfoDto>>> {
-    Ok(Json(s.dictionary.columns(&table).await?))
+    Ok(Json(s.dictionary.columns(&s.actor, &table).await?))
 }
 
 async fn column_texts(
     State(s): State<AppState>,
     Path(table): Path<String>,
 ) -> ApiResult<Json<Vec<ColumnTextDto>>> {
-    Ok(Json(s.dictionary.column_texts(&table).await?))
+    Ok(Json(s.dictionary.column_texts(&s.actor, &table).await?))
 }
 
 async fn set_column_text(
@@ -904,7 +960,7 @@ async fn set_column_text(
     Path(table): Path<String>,
     Json(req): Json<ColumnTextDto>,
 ) -> ApiResult<StatusCode> {
-    s.dictionary.set_column_text(&table, req).await?;
+    s.dictionary.set_column_text(&s.actor, &table, req).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -912,21 +968,21 @@ async fn table_indexes(
     State(s): State<AppState>,
     Path(table): Path<String>,
 ) -> ApiResult<Json<Vec<IndexDto>>> {
-    Ok(Json(s.dictionary.indexes(&table).await?))
+    Ok(Json(s.dictionary.indexes(&s.actor, &table).await?))
 }
 
 async fn table_constraints(
     State(s): State<AppState>,
     Path(table): Path<String>,
 ) -> ApiResult<Json<Vec<ConstraintDto>>> {
-    Ok(Json(s.dictionary.constraints(&table).await?))
+    Ok(Json(s.dictionary.constraints(&s.actor, &table).await?))
 }
 
 async fn table_history(
     State(s): State<AppState>,
     Path(table): Path<String>,
 ) -> ApiResult<Json<Vec<MigrationDto>>> {
-    Ok(Json(s.dictionary.history(&table).await?))
+    Ok(Json(s.dictionary.history(&s.actor, &table).await?))
 }
 
 #[derive(Deserialize)]
@@ -941,7 +997,7 @@ async fn export_dictionary(
     Query(q): Query<LangQuery>,
 ) -> ApiResult<Response> {
     let lang = q.lang.unwrap_or_else(|| DEFAULT_LANG.to_owned());
-    let csv = s.dictionary.export_csv(&table, &lang).await?;
+    let csv = s.dictionary.export_csv(&s.actor, &table, &lang).await?;
     let filename = format!("attachment; filename=\"{table}_{lang}.csv\"");
     Ok((
         [

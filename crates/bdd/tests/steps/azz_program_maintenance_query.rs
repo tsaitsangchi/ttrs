@@ -23,7 +23,7 @@ fn field_key(label: &str) -> &'static str {
 }
 
 async fn run_query(w: &mut ErpWorld, req: QueryRequest) {
-    let result = w.programs.query(req).await;
+    let result = w.programs.query(&w.actor, req).await;
     set_query_result(w, result, |p| p.program_no.clone());
 }
 

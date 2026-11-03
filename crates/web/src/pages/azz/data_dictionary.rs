@@ -22,6 +22,7 @@ use crate::components::material::{
 use crate::components::multilingual::{
     LangField, LangValues, MultilingualDialogField, MultilingualField,
 };
+use crate::components::permission::{Perm, ProgramGate};
 use crate::i18n::{self, UiLang, tf};
 use crate::pages::azz::legacy_catalog::{LegacyCatalog, LegacyMappingTab};
 
@@ -83,9 +84,19 @@ impl Header {
     }
 }
 
+/// 權限檢查用的程式代號（TipTop 對照目錄也歸在 p_zta，authorization.feature AQ3）
+const PROGRAM: &str = "p_zta";
+
 /// 資料字典維護；工具列可切換到 TipTop 對照目錄（legacy_catalog.feature C1）
 #[component]
 pub fn DataDictionary() -> Element {
+    rsx! {
+        ProgramGate { program: PROGRAM, DataDictionaryPage {} }
+    }
+}
+
+#[component]
+fn DataDictionaryPage() -> Element {
     let mut catalog_mode = use_signal(|| false);
     rsx! {
         if catalog_mode() {
@@ -104,6 +115,7 @@ pub fn DataDictionary() -> Element {
 
 #[component]
 fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
+    let perm = use_context::<Perm>();
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
     let mut mode = use_signal(|| Mode::View);
@@ -305,40 +317,48 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                         }
                     },
                     Mode::View => rsx! {
-                        Button {
-                            variant: ButtonVariant::Tonal,
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                draft_query.set(DictQuery::default());
-                                upper_tab.set(0);
-                                mode.set(Mode::Query);
-                            },
-                            {i18n::t("common-action-query")}
+                        if perm.can("query") {
+                            Button {
+                                variant: ButtonVariant::Tonal,
+                                onclick: move |_| {
+                                    message.set(None);
+                                    error.set(None);
+                                    draft_query.set(DictQuery::default());
+                                    upper_tab.set(0);
+                                    mode.set(Mode::Query);
+                                },
+                                {i18n::t("common-action-query")}
+                            }
                         }
-                        Button {
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                header.set(Header::default());
-                                texts.set(LangValues::default());
-                                loaded_texts.set(LangValues::default());
-                                upper_tab.set(0);
-                                mode.set(Mode::New);
-                            },
-                            {i18n::t("common-action-new")}
+                        if perm.can("insert") {
+                            Button {
+                                onclick: move |_| {
+                                    message.set(None);
+                                    error.set(None);
+                                    header.set(Header::default());
+                                    texts.set(LangValues::default());
+                                    loaded_texts.set(LangValues::default());
+                                    upper_tab.set(0);
+                                    mode.set(Mode::New);
+                                },
+                                {i18n::t("common-action-new")}
+                            }
                         }
-                        Button {
-                            variant: ButtonVariant::Tonal,
-                            disabled: no_cur,
-                            onclick: move |_| mode.set(Mode::Edit),
-                            {i18n::t("common-action-edit")}
+                        if perm.can("modify") {
+                            Button {
+                                variant: ButtonVariant::Tonal,
+                                disabled: no_cur,
+                                onclick: move |_| mode.set(Mode::Edit),
+                                {i18n::t("common-action-edit")}
+                            }
                         }
-                        Button {
-                            variant: ButtonVariant::Error,
-                            disabled: no_cur,
-                            onclick: delete,
-                            {i18n::t("common-action-delete")}
+                        if perm.can("delete") {
+                            Button {
+                                variant: ButtonVariant::Error,
+                                disabled: no_cur,
+                                onclick: delete,
+                                {i18n::t("common-action-delete")}
+                            }
                         }
                         div { class: "spacer" }
                         Button {
@@ -350,7 +370,7 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                             },
                             {i18n::t("legacy-action-open")}
                         }
-                        if !no_cur {
+                        if !no_cur && perm.can("exporttoexcel") {
                             a {
                                 class: "md-button md-button--outlined md-state",
                                 href: api::export_url(&table, i18n::current().code()),
@@ -458,7 +478,7 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                     if has_table {
                         for t in [table.clone()] {
                             match lower_tab() {
-                                0 => rsx! { ColumnsTab { key: "{t}", table: t.clone(), editable: m == Mode::Edit, on_error: move |e| error.set(Some(e)) } },
+                                0 => rsx! { ColumnsTab { key: "{t}", table: t.clone(), editable: m == Mode::Edit && perm.can("maintain_field_description"), on_error: move |e| error.set(Some(e)) } },
                                 1 => rsx! { IndexesTab { key: "{t}", table: t.clone() } },
                                 2 => rsx! { ConstraintsTab { key: "{t}", table: t.clone() } },
                                 3 => rsx! { HistoryTab { key: "{t}", table: t.clone() } },

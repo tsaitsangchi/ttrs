@@ -37,7 +37,7 @@ fn input(code: &str, name: &str, menu: &str) -> PermissionClassInput {
 
 async fn class(w: &ErpWorld, code: &str) -> PermissionClassDto {
     w.classes
-        .get(code)
+        .get(&w.actor, code)
         .await
         .unwrap_or_else(|e| panic!("讀取權限類別 {code} 失敗：{e}"))
 }
@@ -116,7 +116,7 @@ async fn activate(w: &mut ErpWorld, code: String) {
 
 #[when(expr = "使用者刪除權限類別 {string}")]
 async fn delete(w: &mut ErpWorld, code: String) {
-    let result = w.classes.delete(&code).await;
+    let result = w.classes.delete(&w.actor, &code).await;
     w.last = Some(result);
 }
 
@@ -213,7 +213,7 @@ async fn updated_on_should_be(w: &mut ErpWorld, code: String, expected: String) 
 
 #[then(expr = "權限類別 {string} 應不存在")]
 async fn should_not_exist(w: &mut ErpWorld, code: String) {
-    match w.classes.get(&code).await {
+    match w.classes.get(&w.actor, &code).await {
         Err(e) => assert_eq!(e.code(), "PERMISSION_CLASS_NOT_FOUND"),
         Ok(c) => panic!("權限類別仍存在：{c:?}"),
     }

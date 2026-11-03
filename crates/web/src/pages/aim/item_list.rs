@@ -4,13 +4,25 @@ use dioxus::prelude::*;
 use ttrs_shared::{CreateItemRequest, ItemStatusDto};
 
 use crate::api;
+use crate::components::permission::{Perm, ProgramGate};
 use crate::i18n::{t, tf};
 
 // TODO: 登入後改由使用者所屬營運中心帶入
 const PLANT: &str = "TW01";
 
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "aimi100";
+
 #[component]
 pub fn ItemList() -> Element {
+    rsx! {
+        ProgramGate { program: PROGRAM, ItemListPage {} }
+    }
+}
+
+#[component]
+fn ItemListPage() -> Element {
+    let perm = use_context::<Perm>();
     let mut items = use_resource(|| api::list_items(PLANT));
     let mut error = use_signal(|| None::<String>);
 
@@ -51,7 +63,9 @@ pub fn ItemList() -> Element {
             input { placeholder: t("item-field-name"), value: "{name}", oninput: move |e| name.set(e.value()) }
             input { placeholder: t("item-field-spec"), value: "{spec}", oninput: move |e| spec.set(e.value()) }
             input { placeholder: t("item-field-stock-unit"), value: "{unit}", oninput: move |e| unit.set(e.value()) }
-            button { onclick: create, {t("common-action-new")} }
+            if perm.can("insert") {
+                button { onclick: create, {t("common-action-new")} }
+            }
         }
 
         if let Some(msg) = error() {
@@ -83,7 +97,7 @@ pub fn ItemList() -> Element {
                                 td { "{it.stock_unit}" }
                                 td { {t(status_id(it.status))} }
                                 td {
-                                    if it.status == ItemStatusDto::Unconfirmed {
+                                    if it.status == ItemStatusDto::Unconfirmed && perm.can("confirm") {
                                         button {
                                             onclick: {
                                                 let no = it.item_no.clone();
@@ -100,7 +114,7 @@ pub fn ItemList() -> Element {
                                             {t("item-action-confirm")}
                                         }
                                     }
-                                    if it.status == ItemStatusDto::Confirmed {
+                                    if it.status == ItemStatusDto::Confirmed && perm.can("notconfirm") {
                                         button {
                                             onclick: {
                                                 let no = it.item_no.clone();
@@ -117,21 +131,23 @@ pub fn ItemList() -> Element {
                                             {t("item-action-unconfirm")}
                                         }
                                     }
-                                    button {
-                                        class: "danger",
-                                        onclick: {
-                                            let no = it.item_no.clone();
-                                            move |_| {
-                                                let no = no.clone();
-                                                spawn(async move {
-                                                    match api::delete_item(PLANT, &no).await {
-                                                        Ok(()) => { error.set(None); items.restart(); }
-                                                        Err(e) => error.set(Some(e)),
-                                                    }
-                                                });
-                                            }
-                                        },
-                                        {t("common-action-delete")}
+                                    if perm.can("delete") {
+                                        button {
+                                            class: "danger",
+                                            onclick: {
+                                                let no = it.item_no.clone();
+                                                move |_| {
+                                                    let no = no.clone();
+                                                    spawn(async move {
+                                                        match api::delete_item(PLANT, &no).await {
+                                                            Ok(()) => { error.set(None); items.restart(); }
+                                                            Err(e) => error.set(Some(e)),
+                                                        }
+                                                    });
+                                                }
+                                            },
+                                            {t("common-action-delete")}
+                                        }
                                     }
                                 }
                             }

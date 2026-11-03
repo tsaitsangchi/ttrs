@@ -12,20 +12,28 @@ use ttrs_domain::{
 };
 use ttrs_shared::{Page, PlantDto, PlantInput, QueryRequest};
 
-use crate::{Actor, AppError, error::RepoError, ports::PlantRepository, query};
+use crate::{
+    Actor, AppError, Authorizer, authorization::Grant, error::RepoError, ports::PlantRepository,
+    query,
+};
+
+/// 權限檢查用的程式代號；TipTop 沒有設定資料所有者，不檢查資料權限（AQ5）
+const PROGRAM: &str = "aooi901";
 
 #[derive(Clone)]
 pub struct PlantService {
+    authz: Arc<dyn Authorizer>,
     plants: Arc<dyn PlantRepository>,
 }
 
 impl PlantService {
-    pub fn new(plants: Arc<dyn PlantRepository>) -> Self {
-        Self { plants }
+    pub fn new(authz: Arc<dyn Authorizer>, plants: Arc<dyn PlantRepository>) -> Self {
+        Self { authz, plants }
     }
 
     /// 新增（aooi901.4gl:296-388）
     pub async fn create(&self, actor: &Actor, input: PlantInput) -> Result<PlantDto, AppError> {
+        self.authorize(actor, "insert").await?;
         let id = PlantId::parse(&input.plant_id)?;
         let plant = Plant::new(id, attrs(&input)?, &actor.user_id, &actor.dept, today());
         self.insert(plant).await
@@ -38,6 +46,7 @@ impl PlantService {
         id: &str,
         input: PlantInput,
     ) -> Result<PlantDto, AppError> {
+        self.authorize(actor, "modify").await?;
         let mut plant = self.load(id).await?;
         if !input.plant_id.trim().is_empty() && PlantId::parse(&input.plant_id)? != plant.id {
             return Err(DomainError::PlantIdImmutable.into());
@@ -47,12 +56,18 @@ impl PlantService {
         Ok(to_dto(&plant))
     }
 
-    pub async fn get(&self, id: &str) -> Result<PlantDto, AppError> {
+    pub async fn get(&self, actor: &Actor, id: &str) -> Result<PlantDto, AppError> {
+        self.authorize(actor, "query").await?;
         Ok(to_dto(&self.load(id).await?))
     }
 
     /// QBE 查詢（i901_curs，aooi901.4gl:119-156）；欄位見 query::plant（PQ1–PQ3）
-    pub async fn query(&self, req: QueryRequest) -> Result<Page<PlantDto>, AppError> {
+    pub async fn query(
+        &self,
+        actor: &Actor,
+        req: QueryRequest,
+    ) -> Result<Page<PlantDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let filters = query::plant::filters(&req.conditions)?;
         let p = query::paging(&req);
         let (rows, total) = self
@@ -69,13 +84,15 @@ impl PlantService {
         })
     }
 
+    /// 全部清單：下拉選單、欄位檢查用的參考資料，只要求登入（AQ4）
     pub async fn list(&self) -> Result<Vec<PlantDto>, AppError> {
         let plants = self.plants.list().await.map_err(infra)?;
         Ok(plants.iter().map(to_dto).collect())
     }
 
     /// 刪除：仍有使用者或業務資料時拒絕，不做連帶刪除（aooi901.4gl:944-953 aoo-088，P10）
-    pub async fn delete(&self, id: &str) -> Result<(), AppError> {
+    pub async fn delete(&self, actor: &Actor, id: &str) -> Result<(), AppError> {
+        self.authorize(actor, "delete").await?;
         let plant = self.load(id).await?;
         match self.plants.delete(&plant.id).await {
             Ok(()) => Ok(()),
@@ -84,7 +101,8 @@ impl PlantService {
         }
     }
 
-    /// 停用（P9）：一律允許，既有資料不受影響；之後不可再指定給使用者或新的業務資料
+    /// 停用（P9）：一律允許，既有資料不受影響；之後不可再指定給使用者或新的業務資料。
+    /// azp_file 沒有有效碼，停用／啟用用 modify（AQ3）
     pub async fn deactivate(&self, actor: &Actor, id: &str) -> Result<PlantDto, AppError> {
         self.set_active(actor, id, false).await
     }
@@ -95,6 +113,7 @@ impl PlantService {
 
     /// 複製（aooi901.4gl:994-1046，P11）
     pub async fn copy(&self, actor: &Actor, id: &str, new_id: &str) -> Result<PlantDto, AppError> {
+        self.authorize(actor, "reproduce").await?;
         let source = self.load(id).await?;
         let new_id = PlantId::parse(new_id)?;
         self.insert(source.copy_as(new_id, &actor.user_id, &actor.dept, today()))
@@ -115,10 +134,15 @@ impl PlantService {
         id: &str,
         active: bool,
     ) -> Result<PlantDto, AppError> {
+        self.authorize(actor, "modify").await?;
         let mut plant = self.load(id).await?;
         plant.set_active(active, &actor.user_id, today());
         self.plants.update(&plant).await.map_err(infra)?;
         Ok(to_dto(&plant))
+    }
+
+    async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
+        self.authz.authorize(actor, PROGRAM, action).await
     }
 
     async fn load(&self, id: &str) -> Result<Plant, AppError> {

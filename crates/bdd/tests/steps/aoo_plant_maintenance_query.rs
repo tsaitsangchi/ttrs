@@ -28,7 +28,7 @@ fn text(v: &str) -> Option<String> {
 }
 
 async fn run(w: &mut ErpWorld, req: QueryRequest) {
-    let result = w.plants.query(req).await;
+    let result = w.plants.query(&w.actor, req).await;
     set_query_result(w, result, |p| p.plant_id.clone());
 }
 

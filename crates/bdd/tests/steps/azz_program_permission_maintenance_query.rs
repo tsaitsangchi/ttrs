@@ -24,7 +24,7 @@ fn field_key(label: &str) -> &'static str {
 
 async fn run(w: &mut ErpWorld, req: QueryRequest) {
     w.query_conditions = req.conditions.clone();
-    let result = w.permissions.query(req).await;
+    let result = w.permissions.query(&w.actor, req).await;
     set_query_result(w, result, |c| c.class_code.clone());
 }
 
@@ -45,7 +45,11 @@ async fn existing_permissions(w: &mut ErpWorld, step: &Step) {
             other_dept_data: Some(r[4].clone()),
             detail_rows: Some(r[5].clone()),
         };
-        if w.permissions.get(&r[0], &r[1], "zh-TW").await.is_ok() {
+        if w.permissions
+            .get(&w.actor, &r[0], &r[1], "zh-TW")
+            .await
+            .is_ok()
+        {
             w.permissions
                 .update(&w.actor, &r[0], &r[1], req)
                 .await
@@ -75,7 +79,7 @@ async fn matching_programs(w: &mut ErpWorld, class: String, expected: String) {
     };
     let rows = w
         .permissions
-        .query_class(&class, req)
+        .query_class(&w.actor, &class, req)
         .await
         .unwrap_or_else(|e| panic!("查詢權限類別 {class} 的程式失敗：{e}"));
     let actual: Vec<&str> = rows.iter().map(|p| p.program_no.as_str()).collect();

@@ -30,6 +30,7 @@ nav-last = 最后一笔
 list-page-previous = 上一页
 list-page-next = 下一页
 common-msg-loading = 加载中…
+common-msg-no-program-permission = 您没有执行 { $program } 的权限（请检查权限设置）
 query-msg-none = 查无符合条件的数据
 query-msg-matched = 共 { $count } 笔符合条件
 nav-record-position = 第 { $pos } / { $total } 笔

@@ -70,7 +70,10 @@ async fn existing_table_name(w: &mut ErpWorld, table: String, lang: String, name
         name: Some(name),
         ..Default::default()
     };
-    w.dictionary.set_table_text(&table, text).await.unwrap();
+    w.dictionary
+        .set_table_text(&w.actor, &table, text)
+        .await
+        .unwrap();
 }
 
 #[given(expr = "資料表 {string} 欄位 {string} 在語系 {string} 已說明為 {string}")]
@@ -87,7 +90,10 @@ async fn existing_column_name(
         name: Some(name),
         ..Default::default()
     };
-    w.dictionary.set_column_text(&table, text).await.unwrap();
+    w.dictionary
+        .set_column_text(&w.actor, &table, text)
+        .await
+        .unwrap();
 }
 
 // ----- 當 -----
@@ -116,7 +122,12 @@ async fn update_dictionary(
         upstream: opt(&upstream),
         downstream: opt(&downstream),
     };
-    w.last = Some(w.dictionary.update(&table, input).await.map(|_| ()));
+    w.last = Some(
+        w.dictionary
+            .update(&w.actor, &table, input)
+            .await
+            .map(|_| ()),
+    );
 }
 
 #[when(expr = "使用者以語系 {string} 將資料表 {string} 命名為 {string}，目的 {string}")]
@@ -127,7 +138,7 @@ async fn name_table(w: &mut ErpWorld, lang: String, table: String, name: String,
         purpose: opt(&purpose),
         remark: None,
     };
-    w.last = Some(w.dictionary.set_table_text(&table, text).await);
+    w.last = Some(w.dictionary.set_table_text(&w.actor, &table, text).await);
 }
 
 #[when(
@@ -149,7 +160,7 @@ async fn describe_column(
         description: opt(&description),
         extra: opt(&extra),
     };
-    w.last = Some(w.dictionary.set_column_text(&table, text).await);
+    w.last = Some(w.dictionary.set_column_text(&w.actor, &table, text).await);
 }
 
 #[when(expr = "使用者以語系 {string} 將資料表 {string} 的 {string} 設為 {int} 個字元")]
@@ -166,7 +177,7 @@ async fn set_length(w: &mut ErpWorld, lang: String, table: String, item: String,
             } else {
                 text.purpose = v;
             }
-            w.dictionary.set_table_text(&table, text).await
+            w.dictionary.set_table_text(&w.actor, &table, text).await
         }
         "欄位名稱" | "欄位說明" | "額外說明" => {
             let mut text = ColumnTextDto {
@@ -179,7 +190,7 @@ async fn set_length(w: &mut ErpWorld, lang: String, table: String, item: String,
                 "欄位說明" => text.description = v,
                 _ => text.extra = v,
             }
-            w.dictionary.set_column_text(&table, text).await
+            w.dictionary.set_column_text(&w.actor, &table, text).await
         }
         other => panic!("未知項目：{other}"),
     };
@@ -188,39 +199,49 @@ async fn set_length(w: &mut ErpWorld, lang: String, table: String, item: String,
 
 #[when(expr = "使用者查看資料表 {string} 的欄位")]
 async fn view_columns(w: &mut ErpWorld, table: String) {
-    w.dict_columns = Some(w.dictionary.columns(&table).await.unwrap());
+    w.dict_columns = Some(w.dictionary.columns(&w.actor, &table).await.unwrap());
 }
 
 #[when(expr = "使用者查看資料表 {string} 的限制")]
 async fn view_constraints(w: &mut ErpWorld, table: String) {
-    w.dict_constraints = Some(w.dictionary.constraints(&table).await.unwrap());
+    w.dict_constraints = Some(w.dictionary.constraints(&w.actor, &table).await.unwrap());
 }
 
 #[when(expr = "使用者刪除資料表 {string} 的字典")]
 async fn delete_dictionary(w: &mut ErpWorld, table: String) {
-    w.last = Some(w.dictionary.delete(&table).await);
+    w.last = Some(w.dictionary.delete(&w.actor, &table).await);
 }
 
 #[when(expr = "使用者查看資料表 {string} 的變更紀錄")]
 async fn view_history(w: &mut ErpWorld, table: String) {
-    w.dict_history = Some(w.dictionary.history(&table).await.unwrap());
+    w.dict_history = Some(w.dictionary.history(&w.actor, &table).await.unwrap());
 }
 
 #[when(expr = "使用者以語系 {string} 匯出資料表 {string} 的資料字典")]
 async fn export(w: &mut ErpWorld, lang: String, table: String) {
-    w.dict_export = Some(w.dictionary.export_csv(&table, &lang).await.unwrap());
+    w.dict_export = Some(
+        w.dictionary
+            .export_csv(&w.actor, &table, &lang)
+            .await
+            .unwrap(),
+    );
 }
 
 // ----- 那麼 -----
 
 #[when(expr = "使用者以語系 {string} 查看資料表 {string} 的字典")]
 async fn view_dictionary_in(w: &mut ErpWorld, lang: String, table: String) {
-    w.displayed_dict = Some(w.dictionary.get_localized(&table, &lang).await.unwrap());
+    w.displayed_dict = Some(
+        w.dictionary
+            .get_localized(&w.actor, &table, &lang)
+            .await
+            .unwrap(),
+    );
 }
 
 #[then(expr = "資料表 {string} 的字典應為:")]
 async fn dictionary_fields(w: &mut ErpWorld, step: &Step, table: String) {
-    let d = w.dictionary.get(&table).await.unwrap();
+    let d = w.dictionary.get(&w.actor, &table).await.unwrap();
     for (field, expected) in rows(step) {
         let actual = match field.as_str() {
             "模組" => d.module_code.clone(),
@@ -246,7 +267,7 @@ async fn dictionary_fields(w: &mut ErpWorld, step: &Step, table: String) {
 
 #[then(expr = "資料表 {string} 在語系 {string} 的名稱應為 {string}")]
 async fn table_name_in_lang(w: &mut ErpWorld, table: String, lang: String, expected: String) {
-    let texts = w.dictionary.table_texts(&table).await.unwrap();
+    let texts = w.dictionary.table_texts(&w.actor, &table).await.unwrap();
     let actual = texts
         .into_iter()
         .find(|t| t.lang == lang)
@@ -281,7 +302,7 @@ async fn column_name_in_lang(
     lang: String,
     expected: String,
 ) {
-    let texts = w.dictionary.column_texts(&table).await.unwrap();
+    let texts = w.dictionary.column_texts(&w.actor, &table).await.unwrap();
     let actual = texts
         .into_iter()
         .find(|t| t.column_name == column && t.lang == lang)
@@ -315,7 +336,7 @@ fn has_foreign_key(w: &mut ErpWorld, column: String, reference: String) {
 
 #[then(expr = "資料表 {string} 應無字典")]
 async fn no_dictionary(w: &mut ErpWorld, table: String) {
-    match w.dictionary.get(&table).await {
+    match w.dictionary.get(&w.actor, &table).await {
         Err(e) if e.code() == "DICT_NOT_FOUND" => {}
         other => panic!("預期無字典，實際：{other:?}"),
     }
@@ -323,7 +344,7 @@ async fn no_dictionary(w: &mut ErpWorld, table: String) {
 
 #[then(expr = "資料表 {string} 應無任何語系的表說明")]
 async fn no_table_texts(w: &mut ErpWorld, table: String) {
-    let texts = w.dictionary.table_texts(&table).await.unwrap();
+    let texts = w.dictionary.table_texts(&w.actor, &table).await.unwrap();
     assert!(
         texts
             .iter()
@@ -334,7 +355,7 @@ async fn no_table_texts(w: &mut ErpWorld, table: String) {
 
 #[then(expr = "資料表 {string} 應無任何欄位說明")]
 async fn no_column_texts(w: &mut ErpWorld, table: String) {
-    let texts = w.dictionary.column_texts(&table).await.unwrap();
+    let texts = w.dictionary.column_texts(&w.actor, &table).await.unwrap();
     assert!(texts.is_empty(), "{texts:?}");
 }
 

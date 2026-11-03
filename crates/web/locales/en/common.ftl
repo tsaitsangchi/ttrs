@@ -30,6 +30,7 @@ nav-last = Last
 list-page-previous = Previous page
 list-page-next = Next page
 common-msg-loading = Loading…
+common-msg-no-program-permission = You don't have permission to run { $program }. Check your permission settings.
 query-msg-none = No matching records
 query-msg-matched = { $count } matching records
 nav-record-position = Record { $pos } of { $total }

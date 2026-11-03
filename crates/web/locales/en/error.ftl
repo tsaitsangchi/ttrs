@@ -71,3 +71,4 @@ error-PERMISSION_LEVEL_INVALID = Invalid data permission code.
 error-MENU_PROGRAM_INVALID = Must be a menu program (module MENU).
 error-USER_PERMISSION_DUPLICATE = This user already has the same class or program.
 error-USER_HAS_SPECIAL_PERMISSIONS = The target user already has special permissions.
+error-PERMISSION_DENIED = You don't have permission for this operation. Check your permission settings and the data owner.

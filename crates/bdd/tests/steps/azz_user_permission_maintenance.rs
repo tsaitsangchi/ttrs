@@ -32,7 +32,7 @@ fn program_input(program: &str) -> UserPermissionInput {
 
 async fn rows(w: &ErpWorld, user: &str) -> Vec<UserPermissionDto> {
     w.special
-        .list(user, "zh-TW")
+        .list(&w.actor, user, "zh-TW")
         .await
         .unwrap_or_else(|e| panic!("讀取使用者 {user} 的特殊權限失敗：{e}"))
 }
@@ -118,13 +118,13 @@ async fn set_level(w: &mut ErpWorld, user: String, program: String, field: Strin
 
 #[when(expr = "使用者移除使用者 {string} 的第 {int} 項特殊權限")]
 async fn remove(w: &mut ErpWorld, user: String, line_no: i32) {
-    let result = w.special.remove(&user, line_no).await;
+    let result = w.special.remove(&w.actor, &user, line_no).await;
     w.last = Some(result);
 }
 
 #[when(expr = "使用者刪除使用者 {string} 的全部特殊權限")]
 async fn remove_all(w: &mut ErpWorld, user: String) {
-    let result = w.special.remove_all(&user).await;
+    let result = w.special.remove_all(&w.actor, &user).await;
     w.last = Some(result.map(|_| ()));
 }
 

@@ -11,6 +11,7 @@ use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Chip, Notification, NotificationKind, Select, TextField,
 };
+use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{
     HINT_FLAG, ListPager, Q, RecordNav, conditions_of, use_query_records,
 };
@@ -60,8 +61,19 @@ fn opt(v: String) -> Option<String> {
     Some(v).filter(|s| !s.trim().is_empty())
 }
 
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "aooi901";
+
 #[component]
 pub fn PlantMaintenance() -> Element {
+    rsx! {
+        ProgramGate { program: PROGRAM, PlantMaintenancePage {} }
+    }
+}
+
+#[component]
+fn PlantMaintenancePage() -> Element {
+    let perm = use_context::<Perm>();
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
     let mut mode = use_signal(|| Mode::View);
@@ -197,77 +209,89 @@ pub fn PlantMaintenance() -> Element {
                         }
                     },
                     Mode::View => rsx! {
-                        Button {
-                            variant: ButtonVariant::Tonal,
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                rec.qbe.set(Default::default());
-                                mode.set(Mode::Query);
-                            },
-                            {t("common-action-query")}
+                        if perm.can("query") {
+                            Button {
+                                variant: ButtonVariant::Tonal,
+                                onclick: move |_| {
+                                    message.set(None);
+                                    error.set(None);
+                                    rec.qbe.set(Default::default());
+                                    mode.set(Mode::Query);
+                                },
+                                {t("common-action-query")}
+                            }
                         }
-                        Button {
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                form.set(PlantInput { time_zone: Some(DEFAULT_TIME_ZONE.into()), ..Default::default() });
-                                mode.set(Mode::New);
-                            },
-                            {t("common-action-new")}
+                        if perm.can("insert") {
+                            Button {
+                                onclick: move |_| {
+                                    message.set(None);
+                                    error.set(None);
+                                    form.set(PlantInput { time_zone: Some(DEFAULT_TIME_ZONE.into()), ..Default::default() });
+                                    mode.set(Mode::New);
+                                },
+                                {t("common-action-new")}
+                            }
                         }
-                        Button { variant: ButtonVariant::Tonal, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), {t("common-action-edit")} }
-                        Button {
-                            variant: ButtonVariant::Error,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(p) = cur_delete.clone() else { return };
-                                spawn(async move {
-                                    match api::delete_plant(&p.plant_id).await {
-                                        Ok(()) => done(tf("plant-msg-deleted", &[("id", p.plant_id.as_str())]), None),
-                                        Err(e) => error.set(Some(e)),
-                                    }
-                                });
-                            },
-                            {t("common-action-delete")}
+                        if perm.can("modify") {
+                            Button { variant: ButtonVariant::Tonal, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), {t("common-action-edit")} }
+                        }
+                        if perm.can("delete") {
+                            Button {
+                                variant: ButtonVariant::Error,
+                                disabled: no_cur,
+                                onclick: move |_| {
+                                    let Some(p) = cur_delete.clone() else { return };
+                                    spawn(async move {
+                                        match api::delete_plant(&p.plant_id).await {
+                                            Ok(()) => done(tf("plant-msg-deleted", &[("id", p.plant_id.as_str())]), None),
+                                            Err(e) => error.set(Some(e)),
+                                        }
+                                    });
+                                },
+                                {t("common-action-delete")}
+                            }
                         }
                         // 有效 → 停用、停用 → 啟用（P9）
-                        Button {
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(p) = cur_toggle.clone() else { return };
-                                spawn(async move {
-                                    match api::set_plant_active(&p.plant_id, !p.active).await {
-                                        Ok(r) => {
-                                            let id = if r.active { "plant-msg-activated" } else { "plant-msg-deactivated" };
-                                            done(tf(id, &[("id", r.plant_id.as_str())]), Some(r));
+                        if perm.can("modify") {
+                            Button {
+                                variant: ButtonVariant::Outlined,
+                                disabled: no_cur,
+                                onclick: move |_| {
+                                    let Some(p) = cur_toggle.clone() else { return };
+                                    spawn(async move {
+                                        match api::set_plant_active(&p.plant_id, !p.active).await {
+                                            Ok(r) => {
+                                                let id = if r.active { "plant-msg-activated" } else { "plant-msg-deactivated" };
+                                                done(tf(id, &[("id", r.plant_id.as_str())]), Some(r));
+                                            }
+                                            Err(e) => error.set(Some(e)),
                                         }
-                                        Err(e) => error.set(Some(e)),
-                                    }
-                                });
-                            },
-                            if cur.as_ref().is_some_and(|p| !p.active) { {t("plant-action-activate")} } else { {t("plant-action-deactivate")} }
+                                    });
+                                },
+                                if cur.as_ref().is_some_and(|p| !p.active) { {t("plant-action-activate")} } else { {t("plant-action-deactivate")} }
+                            }
                         }
                         div { class: "spacer" }
-                        TextField { id: "copy-id", label: t("plant-field-copy-as"), maxlength: max_len::ID, value: copy_id(), disabled: no_cur, oninput: move |v| copy_id.set(v) }
-                        Button {
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(p) = cur_copy.clone() else { return };
-                                let new_id = copy_id();
-                                spawn(async move {
-                                    match api::copy_plant(&p.plant_id, &new_id).await {
-                                        Ok(r) => {
-                                            copy_id.set(String::new());
-                                            done(tf("plant-msg-copied", &[("from", p.plant_id.as_str()), ("to", r.plant_id.as_str())]), Some(r));
+                        if perm.can("reproduce") {
+                            TextField { id: "copy-id", label: t("plant-field-copy-as"), maxlength: max_len::ID, value: copy_id(), disabled: no_cur, oninput: move |v| copy_id.set(v) }
+                            Button {
+                                variant: ButtonVariant::Outlined,
+                                disabled: no_cur,
+                                onclick: move |_| {
+                                    let Some(p) = cur_copy.clone() else { return };
+                                    let new_id = copy_id();
+                                    spawn(async move {
+                                        match api::copy_plant(&p.plant_id, &new_id).await {
+                                            Ok(r) => {
+                                                copy_id.set(String::new());
+                                                done(tf("plant-msg-copied", &[("from", p.plant_id.as_str()), ("to", r.plant_id.as_str())]), Some(r));
+                                            }
+                                            Err(e) => error.set(Some(e)),
                                         }
-                                        Err(e) => error.set(Some(e)),
-                                    }
-                                });
-                            },
-                            {t("common-action-copy")}
+                                    });
+                                },
+                                {t("common-action-copy")}
+                            }
                         }
                     },
                 }

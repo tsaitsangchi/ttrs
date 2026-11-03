@@ -1,5 +1,6 @@
 //! TipTop 對照目錄 use case（TipTop .sch → 英文命名的唯讀對照）
 //! 規格：specs/features/azz/legacy_catalog.feature（C1–C8）
+//! 權限：TTRS 新增的功能，歸在資料字典維護 p_zta——查詢用 query、匯入用 zta_import（authorization.feature AQ3）
 
 use std::sync::Arc;
 
@@ -9,23 +10,32 @@ use ttrs_domain::{
 };
 use ttrs_shared::{LegacyColumnDto, LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto};
 
-use crate::{AppError, error::RepoError, ports::LegacyCatalogRepository};
+use crate::{
+    Actor, AppError, Authorizer, authorization::Grant, error::RepoError,
+    ports::LegacyCatalogRepository,
+};
+
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "p_zta";
 
 #[derive(Clone)]
 pub struct LegacyCatalogService {
+    authz: Arc<dyn Authorizer>,
     repo: Arc<dyn LegacyCatalogRepository>,
 }
 
 impl LegacyCatalogService {
-    pub fn new(repo: Arc<dyn LegacyCatalogRepository>) -> Self {
-        Self { repo }
+    pub fn new(authz: Arc<dyn Authorizer>, repo: Arc<dyn LegacyCatalogRepository>) -> Self {
+        Self { authz, repo }
     }
 
     /// 匯入（整批取代，C2）；名稱不合法或重複時整批不寫入（C6）
     pub async fn import(
         &self,
+        actor: &Actor,
         tables: Vec<LegacyTableDto>,
     ) -> Result<LegacyImportResultDto, AppError> {
+        self.authorize(actor, "zta_import").await?;
         let tables: Vec<LegacyTable> = tables.into_iter().map(to_domain).collect();
         legacy_catalog::validate(&tables)?;
         self.repo.replace_all(&tables).await.map_err(infra)?;
@@ -36,7 +46,12 @@ impl LegacyCatalogService {
     }
 
     /// 依舊表代碼、英文名稱或說明查詢（規則見 legacy_catalog::matches）
-    pub async fn search(&self, query: &str) -> Result<Vec<LegacyTableSummaryDto>, AppError> {
+    pub async fn search(
+        &self,
+        actor: &Actor,
+        query: &str,
+    ) -> Result<Vec<LegacyTableSummaryDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let list = self.repo.list_tables().await.map_err(infra)?;
         Ok(list
             .into_iter()
@@ -51,7 +66,8 @@ impl LegacyCatalogService {
             .collect())
     }
 
-    pub async fn get(&self, legacy_name: &str) -> Result<LegacyTableDto, AppError> {
+    pub async fn get(&self, actor: &Actor, legacy_name: &str) -> Result<LegacyTableDto, AppError> {
+        self.authorize(actor, "query").await?;
         self.repo
             .get(legacy_name)
             .await
@@ -61,13 +77,22 @@ impl LegacyCatalogService {
     }
 
     /// 已移植資料表（英文表名）對應的 TipTop 舊表；沒有對照時為 None（C1）
-    pub async fn for_table(&self, table: &str) -> Result<Option<LegacyTableDto>, AppError> {
+    pub async fn for_table(
+        &self,
+        actor: &Actor,
+        table: &str,
+    ) -> Result<Option<LegacyTableDto>, AppError> {
+        self.authorize(actor, "query").await?;
         Ok(self
             .repo
             .find_by_name(table)
             .await
             .map_err(infra)?
             .map(to_dto))
+    }
+
+    async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
+        self.authz.authorize(actor, PROGRAM, action).await
     }
 }
 

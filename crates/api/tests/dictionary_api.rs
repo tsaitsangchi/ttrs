@@ -10,8 +10,7 @@ use axum::{
 use tower::ServiceExt;
 use ttrs_api::{AppState, actor_from_env, router};
 use ttrs_app::{
-    DataDictionaryService, ItemService, LegacyCatalogService, PermissionClassService, PlantService,
-    ProgramPermissionService, ProgramService, UserPermissionService, UserService,
+    Services,
     memory::InMemoryStore,
     ports::{ColumnSchema, TableSchema},
 };
@@ -31,24 +30,7 @@ fn app() -> Router {
         constraints: vec![],
     });
     let store = Arc::new(store);
-    router(AppState {
-        items: ItemService::new(store.clone(), store.clone()),
-        programs: ProgramService::new(store.clone()),
-        dictionary: DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
-        legacy: LegacyCatalogService::new(store.clone()),
-        users: UserService::new(
-            store.clone(),
-            store.clone(),
-            store.clone(),
-            store.clone(),
-            store.clone(),
-        ),
-        classes: PermissionClassService::new(store.clone(), store.clone(), store.clone()),
-        plants: PlantService::new(store.clone()),
-        permissions: ProgramPermissionService::new(store.clone(), store.clone(), store.clone()),
-        special: UserPermissionService::new(store.clone(), store.clone(), store.clone(), store),
-        actor: actor_from_env(),
-    })
+    router(AppState::new(Services::new(store), actor_from_env()))
 }
 
 fn json(method: &str, uri: &str, body: serde_json::Value) -> Request<Body> {

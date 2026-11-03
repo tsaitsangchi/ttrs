@@ -24,6 +24,7 @@ use crate::components::material::{
 use crate::components::multilingual::{
     LangField, LangValues, MultilingualDialogField, MultilingualField,
 };
+use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{
     HINT_DATE, HINT_FLAG, HINT_NUMBER, ListPager, PAGE_SIZE, Q, Qbe, RecordNav, conditions_of,
 };
@@ -67,8 +68,19 @@ enum Mode {
     Query,
 }
 
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "p_zz";
+
 #[component]
 pub fn ProgramMaintenance() -> Element {
+    rsx! {
+        ProgramGate { program: PROGRAM, ProgramMaintenancePage {} }
+    }
+}
+
+#[component]
+fn ProgramMaintenancePage() -> Element {
+    let perm = use_context::<Perm>();
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
 
@@ -316,54 +328,64 @@ pub fn ProgramMaintenance() -> Element {
                         }
                     },
                     Mode::View => rsx! {
-                        Button {
-                            variant: ButtonVariant::Tonal,
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                qbe.set(BTreeMap::new());
-                                mode.set(Mode::Query);
-                                upper_tab.set(0);
-                            },
-                            {t("common-action-query")}
+                        if perm.can("query") {
+                            Button {
+                                variant: ButtonVariant::Tonal,
+                                onclick: move |_| {
+                                    message.set(None);
+                                    error.set(None);
+                                    qbe.set(BTreeMap::new());
+                                    mode.set(Mode::Query);
+                                    upper_tab.set(0);
+                                },
+                                {t("common-action-query")}
+                            }
                         }
-                        Button {
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                form.set(ProgramInput::default());
-                                names.set(LangValues::default());
-                                loaded_names.set(LangValues::default());
-                                mode.set(Mode::New);
-                                upper_tab.set(0);
-                            },
-                            {t("common-action-new")}
+                        if perm.can("insert") {
+                            Button {
+                                onclick: move |_| {
+                                    message.set(None);
+                                    error.set(None);
+                                    form.set(ProgramInput::default());
+                                    names.set(LangValues::default());
+                                    loaded_names.set(LangValues::default());
+                                    mode.set(Mode::New);
+                                    upper_tab.set(0);
+                                },
+                                {t("common-action-new")}
+                            }
                         }
-                        Button {
-                            variant: ButtonVariant::Tonal,
-                            disabled: no_cur,
-                            onclick: move |_| mode.set(Mode::Edit),
-                            {t("common-action-edit")}
+                        if perm.can("modify") {
+                            Button {
+                                variant: ButtonVariant::Tonal,
+                                disabled: no_cur,
+                                onclick: move |_| mode.set(Mode::Edit),
+                                {t("common-action-edit")}
+                            }
                         }
-                        Button {
-                            variant: ButtonVariant::Error,
-                            disabled: no_cur,
-                            onclick: delete,
-                            {t("common-action-delete")}
+                        if perm.can("delete") {
+                            Button {
+                                variant: ButtonVariant::Error,
+                                disabled: no_cur,
+                                onclick: delete,
+                                {t("common-action-delete")}
+                            }
                         }
                         div { class: "spacer" }
-                        TextField {
-                            id: "new-no",
-                            label: t("program-field-copy-as"),
-                            value: new_no(),
-                            disabled: no_cur,
-                            oninput: move |v| new_no.set(v),
-                        }
-                        Button {
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: copy,
-                            {t("common-action-copy")}
+                        if perm.can("reproduce") {
+                            TextField {
+                                id: "new-no",
+                                label: t("program-field-copy-as"),
+                                value: new_no(),
+                                disabled: no_cur,
+                                oninput: move |v| new_no.set(v),
+                            }
+                            Button {
+                                variant: ButtonVariant::Outlined,
+                                disabled: no_cur,
+                                onclick: copy,
+                                {t("common-action-copy")}
+                            }
                         }
                     },
                 }
@@ -568,7 +590,7 @@ pub fn ProgramMaintenance() -> Element {
                                             None => rsx! { span { class: "muted", {t("common-msg-loading")} } },
                                         }
                                     }
-                                    if p.module_code != "MENU" {
+                                    if p.module_code != "MENU" && perm.can("authorization") {
                                         div { class: "action-bar grant-bar",
                                             TextField {
                                                 id: "grant-class",

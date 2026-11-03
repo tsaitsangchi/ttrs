@@ -17,6 +17,7 @@ use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Chip, Dialog, IconButton, Notification,
     NotificationKind, Select, TextField, icons,
 };
+use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{Qbe, conditions_of};
 use crate::i18n::{self, t, tf};
 
@@ -59,19 +60,27 @@ pub(crate) fn action_label(id: &str) -> String {
     if text == key { id.to_owned() } else { text }
 }
 
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "p_zy";
+
 #[component]
 pub fn ProgramPermissions() -> Element {
-    rsx! { PermissionMain { initial: None } }
+    rsx! {
+        ProgramGate { program: PROGRAM, PermissionMain { initial: None } }
+    }
 }
 
 /// 由權限類別維護（p_zw「維護群組執行權限」）帶入權限類別
 #[component]
 pub fn ProgramPermissionsFor(class: String) -> Element {
-    rsx! { PermissionMain { initial: Some(class) } }
+    rsx! {
+        ProgramGate { program: PROGRAM, PermissionMain { initial: Some(class) } }
+    }
 }
 
 #[component]
 fn PermissionMain(initial: Option<String>) -> Element {
+    let perm = use_context::<Perm>();
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
     // 查詢：qbe 為查詢模式正在輸入的條件，conditions 為目前生效的條件（QBE4：預設查全部）
@@ -334,15 +343,17 @@ fn PermissionMain(initial: Option<String>) -> Element {
                 }
             } else {
             div { class: "action-bar",
-                Button {
-                    variant: ButtonVariant::Tonal,
-                    onclick: move |_| {
-                        message.set(None);
-                        error.set(None);
-                        qbe.set(Default::default());
-                        querying.set(true);
-                    },
-                    {t("common-action-query")}
+                if perm.can("query") {
+                    Button {
+                        variant: ButtonVariant::Tonal,
+                        onclick: move |_| {
+                            message.set(None);
+                            error.set(None);
+                            qbe.set(Default::default());
+                            querying.set(true);
+                        },
+                        {t("common-action-query")}
+                    }
                 }
                 if filtered {
                     Button {
@@ -355,80 +366,96 @@ fn PermissionMain(initial: Option<String>) -> Element {
                         {t("query-action-clear")}
                     }
                 }
-                Button {
-                    disabled: no_class,
-                    onclick: move |_| {
-                        message.set(None);
-                        add_program.set(String::new());
-                        open.set(Some(Open::Add));
-                    },
-                    {t("common-action-new")}
+                if perm.add_row() {
+                    Button {
+                        disabled: no_class,
+                        onclick: move |_| {
+                            message.set(None);
+                            add_program.set(String::new());
+                            open.set(Some(Open::Add));
+                        },
+                        {t("common-action-new")}
+                    }
                 }
-                Button {
-                    variant: ButtonVariant::Tonal,
-                    disabled: no_cur,
-                    onclick: move |_| {
-                        let Some(r) = cur_edit.clone() else { return };
-                        message.set(None);
-                        form.set(r.to_input());
-                        open.set(Some(Open::Edit(Box::new(r))));
-                    },
-                    {t("common-action-edit")}
+                if perm.can("detail") {
+                    Button {
+                        variant: ButtonVariant::Tonal,
+                        disabled: no_cur,
+                        onclick: move |_| {
+                            let Some(r) = cur_edit.clone() else { return };
+                            message.set(None);
+                            form.set(r.to_input());
+                            open.set(Some(Open::Edit(Box::new(r))));
+                        },
+                        {t("common-action-edit")}
+                    }
                 }
-                Button {
-                    variant: ButtonVariant::Error,
-                    disabled: no_cur,
-                    onclick: move |_| {
-                        let Some(r) = cur_remove.clone() else { return };
-                        spawn(async move {
-                            match api::revoke_class_permission(&r.class_code, &r.program_no).await {
-                                Ok(()) => {
-                                    selected.set(None);
-                                    done(tf("perm-msg-removed", &[("program", r.program_no.as_str())]));
+                if perm.delete_row() {
+                    Button {
+                        variant: ButtonVariant::Error,
+                        disabled: no_cur,
+                        onclick: move |_| {
+                            let Some(r) = cur_remove.clone() else { return };
+                            spawn(async move {
+                                match api::revoke_class_permission(&r.class_code, &r.program_no).await {
+                                    Ok(()) => {
+                                        selected.set(None);
+                                        done(tf("perm-msg-removed", &[("program", r.program_no.as_str())]));
+                                    }
+                                    Err(e) => error.set(Some(e)),
                                 }
-                                Err(e) => error.set(Some(e)),
-                            }
-                        });
-                    },
-                    {t("perm-action-remove")}
+                            });
+                        },
+                        {t("perm-action-remove")}
+                    }
                 }
-                Button { variant: ButtonVariant::Outlined, disabled: no_class, onclick: move |_| { message.set(None); open.set(Some(Open::DeleteAll)); }, {t("perm-action-delete-all")} }
+                if perm.can("delete") {
+                    Button { variant: ButtonVariant::Outlined, disabled: no_class, onclick: move |_| { message.set(None); open.set(Some(Open::DeleteAll)); }, {t("perm-action-delete-all")} }
+                }
                 div { class: "spacer" }
-                Button { variant: ButtonVariant::Outlined, disabled: no_class, onclick: move |_| { message.set(None); target.set(String::new()); open.set(Some(Open::Copy)); }, {t("common-action-copy")} }
-                Button {
-                    variant: ButtonVariant::Outlined,
-                    disabled: no_class,
-                    onclick: move |_| {
-                        message.set(None);
-                        ticked.set(Vec::new());
-                        program_filter.set(String::new());
-                        load_programs();
-                        open.set(Some(Open::ByProgram));
-                    },
-                    {t("perm-action-gen-by-program")}
+                if perm.can("reproduce") {
+                    Button { variant: ButtonVariant::Outlined, disabled: no_class, onclick: move |_| { message.set(None); target.set(String::new()); open.set(Some(Open::Copy)); }, {t("common-action-copy")} }
                 }
-                Button {
-                    variant: ButtonVariant::Outlined,
-                    disabled: no_class,
-                    onclick: move |_| {
-                        message.set(None);
-                        menu.set(String::new());
-                        reset_existing.set(false);
-                        load_programs();
-                        open.set(Some(Open::ByMenu));
-                    },
-                    {t("perm-action-gen-by-menu")}
+                if perm.can("batch_gen_by_prog") {
+                    Button {
+                        variant: ButtonVariant::Outlined,
+                        disabled: no_class,
+                        onclick: move |_| {
+                            message.set(None);
+                            ticked.set(Vec::new());
+                            program_filter.set(String::new());
+                            load_programs();
+                            open.set(Some(Open::ByProgram));
+                        },
+                        {t("perm-action-gen-by-program")}
+                    }
                 }
-                Button {
-                    variant: ButtonVariant::Outlined,
-                    disabled: no_class,
-                    onclick: move |_| {
-                        message.set(None);
-                        menu.set(String::new());
-                        load_programs();
-                        open.set(Some(Open::DeleteByMenu));
-                    },
-                    {t("perm-action-del-by-menu")}
+                if perm.can("batch_gen_by_menu") {
+                    Button {
+                        variant: ButtonVariant::Outlined,
+                        disabled: no_class,
+                        onclick: move |_| {
+                            message.set(None);
+                            menu.set(String::new());
+                            reset_existing.set(false);
+                            load_programs();
+                            open.set(Some(Open::ByMenu));
+                        },
+                        {t("perm-action-gen-by-menu")}
+                    }
+                }
+                if perm.can("batch_del_by_menu") {
+                    Button {
+                        variant: ButtonVariant::Outlined,
+                        disabled: no_class,
+                        onclick: move |_| {
+                            message.set(None);
+                            menu.set(String::new());
+                            load_programs();
+                            open.set(Some(Open::DeleteByMenu));
+                        },
+                        {t("perm-action-del-by-menu")}
+                    }
                 }
             }
             }

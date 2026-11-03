@@ -71,3 +71,4 @@ error-PERMISSION_LEVEL_INVALID = 数据权限代码不正确
 error-MENU_PROGRAM_INVALID = 必须是菜单程序（模块 MENU）
 error-USER_PERMISSION_DUPLICATE = 此用户已设置相同的权限类别或程序
 error-USER_HAS_SPECIAL_PERMISSIONS = 目标用户已有特殊权限，不可复制
+error-PERMISSION_DENIED = 您没有执行此操作的权限（请检查权限设置及资料所有者）

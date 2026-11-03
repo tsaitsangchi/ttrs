@@ -2,6 +2,7 @@
 
 use async_trait::async_trait;
 use ttrs_domain::{
+    authorization::DataScope,
     dictionary::{ColumnText, TableDictionary, TableText},
     item::{Item, ItemNo},
     legacy_catalog::LegacyTable,
@@ -198,10 +199,12 @@ pub trait UserRepository: Send + Sync {
     async fn get(&self, id: &UserId) -> Result<Option<User>, RepoError>;
     /// 依使用者代號排序
     async fn list(&self) -> Result<Vec<User>, RepoError>;
-    /// QBE 查詢（p_zx.4gl:206-207）：符合全部篩選者依使用者代號（位元組順序）排序，回傳指定範圍與總筆數
+    /// QBE 查詢（p_zx.4gl:206-207）：符合全部篩選且在資料範圍內（建立者、建立部門，p_zx.4gl:194-204）者
+    /// 依使用者代號（位元組順序）排序，回傳指定範圍與總筆數
     async fn query(
         &self,
         filters: &[QbeFilter],
+        scope: &DataScope,
         offset: u64,
         limit: u64,
     ) -> Result<(Vec<User>, u64), RepoError>;

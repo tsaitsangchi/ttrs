@@ -5,6 +5,7 @@ use chrono::NaiveDate;
 use sqlx::FromRow;
 use ttrs_app::{error::RepoError, ports::UserRepository};
 use ttrs_domain::{
+    authorization::DataScope,
     lang::Lang,
     plant::PlantId,
     qbe::QbeFilter,
@@ -14,7 +15,7 @@ use ttrs_domain::{
 use crate::{
     PgStore,
     pg::db_err,
-    qbe_sql::{Column, push_filters, query_page},
+    qbe_sql::{Column, push_filters, push_scope, query_page},
 };
 
 /// 查詢鍵值（UserDto 欄位名稱，ttrs_app::query::user）→ 資料庫欄位
@@ -154,6 +155,7 @@ impl UserRepository for PgStore {
     async fn query(
         &self,
         filters: &[QbeFilter],
+        scope: &DataScope,
         offset: u64,
         limit: u64,
     ) -> Result<(Vec<User>, u64), RepoError> {
@@ -161,7 +163,10 @@ impl UserRepository for PgStore {
             &self.pool,
             "SELECT COUNT(*) FROM user_account u WHERE TRUE",
             select_user!("u WHERE TRUE"),
-            |qb| push_filters(qb, filters, user_column),
+            |qb| {
+                push_scope(qb, scope, "u.created_by", "u.created_dept");
+                push_filters(qb, filters, user_column)
+            },
             r#" ORDER BY u.user_id COLLATE "C""#,
             offset,
             limit,

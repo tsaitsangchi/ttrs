@@ -3,7 +3,10 @@
 
 use sqlx::{FromRow, PgPool, Postgres, QueryBuilder, postgres::PgRow};
 use ttrs_app::error::RepoError;
-use ttrs_domain::qbe::{PatternPart, QbeFilter, QbeTerm, QbeValue};
+use ttrs_domain::{
+    authorization::DataScope,
+    qbe::{PatternPart, QbeFilter, QbeTerm, QbeValue},
+};
 
 use crate::pg::db_err;
 
@@ -133,6 +136,24 @@ fn like_pattern(parts: &[PatternPart]) -> String {
         }
     }
     out
+}
+
+/// 資料權限的查詢範圍（p_zx.4gl:194-204）：` AND 建立者 = 目前使用者`、` AND 建立部門 = ANY(部門)`
+pub(crate) fn push_scope(
+    qb: &mut QueryBuilder<Postgres>,
+    scope: &DataScope,
+    owner_col: &'static str,
+    dept_col: &'static str,
+) {
+    if let Some(owner) = &scope.owner {
+        qb.push(" AND ").push(owner_col).push(" = ");
+        qb.push_bind(owner.clone());
+    }
+    if let Some(depts) = &scope.depts {
+        qb.push(" AND ").push(dept_col).push(" = ANY(");
+        qb.push_bind(depts.clone());
+        qb.push(")");
+    }
 }
 
 /// 分頁查詢：`count` 與 `select` 為到 `WHERE TRUE` 為止的 SQL，`push_where` 加上篩選條件，

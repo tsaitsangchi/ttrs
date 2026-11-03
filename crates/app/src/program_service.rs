@@ -21,7 +21,8 @@ use ttrs_shared::{
 };
 
 use crate::{
-    AppError,
+    Actor, AppError, Authorizer,
+    authorization::Grant,
     error::RepoError,
     ports::{AuditEntry, ProgramName, ProgramRepository},
 };
@@ -30,27 +31,23 @@ use crate::{
 pub use ttrs_domain::lang::DEFAULT_LANG;
 /// 寫入異動紀錄時的作業代號
 const AUDIT_PROGRAM: &str = "program-maintenance";
-
-/// 執行操作的使用者（TipTop: g_user / g_grup / 權限類別 g_clas）
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Actor {
-    pub user_id: String,
-    pub dept: String,
-    pub permission_class: String,
-}
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "p_zz";
 
 #[derive(Clone)]
 pub struct ProgramService {
+    authz: Arc<dyn Authorizer>,
     repo: Arc<dyn ProgramRepository>,
 }
 
 impl ProgramService {
-    pub fn new(repo: Arc<dyn ProgramRepository>) -> Self {
-        Self { repo }
+    pub fn new(authz: Arc<dyn Authorizer>, repo: Arc<dyn ProgramRepository>) -> Self {
+        Self { authz, repo }
     }
 
     /// 新增程式，並自動授權給建立者的權限類別（p_zz.4gl:851 p_zz_gen）
     pub async fn create(&self, actor: &Actor, input: ProgramInput) -> Result<ProgramDto, AppError> {
+        self.authorize(actor, "insert").await?;
         let no = ProgramNo::parse(&input.program_no)?;
         let module = self.module(&input.module_code).await?;
         let program = Program::new(
@@ -82,11 +79,13 @@ impl ProgramService {
         }
     }
 
-    pub async fn get(&self, no: &str) -> Result<ProgramDto, AppError> {
+    pub async fn get(&self, actor: &Actor, no: &str) -> Result<ProgramDto, AppError> {
+        self.authorize(actor, "query").await?;
         let program = self.load(&ProgramNo::parse(no)?).await?;
         self.to_dto(&program).await
     }
 
+    /// 全部清單：開窗、欄位檢查用的參考資料，只要求登入（AQ4）
     pub async fn list(&self) -> Result<Vec<ProgramDto>, AppError> {
         let programs = self.repo.list().await.map_err(infra)?;
         let mut out = Vec::with_capacity(programs.len());
@@ -97,7 +96,12 @@ impl ProgramService {
     }
 
     /// QBE 查詢（p_zz_curs :281-359），依程式代號排序並分頁
-    pub async fn query(&self, req: QueryRequest) -> Result<Page<ProgramDto>, AppError> {
+    pub async fn query(
+        &self,
+        actor: &Actor,
+        req: QueryRequest,
+    ) -> Result<Page<ProgramDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let filters = crate::program_query::filters(&req.conditions)?;
         let crate::query::Paging {
             page,
@@ -130,8 +134,10 @@ impl ProgramService {
         no: &str,
         input: ProgramInput,
     ) -> Result<ProgramDto, AppError> {
+        let grant = self.authorize(actor, "modify").await?;
         let old = ProgramNo::parse(no)?;
         let mut program = self.load(&old).await?;
+        grant.record(&program.created_by, &program.created_dept)?;
         let new = if input.program_no.trim().is_empty() {
             old.clone()
         } else {
@@ -164,8 +170,10 @@ impl ProgramService {
 
     /// 刪除程式，連帶刪除名稱、權限、選單並寫異動紀錄（Q3：一律連帶刪除）
     pub async fn delete(&self, actor: &Actor, no: &str) -> Result<(), AppError> {
+        let grant = self.authorize(actor, "delete").await?;
         let no = ProgramNo::parse(no)?;
-        self.load(&no).await?;
+        let program = self.load(&no).await?;
+        grant.record(&program.created_by, &program.created_dept)?;
         let audit = AuditEntry {
             program: AUDIT_PROGRAM.to_owned(),
             user_id: actor.user_id.clone(),
@@ -177,6 +185,7 @@ impl ProgramService {
 
     /// 複製程式與名稱（p_zz.4gl:1973-2101）
     pub async fn copy(&self, actor: &Actor, from: &str, to: &str) -> Result<ProgramDto, AppError> {
+        self.authorize(actor, "reproduce").await?;
         let from = ProgramNo::parse(from)?;
         let to = ProgramNo::parse(to)?;
         let source = self.load(&from).await?;
@@ -190,13 +199,14 @@ impl ProgramService {
     }
 
     /// 為權限類別設定程式權限（p_zz.4gl:1589-1603、p_zz_gen :1843-1891）：
-    /// 允許執行功能為程式的全部功能、資料權限 0（已存在則不變）
+    /// 允許執行功能為程式的全部功能、資料權限 0（已存在則不變）；功能 authorization（p_zz.4gl:604-610）
     pub async fn grant(
         &self,
         actor: &Actor,
         no: &str,
         permission_class: &str,
     ) -> Result<(), AppError> {
+        self.authorize(actor, "authorization").await?;
         let program = self.load(&ProgramNo::parse(no)?).await?;
         if program.module.is_menu() {
             return Err(DomainError::MenuHasNoPermission.into());
@@ -217,12 +227,18 @@ impl ProgramService {
             .map_err(infra)
     }
 
-    pub async fn permission_classes(&self, no: &str) -> Result<Vec<String>, AppError> {
+    pub async fn permission_classes(
+        &self,
+        actor: &Actor,
+        no: &str,
+    ) -> Result<Vec<String>, AppError> {
+        self.authorize(actor, "query").await?;
         let no = ProgramNo::parse(no)?;
         self.repo.permission_classes(&no).await.map_err(infra)
     }
 
-    pub async fn menus_containing(&self, no: &str) -> Result<Vec<String>, AppError> {
+    pub async fn menus_containing(&self, actor: &Actor, no: &str) -> Result<Vec<String>, AppError> {
+        self.authorize(actor, "query").await?;
         let no = ProgramNo::parse(no)?;
         self.repo.menus_containing(&no).await.map_err(infra)
     }
@@ -230,11 +246,13 @@ impl ProgramService {
     /// 維護某語系的程式名稱與報表抬頭（gaz03/gaz06；modify_program_name / modify_report_title）
     pub async fn set_name(
         &self,
-        _actor: &Actor,
+        actor: &Actor,
         no: &str,
         name: ProgramNameDto,
     ) -> Result<(), AppError> {
+        let grant = self.authorize(actor, "modify").await?;
         let program = self.load(&ProgramNo::parse(no)?).await?;
+        grant.record(&program.created_by, &program.created_dept)?;
         let entry = ProgramName::new(&name.lang, Some(name.name), name.report_title)?;
         self.repo
             .set_name(&program.program_no, &entry)
@@ -243,19 +261,31 @@ impl ProgramService {
     }
 
     /// 以使用者語系取得程式；該語系無名稱時退回繁中（L2）
-    pub async fn get_localized(&self, no: &str, lang: &str) -> Result<ProgramDto, AppError> {
+    pub async fn get_localized(
+        &self,
+        actor: &Actor,
+        no: &str,
+        lang: &str,
+    ) -> Result<ProgramDto, AppError> {
+        self.authorize(actor, "query").await?;
         let lang = Lang::parse(lang)?;
         let program = self.load(&ProgramNo::parse(no)?).await?;
         self.to_dto_in(&program, &lang).await
     }
 
-    pub async fn names(&self, no: &str) -> Result<Vec<ProgramNameDto>, AppError> {
+    pub async fn names(&self, actor: &Actor, no: &str) -> Result<Vec<ProgramNameDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let no = ProgramNo::parse(no)?;
         let names = self.repo.names(&no).await.map_err(infra)?;
         Ok(names.into_iter().map(|n| name_dto(&n)).collect())
     }
 
-    pub async fn audit_entries(&self, key: &str) -> Result<Vec<AuditEntryDto>, AppError> {
+    pub async fn audit_entries(
+        &self,
+        actor: &Actor,
+        key: &str,
+    ) -> Result<Vec<AuditEntryDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let entries = self.repo.audit_entries(key).await.map_err(infra)?;
         Ok(entries
             .into_iter()
@@ -266,6 +296,10 @@ impl ProgramService {
                 action: a.action,
             })
             .collect())
+    }
+
+    async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
+        self.authz.authorize(actor, PROGRAM, action).await
     }
 
     /// 解析模組並確認存在；MENU 是固定選項，不查模組資料

@@ -162,6 +162,14 @@ pub enum DomainError {
     LegacyNameDuplicate(String),
     #[error("TipTop 對照目錄沒有資料表 {0}")]
     LegacyTableNotFound(String),
+
+    // 權限檢查（authorization.feature）
+    #[error("{}", .reason.message(.program, .action))]
+    PermissionDenied {
+        program: String,
+        action: String,
+        reason: crate::authorization::DenyReason,
+    },
 }
 
 impl DomainError {
@@ -236,6 +244,7 @@ impl DomainError {
             Self::LegacyNameInvalid(_) => "LEGACY_NAME_INVALID",
             Self::LegacyNameDuplicate(_) => "LEGACY_NAME_DUPLICATE",
             Self::LegacyTableNotFound(_) => "LEGACY_TABLE_NOT_FOUND",
+            Self::PermissionDenied { .. } => "PERMISSION_DENIED",
         }
     }
 }

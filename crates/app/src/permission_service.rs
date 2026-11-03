@@ -1,7 +1,7 @@
 //! Program Permission Maintenance 程式執行權限維護 use case（TipTop: p_zy）
 //! 規格：specs/features/azz/program_permission_maintenance.feature（Y1–Y12）；權限框架：docs/adr/0006 §4
 //!
-//! 只維護權限資料；依資料執行檢查（Authorizer、資料權限、查詢過濾）見 ADR 0006。
+//! 只維護權限資料；依資料執行檢查見 authorization.rs。本作業 TipTop 沒有設定資料所有者，不檢查資料權限（AQ5）。
 
 use std::{collections::HashSet, sync::Arc};
 
@@ -19,7 +19,8 @@ use ttrs_shared::{
 };
 
 use crate::{
-    Actor, AppError,
+    Actor, AppError, Authorizer,
+    authorization::Grant,
     error::RepoError,
     permission_class_service::to_dto as class_dto,
     ports::{
@@ -31,9 +32,12 @@ use crate::{
 
 /// 選單展開的最大層數（TipTop p_zy_bom mfg2733）
 const MAX_MENU_DEPTH: usize = 20;
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "p_zy";
 
 #[derive(Clone)]
 pub struct ProgramPermissionService {
+    authz: Arc<dyn Authorizer>,
     perms: Arc<dyn ProgramPermissionRepository>,
     programs: Arc<dyn ProgramRepository>,
     classes: Arc<dyn PermissionClassRepository>,
@@ -41,11 +45,13 @@ pub struct ProgramPermissionService {
 
 impl ProgramPermissionService {
     pub fn new(
+        authz: Arc<dyn Authorizer>,
         perms: Arc<dyn ProgramPermissionRepository>,
         programs: Arc<dyn ProgramRepository>,
         classes: Arc<dyn PermissionClassRepository>,
     ) -> Self {
         Self {
+            authz,
             perms,
             programs,
             classes,
@@ -54,7 +60,12 @@ impl ProgramPermissionService {
 
     /// QBE 查詢（p_zy_curs，p_zy.4gl:143-203）：符合條件的權限類別（單頭）；欄位見
     /// query::program_permission（YQ1、YQ2）
-    pub async fn query(&self, req: QueryRequest) -> Result<Page<PermissionClassDto>, AppError> {
+    pub async fn query(
+        &self,
+        actor: &Actor,
+        req: QueryRequest,
+    ) -> Result<Page<PermissionClassDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let (header, detail) = query::program_permission::filters(&req.conditions)?;
         let p = query::paging(&req);
         let (classes, total) = self
@@ -74,9 +85,11 @@ impl ProgramPermissionService {
     /// 程式名稱依 `req.lang` 顯示
     pub async fn query_class(
         &self,
+        actor: &Actor,
         class: &str,
         req: QueryRequest,
     ) -> Result<Vec<ProgramPermissionDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let (_, detail) = query::program_permission::filters(&req.conditions)?;
         let class = self.class(class).await?;
         let lang = Lang::parse(req.lang.as_deref().unwrap_or(DEFAULT_LANG))?;
@@ -95,27 +108,23 @@ impl ProgramPermissionService {
     /// 權限類別的全部程式權限（依程式代號排序），程式名稱依 `lang` 顯示
     pub async fn list(
         &self,
+        actor: &Actor,
         class: &str,
         lang: &str,
     ) -> Result<Vec<ProgramPermissionDto>, AppError> {
-        let class = self.class(class).await?;
-        let lang = Lang::parse(lang)?;
-        let items = self.perms.list(&class.code).await.map_err(infra)?;
-        Ok(items.iter().map(|i| to_dto(i, &lang)).collect())
+        self.authorize(actor, "query").await?;
+        self.list_in(class, lang).await
     }
 
     pub async fn get(
         &self,
+        actor: &Actor,
         class: &str,
         program: &str,
         lang: &str,
     ) -> Result<ProgramPermissionDto, AppError> {
-        let program = ProgramNo::parse(program)?;
-        self.list(class, lang)
-            .await?
-            .into_iter()
-            .find(|p| p.program_no == program.as_str())
-            .ok_or_else(|| DomainError::PermissionNotFound.into())
+        self.authorize(actor, "query").await?;
+        self.find(class, program, lang).await
     }
 
     /// 新增（p_zy.4gl:700-741）：權限類別須有效、程式須存在且非選單；未指定的值用預設（Y3）
@@ -125,6 +134,8 @@ impl ProgramPermissionService {
         class: &str,
         input: ProgramPermissionInput,
     ) -> Result<ProgramPermissionDto, AppError> {
+        // TipTop 在單身新增列：需 detail 與單身新增權限（AQ3、AQ8）
+        self.authorize(actor, "detail").await?.add_row()?;
         let class = self.active_class(class).await?;
         let program = self.program(&input.program_no).await?;
         let offered = offered_actions(&program);
@@ -139,7 +150,7 @@ impl ProgramPermissionService {
         );
         match self.perms.insert(&p).await {
             Ok(()) => {
-                self.get(class.code.as_str(), p.program.as_str(), DEFAULT_LANG)
+                self.find(class.code.as_str(), p.program.as_str(), DEFAULT_LANG)
                     .await
             }
             Err(RepoError::Conflict) => Err(DomainError::PermissionAlreadyExists.into()),
@@ -155,6 +166,7 @@ impl ProgramPermissionService {
         program: &str,
         input: ProgramPermissionInput,
     ) -> Result<ProgramPermissionDto, AppError> {
+        self.authorize(actor, "detail").await?;
         let class = self.active_class(class).await?;
         let program = self.program(program).await?;
         let mut p = self
@@ -167,12 +179,14 @@ impl ProgramPermissionService {
         let attrs = attrs(&p.attrs, &offered, &input)?;
         p.update(attrs, &actor.user_id, today());
         self.perms.update(&p).await.map_err(infra)?;
-        self.get(class.code.as_str(), p.program.as_str(), DEFAULT_LANG)
+        self.find(class.code.as_str(), p.program.as_str(), DEFAULT_LANG)
             .await
     }
 
     /// 移除單一程式權限（p_zy.4gl:743-763，Y7 不另外檢查）
-    pub async fn revoke(&self, class: &str, program: &str) -> Result<(), AppError> {
+    pub async fn revoke(&self, actor: &Actor, class: &str, program: &str) -> Result<(), AppError> {
+        // TipTop 在單身刪除列：需 detail 與單身刪除權限（AQ3、AQ8）
+        self.authorize(actor, "detail").await?.delete_row()?;
         let class = self.class(class).await?;
         let program = ProgramNo::parse(program)?;
         if self
@@ -188,7 +202,12 @@ impl ProgramPermissionService {
     }
 
     /// 刪除權限類別的全部權限（p_zy.4gl:561-593）：仍有使用者時拒絕（azz-217，Y7）
-    pub async fn revoke_all(&self, class: &str) -> Result<PermissionBatchResultDto, AppError> {
+    pub async fn revoke_all(
+        &self,
+        actor: &Actor,
+        class: &str,
+    ) -> Result<PermissionBatchResultDto, AppError> {
+        self.authorize(actor, "delete").await?;
         let class = self.class(class).await?;
         if self.classes.user_count(&class.code).await.map_err(infra)? > 0 {
             return Err(DomainError::PermissionClassInUse.into());
@@ -207,6 +226,7 @@ impl ProgramPermissionService {
         from: &str,
         to: &str,
     ) -> Result<PermissionBatchResultDto, AppError> {
+        self.authorize(actor, "reproduce").await?;
         let from = self.class(from).await?;
         let to = self.active_class(to).await?;
         if self
@@ -239,6 +259,7 @@ impl ProgramPermissionService {
         class: &str,
         program_nos: &[String],
     ) -> Result<PermissionBatchResultDto, AppError> {
+        self.authorize(actor, "batch_gen_by_prog").await?;
         let class = self.active_class(class).await?;
         let mut programs = Vec::with_capacity(program_nos.len());
         for no in program_nos {
@@ -256,6 +277,7 @@ impl ProgramPermissionService {
         menu: &str,
         reset_existing: bool,
     ) -> Result<PermissionBatchResultDto, AppError> {
+        self.authorize(actor, "batch_gen_by_menu").await?;
         let class = self.active_class(class).await?;
         let programs = self.menu_programs(menu).await?;
         self.add_defaults(actor, &class, &programs, reset_existing)
@@ -265,9 +287,11 @@ impl ProgramPermissionService {
     /// 依選單整批刪除（p_zy.4gl:1696-1857，Y11）
     pub async fn delete_by_menu(
         &self,
+        actor: &Actor,
         class: &str,
         menu: &str,
     ) -> Result<PermissionBatchResultDto, AppError> {
+        self.authorize(actor, "batch_del_by_menu").await?;
         let class = self.class(class).await?;
         let mut removed = 0;
         for p in self.menu_programs(menu).await? {
@@ -364,6 +388,36 @@ impl ProgramPermissionService {
             level = next;
         }
         Ok(out)
+    }
+
+    async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
+        self.authz.authorize(actor, PROGRAM, action).await
+    }
+
+    /// 權限類別的全部程式權限（依程式代號排序），程式名稱依 `lang` 顯示
+    async fn list_in(
+        &self,
+        class: &str,
+        lang: &str,
+    ) -> Result<Vec<ProgramPermissionDto>, AppError> {
+        let class = self.class(class).await?;
+        let lang = Lang::parse(lang)?;
+        let items = self.perms.list(&class.code).await.map_err(infra)?;
+        Ok(items.iter().map(|i| to_dto(i, &lang)).collect())
+    }
+
+    async fn find(
+        &self,
+        class: &str,
+        program: &str,
+        lang: &str,
+    ) -> Result<ProgramPermissionDto, AppError> {
+        let program = ProgramNo::parse(program)?;
+        self.list_in(class, lang)
+            .await?
+            .into_iter()
+            .find(|p| p.program_no == program.as_str())
+            .ok_or_else(|| DomainError::PermissionNotFound.into())
     }
 
     async fn class(&self, code: &str) -> Result<PermissionClass, AppError> {

@@ -20,7 +20,7 @@ fn req(plant: &str, no: &str, name: &str, unit: &str) -> CreateItemRequest {
 #[given(expr = "{string} 已有料件 {string}")]
 async fn existing_item(w: &mut ErpWorld, plant: String, no: String) {
     w.items
-        .create(req(&plant, &no, "既有料件", "PCS"))
+        .create(&w.actor, req(&plant, &no, "既有料件", "PCS"))
         .await
         .unwrap();
 }
@@ -28,10 +28,10 @@ async fn existing_item(w: &mut ErpWorld, plant: String, no: String) {
 #[given(expr = "{string} 已有已確認料件 {string}")]
 async fn existing_confirmed_item(w: &mut ErpWorld, plant: String, no: String) {
     w.items
-        .create(req(&plant, &no, "既有料件", "PCS"))
+        .create(&w.actor, req(&plant, &no, "既有料件", "PCS"))
         .await
         .unwrap();
-    w.items.confirm(&plant, &no).await.unwrap();
+    w.items.confirm(&w.actor, &plant, &no).await.unwrap();
 }
 
 #[given(expr = "{string} 料件 {string} 已有一筆庫存異動")]
@@ -61,7 +61,7 @@ async fn item_has_txn(w: &mut ErpWorld, plant: String, no: String) {
 async fn create_item(w: &mut ErpWorld, plant: String, no: String, name: String, unit: String) {
     w.last = Some(
         w.items
-            .create(req(&plant, &no, &name, &unit))
+            .create(&w.actor, req(&plant, &no, &name, &unit))
             .await
             .map(|_| ()),
     );
@@ -69,33 +69,33 @@ async fn create_item(w: &mut ErpWorld, plant: String, no: String, name: String, 
 
 #[when(expr = "使用者確認 {string} 料件 {string}")]
 async fn confirm_item(w: &mut ErpWorld, plant: String, no: String) {
-    w.last = Some(w.items.confirm(&plant, &no).await.map(|_| ()));
+    w.last = Some(w.items.confirm(&w.actor, &plant, &no).await.map(|_| ()));
 }
 
 #[when(expr = "使用者取消確認 {string} 料件 {string}")]
 async fn unconfirm_item(w: &mut ErpWorld, plant: String, no: String) {
-    w.last = Some(w.items.unconfirm(&plant, &no).await.map(|_| ()));
+    w.last = Some(w.items.unconfirm(&w.actor, &plant, &no).await.map(|_| ()));
 }
 
 #[when(expr = "使用者刪除 {string} 料件 {string}")]
 async fn delete_item(w: &mut ErpWorld, plant: String, no: String) {
-    w.last = Some(w.items.delete(&plant, &no).await);
+    w.last = Some(w.items.delete(&w.actor, &plant, &no).await);
 }
 
 #[then(expr = "{string} 料件 {string} 狀態應為 {string}")]
 async fn item_status(w: &mut ErpWorld, plant: String, no: String, label: String) {
-    let item = w.items.get(&plant, &no).await.unwrap();
+    let item = w.items.get(&w.actor, &plant, &no).await.unwrap();
     assert_eq!(item.status.label(), label);
 }
 
 #[then(expr = "{string} 料件 {string} 應存在")]
 async fn item_exists(w: &mut ErpWorld, plant: String, no: String) {
-    w.items.get(&plant, &no).await.unwrap();
+    w.items.get(&w.actor, &plant, &no).await.unwrap();
 }
 
 #[then(expr = "{string} 料件 {string} 應不存在")]
 async fn item_absent(w: &mut ErpWorld, plant: String, no: String) {
-    match w.items.get(&plant, &no).await {
+    match w.items.get(&w.actor, &plant, &no).await {
         Err(AppError::Domain(DomainError::ItemNotFound)) => {}
         other => panic!("預期料件不存在，實際：{other:?}"),
     }

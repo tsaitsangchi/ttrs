@@ -1,7 +1,8 @@
 //! User Special Permission Maintenance 使用者特殊權限維護 use case（TipTop: p_zxw）
 //! 規格：specs/features/azz/user_permission_maintenance.feature（X1–X11）；權限框架：docs/adr/0006 §4
 //!
-//! 有特殊權限的使用者只用特殊權限（cl_set_priv）；多列的合併與檢查屬 Authorizer（X8）。
+//! 有特殊權限的使用者只用特殊權限（cl_set_priv）；多列的合併與檢查屬 Authorizer（X8，authorization.rs）。
+//! 本作業 TipTop 沒有設定資料所有者，不檢查資料權限（AQ5）。
 
 use std::sync::Arc;
 
@@ -20,7 +21,8 @@ use ttrs_shared::{
 };
 
 use crate::{
-    Actor, AppError,
+    Actor, AppError, Authorizer,
+    authorization::Grant,
     error::RepoError,
     ports::{
         PermissionClassRepository, ProgramRepository, UserPermissionItem, UserPermissionRepository,
@@ -28,8 +30,12 @@ use crate::{
     },
 };
 
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "p_zxw";
+
 #[derive(Clone)]
 pub struct UserPermissionService {
+    authz: Arc<dyn Authorizer>,
     perms: Arc<dyn UserPermissionRepository>,
     users: Arc<dyn UserRepository>,
     programs: Arc<dyn ProgramRepository>,
@@ -38,12 +44,14 @@ pub struct UserPermissionService {
 
 impl UserPermissionService {
     pub fn new(
+        authz: Arc<dyn Authorizer>,
         perms: Arc<dyn UserPermissionRepository>,
         users: Arc<dyn UserRepository>,
         programs: Arc<dyn ProgramRepository>,
         classes: Arc<dyn PermissionClassRepository>,
     ) -> Self {
         Self {
+            authz,
             perms,
             users,
             programs,
@@ -52,7 +60,17 @@ impl UserPermissionService {
     }
 
     /// 使用者的特殊權限（依項次），程式名稱依 `lang` 顯示
-    pub async fn list(&self, user: &str, lang: &str) -> Result<Vec<UserPermissionDto>, AppError> {
+    pub async fn list(
+        &self,
+        actor: &Actor,
+        user: &str,
+        lang: &str,
+    ) -> Result<Vec<UserPermissionDto>, AppError> {
+        self.authorize(actor, "query").await?;
+        self.list_in(user, lang).await
+    }
+
+    async fn list_in(&self, user: &str, lang: &str) -> Result<Vec<UserPermissionDto>, AppError> {
         let user = self.user(user).await?;
         let lang = Lang::parse(lang)?;
         let items = self.perms.list(&user.user_id).await.map_err(infra)?;
@@ -67,6 +85,8 @@ impl UserPermissionService {
         user: &str,
         input: UserPermissionInput,
     ) -> Result<Vec<UserPermissionDto>, AppError> {
+        // TipTop 在單身新增列：需 detail 與單身新增權限（AQ3、AQ8）
+        self.authorize(actor, "detail").await?.add_row()?;
         let user = self.user(user).await?;
         let target = self.target(&input).await?;
         let existing = self.existing(&user.user_id).await?;
@@ -82,7 +102,7 @@ impl UserPermissionService {
         }
         self.insert(&self.row(actor, &user.user_id, line_no, target))
             .await?;
-        self.list(user.user_id.as_str(), ttrs_domain::lang::DEFAULT_LANG)
+        self.list_in(user.user_id.as_str(), ttrs_domain::lang::DEFAULT_LANG)
             .await
     }
 
@@ -94,6 +114,7 @@ impl UserPermissionService {
         program: &str,
         input: UserPermissionInput,
     ) -> Result<UserPermissionDto, AppError> {
+        self.authorize(actor, "detail").await?;
         let user = self.user(user).await?;
         let program = self.program(program).await?;
         let mut row = self
@@ -121,7 +142,9 @@ impl UserPermissionService {
     }
 
     /// 移除一列（p_zxw.4gl:797-818，X4）
-    pub async fn remove(&self, user: &str, line_no: i32) -> Result<(), AppError> {
+    pub async fn remove(&self, actor: &Actor, user: &str, line_no: i32) -> Result<(), AppError> {
+        // TipTop 在單身刪除列：需 detail 與單身刪除權限（AQ3、AQ8）
+        self.authorize(actor, "detail").await?.delete_row()?;
         let user = self.user(user).await?;
         if self
             .perms
@@ -136,7 +159,12 @@ impl UserPermissionService {
     }
 
     /// 刪除使用者的全部特殊權限（p_zxw.4gl:494-530，X4）：之後回到使用者維護的權限類別
-    pub async fn remove_all(&self, user: &str) -> Result<PermissionBatchResultDto, AppError> {
+    pub async fn remove_all(
+        &self,
+        actor: &Actor,
+        user: &str,
+    ) -> Result<PermissionBatchResultDto, AppError> {
+        self.authorize(actor, "delete").await?;
         let user = self.user(user).await?;
         let removed = self.perms.delete_all(&user.user_id).await.map_err(infra)?;
         Ok(PermissionBatchResultDto {
@@ -152,6 +180,7 @@ impl UserPermissionService {
         from: &str,
         to: &str,
     ) -> Result<PermissionBatchResultDto, AppError> {
+        self.authorize(actor, "reproduce").await?;
         let from = self.user(from).await?;
         let to = self.user(to).await?;
         if !self.existing(&to.user_id).await?.is_empty() {
@@ -246,6 +275,10 @@ impl UserPermissionService {
             return Err(DomainError::MenuHasNoPermission.into());
         }
         Ok(program)
+    }
+
+    async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
+        self.authz.authorize(actor, PROGRAM, action).await
     }
 
     async fn user(&self, id: &str) -> Result<User, AppError> {

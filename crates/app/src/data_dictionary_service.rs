@@ -22,15 +22,20 @@ use ttrs_shared::{
 };
 
 use crate::{
-    Actor, AppError,
+    Actor, AppError, Authorizer,
+    authorization::Grant,
     error::RepoError,
     ports::{
         ConstraintKind, DictionaryRepository, LegacyCatalogRepository, SchemaCatalog, TableSchema,
     },
 };
 
+/// 權限檢查用的程式代號；TipTop 沒有設定資料所有者，不檢查資料權限（AQ5）
+const PROGRAM: &str = "p_zta";
+
 #[derive(Clone)]
 pub struct DataDictionaryService {
+    authz: Arc<dyn Authorizer>,
     repo: Arc<dyn DictionaryRepository>,
     schema: Arc<dyn SchemaCatalog>,
     /// TipTop 對照目錄：建立字典時帶入 .sch 說明（legacy_catalog.feature C4）
@@ -39,11 +44,13 @@ pub struct DataDictionaryService {
 
 impl DataDictionaryService {
     pub fn new(
+        authz: Arc<dyn Authorizer>,
         repo: Arc<dyn DictionaryRepository>,
         schema: Arc<dyn SchemaCatalog>,
         catalog: Arc<dyn LegacyCatalogRepository>,
     ) -> Self {
         Self {
+            authz,
             repo,
             schema,
             catalog,
@@ -56,6 +63,7 @@ impl DataDictionaryService {
         actor: &Actor,
         input: TableDictionaryInput,
     ) -> Result<TableDictionaryDto, AppError> {
+        self.authorize(actor, "insert").await?;
         let name = TableDictionary::parse_name(&input.table_name)?;
         let module = self.module(&input.module_code).await?;
         let dict = TableDictionary::new(&name, module, attrs(&input), &actor.user_id, today())?;
@@ -73,9 +81,11 @@ impl DataDictionaryService {
     /// 修改表頭（p_zta_u）：模組、類型、上游/下游；資料表代碼不可改
     pub async fn update(
         &self,
+        actor: &Actor,
         table: &str,
         input: TableDictionaryInput,
     ) -> Result<TableDictionaryDto, AppError> {
+        self.authorize(actor, "modify").await?;
         let mut dict = self.load(table).await?;
         let module = self.module(&input.module_code).await?;
         dict.update(module, attrs(&input))?;
@@ -83,25 +93,32 @@ impl DataDictionaryService {
         self.to_dto(&dict, &Lang::default_lang()).await
     }
 
-    pub async fn get(&self, table: &str) -> Result<TableDictionaryDto, AppError> {
-        self.get_localized(table, DEFAULT_LANG).await
+    pub async fn get(&self, actor: &Actor, table: &str) -> Result<TableDictionaryDto, AppError> {
+        self.get_localized(actor, table, DEFAULT_LANG).await
     }
 
     /// 以指定語系顯示名稱與目的；該語系無資料時退回繁中（ADR 0005）
     pub async fn get_localized(
         &self,
+        actor: &Actor,
         table: &str,
         lang: &str,
     ) -> Result<TableDictionaryDto, AppError> {
+        self.authorize(actor, "query").await?;
         let lang = Lang::parse(lang)?;
         self.to_dto(&self.load(table).await?, &lang).await
     }
 
-    pub async fn list(&self) -> Result<Vec<TableDictionaryDto>, AppError> {
-        self.list_localized(DEFAULT_LANG).await
+    pub async fn list(&self, actor: &Actor) -> Result<Vec<TableDictionaryDto>, AppError> {
+        self.list_localized(actor, DEFAULT_LANG).await
     }
 
-    pub async fn list_localized(&self, lang: &str) -> Result<Vec<TableDictionaryDto>, AppError> {
+    pub async fn list_localized(
+        &self,
+        actor: &Actor,
+        lang: &str,
+    ) -> Result<Vec<TableDictionaryDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let lang = Lang::parse(lang)?;
         let list = self.repo.list().await.map_err(infra)?;
         let mut out = Vec::with_capacity(list.len());
@@ -112,18 +129,26 @@ impl DataDictionaryService {
     }
 
     /// 資料庫中的所有資料表（含尚未建立字典者）
-    pub async fn schema_tables(&self) -> Result<Vec<String>, AppError> {
+    pub async fn schema_tables(&self, actor: &Actor) -> Result<Vec<String>, AppError> {
+        self.authorize(actor, "query").await?;
         self.schema.table_names().await.map_err(infra)
     }
 
     /// 刪除字典，連同表與欄位的多語言說明（D3）；實際資料表不受影響
-    pub async fn delete(&self, table: &str) -> Result<(), AppError> {
+    pub async fn delete(&self, actor: &Actor, table: &str) -> Result<(), AppError> {
+        self.authorize(actor, "delete").await?;
         let dict = self.load(table).await?;
         self.repo.delete(&dict.table_name).await.map_err(infra)
     }
 
     /// 維護某語系的表名稱、目的、備註（gat03/gat04/gat05）
-    pub async fn set_table_text(&self, table: &str, text: TableTextDto) -> Result<(), AppError> {
+    pub async fn set_table_text(
+        &self,
+        actor: &Actor,
+        table: &str,
+        text: TableTextDto,
+    ) -> Result<(), AppError> {
+        self.authorize(actor, "maintain_table_description").await?;
         let dict = self.load(table).await?;
         let text = TableText::new(&text.lang, text.name, text.purpose, text.remark)?;
         self.repo
@@ -132,14 +157,25 @@ impl DataDictionaryService {
             .map_err(infra)
     }
 
-    pub async fn table_texts(&self, table: &str) -> Result<Vec<TableTextDto>, AppError> {
+    pub async fn table_texts(
+        &self,
+        actor: &Actor,
+        table: &str,
+    ) -> Result<Vec<TableTextDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let table = TableDictionary::parse_name(table)?;
         let texts = self.repo.table_texts(&table).await.map_err(infra)?;
         Ok(texts.iter().map(table_text_dto).collect())
     }
 
     /// 維護某語系的欄位名稱、說明、額外說明（gaq03/gaq04/gaq05；鍵值為資料表＋欄位，D2）
-    pub async fn set_column_text(&self, table: &str, text: ColumnTextDto) -> Result<(), AppError> {
+    pub async fn set_column_text(
+        &self,
+        actor: &Actor,
+        table: &str,
+        text: ColumnTextDto,
+    ) -> Result<(), AppError> {
+        self.authorize(actor, "maintain_field_description").await?;
         let dict = self.load(table).await?;
         let text = ColumnText::new(
             &text.column_name,
@@ -158,14 +194,28 @@ impl DataDictionaryService {
             .map_err(infra)
     }
 
-    pub async fn column_texts(&self, table: &str) -> Result<Vec<ColumnTextDto>, AppError> {
+    pub async fn column_texts(
+        &self,
+        actor: &Actor,
+        table: &str,
+    ) -> Result<Vec<ColumnTextDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let table = TableDictionary::parse_name(table)?;
         let texts = self.repo.column_texts(&table).await.map_err(infra)?;
         Ok(texts.into_iter().map(column_text_dto).collect())
     }
 
     /// 資料庫實際欄位結構（唯讀）
-    pub async fn columns(&self, table: &str) -> Result<Vec<ColumnInfoDto>, AppError> {
+    pub async fn columns(
+        &self,
+        actor: &Actor,
+        table: &str,
+    ) -> Result<Vec<ColumnInfoDto>, AppError> {
+        self.authorize(actor, "query").await?;
+        self.columns_in(table).await
+    }
+
+    async fn columns_in(&self, table: &str) -> Result<Vec<ColumnInfoDto>, AppError> {
         let schema = self.schema_table(table).await?;
         let pk: Vec<&String> = schema
             .constraints
@@ -186,7 +236,8 @@ impl DataDictionaryService {
             .collect())
     }
 
-    pub async fn indexes(&self, table: &str) -> Result<Vec<IndexDto>, AppError> {
+    pub async fn indexes(&self, actor: &Actor, table: &str) -> Result<Vec<IndexDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let schema = self.schema_table(table).await?;
         Ok(schema
             .indexes
@@ -199,7 +250,12 @@ impl DataDictionaryService {
             .collect())
     }
 
-    pub async fn constraints(&self, table: &str) -> Result<Vec<ConstraintDto>, AppError> {
+    pub async fn constraints(
+        &self,
+        actor: &Actor,
+        table: &str,
+    ) -> Result<Vec<ConstraintDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let schema = self.schema_table(table).await?;
         Ok(schema
             .constraints
@@ -222,7 +278,8 @@ impl DataDictionaryService {
     }
 
     /// 變更紀錄：內容涉及該表的 migration（D5）
-    pub async fn history(&self, table: &str) -> Result<Vec<MigrationDto>, AppError> {
+    pub async fn history(&self, actor: &Actor, table: &str) -> Result<Vec<MigrationDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let table = TableDictionary::parse_name(table)?;
         let migrations = self.schema.migrations().await.map_err(infra)?;
         Ok(migrations
@@ -237,9 +294,15 @@ impl DataDictionaryService {
 
     /// 匯出 CSV（D6，比照 p_zta_exp2excel）：欄位代碼、型別、名稱、額外說明；
     /// 名稱與額外說明各自依語系退回繁中（ADR 0005）
-    pub async fn export_csv(&self, table: &str, lang: &str) -> Result<String, AppError> {
+    pub async fn export_csv(
+        &self,
+        actor: &Actor,
+        table: &str,
+        lang: &str,
+    ) -> Result<String, AppError> {
+        self.authorize(actor, "exporttoexcel").await?;
         let lang = Lang::parse(lang)?;
-        let columns = self.columns(table).await?;
+        let columns = self.columns_in(table).await?;
         let texts = self
             .repo
             .column_texts(&TableDictionary::parse_name(table)?)
@@ -261,9 +324,14 @@ impl DataDictionaryService {
     }
 
     /// 資料表是否存在於資料庫
+    /// 實體資料表是否存在（測試驗證用，不對外提供，不經權限檢查）
     pub async fn table_exists(&self, table: &str) -> Result<bool, AppError> {
         let table = TableDictionary::parse_name(table)?;
         Ok(self.schema.table(&table).await.map_err(infra)?.is_some())
+    }
+
+    async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
+        self.authz.authorize(actor, PROGRAM, action).await
     }
 
     async fn to_dto(

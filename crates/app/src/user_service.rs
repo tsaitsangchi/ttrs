@@ -15,7 +15,8 @@ use ttrs_domain::{
 use ttrs_shared::{Page, QueryRequest, UserDto, UserInput};
 
 use crate::{
-    Actor, AppError,
+    Actor, AppError, Authorizer,
+    authorization::Grant,
     error::RepoError,
     ports::{
         MasterDataRepository, PermissionClassRepository, ProgramRepository,
@@ -25,8 +26,12 @@ use crate::{
     user_permission_service::move_special_class,
 };
 
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "p_zx";
+
 #[derive(Clone)]
 pub struct UserService {
+    authz: Arc<dyn Authorizer>,
     users: Arc<dyn UserRepository>,
     programs: Arc<dyn ProgramRepository>,
     master: Arc<dyn MasterDataRepository>,
@@ -37,6 +42,7 @@ pub struct UserService {
 
 impl UserService {
     pub fn new(
+        authz: Arc<dyn Authorizer>,
         users: Arc<dyn UserRepository>,
         programs: Arc<dyn ProgramRepository>,
         master: Arc<dyn MasterDataRepository>,
@@ -44,6 +50,7 @@ impl UserService {
         special: Arc<dyn UserPermissionRepository>,
     ) -> Self {
         Self {
+            authz,
             users,
             programs,
             master,
@@ -54,6 +61,7 @@ impl UserService {
 
     /// 新增（p_zx_a）：預設營運中心自動成為可使用營運中心（p_zx.4gl:490-501）
     pub async fn create(&self, actor: &Actor, input: UserInput) -> Result<UserDto, AppError> {
+        self.authorize(actor, "insert").await?;
         let id = UserId::parse(&input.user_id)?;
         let attrs = self.attrs(&input, None).await?;
         let user = User::new(id, attrs, &actor.user_id, &actor.dept, today());
@@ -72,7 +80,9 @@ impl UserService {
         user_id: &str,
         input: UserInput,
     ) -> Result<UserDto, AppError> {
+        let grant = self.authorize(actor, "modify").await?;
         let mut user = self.load(user_id).await?;
+        grant.record(&user.created_by, &user.created_dept)?;
         if !input.user_id.trim().is_empty() && input.user_id.trim() != user.user_id.as_str() {
             return Err(DomainError::UserIdImmutable.into());
         }
@@ -104,19 +114,24 @@ impl UserService {
         Ok(to_dto(&user, &plants))
     }
 
-    pub async fn get(&self, user_id: &str) -> Result<UserDto, AppError> {
+    /// 查看單筆：被資料權限過濾掉的使用者也不能直接查看（AQ6）
+    pub async fn get(&self, actor: &Actor, user_id: &str) -> Result<UserDto, AppError> {
+        let grant = self.authorize(actor, "query").await?;
         let user = self.load(user_id).await?;
+        grant.record(&user.created_by, &user.created_dept)?;
         let plants = self.users.plants(&user.user_id).await.map_err(infra)?;
         Ok(to_dto(&user, &plants))
     }
 
-    /// QBE 查詢（p_zx_curs，p_zx.4gl:115-207）；欄位見 query::user（UQ1–UQ3）
-    pub async fn query(&self, req: QueryRequest) -> Result<Page<UserDto>, AppError> {
+    /// QBE 查詢（p_zx_curs，p_zx.4gl:115-207）；欄位見 query::user（UQ1–UQ3）；
+    /// 依資料權限只查得到部分使用者（p_zx.4gl:194-204，UQ4）
+    pub async fn query(&self, actor: &Actor, req: QueryRequest) -> Result<Page<UserDto>, AppError> {
+        let scope = self.authorize(actor, "query").await?.scope();
         let filters = query::user::filters(&req.conditions)?;
         let p = query::paging(&req);
         let (rows, total) = self
             .users
-            .query(&filters, p.offset, u64::from(p.page_size))
+            .query(&filters, &scope, p.offset, u64::from(p.page_size))
             .await
             .map_err(infra)?;
         let mut items = Vec::with_capacity(rows.len());
@@ -132,6 +147,7 @@ impl UserService {
         })
     }
 
+    /// 全部清單：開窗、欄位檢查用的參考資料，只要求登入（AQ4）
     pub async fn list(&self) -> Result<Vec<UserDto>, AppError> {
         let users = self.users.list().await.map_err(infra)?;
         let mut out = Vec::with_capacity(users.len());
@@ -143,8 +159,10 @@ impl UserService {
     }
 
     /// 刪除（p_zx_r）：連同可使用營運中心（U9：維持 TipTop 直接刪除）
-    pub async fn delete(&self, user_id: &str) -> Result<(), AppError> {
+    pub async fn delete(&self, actor: &Actor, user_id: &str) -> Result<(), AppError> {
+        let grant = self.authorize(actor, "delete").await?;
         let user = self.load(user_id).await?;
+        grant.record(&user.created_by, &user.created_dept)?;
         self.users.delete(&user.user_id).await.map_err(infra)
     }
 
@@ -155,6 +173,7 @@ impl UserService {
         user_id: &str,
         new_id: &str,
     ) -> Result<UserDto, AppError> {
+        self.authorize(actor, "reproduce").await?;
         let source = self.load(user_id).await?;
         let new_id = UserId::parse(new_id)?;
         let user = source.copy_as(new_id, &actor.user_id, &actor.dept, today());
@@ -166,7 +185,7 @@ impl UserService {
         }
     }
 
-    /// 停用（p_zx_x，有效 → 無效）
+    /// 停用（p_zx_x，有效 → 無效）；功能 invalid，不檢查資料所有者（自訂動作對應未移植，AQ7）
     pub async fn deactivate(&self, actor: &Actor, user_id: &str) -> Result<UserDto, AppError> {
         self.set_active(actor, user_id, false).await
     }
@@ -182,6 +201,7 @@ impl UserService {
         user_id: &str,
         active: bool,
     ) -> Result<UserDto, AppError> {
+        self.authorize(actor, "invalid").await?;
         let mut user = self.load(user_id).await?;
         if active {
             user.activate(&actor.user_id, today());
@@ -191,6 +211,10 @@ impl UserService {
         let plants = self.users.plants(&user.user_id).await.map_err(infra)?;
         self.users.update(&user, &plants).await.map_err(infra)?;
         Ok(to_dto(&user, &plants))
+    }
+
+    async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
+        self.authz.authorize(actor, PROGRAM, action).await
     }
 
     async fn load(&self, user_id: &str) -> Result<User, AppError> {

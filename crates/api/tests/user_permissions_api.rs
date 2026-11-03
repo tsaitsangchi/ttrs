@@ -10,11 +10,7 @@ use axum::{
 };
 use tower::ServiceExt;
 use ttrs_api::{AppState, actor_from_env, router};
-use ttrs_app::{
-    DataDictionaryService, ItemService, LegacyCatalogService, PermissionClassService, PlantService,
-    ProgramPermissionService, ProgramService, UserPermissionService, UserService,
-    memory::InMemoryStore,
-};
+use ttrs_app::{Services, memory::InMemoryStore};
 use ttrs_shared::{ApiError, PermissionBatchResultDto, UserPermissionDto};
 
 async fn app() -> Router {
@@ -22,27 +18,10 @@ async fn app() -> Router {
     store.add_module("MENU");
     store.add_permission_class("SALES");
     let store = Arc::new(store);
-    let app = router(AppState {
-        items: ItemService::new(store.clone(), store.clone()),
-        programs: ProgramService::new(store.clone()),
-        dictionary: DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
-        legacy: LegacyCatalogService::new(store.clone()),
-        users: UserService::new(
-            store.clone(),
-            store.clone(),
-            store.clone(),
-            store.clone(),
-            store.clone(),
-        ),
-        classes: PermissionClassService::new(store.clone(), store.clone(), store.clone()),
-        plants: PlantService::new(store.clone()),
-        permissions: ProgramPermissionService::new(store.clone(), store.clone(), store.clone()),
-        special: UserPermissionService::new(store.clone(), store.clone(), store.clone(), store),
-        actor: actor_from_env(),
-    });
+    let app = router(AppState::new(Services::new(store), actor_from_env()));
     for body in [
         serde_json::json!({ "program_no": "menu_main", "module_code": "MENU" }),
-        serde_json::json!({ "program_no": "aimi100", "module_code": "AIM", "default_actions": "insert, query" }),
+        serde_json::json!({ "program_no": "aimi109", "module_code": "AIM", "default_actions": "insert, query" }),
     ] {
         let res = app
             .clone()
@@ -116,7 +95,7 @@ async fn add_with_own_class_update_and_remove() {
         .oneshot(request(
             "POST",
             "/api/users/u001/permissions",
-            Some(serde_json::json!({ "kind": "program", "target": "aimi100" })),
+            Some(serde_json::json!({ "kind": "program", "target": "aimi109" })),
         ))
         .await
         .unwrap();
@@ -125,7 +104,7 @@ async fn add_with_own_class_update_and_remove() {
         .clone()
         .oneshot(request(
             "PUT",
-            "/api/users/u001/permissions/programs/aimi100",
+            "/api/users/u001/permissions/programs/aimi109",
             Some(serde_json::json!({ "actions": ["query"], "detail_rows": "3" })),
         ))
         .await

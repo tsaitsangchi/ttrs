@@ -15,7 +15,7 @@ fn actions(text: &str) -> Vec<String> {
 
 async fn permission(w: &ErpWorld, class: &str, program: &str) -> ProgramPermissionDto {
     w.permissions
-        .get(class, program, "zh-TW")
+        .get(&w.actor, class, program, "zh-TW")
         .await
         .unwrap_or_else(|e| panic!("讀取權限類別 {class} 的程式 {program} 權限失敗：{e}"))
 }
@@ -99,13 +99,13 @@ async fn level_change(
 
 #[when(expr = "使用者移除權限類別 {string} 的程式 {string} 的權限")]
 async fn revoke(w: &mut ErpWorld, class: String, program: String) {
-    let result = w.permissions.revoke(&class, &program).await;
+    let result = w.permissions.revoke(&w.actor, &class, &program).await;
     w.last = Some(result);
 }
 
 #[when(expr = "使用者刪除權限類別 {string} 的全部權限")]
 async fn revoke_all(w: &mut ErpWorld, class: String) {
-    let result = w.permissions.revoke_all(&class).await;
+    let result = w.permissions.revoke_all(&w.actor, &class).await;
     w.last = Some(result.map(|_| ()));
 }
 
@@ -150,7 +150,7 @@ async fn generate_by_menu_reset(w: &mut ErpWorld, class: String, menu: String, r
 
 #[when(expr = "使用者為權限類別 {string} 依選單 {string} 整批刪除權限")]
 async fn delete_by_menu(w: &mut ErpWorld, class: String, menu: String) {
-    let result = w.permissions.delete_by_menu(&class, &menu).await;
+    let result = w.permissions.delete_by_menu(&w.actor, &class, &menu).await;
     w.last = Some(result.map(|_| ()));
 }
 

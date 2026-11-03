@@ -7,14 +7,15 @@ use std::{
 
 use async_trait::async_trait;
 use ttrs_domain::{
+    authorization::DataScope,
     dictionary::{ColumnText, TableDictionary, TableText},
     item::{Item, ItemNo},
     lang::Lang,
     legacy_catalog::LegacyTable,
-    permission::ProgramPermission,
+    permission::{PermissionAttrs, ProgramPermission, parse_actions},
     permission_class::{ClassCode, ClassIdleControl, PermissionClass, PermissionClassAttrs},
     plant::{DEFAULT_TIME_ZONE, Plant, PlantAttrs, PlantId},
-    program::{ModuleCode, Program, ProgramNo},
+    program::{ModuleCode, OtherSettings, Program, ProgramAttrs, ProgramNo},
     qbe::QbeFilter,
     user::{User, UserId},
     user_permission::{SpecialTarget, UserPermission},
@@ -85,11 +86,39 @@ impl InMemoryStore {
         s.add_plant("TW01");
         s.add_unit("PCS");
         s.add_unit("KG");
-        for m in ["AIM", "AGL", "AZZ"] {
+        for m in ["AIM", "AGL", "AZZ", "AOO"] {
             s.add_module(m);
         }
         s.add_permission_class("ADMIN");
+        s.add_ported_programs(Some("ADMIN"));
         s
+    }
+
+    /// 登錄 TTRS 已移植的作業（AQ11，同 migrations/0015）；`grant_to` 有值時給該權限類別全部功能、資料權限 0／0／0、單身 0。
+    /// 已存在的程式不變
+    pub fn add_ported_programs(&self, grant_to: Option<&str>) {
+        let today = chrono::Local::now().date_naive();
+        let mut s = self.lock();
+        for (no, module, actions) in crate::authorization::PORTED_PROGRAMS {
+            let no = ProgramNo::parse(no).expect("程式代號");
+            let attrs = ProgramAttrs {
+                other: OtherSettings {
+                    default_actions: Some((*actions).to_owned()),
+                    ..OtherSettings::default()
+                },
+                ..ProgramAttrs::default()
+            };
+            let module = ModuleCode::parse(module).expect("模組");
+            let program =
+                Program::new(no.clone(), module, attrs, "tiptop", "", today).expect("程式");
+            s.programs.entry(no.clone()).or_insert(program);
+            if let Some(class) = grant_to {
+                let class = ClassCode::parse(class).expect("權限類別代號");
+                let attrs = PermissionAttrs::defaults(&parse_actions([*actions]));
+                let p = ProgramPermission::new(class, no, attrs, "tiptop", "", today);
+                s.permissions.entry(perm_key(&p)).or_insert(p);
+            }
+        }
     }
 
     /// 測試用：使用者可使用的營運中心數
@@ -636,6 +665,7 @@ impl UserRepository for InMemoryStore {
     async fn query(
         &self,
         filters: &[QbeFilter],
+        scope: &DataScope,
         offset: u64,
         limit: u64,
     ) -> Result<(Vec<User>, u64), RepoError> {
@@ -643,6 +673,7 @@ impl UserRepository for InMemoryStore {
             .lock()
             .users
             .values()
+            .filter(|x| scope.includes(&x.created_by, &x.created_dept))
             .filter(|x| query::matches_all(filters, |f| query::user::value(x, f)))
             .cloned()
             .collect();

@@ -9,33 +9,12 @@ use axum::{
 };
 use tower::ServiceExt;
 use ttrs_api::{AppState, actor_from_env, router};
-use ttrs_app::{
-    DataDictionaryService, ItemService, LegacyCatalogService, PermissionClassService, PlantService,
-    ProgramPermissionService, ProgramService, UserPermissionService, UserService,
-    memory::InMemoryStore,
-};
+use ttrs_app::{Services, memory::InMemoryStore};
 use ttrs_shared::{ApiError, ProgramDto};
 
 fn app() -> Router {
     let store = Arc::new(InMemoryStore::seeded());
-    router(AppState {
-        items: ItemService::new(store.clone(), store.clone()),
-        programs: ProgramService::new(store.clone()),
-        dictionary: DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
-        legacy: LegacyCatalogService::new(store.clone()),
-        users: UserService::new(
-            store.clone(),
-            store.clone(),
-            store.clone(),
-            store.clone(),
-            store.clone(),
-        ),
-        classes: PermissionClassService::new(store.clone(), store.clone(), store.clone()),
-        plants: PlantService::new(store.clone()),
-        permissions: ProgramPermissionService::new(store.clone(), store.clone(), store.clone()),
-        special: UserPermissionService::new(store.clone(), store.clone(), store.clone(), store),
-        actor: actor_from_env(),
-    })
+    router(AppState::new(Services::new(store), actor_from_env()))
 }
 
 fn json(method: &str, uri: &str, body: serde_json::Value) -> Request<Body> {
@@ -62,13 +41,13 @@ async fn body<T: serde::de::DeserializeOwned>(res: axum::response::Response) -> 
 #[tokio::test]
 async fn create_returns_201_with_defaults_then_duplicate_409() {
     let app = app();
-    let res = app.clone().oneshot(create("aimi100")).await.unwrap();
+    let res = app.clone().oneshot(create("aimi109")).await.unwrap();
     assert_eq!(res.status(), StatusCode::CREATED);
     let dto: ProgramDto = body(res).await;
     assert_eq!(dto.program_type.as_deref(), Some("I"));
     assert_eq!(dto.name.as_deref(), Some("料件基本資料維護作業"));
 
-    let res = app.oneshot(create("aimi100")).await.unwrap();
+    let res = app.oneshot(create("aimi109")).await.unwrap();
     assert_eq!(res.status(), StatusCode::CONFLICT);
     assert_eq!(body::<ApiError>(res).await.code, "PROGRAM_ALREADY_EXISTS");
 }
@@ -84,12 +63,12 @@ async fn rule_violation_returns_422() {
 /// 改代號：PUT 原代號，內容帶新的 program_no
 async fn change_no_via_update_then_old_no_returns_404() {
     let app = app();
-    app.clone().oneshot(create("aimi100")).await.unwrap();
+    app.clone().oneshot(create("aimi109")).await.unwrap();
     let res = app
         .clone()
         .oneshot(json(
             "PUT",
-            "/api/programs/aimi100",
+            "/api/programs/aimi109",
             serde_json::json!({ "program_no": "aimi101", "module_code": "AIM" }),
         ))
         .await
@@ -99,7 +78,7 @@ async fn change_no_via_update_then_old_no_returns_404() {
     let res = app
         .clone()
         .oneshot(
-            Request::get("/api/programs/aimi100")
+            Request::get("/api/programs/aimi109")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -121,10 +100,10 @@ async fn change_no_via_update_then_old_no_returns_404() {
 #[tokio::test]
 async fn delete_returns_204() {
     let app = app();
-    app.clone().oneshot(create("aimi100")).await.unwrap();
+    app.clone().oneshot(create("aimi109")).await.unwrap();
     let res = app
         .oneshot(
-            Request::delete("/api/programs/aimi100")
+            Request::delete("/api/programs/aimi109")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -136,15 +115,16 @@ async fn delete_returns_204() {
 #[tokio::test]
 async fn query_returns_page_and_bad_condition_422() {
     let app = app();
-    app.clone().oneshot(create("aimi100")).await.unwrap();
-    app.clone().oneshot(create("aimi101")).await.unwrap();
+    app.clone().oneshot(create("aimi109")).await.unwrap();
+    app.clone().oneshot(create("aimi119")).await.unwrap();
 
+    // 起始資料的 aimi100 不符合 aimi1?9
     let res = app
         .clone()
         .oneshot(json(
             "POST",
             "/api/programs/query",
-            serde_json::json!({ "conditions": [{ "field": "program_no", "expr": "aimi10?" }], "page_size": 1 }),
+            serde_json::json!({ "conditions": [{ "field": "program_no", "expr": "aimi1?9" }], "page_size": 1 }),
         ))
         .await
         .unwrap();
@@ -167,12 +147,12 @@ async fn query_returns_page_and_bad_condition_422() {
 #[tokio::test]
 async fn names_per_language_and_localized_get() {
     let app = app();
-    app.clone().oneshot(create("aimi100")).await.unwrap();
+    app.clone().oneshot(create("aimi109")).await.unwrap();
     let res = app
         .clone()
         .oneshot(json(
             "PUT",
-            "/api/programs/aimi100/names",
+            "/api/programs/aimi109/names",
             serde_json::json!({ "lang": "en", "name": "Item Master Maintenance" }),
         ))
         .await
@@ -182,7 +162,7 @@ async fn names_per_language_and_localized_get() {
     let res = app
         .clone()
         .oneshot(
-            Request::get("/api/programs/aimi100?lang=en")
+            Request::get("/api/programs/aimi109?lang=en")
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -195,7 +175,7 @@ async fn names_per_language_and_localized_get() {
     let res = app
         .oneshot(json(
             "PUT",
-            "/api/programs/aimi100/names",
+            "/api/programs/aimi109/names",
             serde_json::json!({ "lang": "ja", "name": "x" }),
         ))
         .await
@@ -213,7 +193,7 @@ async fn names_saved_together_on_create_and_update() {
         .oneshot(json(
             "POST",
             "/api/programs",
-            serde_json::json!({ "program_no": "aimi100", "module_code": "AIM", "names": [
+            serde_json::json!({ "program_no": "aimi109", "module_code": "AIM", "names": [
                 { "lang": "zh-TW", "name": "料件基本資料維護作業", "report_title": null },
                 { "lang": "en", "name": "Item Master", "report_title": null },
                 { "lang": "zh-CN", "name": "", "report_title": null },
@@ -238,7 +218,7 @@ async fn names_saved_together_on_create_and_update() {
     let put = |input: &ttrs_shared::ProgramInput| {
         json(
             "PUT",
-            "/api/programs/aimi100",
+            "/api/programs/aimi109",
             serde_json::to_value(input).unwrap(),
         )
     };

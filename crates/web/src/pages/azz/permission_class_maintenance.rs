@@ -15,6 +15,7 @@ use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Chip, Dialog, Notification, NotificationKind, Select, TextField,
 };
+use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{HINT_FLAG, HINT_NUMBER, ListPager, PAGE_SIZE, Qbe, conditions_of};
 use crate::i18n::{t, tf};
 
@@ -98,8 +99,19 @@ fn opt(v: String) -> Option<String> {
     Some(v).filter(|s| !s.trim().is_empty())
 }
 
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "p_zw";
+
 #[component]
 pub fn PermissionClassMaintenance() -> Element {
+    rsx! {
+        ProgramGate { program: PROGRAM, PermissionClassMaintenancePage {} }
+    }
+}
+
+#[component]
+fn PermissionClassMaintenancePage() -> Element {
+    let perm = use_context::<Perm>();
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
     // 查詢：qbe 為查詢列正在輸入的條件，conditions 為目前生效的條件（QBE4：預設查全部）
@@ -238,68 +250,78 @@ pub fn PermissionClassMaintenance() -> Element {
                 p { class: "muted", {format!("{}: {}", t("class-field-idle-action"), t("class-hint-qbe-idle-action"))} }
             } else {
             div { class: "action-bar",
-                Button {
-                    variant: ButtonVariant::Tonal,
-                    onclick: move |_| {
-                        message.set(None);
-                        error.set(None);
-                        qbe.set(Default::default());
-                        querying.set(true);
-                    },
-                    {t("common-action-query")}
+                if perm.can("query") {
+                    Button {
+                        variant: ButtonVariant::Tonal,
+                        onclick: move |_| {
+                            message.set(None);
+                            error.set(None);
+                            qbe.set(Default::default());
+                            querying.set(true);
+                        },
+                        {t("common-action-query")}
+                    }
                 }
-                Button {
-                    onclick: move |_| {
-                        message.set(None);
-                        error.set(None);
-                        dialog_error.set(None);
-                        form.set(PermissionClassInput { idle_control: Some(ClassIdleControlDto::Off), ..Default::default() });
-                        editor.set(Some(Editor::New));
-                    },
-                    {t("common-action-new")}
+                if perm.add_row() {
+                    Button {
+                        onclick: move |_| {
+                            message.set(None);
+                            error.set(None);
+                            dialog_error.set(None);
+                            form.set(PermissionClassInput { idle_control: Some(ClassIdleControlDto::Off), ..Default::default() });
+                            editor.set(Some(Editor::New));
+                        },
+                        {t("common-action-new")}
+                    }
                 }
-                Button {
-                    variant: ButtonVariant::Tonal,
-                    disabled: no_cur,
-                    onclick: move |_| {
-                        let Some(c) = cur_edit.clone() else { return };
-                        dialog_error.set(None);
-                        form.set(c.to_input());
-                        editor.set(Some(Editor::Edit(c.class_code)));
-                    },
-                    {t("common-action-edit")}
+                if perm.can("detail") {
+                    Button {
+                        variant: ButtonVariant::Tonal,
+                        disabled: no_cur,
+                        onclick: move |_| {
+                            let Some(c) = cur_edit.clone() else { return };
+                            dialog_error.set(None);
+                            form.set(c.to_input());
+                            editor.set(Some(Editor::Edit(c.class_code)));
+                        },
+                        {t("common-action-edit")}
+                    }
                 }
-                Button {
-                    variant: ButtonVariant::Error,
-                    disabled: no_cur,
-                    onclick: move |_| {
-                        let Some(c) = cur_delete.clone() else { return };
-                        spawn(async move {
-                            match api::delete_class(&c.class_code).await {
-                                Ok(()) => done(tf("class-msg-deleted", &[("code", c.class_code.as_str())]), None),
-                                Err(e) => error.set(Some(e)),
-                            }
-                        });
-                    },
-                    {t("common-action-delete")}
+                if perm.delete_row() {
+                    Button {
+                        variant: ButtonVariant::Error,
+                        disabled: no_cur,
+                        onclick: move |_| {
+                            let Some(c) = cur_delete.clone() else { return };
+                            spawn(async move {
+                                match api::delete_class(&c.class_code).await {
+                                    Ok(()) => done(tf("class-msg-deleted", &[("code", c.class_code.as_str())]), None),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        },
+                        {t("common-action-delete")}
+                    }
                 }
                 // TipTop 有效欄位：有效 → 停用、無效 → 啟用
-                Button {
-                    variant: ButtonVariant::Outlined,
-                    disabled: no_cur,
-                    onclick: move |_| {
-                        let Some(c) = cur_toggle.clone() else { return };
-                        spawn(async move {
-                            match api::set_class_active(&c.class_code, !c.active).await {
-                                Ok(r) => {
-                                    let id = if r.active { "class-msg-activated" } else { "class-msg-deactivated" };
-                                    done(tf(id, &[("code", r.class_code.as_str())]), Some(r.class_code));
+                if perm.can("detail") {
+                    Button {
+                        variant: ButtonVariant::Outlined,
+                        disabled: no_cur,
+                        onclick: move |_| {
+                            let Some(c) = cur_toggle.clone() else { return };
+                            spawn(async move {
+                                match api::set_class_active(&c.class_code, !c.active).await {
+                                    Ok(r) => {
+                                        let id = if r.active { "class-msg-activated" } else { "class-msg-deactivated" };
+                                        done(tf(id, &[("code", r.class_code.as_str())]), Some(r.class_code));
+                                    }
+                                    Err(e) => error.set(Some(e)),
                                 }
-                                Err(e) => error.set(Some(e)),
-                            }
-                        });
-                    },
-                    if cur.as_ref().is_some_and(|c| !c.active) { {t("class-action-activate")} } else { {t("class-action-deactivate")} }
+                            });
+                        },
+                        if cur.as_ref().is_some_and(|c| !c.active) { {t("class-action-activate")} } else { {t("class-action-deactivate")} }
+                    }
                 }
                 // 串接 p_zy「維護群組執行權限」（p_zw.4gl:130-138）
                 if let Some(c) = cur.as_ref() {
@@ -310,10 +332,12 @@ pub fn PermissionClassMaintenance() -> Element {
                     }
                 }
                 div { class: "spacer" }
-                Button {
-                    variant: ButtonVariant::Outlined,
-                    onclick: move |_| { message.set(None); error.set(None); confirm_menus.set(true); },
-                    {t("class-action-update-menus")}
+                if perm.can("detail") {
+                    Button {
+                        variant: ButtonVariant::Outlined,
+                        onclick: move |_| { message.set(None); error.set(None); confirm_menus.set(true); },
+                        {t("class-action-update-menus")}
+                    }
                 }
             }
             }

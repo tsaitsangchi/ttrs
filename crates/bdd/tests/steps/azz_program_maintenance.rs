@@ -66,7 +66,7 @@ fn field_rows(step: &Step) -> Vec<(String, String)> {
 }
 
 async fn program(w: &ErpWorld, no: &str) -> ProgramDto {
-    w.programs.get(no).await.expect("讀取程式")
+    w.programs.get(&w.actor, no).await.expect("讀取程式")
 }
 
 /// 準備基本資料：記憶體後端呼叫 `memory`，PostgreSQL 後端執行 `sql`
@@ -120,6 +120,7 @@ fn current_user(w: &mut ErpWorld, user: String, dept: String, class: String) {
         user_id: user,
         dept,
         permission_class: class,
+        ..Actor::default()
     };
 }
 
@@ -227,7 +228,7 @@ async fn create_with_runtime(w: &mut ErpWorld, step: &Step, no: String, module: 
 /// 比照 TipTop：在「修改」中直接變更程式代號欄位（沒有獨立的改代號功能）
 #[when(expr = "使用者將程式 {string} 的代號改為 {string}")]
 async fn change_program_no(w: &mut ErpWorld, old: String, new: String) {
-    let result = match w.programs.get(&old).await {
+    let result = match w.programs.get(&w.actor, &old).await {
         Ok(p) => {
             let req = ProgramInput {
                 program_no: new,
@@ -242,7 +243,7 @@ async fn change_program_no(w: &mut ErpWorld, old: String, new: String) {
 
 #[when(expr = "使用者將程式 {string} 的模組改為 {string}")]
 async fn change_module(w: &mut ErpWorld, no: String, module: String) {
-    let result = match w.programs.get(&no).await {
+    let result = match w.programs.get(&w.actor, &no).await {
         Ok(p) => {
             let req = ProgramInput {
                 module_code: module,
@@ -363,7 +364,7 @@ async fn run_command(w: &mut ErpWorld, no: String, expected: String) {
 
 #[then(expr = "程式 {string} 應不存在")]
 async fn program_absent(w: &mut ErpWorld, no: String) {
-    match w.programs.get(&no).await {
+    match w.programs.get(&w.actor, &no).await {
         Err(e) if e.code() == "PROGRAM_NOT_FOUND" => {}
         other => panic!("預期程式不存在，實際：{other:?}"),
     }
@@ -371,37 +372,37 @@ async fn program_absent(w: &mut ErpWorld, no: String) {
 
 #[then(expr = "程式 {string} 應無任何語系名稱")]
 async fn no_names(w: &mut ErpWorld, no: String) {
-    let names = w.programs.names(&no).await.unwrap();
+    let names = w.programs.names(&w.actor, &no).await.unwrap();
     assert!(names.is_empty(), "仍有名稱：{names:?}");
 }
 
 #[then(expr = "權限類別 {string} 應擁有程式 {string} 的權限")]
 async fn has_permission(w: &mut ErpWorld, class: String, no: String) {
-    let classes = w.programs.permission_classes(&no).await.unwrap();
+    let classes = w.programs.permission_classes(&w.actor, &no).await.unwrap();
     assert!(classes.contains(&class), "權限類別：{classes:?}");
 }
 
 #[then(expr = "權限類別 {string} 應不擁有程式 {string} 的權限")]
 async fn lacks_permission(w: &mut ErpWorld, class: String, no: String) {
-    let classes = w.programs.permission_classes(&no).await.unwrap();
+    let classes = w.programs.permission_classes(&w.actor, &no).await.unwrap();
     assert!(!classes.contains(&class), "權限類別：{classes:?}");
 }
 
 #[then(expr = "選單 {string} 應包含程式 {string}")]
 async fn menu_has(w: &mut ErpWorld, menu: String, no: String) {
-    let menus = w.programs.menus_containing(&no).await.unwrap();
+    let menus = w.programs.menus_containing(&w.actor, &no).await.unwrap();
     assert!(menus.contains(&menu), "所屬選單：{menus:?}");
 }
 
 #[then(expr = "選單 {string} 應不包含程式 {string}")]
 async fn menu_lacks(w: &mut ErpWorld, menu: String, no: String) {
-    let menus = w.programs.menus_containing(&no).await.unwrap();
+    let menus = w.programs.menus_containing(&w.actor, &no).await.unwrap();
     assert!(!menus.contains(&menu), "所屬選單：{menus:?}");
 }
 
 #[then(expr = "應有一筆 {string} 刪除程式 {string} 的異動紀錄")]
 async fn delete_audited(w: &mut ErpWorld, user: String, no: String) {
-    let entries = w.programs.audit_entries(&no).await.unwrap();
+    let entries = w.programs.audit_entries(&w.actor, &no).await.unwrap();
     let hits = entries
         .iter()
         .filter(|e| e.program == "program-maintenance" && e.user_id == user && e.action == "delete")
@@ -445,7 +446,7 @@ async fn other_fields(w: &mut ErpWorld, step: &Step, no: String) {
 
 #[when(expr = "使用者將程式 {string} 的名稱改為 {string}，報表抬頭改為 {string}")]
 async fn change_name_and_title(w: &mut ErpWorld, no: String, name: String, title: String) {
-    let result = match w.programs.get(&no).await {
+    let result = match w.programs.get(&w.actor, &no).await {
         Ok(p) => {
             let req = ProgramInput {
                 name: Some(name),

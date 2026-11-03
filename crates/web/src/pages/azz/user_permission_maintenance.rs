@@ -15,6 +15,7 @@ use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Dialog, IconButton, Notification, NotificationKind,
     Select, TextField, icons,
 };
+use crate::components::permission::{Perm, ProgramGate};
 use crate::i18n::{t, tf};
 
 /// 目前開啟的小視窗
@@ -39,19 +40,27 @@ fn level_cell(kind: &str, code: &Option<String>) -> String {
         .unwrap_or_default()
 }
 
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "p_zxw";
+
 #[component]
 pub fn UserPermissions() -> Element {
-    rsx! { UserPermissionMain { initial: None } }
+    rsx! {
+        ProgramGate { program: PROGRAM, UserPermissionMain { initial: None } }
+    }
 }
 
 /// 由使用者維護（p_zx「維護使用者特殊權限」）帶入使用者
 #[component]
 pub fn UserPermissionsFor(user: String) -> Element {
-    rsx! { UserPermissionMain { initial: Some(user) } }
+    rsx! {
+        ProgramGate { program: PROGRAM, UserPermissionMain { initial: Some(user) } }
+    }
 }
 
 #[component]
 fn UserPermissionMain(initial: Option<String>) -> Element {
+    let perm = use_context::<Perm>();
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
     let users = use_resource(api::list_users);
@@ -172,46 +181,56 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
 
             // ----- 動作列 -----
             div { class: "action-bar",
-                Button {
-                    disabled: no_user,
-                    onclick: move |_| {
-                        message.set(None);
-                        add_form.set(UserPermissionInput { include_own_class: true, ..Default::default() });
-                        open.set(Some(Open::Add));
-                    },
-                    {t("common-action-new")}
+                if perm.add_row() {
+                    Button {
+                        disabled: no_user,
+                        onclick: move |_| {
+                            message.set(None);
+                            add_form.set(UserPermissionInput { include_own_class: true, ..Default::default() });
+                            open.set(Some(Open::Add));
+                        },
+                        {t("common-action-new")}
+                    }
                 }
-                Button {
-                    variant: ButtonVariant::Tonal,
-                    disabled: !cur_is_program,
-                    onclick: move |_| {
-                        let Some(r) = cur_edit.clone() else { return };
-                        message.set(None);
-                        form.set(r.to_input());
-                        open.set(Some(Open::Edit(Box::new(r))));
-                    },
-                    {t("common-action-edit")}
+                if perm.can("detail") {
+                    Button {
+                        variant: ButtonVariant::Tonal,
+                        disabled: !cur_is_program,
+                        onclick: move |_| {
+                            let Some(r) = cur_edit.clone() else { return };
+                            message.set(None);
+                            form.set(r.to_input());
+                            open.set(Some(Open::Edit(Box::new(r))));
+                        },
+                        {t("common-action-edit")}
+                    }
                 }
-                Button {
-                    variant: ButtonVariant::Error,
-                    disabled: no_cur,
-                    onclick: move |_| {
-                        let Some(r) = cur_remove.clone() else { return };
-                        spawn(async move {
-                            match api::remove_user_permission(&r.user_id, r.line_no).await {
-                                Ok(()) => {
-                                    selected.set(None);
-                                    done(tf("uperm-msg-removed", &[("line", r.line_no.to_string().as_str())]));
+                if perm.delete_row() {
+                    Button {
+                        variant: ButtonVariant::Error,
+                        disabled: no_cur,
+                        onclick: move |_| {
+                            let Some(r) = cur_remove.clone() else { return };
+                            spawn(async move {
+                                match api::remove_user_permission(&r.user_id, r.line_no).await {
+                                    Ok(()) => {
+                                        selected.set(None);
+                                        done(tf("uperm-msg-removed", &[("line", r.line_no.to_string().as_str())]));
+                                    }
+                                    Err(e) => error.set(Some(e)),
                                 }
-                                Err(e) => error.set(Some(e)),
-                            }
-                        });
-                    },
-                    {t("perm-action-remove")}
+                            });
+                        },
+                        {t("perm-action-remove")}
+                    }
                 }
-                Button { variant: ButtonVariant::Outlined, disabled: no_user, onclick: move |_| { message.set(None); open.set(Some(Open::DeleteAll)); }, {t("perm-action-delete-all")} }
+                if perm.can("delete") {
+                    Button { variant: ButtonVariant::Outlined, disabled: no_user, onclick: move |_| { message.set(None); open.set(Some(Open::DeleteAll)); }, {t("perm-action-delete-all")} }
+                }
                 div { class: "spacer" }
-                Button { variant: ButtonVariant::Outlined, disabled: no_user, onclick: move |_| { message.set(None); target_user.set(String::new()); open.set(Some(Open::Copy)); }, {t("common-action-copy")} }
+                if perm.can("reproduce") {
+                    Button { variant: ButtonVariant::Outlined, disabled: no_user, onclick: move |_| { message.set(None); target_user.set(String::new()); open.set(Some(Open::Copy)); }, {t("common-action-copy")} }
+                }
             }
 
             // ----- 使用者切換 -----

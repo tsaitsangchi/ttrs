@@ -20,7 +20,7 @@ fn yes_no(v: bool) -> &'static str {
 
 async fn plant(w: &ErpWorld, id: &str) -> PlantDto {
     w.plants
-        .get(id)
+        .get(&w.actor, id)
         .await
         .unwrap_or_else(|e| panic!("讀取營運中心 {id} 失敗：{e}"))
 }
@@ -90,7 +90,7 @@ async fn activate(w: &mut ErpWorld, id: String) {
 
 #[when(expr = "使用者刪除營運中心 {string}")]
 async fn delete(w: &mut ErpWorld, id: String) {
-    let result = w.plants.delete(&id).await;
+    let result = w.plants.delete(&w.actor, &id).await;
     w.last = Some(result);
 }
 
@@ -145,7 +145,7 @@ async fn active_should_be(w: &mut ErpWorld, id: String, expected: String) {
 
 #[then(expr = "營運中心 {string} 應不存在")]
 async fn should_not_exist(w: &mut ErpWorld, id: String) {
-    match w.plants.get(&id).await {
+    match w.plants.get(&w.actor, &id).await {
         Err(e) => assert_eq!(e.code(), "PLANT_NOT_FOUND"),
         Ok(p) => panic!("營運中心仍存在：{p:?}"),
     }

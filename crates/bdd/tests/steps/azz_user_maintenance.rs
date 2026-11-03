@@ -53,7 +53,7 @@ pub(crate) fn standard(id: &str) -> UserInput {
 
 async fn user(w: &ErpWorld, id: &str) -> UserDto {
     w.users
-        .get(id)
+        .get(&w.actor, id)
         .await
         .unwrap_or_else(|e| panic!("讀取使用者 {id} 失敗：{e}"))
 }
@@ -228,7 +228,7 @@ async fn activate(w: &mut ErpWorld, id: String) {
 
 #[when(expr = "使用者刪除使用者 {string}")]
 async fn delete(w: &mut ErpWorld, id: String) {
-    let result = w.users.delete(&id).await;
+    let result = w.users.delete(&w.actor, &id).await;
     w.last = Some(result);
 }
 
@@ -289,7 +289,7 @@ async fn updated_on_should_be(w: &mut ErpWorld, id: String, expected: String) {
 
 #[then(expr = "使用者 {string} 應不存在")]
 async fn should_not_exist(w: &mut ErpWorld, id: String) {
-    match w.users.get(&id).await {
+    match w.users.get(&w.actor, &id).await {
         Err(e) => assert_eq!(e.code(), "USER_NOT_FOUND"),
         Ok(u) => panic!("使用者仍存在：{u:?}"),
     }

@@ -85,7 +85,7 @@ fn rename_column(w: &mut ErpWorld, legacy: String, column: String, name: String)
 }
 
 async fn import(w: &mut ErpWorld) {
-    let result = w.legacy.import(w.legacy_source.clone()).await;
+    let result = w.legacy.import(&w.actor, w.legacy_source.clone()).await;
     w.last = Some(result.map(|_| ()));
 }
 
@@ -104,14 +104,14 @@ async fn do_import(w: &mut ErpWorld) {
 
 #[then(expr = "TipTop 資料表 {string} 的英文名稱應為 {string}，說明 {string}")]
 async fn table_named(w: &mut ErpWorld, legacy: String, name: String, title: String) {
-    let t = w.legacy.get(&legacy).await.unwrap();
+    let t = w.legacy.get(&w.actor, &legacy).await.unwrap();
     assert_eq!(t.name, name);
     assert_eq!(t.title, title);
 }
 
 #[then(expr = "TipTop 資料表 {string} 的欄位對照應為:")]
 async fn columns_mapped(w: &mut ErpWorld, legacy: String, step: &Step) {
-    let t = w.legacy.get(&legacy).await.unwrap();
+    let t = w.legacy.get(&w.actor, &legacy).await.unwrap();
     let expected = rows(step);
     assert_eq!(t.columns.len(), expected.len(), "欄位數：{:?}", t.columns);
     for (c, r) in t.columns.iter().zip(expected) {
@@ -126,7 +126,7 @@ async fn columns_mapped(w: &mut ErpWorld, legacy: String, step: &Step) {
 
 #[then(expr = "TipTop 資料表 {string} 欄位 {string} 的英文名稱應為 {string}")]
 async fn column_named(w: &mut ErpWorld, legacy: String, column: String, name: String) {
-    let t = w.legacy.get(&legacy).await.unwrap();
+    let t = w.legacy.get(&w.actor, &legacy).await.unwrap();
     let c = t
         .columns
         .iter()
@@ -137,13 +137,13 @@ async fn column_named(w: &mut ErpWorld, legacy: String, column: String, name: St
 
 #[then("TipTop 對照目錄應為空")]
 async fn catalog_empty(w: &mut ErpWorld) {
-    let list = w.legacy.search("").await.unwrap();
+    let list = w.legacy.search(&w.actor, "").await.unwrap();
     assert!(list.is_empty(), "對照目錄：{list:?}");
 }
 
 #[when(expr = "使用者以 {string} 查詢 TipTop 對照目錄")]
 async fn search(w: &mut ErpWorld, query: String) {
-    w.legacy_results = Some(w.legacy.search(&query).await.unwrap());
+    w.legacy_results = Some(w.legacy.search(&w.actor, &query).await.unwrap());
 }
 
 #[then(expr = "查詢結果應包含 TipTop 資料表 {string}")]
@@ -157,7 +157,7 @@ fn results_contain(w: &mut ErpWorld, legacy: String) {
 
 #[when(expr = "使用者查看資料表 {string} 的 TipTop 對照")]
 async fn view_mapping(w: &mut ErpWorld, table: String) {
-    w.legacy_view = w.legacy.for_table(&table).await.unwrap();
+    w.legacy_view = w.legacy.for_table(&w.actor, &table).await.unwrap();
 }
 
 #[then(expr = "對應的 TipTop 舊表應為 {string}")]

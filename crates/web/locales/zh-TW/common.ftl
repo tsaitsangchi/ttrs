@@ -30,6 +30,7 @@ nav-last = 最後一筆
 list-page-previous = 上一頁
 list-page-next = 下一頁
 common-msg-loading = 載入中…
+common-msg-no-program-permission = 您沒有執行 { $program } 的權限（請檢查權限設定）
 query-msg-none = 查無符合條件的資料
 query-msg-matched = 共 { $count } 筆符合條件
 nav-record-position = 第 { $pos } / { $total } 筆

@@ -15,14 +15,19 @@ use ttrs_shared::{
 };
 
 use crate::{
-    Actor, AppError,
+    Actor, AppError, Authorizer,
+    authorization::Grant,
     error::RepoError,
     ports::{PermissionClassRepository, ProgramRepository, UserRepository},
     query,
 };
 
+/// 權限檢查用的程式代號
+const PROGRAM: &str = "p_zw";
+
 #[derive(Clone)]
 pub struct PermissionClassService {
+    authz: Arc<dyn Authorizer>,
     classes: Arc<dyn PermissionClassRepository>,
     programs: Arc<dyn ProgramRepository>,
     users: Arc<dyn UserRepository>,
@@ -30,23 +35,27 @@ pub struct PermissionClassService {
 
 impl PermissionClassService {
     pub fn new(
+        authz: Arc<dyn Authorizer>,
         classes: Arc<dyn PermissionClassRepository>,
         programs: Arc<dyn ProgramRepository>,
         users: Arc<dyn UserRepository>,
     ) -> Self {
         Self {
+            authz,
             classes,
             programs,
             users,
         }
     }
 
-    /// 新增：不自動加入基本程式權限（W8，TipTop p_zw.4gl:333-343 不移植）
+    /// 新增：不自動加入基本程式權限（W8，TipTop p_zw.4gl:333-343 不移植）。
+    /// TipTop 在單身新增列，需 detail 與單身新增權限（AQ3、AQ8）
     pub async fn create(
         &self,
         actor: &Actor,
         input: PermissionClassInput,
     ) -> Result<PermissionClassDto, AppError> {
+        self.authorize(actor, "detail").await?.add_row()?;
         let code = ClassCode::parse(&input.class_code)?;
         let attrs = self.attrs(&input).await?;
         let class = PermissionClass::new(code, attrs, &actor.user_id, &actor.dept, today());
@@ -64,6 +73,7 @@ impl PermissionClassService {
         code: &str,
         input: PermissionClassInput,
     ) -> Result<PermissionClassDto, AppError> {
+        self.authorize(actor, "detail").await?;
         let mut class = self.load(code).await?;
         let requested = input.class_code.trim();
         if !requested.is_empty() && requested != class.code.as_str() {
@@ -75,12 +85,18 @@ impl PermissionClassService {
         Ok(to_dto(&class))
     }
 
-    pub async fn get(&self, code: &str) -> Result<PermissionClassDto, AppError> {
+    pub async fn get(&self, actor: &Actor, code: &str) -> Result<PermissionClassDto, AppError> {
+        self.authorize(actor, "query").await?;
         Ok(to_dto(&self.load(code).await?))
     }
 
     /// QBE 查詢（p_zw_curs，p_zw.4gl:185-241）；欄位見 query::permission_class（WQ1–WQ3）
-    pub async fn query(&self, req: QueryRequest) -> Result<Page<PermissionClassDto>, AppError> {
+    pub async fn query(
+        &self,
+        actor: &Actor,
+        req: QueryRequest,
+    ) -> Result<Page<PermissionClassDto>, AppError> {
+        self.authorize(actor, "query").await?;
         let filters = query::permission_class::filters(&req.conditions)?;
         let p = query::paging(&req);
         let (rows, total) = self
@@ -97,13 +113,16 @@ impl PermissionClassService {
         })
     }
 
+    /// 全部清單：下拉選單、欄位檢查用的參考資料，只要求登入（AQ4）
     pub async fn list(&self) -> Result<Vec<PermissionClassDto>, AppError> {
         let classes = self.classes.list().await.map_err(infra)?;
         Ok(classes.iter().map(to_dto).collect())
     }
 
-    /// 刪除：仍有使用者（azz-217）或程式權限（azz-005）時拒絕，不做連帶刪除（W7，p_zw.4gl:537-582）
-    pub async fn delete(&self, code: &str) -> Result<(), AppError> {
+    /// 刪除：仍有使用者（azz-217）或程式權限（azz-005）時拒絕，不做連帶刪除（W7，p_zw.4gl:537-582）。
+    /// TipTop 在單身刪除列，需 detail 與單身刪除權限（AQ3、AQ8）
+    pub async fn delete(&self, actor: &Actor, code: &str) -> Result<(), AppError> {
+        self.authorize(actor, "detail").await?.delete_row()?;
         let class = self.load(code).await?;
         self.ensure_unused(&class.code).await?;
         if self
@@ -124,6 +143,7 @@ impl PermissionClassService {
         actor: &Actor,
         code: &str,
     ) -> Result<PermissionClassDto, AppError> {
+        self.authorize(actor, "detail").await?;
         let mut class = self.load(code).await?;
         self.ensure_unused(&class.code).await?;
         class.set_active(false, &actor.user_id, today());
@@ -136,6 +156,7 @@ impl PermissionClassService {
         actor: &Actor,
         code: &str,
     ) -> Result<PermissionClassDto, AppError> {
+        self.authorize(actor, "detail").await?;
         let mut class = self.load(code).await?;
         class.set_active(true, &actor.user_id, today());
         self.classes.update(&class).await.map_err(infra)?;
@@ -144,7 +165,9 @@ impl PermissionClassService {
 
     /// 更新所有使用者目錄編號（p_zw.4gl:761-776）：有預設選單的權限類別，其使用者的選單改為預設選單；
     /// 只更新選單不同的使用者並記錄修改者（W9）。回傳更新的使用者數。
+    /// TipTop 是單身內的動作 update_all_user_menu（p_zw.4gl:682-683），需 detail（AQ3）
     pub async fn update_user_menus(&self, actor: &Actor) -> Result<u64, AppError> {
+        self.authorize(actor, "detail").await?;
         let menus: HashMap<String, String> = self
             .classes
             .list()
@@ -167,6 +190,10 @@ impl PermissionClassService {
             updated += 1;
         }
         Ok(updated)
+    }
+
+    async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
+        self.authz.authorize(actor, PROGRAM, action).await
     }
 
     async fn load(&self, code: &str) -> Result<PermissionClass, AppError> {

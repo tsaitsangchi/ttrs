@@ -785,6 +785,25 @@ pub struct ProgramPermissionInput {
     pub detail_rows: Option<String>,
 }
 
+/// 目前使用者在某作業的有效權限（authorization.feature AQ13）：畫面據以隱藏沒有權限的按鈕
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MyPermissionDto {
+    pub program: String,
+    /// 有沒有本作業的權限（沒有時其餘欄位為空）
+    pub allowed: bool,
+    pub actions: Vec<String>,
+    pub other_user_data: String,
+    pub other_dept_data: String,
+    pub detail_rows: String,
+}
+
+impl MyPermissionDto {
+    /// 功能在允許清單中（不分大小寫）
+    pub fn allows(&self, action: &str) -> bool {
+        self.actions.iter().any(|a| a.eq_ignore_ascii_case(action))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ProgramPermissionDto {
     pub class_code: String,

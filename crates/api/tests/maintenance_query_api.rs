@@ -10,36 +10,15 @@ use axum::{
 };
 use tower::ServiceExt;
 use ttrs_api::{AppState, actor_from_env, router};
-use ttrs_app::{
-    DataDictionaryService, ItemService, LegacyCatalogService, PermissionClassService, PlantService,
-    ProgramPermissionService, ProgramService, UserPermissionService, UserService,
-    memory::InMemoryStore,
-};
+use ttrs_app::{Services, memory::InMemoryStore};
 use ttrs_shared::{ApiError, Page, PermissionClassDto, PlantDto, ProgramPermissionDto, UserDto};
 
 async fn app() -> Router {
     let store = InMemoryStore::seeded();
     store.add_module("MENU");
     let store = Arc::new(store);
-    let app = router(AppState {
-        items: ItemService::new(store.clone(), store.clone()),
-        programs: ProgramService::new(store.clone()),
-        dictionary: DataDictionaryService::new(store.clone(), store.clone(), store.clone()),
-        legacy: LegacyCatalogService::new(store.clone()),
-        users: UserService::new(
-            store.clone(),
-            store.clone(),
-            store.clone(),
-            store.clone(),
-            store.clone(),
-        ),
-        classes: PermissionClassService::new(store.clone(), store.clone(), store.clone()),
-        plants: PlantService::new(store.clone()),
-        permissions: ProgramPermissionService::new(store.clone(), store.clone(), store.clone()),
-        special: UserPermissionService::new(store.clone(), store.clone(), store.clone(), store),
-        actor: actor_from_env(),
-    });
-    // 新增程式時自動授權給目前使用者的權限類別 ADMIN
+    let app = router(AppState::new(Services::new(store), actor_from_env()));
+    // 新增程式時自動授權給目前使用者的權限類別 ADMIN（ADMIN 另有起始資料的已移植作業權限）
     for (uri, body) in [
         (
             "/api/programs",
@@ -47,7 +26,7 @@ async fn app() -> Router {
         ),
         (
             "/api/programs",
-            serde_json::json!({ "program_no": "aimi100", "module_code": "AIM", "default_actions": "query" }),
+            serde_json::json!({ "program_no": "aimi109", "module_code": "AIM", "default_actions": "query" }),
         ),
         (
             "/api/users",
@@ -145,7 +124,7 @@ async fn program_permissions_query_and_class_detail() {
     let res = app
         .oneshot(post(
             "/api/permission-classes/ADMIN/permission-query",
-            condition("program_no", "aimi*"),
+            condition("program_no", "aimi109"),
         ))
         .await
         .unwrap();

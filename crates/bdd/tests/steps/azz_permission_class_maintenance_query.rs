@@ -27,7 +27,7 @@ fn field_key(label: &str) -> &'static str {
 }
 
 async fn run(w: &mut ErpWorld, req: QueryRequest) {
-    let result = w.classes.query(req).await;
+    let result = w.classes.query(&w.actor, req).await;
     set_query_result(w, result, |c| c.class_code.clone());
 }
 
