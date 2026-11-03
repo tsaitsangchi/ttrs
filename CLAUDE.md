@@ -41,21 +41,27 @@ bdd：驗收測試，執行 specs/features/**/*.feature
 
 1. **萃取**：用資料目錄看相關資料表（`sch_catalog.py show`），再讀 `legacy/utf8/` 下的 4gl/4fd，整理業務規則，
    feature 檔頭以 `規則來源：tiptop/aim/4gl/aimi100.4gl:行號` 註明出處。
+   相關表的**每個 .sch 欄位**都要在 legacy-map 列出：`columns`（對應的新欄位）或 `not_ported`（附原因），
+   不確定的標 `verify: true`；不可只寫在註解或說明文字裡。
 2. **規格**：寫 `specs/features/<模組>/<名稱>.feature`（`# language: zh-TW`），
    檔頭註明 TipTop 程式代號、資料表、規則來源。**規格未經使用者確認前不寫實作。**
    審核中的規格標 `@draft`（BDD 執行時自動略過），並在檔頭列出「待確認」問題；
+   **不移植的欄位獨立列成一題**（表格列出欄位與原因），不要混在其他決定的說明裡。
    使用者確認後移除 `@draft` 再進入 Red。
 3. **Red**：在 `crates/bdd/tests/steps/<模組>_<名稱>.rs` 寫步驟，`make bdd` 必須先失敗。
 4. **Green**：依序實作 domain → app → infra → api → web，直到 `make test` 全過。
 5. **對照**：更新 `docs/legacy-map/<模組>.yaml`（舊表/欄位 → 新表/欄位）。
-6. **檢查**：`make check`（fmt + clippy -D warnings + test）全綠才算完成。
+   `scripts/tiptop/legacy_map_check.py` 檢查已對應的表每個 .sch 欄位都有列出（沒有 legacy/ 時略過）。
+6. **檢查**：`make check`（fmt + clippy -D warnings + test + legacy-map 檢查）全綠才算完成。
 
 ## 規則
 
 - 金額、數量、匯率一律 `rust_decimal::Decimal`，DB 用 `NUMERIC`；**禁止 f32/f64**（clippy 已設 deny）。
 - 錯誤用 `DomainError` 變體，`code()` 是穩定 API（BDD 與前端依賴），不可隨意改名。
 - 每個 domain 模組、migration 表格 COMMENT 都要註明對應的 TipTop 程式/資料表。
-- 多營運中心：單一 schema + `plant_id` 欄位；所有業務表主鍵/查詢都要帶 `plant_id`。
+- 多營運中心（ADR 0007，實作中）：一廠一個 PostgreSQL schema（`ds01`、`ds02`…，名稱小寫，即營運中心的資料庫代碼）；
+  共用 schema `public` 放系統資料、營運中心與法人、拋轉設定；主檔與交易是工廠層，放在工廠 schema、不帶 `plant_id`；
+  共用 schema 中參照營運中心的資料才帶 `plant_id`。每張表在 legacy-map 標 `scope`（system／group／plant）。
 - 新增 repository 方法時，`memory.rs` 與 `infra/pg.rs` 要同時實作且行為一致；
   `TTRS_BDD_DATABASE_URL=... make bdd` 需能對 PostgreSQL 跑同一份規格。
 - Migration 只能新增，不可修改已存在的檔案。
@@ -81,7 +87,10 @@ bdd：驗收測試，執行 specs/features/**/*.feature
 - 權限沿用 TipTop 模型與資料（zw/zy/zxw/zyw/gbl），動作代號用 TipTop action id（insert、modify、delete、query、confirm…）。
 - **每個 use case 都要宣告（程式代號, 動作）並經 app 層 `Authorizer` 檢查**；修改／刪除再依資料擁有者 `created_by`、
   擁有部門 `created_dept` 套用資料權限。畫面隱藏按鈕只是方便，伺服器一定要檢查。拒絕回 `PERMISSION_DENIED`。
-- 業務表以 PostgreSQL RLS 依 `plant_id` 隔離；每個交易先 `SET LOCAL ttrs.plant_id`。
+- 新增 use case 時，同時加入 `specs/features/azz/authorization.feature` 的對照表；新作業另加入
+  `ttrs_app::authorization::PORTED_PROGRAMS` 與起始資料 migration（ADMIN 全部功能）。BDD 預設不檢查權限，由該規格驗證。
+- 工廠資料以每廠的資料庫角色與 search_path 隔離（ADR 0007 §3）；每個交易先 `SET LOCAL ROLE ttrs_<schema>`、
+  `SET LOCAL search_path = <schema>, public`。
 - AI 代表使用者操作（Actor `kind = ai`），預設不得 confirm／post／approve／delete；背景作業用服務帳號。
 
 ## 常用指令

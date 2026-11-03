@@ -4,7 +4,9 @@
 # Rule source: tiptop/aoo/4gl/aooi901.4gl, tiptop/aoo/4fd/aooi901.4fd (aooi901.per), tiptop/aoo/sch/azp_file.sch,
 #           action labels tiptop/config/4ad/0/aoo/aooi901.4ad; no topcust override. Line numbers are noted on each scenario.
 # Data model: docs/adr/0001-architecture.md §4 (one schema + plant_id), docs/adr/0006-authentication-authorization.md §5
-# Status: P1–P12 confirmed (Key User, 2026-11-02; all as proposed); entering Red
+# Status: P1–P12 confirmed (Key User, 2026-11-02; all as proposed). P13–P15 (database code = plant schema,
+#         ADR 0007) confirmed (Key User, 2026-11-03; as drafted). Their scenarios keep @draft until implementation
+#         starts (it needs the ADR 0007 schema-per-plant infrastructure), then enter Red.
 #
 # Scope:
 #   - Maintain plants: plant code, name, time zone, address, phone, fax, active code; add / query / modify / delete / copy / deactivate
@@ -20,7 +22,7 @@
 #       azp20 MSSQL host IP, azp08 (no use), the actions "修改連線字串" / "報表資料庫維護" (connection strings, :248-280)
 #       and the unused copy-azp-to-every-schema routine i901_t (:1049-1070).
 #       azp03 is still needed once, by the data migration (each source schema's rows get plant_id = azp01);
-#       that mapping lives in docs/legacy-map, not in the plant table.
+#       that mapping lives in docs/legacy-map, not in the plant table.  → azp03 revised by P13 (pending).
 #   P2. azp053 "ERP 資料庫否" is not ported: it marks whether the schema is an ERP database (default Y, :303-304),
 #       and only triggers a warning and menu regeneration. Every TTRS plant is an ERP plant; rows with N are
 #       not migrated. Please confirm with the TOPPROD data that no real plant uses N.
@@ -53,6 +55,27 @@
 #  P12. Screen: as the 4fd, one record form (group01: code, name, time zone, address, phone, fax) with record navigation,
 #       plus a plant list; toolbar 新增 / 修改 / 刪除 / 停用・啟用 / 複製. Audit fields (owner, created date, modifier,
 #       modified date) are recorded like p_zx; azp_file has none.
+#
+# Decisions confirmed 2026-11-03 (Key User: "營運中心維護少了資料庫代碼"; one schema per plant, ADR 0007):
+#  P13. azp03 資料庫代碼 is the plant's PostgreSQL schema (ADR 0007 §1; revises P1 for azp03; TTRS column schema_name):
+#       a. Format `ds` + two digits (ds01–ds99), stored in lower case: PostgreSQL folds unquoted names to lower case
+#          (TipTop on Oracle shows DS01). Anything else → PLANT_SCHEMA_INVALID.
+#       b. Required. A new plant gets the next unused number (TipTop defaults to 'ds', :303); the user may change it
+#          before saving (ADR 0007 Q14).
+#       c. Unique (azp_file.sch unique index azp_02) → PLANT_SCHEMA_DUPLICATE. TipTop's own duplicate check is
+#          commented out (FUN-730022, :492-499), so only the index enforces it.
+#       d. Can't be changed once the plant exists → PLANT_SCHEMA_IMMUTABLE. TipTop lets the field be edited, but
+#          pointing a plant at another schema needs the DBA anyway.
+#       e. No check against TipTop (TTRS must not connect to TipTop; TipTop checks that the Oracle schema exists,
+#          :455-490). Migration reuses TOPPROD azp03 values that fit the format and maps the rest (ADR 0007 Q16).
+#       f. Query: QBE field 資料庫代碼, condition lower-cased (TipTop CONSTRUCT includes azp03, :123); see PQ5.
+#       g. Screen: label 資料庫代碼 right after the plant name (4fd order azp01, azp02, azp03); read-only when
+#          modifying; not in the plant list.
+#       h. legacy-map aoo.yaml: azp03 → plant.schema_name.
+#  P14. Adding a plant (and copying one, P11) creates its schema and database role ttrs_<schema> and applies all
+#       plant migrations as one step: if any part fails, nothing is created (ADR 0007 §5, Q12). Copy copies only the
+#       plant record (name, time zone, address, phone, fax), never business data.
+#  P15. Deleting a plant (only when unused, P10) also drops its schema and role.
 
 功能: 營運中心維護（Plant Maintenance）
   身為 系統管理員
@@ -161,3 +184,75 @@
     假設 營運中心 "CN01" 已啟用
     當 使用者將營運中心 "TW01" 複製為 "CN01"
     那麼 應出現錯誤 "PLANT_ALREADY_EXISTS"
+
+  # ---------- P13–P15 資料庫代碼與工廠 schema（ADR 0007；已確認，實作開始時移除 @draft）----------
+
+  # P13 b 新增時帶入下一個未使用的資料庫代碼
+  @draft
+  場景: 新增營運中心時帶入下一個資料庫代碼
+    假設 營運中心 "TW01" 的資料庫代碼為 "ds01"
+    當 使用者新增營運中心 "CN01"，名稱 "昆山廠"，時區 ""
+    那麼 操作應成功
+    而且 營運中心 "CN01" 的資料庫代碼應為 "ds02"
+
+  # P13 a 自行輸入時轉小寫
+  @draft
+  場景: 新增營運中心時自行輸入資料庫代碼
+    當 使用者新增營運中心 "CN01"，名稱 "昆山廠"，時區 ""，資料庫代碼 "DS05"
+    那麼 操作應成功
+    而且 營運中心 "CN01" 的資料庫代碼應為 "ds05"
+
+  # P13 a 格式為 ds 加兩位數字
+  @draft
+  場景大綱: 資料庫代碼格式不符
+    當 使用者新增營運中心 "CN01"，名稱 "昆山廠"，時區 ""，資料庫代碼 "<資料庫代碼>"
+    那麼 應出現錯誤 "PLANT_SCHEMA_INVALID"
+
+    例子:
+      | 資料庫代碼 |
+      | ds1        |
+      | ds100      |
+      | db01       |
+      | ds0a       |
+
+  # P13 c azp_file.sch 唯一索引 azp_02
+  @draft
+  場景: 資料庫代碼不可與其他營運中心重複
+    假設 營運中心 "TW01" 的資料庫代碼為 "ds01"
+    當 使用者新增營運中心 "CN01"，名稱 "昆山廠"，時區 ""，資料庫代碼 "ds01"
+    那麼 應出現錯誤 "PLANT_SCHEMA_DUPLICATE"
+
+  # P13 d 建立後不可修改
+  @draft
+  場景: 資料庫代碼建立後不可修改
+    當 使用者將營運中心 "TW01" 的資料庫代碼改為 "ds09"
+    那麼 應出現錯誤 "PLANT_SCHEMA_IMMUTABLE"
+
+  # P14 新增營運中心時建立工廠 schema 與角色並套用工廠 migration
+  @draft
+  場景: 新增營運中心時建立工廠 schema
+    當 使用者新增營運中心 "CN01"，名稱 "昆山廠"，時區 ""，資料庫代碼 "ds05"
+    那麼 操作應成功
+    而且 工廠 schema "ds05" 應已建立並套用全部工廠 migration
+    而且 資料庫角色 "ttrs_ds05" 應已建立
+
+  # P14 複製營運中心：帶下一個資料庫代碼並建立 schema，只複製營運中心資料
+  @draft
+  場景: 複製營運中心時建立新的工廠 schema
+    假設 營運中心 "TW01" 的資料庫代碼為 "ds01"
+    而且 單位 "PCS" 已存在
+    而且 "TW01" 已有料件 "A001"
+    當 使用者將營運中心 "TW01" 複製為 "TW02"
+    那麼 操作應成功
+    而且 營運中心 "TW02" 的資料庫代碼應為 "ds02"
+    而且 工廠 schema "ds02" 應已建立並套用全部工廠 migration
+    而且 "TW02" 應沒有料件
+
+  # P15 刪除營運中心時移除工廠 schema 與角色
+  @draft
+  場景: 刪除營運中心時移除工廠 schema
+    假設 已新增營運中心 "CN09"，資料庫代碼 "ds09"
+    當 使用者刪除營運中心 "CN09"
+    那麼 操作應成功
+    而且 工廠 schema "ds09" 應不存在
+    而且 資料庫角色 "ttrs_ds09" 應不存在

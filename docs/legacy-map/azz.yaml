@@ -9,9 +9,17 @@
 tables:
   - legacy: gao_file
     target: module
-    note: 模組；gao01 varchar2(10) 模組名稱。TipTop p_zz 另有固定選項 MENU（不在 gao_file），SUB/CSUB/LIB/CLIB/QRY/CQRY 不可選
+    note: 模組維護作業檔。TipTop p_zz 另有固定選項 MENU（不在 gao_file），SUB/CSUB/LIB/CLIB/QRY/CQRY 不可選
+    columns:
+      - { legacy: gao01, type: varchar2(10) NOT NULL, target: module_code, sch: 模組名稱（模組代號） }
+      - { legacy: "(無)", target: name, note: "TTRS 新增的模組名稱（畫面顯示用）；gao_file 沒有名稱欄", verify: true, verify_note: "轉檔時模組名稱的來源待確認" }
+    not_ported:
+      - { legacy: gao02, type: varchar2(20), sch: 模組變數值, reason: "Genero 執行環境變數；TTRS 的執行指令沿用 p_zz 自動產生規則（代號前 3 碼），不讀此值" }
+      - { legacy: gao03, type: varchar2(10), sch: 可執行程式路徑名稱, reason: "Genero 執行檔路徑" }
+      - { legacy: gao04, type: varchar2(20), sch: 可執行程式放置路徑, reason: "Genero 執行檔路徑" }
 
   - legacy: gaw_file
+    target: (尚未建表)
     note: 程式群組；gaw01 varchar2(10) 程式群組代碼、gaw02 varchar2(100) 說明。zz10 關連於 gaw01（尚未建表，zz10 目前不檢查存在）
 
   - legacy: zz_file
@@ -50,14 +58,29 @@ tables:
       - { legacy: zzgrup, type: varchar2(10), target: created_dept, sch: GROUP }
       - { legacy: zzmodu, type: varchar2(10), target: updated_by, sch: MODIFY USER, note: 修改時帶目前使用者（MOD-B50035） }
       - { legacy: zzdate, type: date, target: updated_on, sch: MODIFY DATE, note: 新增、修改、改代號、複製時帶今天 }
-      # 不搬：zz02/zz02e/zz02c（No Use）、zz11/zz12（程式類別-2/3）、zz18/zz19（使用者/部門資料權限，Genero 版停用）、
-      #       zz23（ISOLATION Mode）、zz24（Default Wait seconds）— MOD-4B0066、MOD-4B0183
+    not_ported:   # 依 MOD-4B0066、MOD-4B0183
+      - { legacy: zz02,  type: varchar2(80), sch: No Use, reason: 未使用 }
+      - { legacy: zz02e, type: varchar2(40), sch: No Use, reason: 未使用 }
+      - { legacy: zz02c, type: varchar2(40), sch: No Use, reason: 未使用 }
+      - { legacy: zz11,  type: varchar2(4), sch: 程式類別-2, reason: Genero 版不使用 }
+      - { legacy: zz12,  type: varchar2(4), sch: 程式類別-3, reason: Genero 版不使用 }
+      - { legacy: zz18,  type: varchar2(1), sch: 基本使用者資料權限, reason: "Genero 版停用；新權限資料權限預設 0（p_zy Y3）" }
+      - { legacy: zz19,  type: varchar2(1), sch: 基本部門資料權限, reason: "Genero 版停用；同 zz18" }
+      - { legacy: zz23,  type: varchar2(1), sch: ISOLATION Mode, reason: Genero 版不使用 }
+      - { legacy: zz24,  type: varchar2(1), sch: Default Wait seconds (0-9), reason: Genero 版不使用 }
 
   - legacy: gaz_file
     target: program_name
-    note: "程式名稱多語言記錄檔；主鍵 (gaz01, gaz02, gaz05)。gaz01 varchar2(20)→program_no、gaz02 varchar2(1) 語言別→lang、gaz03 varchar2(500)→name、gaz06 varchar2(255) 報表列印抬頭→report_title。語言別（L5）0→zh-TW、1→en、2→zh-CN；顯示時該語系無名稱退回繁中（L2）"
-    unmapped: "gaz04 varchar2(4000) 作業目的、gaz05 客製碼（Y 優先，屬主鍵）、gazuser/gazgrup/gazmodu/gazdate"
-    verify: true   # 語言別代碼（TipTop 為 1 碼，新系統用 zh-TW）轉換規則待定
+    note: "程式名稱多語言記錄檔；主鍵 (gaz01, gaz02, gaz05)。顯示時該語系無名稱退回繁中（L2）"
+    columns:
+      - { legacy: gaz01, type: varchar2(20) NOT NULL, target: program_no, sch: 程式代碼 }
+      - { legacy: gaz02, type: varchar2(1) NOT NULL, target: lang, sch: 語言別, note: "0→zh-TW、1→en、2→zh-CN（L5、ADR 0005）" }
+      - { legacy: gaz03, type: varchar2(500), target: name, sch: 程式名稱 }
+      - { legacy: gaz06, type: varchar2(255), target: report_title, sch: 報表列印抬頭 }
+    not_ported:
+      - { legacy: gaz04, type: varchar2(4000), sch: 作業目的, reason: "由 p_purpose 維護、p_help 顯示的作業說明；TTRS 尚未移植說明功能，屆時再加" }
+      - { legacy: gaz05, type: varchar2(1) NOT NULL, sch: 客製碼, reason: "TTRS 每個語系只有一個名稱；轉檔時客製（Y）優先" }
+      - { legacy: "gazuser / gazgrup / gazmodu / gazdate", sch: "Create User / Modify Group / Modify User / Modify Date", reason: "名稱不另記建立與修改者；程式本身有修改者與修改日（zzmodu、zzdate）" }
 
   - legacy: zy_file
     target: program_permission
@@ -65,6 +88,11 @@ tables:
     spec: specs/features/azz/program_permission_maintenance.feature
     query: "Q.查詢 CONSTRUCT zy01＋zy02/03/04/05/07（p_zy.4gl:154）→ ttrs_app::query::program_permission；specs/features/azz/program_permission_maintenance_query.feature（YQ1–YQ5）。只有單頭條件時含沒有程式權限的權限類別（YQ2，TipTop 查不到）；單身只顯示符合條件的程式（YQ3）；zy03 逐一比對每個功能（YQ4，TipTop 比對整串文字）"
     note: "權限類別＋程式一筆，有此筆才可執行該程式；資料權限的實際檢查見 ADR 0006（Authorizer）"
+    authorization: "執行時的檢查 → ttrs_app::authorization（Authorizer），規格 specs/features/azz/authorization.feature（AQ1–AQ13）：
+      zy03 功能不在清單拒絕（cl_chk_act_auth.4gl:77-93，不分大小寫）；zy04/zy05 用在 modify・detail・delete 的資料所有者／所有部門檢查
+      （:97-122，只套用在 TipTop 有設定資料所有者的 p_zx、p_zz，AQ5）與查詢範圍（4 只查自己／自己部門，5–8 只查相關部門，p_zx.4gl:194-204）；
+      zy05 5–8 修改刪除也要求部門在相關部門內，p_zyw 移植前相關部門只有自己的部門（AQ6）；zy07 用在 p_zw、p_zy、p_zxw 的單身新增列／刪除列
+      （cl_detail_input_auth，AQ8）。拒絕回 PERMISSION_DENIED（403）。起始資料：migrations/0015 登錄已移植作業並給 ADMIN 全部功能（AQ11）"
     columns:
       - { legacy: zy01,   type: varchar2(10) NOT NULL, target: class_code, sch: 權限類別 }
       - { legacy: zy02,   type: varchar2(20) NOT NULL, target: program_no, sch: 程式代號, note: "選單程式不設定（Y6）" }
@@ -79,7 +107,7 @@ tables:
     not_ported:
       - { legacy: zy06, type: varchar2(20), sch: 使用者允許印表方式, reason: "TipTop FUN-5C0057 已取消" }
       - { legacy: "gap_file / gbd_file", reason: "程式動作關係與動作多語名稱；常見動作由 TTRS 翻譯（Y2）" }
-      - { legacy: "gbl_file（p_auth_as 權限加嚴控管設定）", reason: "隨 Authorizer 設計" }
+      - { legacy: "gbl_file（p_auth_as 權限加嚴控管設定）", reason: "自訂動作比照 query/modify/delete 檢查資料權限；這次不做，沒有對應時自訂動作不檢查資料權限（同 TipTop 查無 gbl 資料，authorization.feature AQ7）", verify: true, verify_note: "請 DBA 確認 TOPPROD 的 gbl_file 是否有 p_zx、p_zz 的資料（如 invalid、authorization 比照 M）；有的話需提前移植" }
 
   - legacy: zw_file
     target: permission_class
@@ -144,6 +172,8 @@ tables:
     program: p_zxw（User Special Permission Maintenance 使用者特殊權限維護）
     spec: specs/features/azz/user_permission_maintenance.feature
     note: "有特殊權限的使用者只用特殊權限，不用使用者維護的權限類別（cl_set_priv）；全公司共用一份（X9）"
+    authorization: "執行時依項次合併類別列（取該類別的 zy_file 程式列）與程式列（zxw05–zxw08）：功能取聯集；他人資料、單身取聯集；
+      他部門資料取聯集，5–8 照 MOD-7B0137 對照表、沒有剛好的代碼時取較寬的（cl_setup.4gl:569-853，X8／AQ1）→ ttrs_domain::authorization::EffectivePermission::merge"
     columns:
       - { legacy: zxw01, type: varchar2(10) NOT NULL, target: user_id, sch: 使用者代號 }
       - { legacy: zxw02, type: number(5) NOT NULL, target: line_no, sch: 項次, note: "自動給號，只決定順序（X3）" }
@@ -168,22 +198,36 @@ tables:
       - { legacy: zxy03, type: varchar2(10) NOT NULL, target: plant_id }
 
   - legacy: gbt_file
+    target: (不移植)
     note: "帳號稽核原則（密碼長度、更新週期、試誤次數）；不搬，由公司 IdP 處理（ADR 0006 §3）"
 
   - legacy: zm_file
     target: menu_item
-    note: "選單；主鍵 (zm01, zm03)。zm01 varchar2(20) 目錄代號、zm03 number(5) 序號、zm04 varchar2(20) 程式代號"
+    note: "目錄檔；主鍵 (zm01, zm03)"
     mismatch: true   # 新系統主鍵為 (menu_no, program_no) 且無序號；TipTop 以序號排列、同一程式可重複出現
+    columns:
+      - { legacy: zm01, type: varchar2(20) NOT NULL, target: menu_no, sch: 目錄代號 }
+      - { legacy: zm04, type: varchar2(20), target: program_no, sch: 程式代號 }
+    not_ported:
+      - { legacy: zm03, type: number(5) NOT NULL, sch: 序號, reason: "目前 menu_item 沒有序號；p_zm 選單移植時處理排列順序" }
 
   - legacy: zai_file
     target: query_definition
-    note: "p_query 查詢單；主鍵 (zai01, zai05)。zai01 varchar2(80) 查詢單 ID（= 衍生程式代號）。TipTop p_zz 只檢查存在與否（Q5）"
-    unmapped: "zai02 名稱、zai03 說明、zai04、zai05 客製碼、zai06、zai07 對應程式代號"
+    note: "自定義查詢設定主頁（p_query）；主鍵 (zai01, zai05)。TipTop p_zz 只檢查存在與否（Q5）"
+    columns:
+      - { legacy: zai01, type: varchar2(80) NOT NULL, target: query_no, sch: 查詢單ID, note: "= 衍生程式代號" }
+    not_ported:
+      - { legacy: "zai02 / zai03 / zai04 / zai05 / zai06 / zai07 / zaiuser / zaigrup / zaimodu / zaidate", sch: "名稱、說明、需輸入查詢條件、客製碼、進階查詢、對應程式代號、資料所有者等", reason: "p_query 尚未移植，目前只用來檢查查詢定義是否存在；p_query 移植時補" }
 
   - legacy: azo_file
     target: audit_log
-    note: 異動紀錄；azo01 作業、azo02 使用者、azo03 日期、azo04 時間、azo05 鍵值、azo06 動作
-    verify: true   # azo_file.sch 不在 azz 模組，尚未取得定義
+    note: "系統重要資料修改記錄檔（tiptop/aoo/sch/azo_file.sch）；無主鍵"
+    columns:
+      - { legacy: azo01, type: varchar2(20), target: program, sch: 程式編號, note: "TTRS 目前寫作業識別（如 program-maintenance），不是 TipTop 程式代號", mismatch: true }
+      - { legacy: azo02, type: varchar2(10), target: user_id, sch: 異動人員 }
+      - { legacy: "azo03 / azo04", type: "date / varchar2(10)", target: created_at, sch: 異動日期／異動時間, note: 合併為一個時間戳 }
+      - { legacy: azo05, type: varchar2(80), target: key, sch: 異動資料的 KEY VALUE }
+      - { legacy: azo06, type: varchar2(80), target: action, sch: 異動說明, note: "TTRS 存動作代號（如 delete），TipTop 為說明文字", mismatch: true }
 
   # ---------------------------------------------------------------------------
   # p_zta 檔案架構修整記錄維護 → Data Dictionary Maintenance 資料字典維護
@@ -205,7 +249,12 @@ tables:
       - { legacy: zta11, type: varchar2(80), target: upstream_tables, sch: 檔案名稱, note: "4fd 標籤為 Upstream File（上游檔案），.sch 說明過時", mismatch: true }
       - { legacy: zta12, type: varchar2(60), target: downstream_tables, sch: 檔案目的, note: "4fd 標籤為 Downstream File（下游檔案），.sch 說明過時", mismatch: true }
       - { legacy: zta17, type: varchar2(10), sch: Synonym DB, note: 不搬 }
-      # zta03 系統別、zta04 使用別、zta08 No Use、zta09 檔案類別、zta13–zta16：4fd 未使用，不搬
+    not_ported:
+      - { legacy: zta03, type: varchar2(3), sch: 系統別, reason: 4fd 未使用 }
+      - { legacy: zta04, type: varchar2(4), sch: 使用別, reason: 4fd 未使用 }
+      - { legacy: zta08, type: varchar2(1), sch: No Use, reason: 未使用 }
+      - { legacy: zta09, type: varchar2(2), sch: 檔案類別(P/M/T/S), reason: "4fd 未使用；檔案型態改用 gat07（table_type）" }
+      - { legacy: "zta13 / zta14 / zta15 / zta16", type: varchar2(1), sch: 檔案來源／上游檔案／下游檔案／注意事項（no use）, reason: 未使用 }
 
   - legacy: gat_file
     target: table_dictionary / table_dictionary_text
@@ -232,13 +281,24 @@ tables:
       - { legacy: gaq07, type: varchar2(3), sch: 欄位屬性註記, note: 不搬 }
       - { legacy: gaq08, type: date, target: updated_on, sch: 異動日期 }
 
-  - legacy: ztb_file / ztc_file / ztd_file
+  - legacy: ztb_file
+    target: (不另存)
+    note: "欄位定義；與 ztc_file、ztd_file 同：改由 PostgreSQL 系統目錄唯讀讀取"
+
+  - legacy: ztc_file
+    target: (不另存)
+    note: "索引定義；同 ztb_file"
+
+  - legacy: ztd_file
+    target: (不另存)
     note: "欄位、索引、Constraint 定義（畫面對照見 docs/analysis/p_zta.md）。新系統不另存，改由 PostgreSQL 系統目錄（information_schema、pg_catalog）唯讀讀取。注意 4fd 的 ztb06–ztb09 實為精度/小數位/長度/NOT NULL，與 .sch 說明（中/英/簡說明）不符"
 
   - legacy: zs_file
+    target: (不移植)
     note: "檔案架構修整記錄（修正指令、p_zl 工作單號、測試/正式區、版號）。新系統以 migration 歷史取代（D5）"
 
   - legacy: zte_file
+    target: (不移植)
     note: "欄位/索引/限制的屬性覆寫（zte04：p package 標準、c customise 客製、s software design）；不搬。畫面的屬性（ztb05/ztc05/ztd12）一律依 TipTop 預設規則推導：欄位 tc_/ta_ 或表 tc_ 開頭、索引 tic_、限制 tpc_ 開頭為 c，其餘 p（p_zta.4gl:2260、:1997、:2964）"
 
 # TipTop catalog (legacy_catalog.feature): English naming for every azz table/column is in docs/legacy-map/tiptop-naming/azz.yaml

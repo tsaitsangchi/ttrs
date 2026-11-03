@@ -18,6 +18,8 @@ TipTop ERP 以 Genero 4GL 撰寫，資料庫為 Oracle/Informix，畫面由 GDC 
    讓桌面/PDA/第三方系統都走同一套 API。
 4. **多營運中心**：TipTop 一個營運中心一個 schema，新系統改為單一 schema + `plant_id`，
    日後可加 Row-Level Security。
+   → 2026-11-03 由 ADR 0007 修訂：改為一廠一個 PostgreSQL schema（共用 schema 放系統與集團資料），
+   以每廠的資料庫角色與 search_path 隔離。
 5. **資料表命名**：改為可讀英文，舊表/欄位對照維護於 `docs/legacy-map/*.yaml`，
    作為 ETL 與新舊比對（Golden Master）的依據。
 6. **測試**：BDD（cucumber-rs）以中文 Gherkin 撰寫；同一份規格需在記憶體與 PostgreSQL

@@ -33,6 +33,7 @@ check:
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
 	cargo test --workspace
+	python3 scripts/tiptop/legacy_map_check.py
 
 # 建立開發與測試資料庫（需有建立 DB 權限的 PostgreSQL 角色）
 db-create:

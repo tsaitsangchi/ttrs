@@ -6,6 +6,7 @@ tables:
     target: item
     program: aimi100
     note: 料件主檔；TipTop 依營運中心分 schema，新系統以 plant_id 區分
+    pending: "早期骨架（未照萃取流程）；aimi100 正式移植時逐欄萃取 264 欄"
     columns:
       - { legacy: "(schema)", target: plant_id, note: 來源資料庫/營運中心代碼 }
       - { legacy: ima01, target: item_no, note: 料件編號 }
@@ -17,11 +18,13 @@ tables:
   - legacy: tlf_file
     target: inventory_txn
     note: 庫存異動明細，所有進出庫交易皆寫入
+    pending: "早期骨架；移植庫存異動時逐欄萃取"
     verify: true
     columns: []   # 待匯入 tlf_file 結構後補齊
 
   - legacy: gfe_file
     target: unit
+    pending: "早期骨架；移植單位維護時逐欄萃取"
     verify: true
     columns: []
 

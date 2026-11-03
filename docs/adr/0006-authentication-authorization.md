@@ -71,6 +71,10 @@ Handled by the IdP (including MFA, lockout, password policy), not ported: `zx10`
 
 ### 5. Plant isolation
 
+> Revised 2026-11-03 by ADR 0007: one PostgreSQL schema per plant (`ds01`, `ds02`, …) plus the shared schema `public`.
+> Isolation is a per-plant database role and `search_path` set at the start of each transaction, replacing the RLS
+> design below. Plant switching (allowed plants, session / `X-TTRS-Plant`) stays as written.
+
 - Allowed plants come from `zxy_file`, the default from `zx08`, and only multi-plant users (`zx07`) can switch.
 - Current plant: chosen at login or switched later; web keeps it in the session, bearer clients send the `X-TTRS-Plant` header; every request is checked against the allowed list.
 - **PostgreSQL Row-Level Security**: business tables enable RLS with the policy `plant_id = current_setting('ttrs.plant_id')`;
@@ -101,8 +105,11 @@ Each record includes the actor type (person, AI, service) and the user being act
 1. p_zx user maintenance spec (including company-account binding) → `user_account`, `user_plant`
 2. p_zw, p_zy, p_zxw, p_zyw permission specs → effective-permission domain rules (cl_set_priv, cl_chk_act_auth)
 3. app `Authorizer` + `PERMISSION_DENIED`; add permission checks to existing p_zz, p_zta, aimi100
+   — done (2026-11-03): `specs/features/azz/authorization.feature` (AQ1–AQ13). Every use case of the ported programs
+   declares (program, action); related departments (zy05 5–8) are only the user's own department until p_zyw is ported;
+   custom-action mapping `gbl_file` (p_auth_as) and item data permissions come later; denials go to the application log until the audit ADR
 4. OIDC login endpoints, server-side sessions, web login and user menu (switch plant, log out)
-5. Plant switching and RLS (business tables first: item, inventory_txn)
+5. Plant switching and plant isolation (business tables first: item, inventory_txn) — schema per plant, see ADR 0007
 6. p_zm menus: the left-hand menu comes from data and is filtered by permission
 
 ## Questions for IT
