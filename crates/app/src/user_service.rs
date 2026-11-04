@@ -1,16 +1,19 @@
 //! User Maintenance 使用者維護 use case（TipTop: p_zx）
-//! 規格：specs/features/azz/user_maintenance.feature（U1–U9）；登入與權限：docs/adr/0006
+//! 規格：specs/features/azz/user_maintenance.feature（U1–U9）、user_maintenance_department.feature（UD1–UD6）、
+//! user_maintenance_plants.feature（PZ1–PZ8，TipTop p_zxy）；登入與權限：docs/adr/0006
 
 use std::sync::Arc;
 
 use chrono::NaiveDate;
 use ttrs_domain::{
     DomainError,
+    department::DeptCode,
     lang::DEFAULT_LANG,
+    password::{Credential, MAX_LEN},
     permission_class::ClassCode,
     plant::PlantId,
     program::ProgramNo,
-    user::{User, UserAttrs, UserId, plants_after_default_change},
+    user::{User, UserAttrs, UserId, chosen_plants, plants_after_default_change},
 };
 use ttrs_shared::{Page, QueryRequest, UserDto, UserInput};
 
@@ -18,9 +21,11 @@ use crate::{
     Actor, AppError, Authorizer,
     authorization::Grant,
     error::RepoError,
+    password_hash,
     ports::{
-        MasterDataRepository, PermissionClassRepository, ProgramRepository,
-        UserPermissionRepository, UserRepository,
+        CredentialRepository, DepartmentRepository, MasterDataRepository,
+        PermissionClassRepository, PlantRepository, ProgramRepository, UserPermissionRepository,
+        UserRepository,
     },
     query,
     user_permission_service::move_special_class,
@@ -38,9 +43,16 @@ pub struct UserService {
     classes: Arc<dyn PermissionClassRepository>,
     /// 使用者特殊權限（zxw_file）：改權限類別時連動（X6）
     special: Arc<dyn UserPermissionRepository>,
+    /// Web 密碼（zx10、zx20；ADR 0009）
+    credentials: Arc<dyn CredentialRepository>,
+    /// 部門（gem_file，工廠層）：部門代號須存在於預設營運中心（user_maintenance_department.feature UD1）
+    depts: Arc<dyn DepartmentRepository>,
+    /// 營運中心（azp_file）：勾選的可使用營運中心須存在且有效（user_maintenance_plants.feature PZ4）
+    plants: Arc<dyn PlantRepository>,
 }
 
 impl UserService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         authz: Arc<dyn Authorizer>,
         users: Arc<dyn UserRepository>,
@@ -48,6 +60,9 @@ impl UserService {
         master: Arc<dyn MasterDataRepository>,
         classes: Arc<dyn PermissionClassRepository>,
         special: Arc<dyn UserPermissionRepository>,
+        credentials: Arc<dyn CredentialRepository>,
+        depts: Arc<dyn DepartmentRepository>,
+        plants: Arc<dyn PlantRepository>,
     ) -> Self {
         Self {
             authz,
@@ -56,6 +71,9 @@ impl UserService {
             master,
             classes,
             special,
+            credentials,
+            depts,
+            plants,
         }
     }
 
@@ -64,13 +82,53 @@ impl UserService {
         self.authorize(actor, "insert").await?;
         let id = UserId::parse(&input.user_id)?;
         let attrs = self.attrs(&input, None).await?;
+        self.check_dept(&attrs).await?;
+        let password = web_password(&input)?;
+        let chosen = match &input.allowed_plants {
+            Some(list) => self.parse_new_plants(list, &[]).await?,
+            None => vec![attrs.default_plant.clone()],
+        };
+        let all = input.all_plants.unwrap_or(false);
+        let plants = chosen_plants(&attrs.default_plant, attrs.multi_plant, &chosen, all)?;
         let user = User::new(id, attrs, &actor.user_id, &actor.dept, today());
-        let plants = vec![user.attrs.default_plant.clone()];
         match self.users.insert(&user, &plants).await {
-            Ok(()) => Ok(to_dto(&user, &plants)),
-            Err(RepoError::Conflict) => Err(DomainError::UserAlreadyExists.into()),
-            Err(e) => Err(infra(e)),
+            Ok(()) => {}
+            Err(RepoError::Conflict) => return Err(DomainError::UserAlreadyExists.into()),
+            Err(e) => return Err(infra(e)),
         }
+        // 未輸入密碼時初始密碼＝使用者代號，須於下次登入改密碼（p_zx.4gl:447、:561，W1）
+        if let Some(p) = password {
+            self.set_password(&user.user_id, p).await?;
+        }
+        Ok(to_dto(&user, &plants))
+    }
+
+    /// 解除鎖定（p_zx user_unlock，p_zx.4gl:367-400）：試誤次數歸零
+    pub async fn unlock(&self, actor: &Actor, user_id: &str) -> Result<(), AppError> {
+        self.authorize(actor, "user_unlock").await?;
+        let user = self.load(user_id).await?;
+        if let Some(mut cred) = self
+            .credentials
+            .credential(&user.user_id)
+            .await
+            .map_err(infra)?
+        {
+            cred.failed_count = 0;
+            self.credentials
+                .save_credential(&user.user_id, &cred)
+                .await
+                .map_err(infra)?;
+        }
+        Ok(())
+    }
+
+    /// 管理員設定 Web 密碼：一律須於下次登入改密碼（p_zx.4gl:640-650，W7）
+    async fn set_password(&self, id: &UserId, password: &str) -> Result<(), AppError> {
+        let cred = Credential::reset(password_hash::hash(password)?, today());
+        self.credentials
+            .save_credential(id, &cred)
+            .await
+            .map_err(infra)
     }
 
     /// 修改（p_zx_u）：代號不可變（U1）；依預設營運中心與是否多營運中心同步可使用營運中心
@@ -87,20 +145,43 @@ impl UserService {
             return Err(DomainError::UserIdImmutable.into());
         }
         let attrs = self.attrs(&input, Some(&user.user_id)).await?;
-        let current = self.users.plants(&user.user_id).await.map_err(infra)?;
-        // 非多營運中心使用者只能有一個營運中心（p_zx.4gl:621-628）
-        if !attrs.multi_plant && user.attrs.multi_plant && current.len() > 1 {
-            return Err(DomainError::UserSinglePlant.into());
+        // 部門或預設營運中心有變動才重新檢查部門，舊資料的其他欄位照常可改（UD4）
+        if attrs.dept_code != user.attrs.dept_code
+            || attrs.default_plant != user.attrs.default_plant
+        {
+            self.check_dept(&attrs).await?;
         }
-        let plants = if attrs.default_plant == user.attrs.default_plant && !current.is_empty() {
-            current
-        } else {
-            plants_after_default_change(&current, &attrs.default_plant, attrs.multi_plant)
+        let password = web_password(&input)?;
+        let stored = self.users.plants(&user.user_id).await.map_err(infra)?;
+        let all = input
+            .all_plants
+            .unwrap_or_else(|| stored.iter().any(PlantId::is_all));
+        let current: Vec<PlantId> = stored.into_iter().filter(|p| !p.is_all()).collect();
+        let chosen = match &input.allowed_plants {
+            // 勾選清單取代原有清單（PZ1）
+            Some(list) => self.parse_new_plants(list, &current).await?,
+            None => {
+                // 非多營運中心使用者只能有一個營運中心（p_zx.4gl:621-628）
+                if !attrs.multi_plant && user.attrs.multi_plant && current.len() > 1 {
+                    return Err(DomainError::UserSinglePlant.into());
+                }
+                // 預設營運中心不在清單時加入（p_zx.4gl:1027-1060）
+                let keep = attrs.default_plant == user.attrs.default_plant && !current.is_empty();
+                plants_after_default_change(
+                    &current,
+                    &attrs.default_plant,
+                    keep || attrs.multi_plant,
+                )
+            }
         };
+        let plants = chosen_plants(&attrs.default_plant, attrs.multi_plant, &chosen, all)?;
         let old_class = user.attrs.permission_class.clone();
         let new_class = attrs.permission_class.clone();
         user.update(attrs, &actor.user_id, today());
         self.users.update(&user, &plants).await.map_err(infra)?;
+        if let Some(p) = password {
+            self.set_password(&user.user_id, p).await?;
+        }
         if old_class != new_class {
             move_special_class(
                 self.special.as_ref(),
@@ -177,7 +258,9 @@ impl UserService {
         let source = self.load(user_id).await?;
         let new_id = UserId::parse(new_id)?;
         let user = source.copy_as(new_id, &actor.user_id, &actor.dept, today());
-        let plants = vec![user.attrs.default_plant.clone()];
+        self.check_dept(&user.attrs).await?;
+        // 連同可使用營運中心（含全部營運中心）一起複製（PZ6；TipTop p_zx 只帶預設營運中心）
+        let plants = self.users.plants(&source.user_id).await.map_err(infra)?;
         match self.users.insert(&user, &plants).await {
             Ok(()) => Ok(to_dto(&user, &plants)),
             Err(RepoError::Conflict) => Err(DomainError::UserAlreadyExists.into()),
@@ -215,6 +298,49 @@ impl UserService {
 
     async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
         self.authz.authorize(actor, PROGRAM, action).await
+    }
+
+    /// 部門代號須為預設營運中心存在且有效的部門（p_zx.4gl:566-580 只警告，Key User 改為擋下，UD1–UD3）
+    async fn check_dept(&self, attrs: &UserAttrs) -> Result<(), AppError> {
+        let Some(raw) = &attrs.dept_code else {
+            return Ok(());
+        };
+        let dept = match DeptCode::parse(raw) {
+            Ok(code) => self
+                .depts
+                .get(&attrs.default_plant, &code)
+                .await
+                .map_err(infra)?,
+            Err(_) => None,
+        };
+        match dept {
+            None => Err(DomainError::DepartmentNotFound.into()),
+            Some(d) if !d.active => Err(DomainError::DepartmentInactive.into()),
+            Some(_) => Ok(()),
+        }
+    }
+
+    /// 勾選的營運中心：新加入的須存在（p_zxy.4gl:643-651）且有效（PZ4）；原本就在清單中的停用後仍保留
+    async fn parse_new_plants(
+        &self,
+        list: &[String],
+        current: &[PlantId],
+    ) -> Result<Vec<PlantId>, AppError> {
+        let mut out = Vec::with_capacity(list.len());
+        for raw in list {
+            let id = PlantId::parse(raw).map_err(|_| DomainError::PlantNotFound)?;
+            if !current.contains(&id) {
+                match self.plants.get(&id).await.map_err(infra)? {
+                    None => return Err(DomainError::PlantNotFound.into()),
+                    Some(p) if !p.active => {
+                        return Err(DomainError::PlantInactive(id.as_str().to_owned()).into());
+                    }
+                    Some(_) => {}
+                }
+            }
+            out.push(id);
+        }
+        Ok(out)
     }
 
     async fn load(&self, user_id: &str) -> Result<User, AppError> {
@@ -298,6 +424,16 @@ fn today() -> NaiveDate {
     chrono::Local::now().date_naive()
 }
 
+/// 輸入的 Web 密碼（只寫不讀）；空白表示不變更。長度上限同變更密碼（W6）
+fn web_password(input: &UserInput) -> Result<Option<&str>, AppError> {
+    match input.web_password.as_deref().filter(|p| !p.is_empty()) {
+        Some(p) if p.chars().count() > MAX_LEN => {
+            Err(DomainError::PasswordTooLong { max: MAX_LEN }.into())
+        }
+        other => Ok(other),
+    }
+}
+
 fn to_dto(u: &User, plants: &[PlantId]) -> UserDto {
     let a = &u.attrs;
     UserDto {
@@ -314,7 +450,12 @@ fn to_dto(u: &User, plants: &[PlantId]) -> UserDto {
         lang: a.lang.as_str().to_owned(),
         valid_until: a.valid_until,
         active: u.active,
-        allowed_plants: plants.iter().map(|p| p.as_str().to_owned()).collect(),
+        allowed_plants: plants
+            .iter()
+            .filter(|p| !p.is_all())
+            .map(|p| p.as_str().to_owned())
+            .collect(),
+        all_plants: plants.iter().any(PlantId::is_all),
         created_by: u.created_by.clone(),
         created_dept: u.created_dept.clone(),
         created_on: u.created_on,

@@ -237,3 +237,14 @@ a.md-button { text-decoration: none; }
 .session-user { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-plant { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
 .session-error { margin: 0 0 12px; font-size: 0.8125rem; color: var(--md-sys-color-error); }
+.session { flex-direction: column; align-items: stretch; }
+.session-row { display: flex; align-items: center; gap: 4px; }
+.session-notice { font-size: 0.8125rem; color: var(--md-sys-color-tertiary); }
+.session-actions { display: flex; gap: 4px; margin: 4px -8px -4px; }
+
+/* 登入畫面（weblogin.per） */
+.sign-in { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--md-sys-color-surface-container); }
+.sign-in-card { width: min(24rem, 92vw); padding: 32px 24px; border-radius: 28px; background: var(--md-sys-color-surface); display: flex; flex-direction: column; gap: 16px; }
+.sign-in-card h1 { margin: 0; }
+.sign-in-card h2 { margin: 0; font-weight: 400; }
+.sign-in-form { display: flex; flex-direction: column; gap: 16px; }

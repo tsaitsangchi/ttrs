@@ -27,7 +27,8 @@ use ttrs_domain::{
 use crate::{
     error::RepoError,
     ports::{
-        AuditEntry, DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemRepository,
+        AccountPolicy, AccountPolicyRepository, AuditEntry, Credential, CredentialRepository,
+        DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemRepository,
         LegacyCatalogRepository, LegacyTableSummary, MasterDataRepository, MigrationSource,
         PermissionClassRepository, PermissionListItem, PlantRepository, ProgramName,
         ProgramPermissionRepository, ProgramRepository, SchemaCatalog, TableSchema,
@@ -41,6 +42,9 @@ struct State {
     /// 使用者（zx_file）與可使用營運中心（zxy_file）
     users: BTreeMap<UserId, User>,
     user_plants: BTreeMap<UserId, Vec<PlantId>>,
+    /// Web 密碼（ADR 0009）；使用者刪除時一併刪除
+    credentials: BTreeMap<UserId, Credential>,
+    account_policy: AccountPolicy,
     /// (使用者, 項次) → 使用者特殊權限（zxw_file）
     user_permissions: BTreeMap<(UserId, i32), UserPermission>,
     /// TipTop 對照目錄（舊表代碼 → 對照）
@@ -183,6 +187,25 @@ impl InMemoryStore {
         let id = UserId::parse(user).expect("使用者代號");
         if let Some(u) = self.lock().users.get_mut(&id) {
             u.attrs.valid_until = date;
+        }
+    }
+
+    /// 帳號稽核原則（gbt_file）
+    pub fn set_account_policy(&self, policy: AccountPolicy) {
+        self.lock().account_policy = policy;
+    }
+
+    /// 使用者目前的密碼狀態（BDD 驗證用）
+    pub fn credential_of(&self, user: &str) -> Option<Credential> {
+        let id = UserId::parse(user).expect("使用者代號");
+        self.lock().credentials.get(&id).cloned()
+    }
+
+    /// 直接設定密碼更新日（模擬先前變更的密碼）
+    pub fn set_password_changed_on(&self, user: &str, date: NaiveDate) {
+        let id = UserId::parse(user).expect("使用者代號");
+        if let Some(c) = self.lock().credentials.get_mut(&id) {
+            c.changed_on = Some(date);
         }
     }
 
@@ -748,6 +771,7 @@ impl UserRepository for InMemoryStore {
         let mut s = self.lock();
         s.users.remove(id);
         s.user_plants.remove(id);
+        s.credentials.remove(id);
         s.user_permissions.retain(|(u, _), _| u != id);
         Ok(())
     }
@@ -1245,5 +1269,32 @@ impl EmployeeRepository for InMemoryStore {
             .employees
             .remove(&(plant.clone(), id.clone()))
             .is_some())
+    }
+}
+
+#[async_trait]
+impl CredentialRepository for InMemoryStore {
+    async fn credential(&self, user: &UserId) -> Result<Option<Credential>, RepoError> {
+        Ok(self.lock().credentials.get(user).cloned())
+    }
+
+    async fn save_credential(
+        &self,
+        user: &UserId,
+        credential: &Credential,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.users.contains_key(user) {
+            return Err(RepoError::Other(format!("使用者不存在：{}", user.as_str())));
+        }
+        s.credentials.insert(user.clone(), credential.clone());
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl AccountPolicyRepository for InMemoryStore {
+    async fn account_policy(&self) -> Result<AccountPolicy, RepoError> {
+        Ok(self.lock().account_policy.clone())
     }
 }

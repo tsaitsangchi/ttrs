@@ -44,7 +44,7 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "user-maintenance",
         "p_zx",
         "AZZ",
-        "insert, query, modify, delete, reproduce, invalid",
+        "insert, query, modify, delete, reproduce, invalid, user_unlock",
     ),
     (
         "permission-class-maintenance",

@@ -1,12 +1,12 @@
 # language: zh-TW
 # TipTop 對應：weblogin Web 使用者登入作業、aoos901 營運中心切換（選擇登入的營運中心）
 #   資料表：zx_file（使用者）、zxy_file（使用者可使用營運中心）、azp_file（營運中心）
-#   不移植的資料表：gbt_file（帳號稽核原則）、gbq_file（執行中程序記錄）
+#   不移植的資料表：gbq_file（執行中程序記錄）；密碼與帳號稽核原則（zx10、gbt_file）見 web_password.feature
 # 新系統名稱：Sign In 登入（英文程式代號 sign-in）、Switch Plant 切換營運中心（switch-plant）
 # 規則來源：tiptop/azz/4gl/weblogin.4gl、tiptop/azz/4fd/weblogin.4fd（weblogin.per）、
 #           tiptop/aoo/4gl/aoos901.4gl、tiptop/sub/4gl/s_chkdbs.4gl、tiptop/azz/sch/zx_file.sch、
-#           tiptop/azz/sch/zxy_file.sch；無 topcust 覆寫。行號標於各場景。相關 ADR 0006 §1、§2、ADR 0007。
-# 狀態：SQ1–SQ10 依草稿確認（Key User，2026-11-03），進入 Red
+#           tiptop/azz/sch/zxy_file.sch；無 topcust 覆寫。行號標於各場景。相關 ADR 0009（取代 ADR 0006 §1、§2）、ADR 0007。
+# 狀態：SQ1–SQ10 依草稿確認（Key User，2026-11-03）；2026-11-04 依 ADR 0009 改為使用者代號＋Web 密碼登入（SQ1、SQ2、SQ10）
 #
 # TipTop 的做法：
 #   weblogin 有三種進入方式（weblogin.4gl:113-327）：Portal SSO 憑證（SOK，經 CAS 取得使用者代號）、
@@ -23,12 +23,9 @@
 #   Portal 帶營運中心參數時直接用該營運中心，同樣經 s_chkdbs 檢查（weblogin.4gl:170-176）。
 #
 # 確認事項（皆採草稿）：
-#   SQ1. 驗證方式（ADR 0006 §1）：TTRS 不存密碼，一律由公司 SSO（OIDC）驗證身分；weblogin 的帳號密碼登入、
-#        Portal SOK／CAS 驗證不移植。公司 IdP 尚未決定（ADR 0006 Q1），先以測試用 IdP 開發，
-#        BDD 從「IdP 已驗證的公司帳號」開始。
-#   SQ2. 帳號對應（ADR 0006 §2）：先以公司帳號識別碼（idp_subject）找使用者；找不到時以使用者維護輸入的
-#        公司帳號（idp_username，不分大小寫）找，並在首次登入時記下識別碼。都找不到 → USER_NOT_REGISTERED，
-#        不自動建帳號。
+#   SQ1. 驗證方式（ADR 0009，取代原 ADR 0006 §1 公司 SSO）：以使用者代號（zx01）與 Web 密碼登入，
+#        密碼規則見 web_password.feature；Portal SOK／CAS 驗證不移植。
+#   SQ2. 帳號對應：使用者代號即帳號，不自動建帳號；帳號不存在與密碼錯誤同一訊息 SIGN_IN_FAILED（ADR 0009 W2）。
 #   SQ3. 帳號檢查（user_validate）：資料有效（zxacti）＝否 → USER_INACTIVE；有效日期（zx18）早於今天 → USER_EXPIRED
 #        （等於今天仍可登入，同 :465）。登入中的連線每 10 分鐘重新檢查一次（ADR 0006 §2），停用或過期即結束連線。
 #   SQ4. 登入的營運中心：登入後直接進入預設營運中心（zx08），不像 TipTop 先跳出選擇畫面；
@@ -45,8 +42,7 @@
 #        畫面語系預設用使用者的語言別。
 #  SQ10. 不移植的功能與欄位：
 #        | 項目 | 原因 |
-#        | 密碼 zx10、密碼修改日 zx16、登入次數 zx17、強制改密碼 zx19、試誤次數 zx20、gbt_file 帳號稽核原則 | 由公司 IdP 處理（ADR 0006 §3） |
-#        | 試誤 5 次結束、登入畫面閒置 30 秒結束（:46、:294） | 由公司 IdP 處理 |
+#        | 試誤 5 次結束、登入畫面閒置 30 秒結束（:46、:294） | 由試誤次數鎖定涵蓋（ADR 0009 W3） |
 #        | gbq_file 執行中程序記錄、fglWrt -u 清除授權、udm7 連線 | Genero 執行環境專用 |
 #        | Portal 待辦事項結案（todolist，:237-248）、aws_ppcli SSO 記錄檔 | Product Portal 整合，未使用 |
 #        | Portal 帶作業代號直接執行（:178-187） | 改由網址直接開啟作業（登入後回到原網址） |
@@ -54,7 +50,7 @@
 
 功能: 登入與選擇營運中心（Sign In）
   身為 公司員工
-  我想要 用公司帳號登入 TTRS 並進入我負責的營運中心
+  我想要 用使用者代號與密碼登入 TTRS 並進入我負責的營運中心
   以便 依 TipTop 相同的帳號與營運中心規則使用系統
 
   背景:
@@ -63,38 +59,25 @@
     而且 營運中心 "TW01" 已啟用
     而且 營運中心 "CN01" 已啟用
     而且 營運中心 "JP01" 已啟用
-    而且 已有使用者 "u001"，公司帳號 "u001@corp.example"，預設營運中心 "TW01"
+    而且 已有使用者 "u001"，預設營運中心 "TW01"，Web 密碼 "Secret123"
 
-  # SQ2、SQ9 以公司帳號登入，進入預設營運中心
-  場景: 以公司帳號登入進入預設營運中心
-    當 公司帳號 "U001@corp.example"（識別碼 "sub-001"）登入
+  # SQ1、SQ9 以使用者代號與密碼登入，進入預設營運中心
+  場景: 登入進入預設營運中心
+    當 以使用者代號 "u001"、密碼 "Secret123" 登入
     那麼 操作應成功
     而且 登入的使用者應為 "u001"
     而且 目前營運中心應為 "TW01"
-    而且 使用者 "u001" 的公司帳號識別碼應為 "sub-001"
-
-  # SQ2 首次登入後以識別碼對應，公司帳號名稱改了也找得到
-  場景: 以公司帳號識別碼登入
-    假設 公司帳號 "u001@corp.example"（識別碼 "sub-001"）已登入過
-    當 公司帳號 "renamed@corp.example"（識別碼 "sub-001"）登入
-    那麼 操作應成功
-    而且 登入的使用者應為 "u001"
-
-  # SQ2 不自動建帳號
-  場景: 未在 TTRS 註冊的公司帳號不可登入
-    當 公司帳號 "nobody@corp.example"（識別碼 "sub-999"）登入
-    那麼 應出現錯誤 "USER_NOT_REGISTERED"
 
   # weblogin.4gl:432-444 zxacti＝Y（lib-064）
   場景: 已停用的使用者不可登入
     假設 使用者 "u001" 已停用
-    當 公司帳號 "u001@corp.example"（識別碼 "sub-001"）登入
+    當 以使用者代號 "u001"、密碼 "Secret123" 登入
     那麼 應出現錯誤 "USER_INACTIVE"
 
   # weblogin.4gl:465-473 zx18 早於今天（azz1092）
   場景大綱: 超過有效日期的使用者不可登入
     假設 使用者 "u001" 的有效日期為 <有效日期>
-    當 公司帳號 "u001@corp.example"（識別碼 "sub-001"）登入
+    當 以使用者代號 "u001"、密碼 "Secret123" 登入
     那麼 <結果>
 
     例子:
@@ -106,13 +89,13 @@
   # SQ6 預設營運中心不可用時登入失敗
   場景: 預設營運中心已停用時不可登入
     假設 營運中心 "TW01" 已停用
-    當 公司帳號 "u001@corp.example"（識別碼 "sub-001"）登入
+    當 以使用者代號 "u001"、密碼 "Secret123" 登入
     那麼 應出現錯誤 "PLANT_INACTIVE"
 
   # SQ9 可切換的營運中心＝可使用營運中心（q_zxy）
   場景: 登入後列出可切換的營運中心
     假設 使用者 "u001" 為多營運中心，可使用營運中心 "TW01"、"CN01"
-    當 公司帳號 "u001@corp.example"（識別碼 "sub-001"）登入
+    當 以使用者代號 "u001"、密碼 "Secret123" 登入
     那麼 可切換的營運中心應為 "CN01,TW01"
 
   # aoos901.4gl:135-153、:231 切換後寫回 zx08（SQ8）

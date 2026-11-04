@@ -6,7 +6,10 @@ use ttrs_shared::{QueryRequest, UserInput};
 
 use crate::{
     ErpWorld,
-    steps::common::{query_request, rows, set_query_result},
+    steps::{
+        azz_user_maintenance::seed_user,
+        common::{query_request, rows, set_query_result},
+    },
 };
 
 /// 畫面欄位名稱 → 查詢欄位鍵值（與 UserDto 欄位名稱相同）
@@ -60,7 +63,7 @@ async fn existing_users(w: &mut ErpWorld, step: &Step) {
                 .map(|d| NaiveDate::parse_from_str(&d, "%Y/%m/%d").expect("失效日期")),
             ..Default::default()
         };
-        w.users.create(&w.actor, req).await.unwrap();
+        seed_user(w, &w.actor, req).await;
         if r[9] == "否" {
             w.users.deactivate(&w.actor, &r[0]).await.unwrap();
         }

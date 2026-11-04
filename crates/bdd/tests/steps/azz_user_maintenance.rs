@@ -2,7 +2,8 @@
 
 use chrono::{Days, Local, NaiveDate};
 use cucumber::{gherkin::Step, given, then, when};
-use ttrs_shared::{ProgramInput, UserDto, UserInput};
+use ttrs_app::Actor;
+use ttrs_shared::{DepartmentInput, ProgramInput, UserDto, UserInput};
 
 use super::azz_program_maintenance::seed;
 use crate::ErpWorld;
@@ -51,7 +52,35 @@ pub(crate) fn standard(id: &str) -> UserInput {
     input(id, "王小明", "SAL", "CLASS1", "menu-main", "TW01")
 }
 
-async fn user(w: &ErpWorld, id: &str) -> UserDto {
+/// 前置資料：部門尚未建立時先建立（使用者的部門須存在於預設營運中心，user_maintenance_department.feature）
+pub(crate) async fn ensure_dept(w: &ErpWorld, plant: &str, code: Option<&str>) {
+    let Some(code) = code.filter(|c| !c.trim().is_empty()) else {
+        return;
+    };
+    if w.departments.get(&w.actor, plant, code).await.is_err() {
+        let dept = DepartmentInput {
+            dept_code: code.into(),
+            name: Some(code.into()),
+            full_name: None,
+        };
+        w.departments
+            .create(&w.actor, plant, dept)
+            .await
+            .unwrap_or_else(|e| panic!("建立部門 {plant}/{code} 失敗：{e}"));
+    }
+}
+
+/// 「假設已有使用者」：先備妥部門，再以 actor 建立使用者
+pub(crate) async fn seed_user(w: &ErpWorld, actor: &Actor, req: UserInput) {
+    ensure_dept(w, &req.default_plant, req.dept_code.as_deref()).await;
+    let id = req.user_id.clone();
+    w.users
+        .create(actor, req)
+        .await
+        .unwrap_or_else(|e| panic!("建立使用者 {id} 失敗：{e}"));
+}
+
+pub(crate) async fn user(w: &ErpWorld, id: &str) -> UserDto {
     w.users
         .get(&w.actor, id)
         .await
@@ -59,7 +88,7 @@ async fn user(w: &ErpWorld, id: &str) -> UserDto {
 }
 
 /// 讀出使用者、修改輸入後存檔，結果記在 w.last
-async fn modify(w: &mut ErpWorld, id: &str, change: impl FnOnce(&mut UserInput)) {
+pub(crate) async fn modify(w: &mut ErpWorld, id: &str, change: impl FnOnce(&mut UserInput)) {
     let mut req = user(w, id).await.to_input();
     change(&mut req);
     let result = w.users.update(&w.actor, id, req).await;
@@ -84,7 +113,7 @@ async fn menu_program_exists(w: &mut ErpWorld, no: String) {
 
 #[given(expr = "已有使用者 {string}")]
 async fn existing_user(w: &mut ErpWorld, id: String) {
-    w.users.create(&w.actor, standard(&id)).await.unwrap();
+    seed_user(w, &w.actor, standard(&id)).await;
 }
 
 #[given(expr = "已有使用者 {string}，公司帳號 {string}")]
@@ -93,7 +122,7 @@ async fn existing_user_with_account(w: &mut ErpWorld, id: String, account: Strin
         idp_username: Some(account),
         ..standard(&id)
     };
-    w.users.create(&w.actor, req).await.unwrap();
+    seed_user(w, &w.actor, req).await;
 }
 
 #[given(expr = "已有使用者 {string}，權限類別 {string}，選單 {string}")]
@@ -103,7 +132,18 @@ async fn existing_user_with_class(w: &mut ErpWorld, id: String, class: String, m
         menu,
         ..standard(&id)
     };
-    w.users.create(&w.actor, req).await.unwrap();
+    seed_user(w, &w.actor, req).await;
+}
+
+/// user_maintenance_department.feature
+#[given(expr = "已有使用者 {string}，部門 {string}，預設營運中心 {string}")]
+async fn existing_user_in_dept(w: &mut ErpWorld, id: String, dept: String, plant: String) {
+    let req = UserInput {
+        dept_code: Some(dept),
+        default_plant: plant,
+        ..standard(&id)
+    };
+    seed_user(w, &w.actor, req).await;
 }
 
 async fn existing_multi_plant_user(w: &mut ErpWorld, id: &str, plants: &[&str]) {
@@ -112,9 +152,10 @@ async fn existing_multi_plant_user(w: &mut ErpWorld, id: &str, plants: &[&str]) 
         default_plant: plants[0].into(),
         ..standard(id)
     };
-    w.users.create(&w.actor, req).await.unwrap();
+    seed_user(w, &w.actor, req).await;
     // 其餘營運中心依「變更預設營運中心時加入清單」的規則加入，再改回第一個為預設
     for p in &plants[1..] {
+        ensure_dept(w, p, Some("SAL")).await;
         let mut req = user(w, id).await.to_input();
         req.default_plant = (*p).into();
         w.users.update(&w.actor, id, req).await.unwrap();
@@ -195,6 +236,11 @@ async fn rename(w: &mut ErpWorld, id: String, name: String) {
     modify(w, &id, |r| r.name = Some(name)).await;
 }
 
+#[when(expr = "使用者將使用者 {string} 的部門改為 {string}")]
+async fn change_dept(w: &mut ErpWorld, id: String, dept: String) {
+    modify(w, &id, |r| r.dept_code = Some(dept)).await;
+}
+
 #[when(expr = "使用者將使用者 {string} 的代號改為 {string}")]
 async fn change_id(w: &mut ErpWorld, id: String, new_id: String) {
     modify(w, &id, |r| r.user_id = new_id).await;
@@ -246,6 +292,7 @@ async fn user_should_be(w: &mut ErpWorld, id: String, step: &Step) {
     let u = user(w, &id).await;
     for row in step.table.as_ref().expect("需要表格").rows.iter().skip(1) {
         let actual = match row[0].as_str() {
+            "部門" => u.dept_code.clone().unwrap_or_default(),
             "偏好語言" => u.lang.clone(),
             "多營運中心" => yes_no(u.multi_plant).into(),
             "資料有效" => yes_no(u.active).into(),

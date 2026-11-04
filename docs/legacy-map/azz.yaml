@@ -146,24 +146,24 @@ tables:
     columns:
       - { legacy: zx01,   type: varchar2(10) NOT NULL, target: user_id, sch: 使用者代號, note: "各表 created_by 存此值；建立後不可修改（U1）" }
       - { legacy: zx02,   type: varchar2(80), target: name, sch: 使用者名稱, note: "不做多語言（U5）" }
-      - { legacy: zx03,   type: varchar2(10), target: dept_code, sch: 部門代號, note: "部門主檔 gem_file 移植前為自由輸入（U3）" }
+      - { legacy: zx03,   type: varchar2(10), target: dept_code, sch: 部門代號, note: "須為預設營運中心（zx08）存在且有效的部門 department.dept_code（user_maintenance_department.feature UD1–UD2；TipTop 只警告，FUN-830081）" }
       - { legacy: zx04,   type: varchar2(10), target: class_code, sch: 權限類別 }
       - { legacy: zx05,   type: varchar2(10), target: menu_program, sch: 自定目錄編號, note: "須為模組 MENU 的程式" }
       - { legacy: zx06,   type: varchar2(1), target: lang, sch: 使用語言別, note: "0→zh-TW、1→en、2→zh-CN（U6）" }
       - { legacy: zx07,   type: varchar2(1), target: multi_plant, sch: 是否為多營運中心使用者, note: "Y/N → boolean" }
       - { legacy: zx08,   type: varchar2(10), target: default_plant, sch: 預設營運中心編號 }
       - { legacy: zx09,   type: varchar2(80), target: email, sch: Email位址, note: "新增基本格式檢核（U8）" }
-      - { legacy: zx10,   type: varchar2(40), sch: WEB User Password, note: "不搬（ADR 0006 §3，IdP 處理）" }
+      - { legacy: zx10,   type: varchar2(40), target: user_credential.password_hash, sch: WEB User Password, note: "Argon2id 雜湊；TipTop 編碼值不轉入，上線時初始密碼＝使用者代號且須改密碼（ADR 0009 W1）" }
       - { legacy: zx11,   type: varchar2(30), sch: 使用者流程, note: "不搬（TipTop udm tree）" }
       - { legacy: zx12,   type: varchar2(1), sch: 依照權限調整使用者目錄, note: "不搬（TTRS 選單即依權限動態產生）" }
       - { legacy: zx13,   type: varchar2(1), sch: No Use, note: 不搬 }
       - { legacy: zx14,   type: varchar2(1), sch: 使用多語言功能, note: "不搬（ADR 0005 一律支援三語）" }
       - { legacy: zx15,   type: varchar2(1), sch: UI切換語言別方式, note: "不搬（TTRS 介面語言隨時可切換）" }
-      - { legacy: zx16,   type: date, sch: Password 更新日期, note: "不搬（ADR 0006 §3）" }
-      - { legacy: zx17,   type: number(5), sch: 使用者此密碼已應用次數, note: "不搬（ADR 0006 §3）" }
+      - { legacy: zx16,   type: date, target: user_credential.password_changed_on, sch: Password 更新日期 }
+      - { legacy: zx17,   type: number(5), target: user_credential.password_use_count, sch: 使用者此密碼已應用次數 }
       - { legacy: zx18,   type: date, target: valid_until, sch: 使用者可用截止日期, note: "失效日期已到（含今天）即無效" }
-      - { legacy: zx19,   type: varchar2(1), sch: 強制使用者於下次登入更改密碼, note: "不搬（ADR 0006 §3）" }
-      - { legacy: zx20,   type: number(5), sch: 已試誤次數, note: "不搬（ADR 0006 §3）" }
+      - { legacy: zx19,   type: varchar2(1), target: user_credential.password_change_required, sch: 強制使用者於下次登入更改密碼, note: "Y/N → boolean；不轉入，上線時一律須改密碼（W1）" }
+      - { legacy: zx20,   type: number(5), target: user_credential.failed_sign_in_count, sch: 已試誤次數 }
       - { legacy: zxacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean" }
       - { legacy: zxuser, type: varchar2(10), target: created_by, sch: OWNER }
       - { legacy: zxgrup, type: varchar2(10), target: created_dept, sch: GROUP }
@@ -199,19 +199,35 @@ tables:
   - legacy: zxy_file
     target: user_plant
     scope: system
-    note: "使用者可使用營運中心；zxy02 使用者名稱為冗餘欄位不搬。登入與切換營運中心檢查（s_chkdbs）見 specs/features/azz/sign_in.feature"
+    note: "使用者可使用營運中心；p_zxy 不另設作業，併入使用者維護的勾選清單（specs/features/azz/user_maintenance_plants.feature PZ1–PZ8）。zxy02 使用者名稱為冗餘欄位不搬。登入與切換營運中心檢查（s_chkdbs）見 specs/features/azz/sign_in.feature"
     columns:
       - { legacy: zxy01, type: varchar2(10) NOT NULL, target: user_id }
-      - { legacy: zxy02, type: varchar2(80), sch: 使用者名稱, note: 不搬（冗餘） }
-      - { legacy: zxy03, type: varchar2(10) NOT NULL, target: plant_id, note: "zxy03＝ALL（全部營運中心）→ user_account.all_plants＝true，不寫 user_plant（migration 0019，SQ5）" }
+      - { legacy: zxy02, type: varchar2(80), sch: 使用者名稱, note: "不搬：TipTop 已改為參照 zx02（FUN-4B0033），新系統由 user_account.name 取得（PZ8）" }
+      - { legacy: zxy03, type: varchar2(10) NOT NULL, target: plant_id, note: "zxy03＝ALL（全部營運中心）→ user_account.all_plants＝true，不寫 user_plant（migration 0019，SQ5）；使用者維護的「全部營運中心」選項設定（PZ3）" }
 
   - legacy: gbq_file
     target: (不移植)
     note: "執行中程序記錄（weblogin 登入時寫入 FGLSERVER、營運中心）；Genero 執行環境專用，目前營運中心改存在登入連線（sign_in.feature SQ10）"
 
   - legacy: gbt_file
-    target: (不移植)
-    note: "帳號稽核原則（密碼長度、更新週期、試誤次數）；不搬，由公司 IdP 處理（ADR 0006 §3）"
+    target: account_policy
+    scope: system
+    note: "系統帳號稽核原則（p_passpriv 維護，尚未移植）；起始值依 ADR 0009 W5，規則見 specs/features/azz/web_password.feature"
+    columns:
+      - { legacy: gbt00,   type: varchar2(1) NOT NULL, target: policy_key, sch: key value(0) }
+      - { legacy: gbt01,   type: number(5), target: expiry_basis, sch: 密碼要求變更依據, note: "1 依天數、2 依次數，其他 → 0 不要求" }
+      - { legacy: gbt02,   type: number(5), target: cycle_days, sch: 密碼更新週期 (天) }
+      - { legacy: gbt03,   type: number(5), target: use_limit, sch: 密碼可用次數 (次數) }
+      - { legacy: gbt04,   type: number(5), target: notify, sch: 提前通知天數 (天) }
+      - { legacy: gbt05,   type: number(5), target: min_length, sch: 密碼最小長度 (字數) }
+      - { legacy: gbt06,   type: varchar2(1), target: complexity, sch: 密碼複雜度設定1-不可含帳號, note: "N／Y／M／S（webpasswd.4gl:154-199）" }
+      - { legacy: gbt07,   type: varchar2(1), sch: 是否使用Web密碼編碼功能, note: "不搬：一律 Argon2id 雜湊（W12）" }
+      - { legacy: gbt08,   type: varchar2(1), target: allow_same_as_old, sch: 更換密碼可否與原密碼相同, note: "Y/N → boolean" }
+      - { legacy: gbt09,   type: varchar2(1), sch: no use, note: "不搬（未使用，W12）" }
+      - { legacy: gbt10,   type: number(5), target: max_failures, sch: 允許最大試誤次數 }
+      - { legacy: gbtdate, type: date, target: updated_on, sch: 資料修改日 }
+      - { legacy: gbtgrup, type: varchar2(10), sch: 資料所有部門, note: "不搬（系統一筆，不套用資料權限）" }
+      - { legacy: gbtmodu, type: varchar2(10), target: updated_by, sch: 資料修改人 }
 
   - legacy: zm_file
     target: menu_item

@@ -9,6 +9,7 @@ pub mod error;
 pub mod item;
 pub mod lang;
 pub mod legacy_catalog;
+pub mod password;
 pub mod permission;
 pub mod permission_class;
 pub mod plant;

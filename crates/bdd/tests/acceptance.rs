@@ -75,6 +75,8 @@ pub struct ErpWorld {
     pub sign_in: SignInService,
     /// 目前登入的連線（sign_in.feature）
     pub session: Option<SessionDto>,
+    /// 各使用者目前的 Web 密碼（「使用者 … 已登入」用）
+    pub passwords: std::collections::HashMap<String, String>,
 }
 
 impl fmt::Debug for ErpWorld {
@@ -95,12 +97,22 @@ impl ErpWorld {
                 ttrs_infra::drop_all_plant_schemas(&pool)
                     .await
                     .expect("drop plant schemas");
-                sqlx::query("TRUNCATE user_permission, user_plant, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
+                sqlx::query("TRUNCATE user_permission, user_plant, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, unit, plant \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
                     .expect("truncate tables");
+                // 帳號稽核原則回到起始值（migration 0020，ADR 0009 W5）
+                for sql in [
+                    "DELETE FROM account_policy",
+                    "INSERT INTO account_policy (policy_key) VALUES ('0')",
+                ] {
+                    sqlx::query(sql)
+                        .execute(&pool)
+                        .await
+                        .expect("reset account policy");
+                }
                 let store = Arc::new(PgStore::new(pool.clone()));
                 let authz = ToggleAuthorizer::new(store.clone(), store.clone());
                 let services = Services::with_authorizer(store, authz.clone());
@@ -161,6 +173,7 @@ impl ErpWorld {
             my_permission: None,
             sign_in,
             session: None,
+            passwords: Default::default(),
         }
     }
 }

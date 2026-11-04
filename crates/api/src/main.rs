@@ -31,9 +31,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = std::env::var("TTRS_API_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".into());
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("listening on http://{addr}");
-    let actor = actor_from_env();
-    tracing::info!(user = %actor.user_id, "acting as development user (no login yet)");
-    let mut app = router(AppState::new(services, actor));
+    // 以使用者代號＋Web 密碼登入（ADR 0009）；TTRS_AUTH=fixed 時不登入、固定以 TTRS_USER 執行（本機截圖用）
+    let state = if std::env::var("TTRS_AUTH").is_ok_and(|v| v == "fixed") {
+        let actor = actor_from_env();
+        tracing::warn!(user = %actor.user_id, "sign-in disabled: acting as fixed user");
+        AppState::new(services, actor)
+    } else {
+        let secure = std::env::var("TTRS_COOKIE_SECURE").is_ok_and(|v| v == "1");
+        AppState::with_sign_in(services, secure)
+    };
+    let mut app = router(state);
     if let Some(cors) = cors_from_env() {
         tracing::info!("CORS enabled from TTRS_CORS_ORIGINS");
         app = app.layer(cors);

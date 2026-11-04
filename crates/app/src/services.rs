@@ -7,10 +7,10 @@ use crate::{
     LegacyCatalogService, PermissionAuthorizer, PermissionClassService, PlantService,
     ProgramPermissionService, ProgramService, SignInService, UserPermissionService, UserService,
     ports::{
-        DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemRepository,
-        LegacyCatalogRepository, MasterDataRepository, PermissionClassRepository, PlantRepository,
-        ProgramPermissionRepository, ProgramRepository, SchemaCatalog, UserPermissionRepository,
-        UserRepository,
+        AccountPolicyRepository, CredentialRepository, DepartmentRepository, DictionaryRepository,
+        EmployeeRepository, ItemRepository, LegacyCatalogRepository, MasterDataRepository,
+        PermissionClassRepository, PlantRepository, ProgramPermissionRepository, ProgramRepository,
+        SchemaCatalog, UserPermissionRepository, UserRepository,
     },
 };
 
@@ -29,6 +29,8 @@ pub trait Store:
     + UserPermissionRepository
     + DepartmentRepository
     + EmployeeRepository
+    + CredentialRepository
+    + AccountPolicyRepository
     + 'static
 {
 }
@@ -47,6 +49,8 @@ impl<T> Store for T where
         + UserPermissionRepository
         + DepartmentRepository
         + EmployeeRepository
+        + CredentialRepository
+        + AccountPolicyRepository
         + 'static
 {
 }
@@ -94,6 +98,9 @@ impl Services {
                 store.clone(),
                 store.clone(),
                 store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
             ),
             classes: PermissionClassService::new(
                 a.clone(),
@@ -109,7 +116,7 @@ impl Services {
                 store.clone(),
             ),
             departments: DepartmentService::new(a.clone(), store.clone(), store.clone()),
-            sign_in: SignInService::new(store.clone(), store.clone()),
+            sign_in: SignInService::new(store.clone(), store.clone(), store.clone(), store.clone()),
             employees: EmployeeService::new(a.clone(), store.clone(), store.clone(), store.clone()),
             special: UserPermissionService::new(
                 a,

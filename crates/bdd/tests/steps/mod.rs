@@ -16,6 +16,8 @@ mod azz_program_permission_maintenance;
 mod azz_program_permission_maintenance_query;
 mod azz_sign_in;
 mod azz_user_maintenance;
+mod azz_user_maintenance_plants;
 mod azz_user_maintenance_query;
 mod azz_user_permission_maintenance;
+mod azz_web_password;
 mod common;

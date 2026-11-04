@@ -7,6 +7,8 @@ programs:
   - { tiptop: p_zz,    english: program-maintenance,            spec: specs/features/azz/program_maintenance.feature }
   - { tiptop: p_zta,   english: data-dictionary,                spec: specs/features/azz/data_dictionary.feature }
   - { tiptop: p_zx,    english: user-maintenance,               spec: specs/features/azz/user_maintenance.feature }
+  # p_zxy 使用者資料庫權限設定：併入使用者維護的可使用營運中心勾選清單，權限同使用者維護的 modify（PZ2）
+  - { tiptop: p_zxy,   english: user-maintenance,               spec: specs/features/azz/user_maintenance_plants.feature, registered: false }
   - { tiptop: p_zxw,   english: user-permission-maintenance,    spec: specs/features/azz/user_permission_maintenance.feature }
   - { tiptop: p_zw,    english: permission-class-maintenance,   spec: specs/features/azz/permission_class_maintenance.feature }
   - { tiptop: p_zy,    english: program-permission-maintenance, spec: specs/features/azz/program_permission_maintenance.feature }

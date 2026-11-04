@@ -226,6 +226,33 @@ pub fn plants_after_default_change(
     plants
 }
 
+/// 勾選的可使用營運中心（TipTop p_zxy；user_maintenance_plants.feature PZ1、PZ3、PZ7）：
+/// 非多營運中心只能有預設營運中心、不可勾全部營運中心（azz-136）；須含預設營運中心（azz-075）；
+/// 重複的合併；全部營運中心以 `PlantId::all()` 一併記在清單中
+pub fn chosen_plants(
+    default_plant: &PlantId,
+    multi_plant: bool,
+    chosen: &[PlantId],
+    all: bool,
+) -> Result<Vec<PlantId>, DomainError> {
+    let mut plants: Vec<PlantId> = Vec::with_capacity(chosen.len() + 1);
+    for p in chosen.iter().filter(|p| !p.is_all()) {
+        if !plants.contains(p) {
+            plants.push(p.clone());
+        }
+    }
+    if !multi_plant && (all || plants.iter().any(|p| p != default_plant)) {
+        return Err(DomainError::UserSinglePlant);
+    }
+    if !plants.contains(default_plant) {
+        return Err(DomainError::UserDefaultPlantRequired);
+    }
+    if all {
+        plants.push(PlantId::all());
+    }
+    Ok(plants)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -272,6 +299,40 @@ mod tests {
         assert_eq!(
             plants_after_default_change(std::slice::from_ref(&tw), &cn, true),
             vec![tw, cn]
+        );
+    }
+
+    #[test]
+    fn chosen_plant_rules() {
+        let tw = PlantId::parse("TW01").unwrap();
+        let cn = PlantId::parse("CN01").unwrap();
+        assert_eq!(
+            chosen_plants(&tw, true, &[tw.clone(), cn.clone(), cn.clone()], false).unwrap(),
+            vec![tw.clone(), cn.clone()]
+        );
+        assert_eq!(
+            chosen_plants(&tw, true, std::slice::from_ref(&cn), false)
+                .unwrap_err()
+                .code(),
+            "USER_DEFAULT_PLANT_REQUIRED"
+        );
+        assert_eq!(
+            chosen_plants(&tw, false, &[tw.clone(), cn.clone()], false)
+                .unwrap_err()
+                .code(),
+            "USER_SINGLE_PLANT"
+        );
+        assert_eq!(
+            chosen_plants(&tw, false, std::slice::from_ref(&tw), true)
+                .unwrap_err()
+                .code(),
+            "USER_SINGLE_PLANT"
+        );
+        assert!(
+            chosen_plants(&tw, true, std::slice::from_ref(&tw), true)
+                .unwrap()
+                .iter()
+                .any(PlantId::is_all)
         );
     }
 }

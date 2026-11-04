@@ -28,6 +28,11 @@ async fn app() -> Router {
             "/api/programs",
             serde_json::json!({ "program_no": "item-price", "module_code": "AIM", "program_type": "I", "default_actions": "query" }),
         ),
+        // 使用者的部門須存在於預設營運中心（user_maintenance_department.feature）
+        (
+            "/api/plants/TW01/departments",
+            serde_json::json!({ "dept_code": "SAL", "name": "業務部" }),
+        ),
         (
             "/api/users",
             serde_json::json!({

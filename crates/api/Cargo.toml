@@ -9,9 +9,11 @@ publish.workspace = true
 
 [dependencies]
 ttrs-app = { workspace = true, features = ["memory"] }
+ttrs-domain.workspace = true
 ttrs-infra.workspace = true
 ttrs-shared.workspace = true
 axum.workspace = true
+getrandom.workspace = true
 serde.workspace = true
 tokio.workspace = true
 tower-http.workspace = true

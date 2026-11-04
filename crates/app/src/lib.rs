@@ -9,6 +9,7 @@ pub mod item_service;
 pub mod legacy_catalog_service;
 #[cfg(feature = "memory")]
 pub mod memory;
+pub mod password_hash;
 pub mod permission_class_service;
 pub mod permission_service;
 pub mod plant_service;
@@ -33,6 +34,6 @@ pub use permission_service::ProgramPermissionService;
 pub use plant_service::PlantService;
 pub use program_service::ProgramService;
 pub use services::Services;
-pub use sign_in_service::{SignInIdentity, SignInService};
+pub use sign_in_service::SignInService;
 pub use user_permission_service::UserPermissionService;
 pub use user_service::UserService;

@@ -2,23 +2,15 @@
 
 use chrono::{Duration, Local};
 use cucumber::{given, then, when};
-use ttrs_app::SignInIdentity;
 use ttrs_shared::{SessionDto, UserInput};
 
 use crate::{
     ErpWorld,
-    steps::{azz_program_maintenance::seed, azz_user_maintenance::standard},
+    steps::{azz_program_maintenance::seed, azz_user_maintenance::ensure_dept},
 };
 
-fn identity(username: &str, subject: &str) -> SignInIdentity {
-    SignInIdentity {
-        subject: subject.to_owned(),
-        username: username.to_owned(),
-    }
-}
-
 /// 登入結果：成功時記下目前的連線
-fn keep_session(w: &mut ErpWorld, result: Result<SessionDto, ttrs_app::AppError>) {
+pub(crate) fn keep_session(w: &mut ErpWorld, result: Result<SessionDto, ttrs_app::AppError>) {
     w.last = Some(result.map(|s| {
         w.session = Some(s);
     }));
@@ -28,7 +20,7 @@ fn session(w: &ErpWorld) -> &SessionDto {
     w.session.as_ref().expect("尚未登入")
 }
 
-async fn user_input(w: &ErpWorld, id: &str) -> UserInput {
+pub(crate) async fn user_input(w: &ErpWorld, id: &str) -> UserInput {
     w.users
         .get(&w.actor, id)
         .await
@@ -44,30 +36,13 @@ async fn make_multi_plant(w: &mut ErpWorld, id: &str, plants: &[&str]) {
     w.users.update(&w.actor, id, req).await.unwrap();
     for p in plants[1..].iter().chain(&plants[..1]) {
         let mut req = user_input(w, id).await;
+        ensure_dept(w, p, req.dept_code.as_deref()).await;
         req.default_plant = (*p).into();
         w.users.update(&w.actor, id, req).await.unwrap();
     }
 }
 
 // ----- 假設 -----
-
-#[given(expr = "已有使用者 {string}，公司帳號 {string}，預設營運中心 {string}")]
-async fn existing_user(w: &mut ErpWorld, id: String, account: String, plant: String) {
-    let req = UserInput {
-        idp_username: Some(account),
-        default_plant: plant,
-        ..standard(&id)
-    };
-    w.users.create(&w.actor, req).await.unwrap();
-}
-
-#[given(expr = "公司帳號 {string}（識別碼 {string}）已登入過")]
-async fn signed_in_before(w: &mut ErpWorld, account: String, subject: String) {
-    w.sign_in
-        .sign_in(identity(&account, &subject))
-        .await
-        .unwrap_or_else(|e| panic!("{account} 登入失敗：{e}"));
-}
 
 #[given(expr = "使用者 {string} 已停用")]
 async fn user_deactivated(w: &mut ErpWorld, id: String) {
@@ -122,25 +97,16 @@ async fn multi_plant_user_all(w: &mut ErpWorld, id: String, plant: String) {
 
 #[given(expr = "使用者 {string} 已登入")]
 async fn user_signed_in(w: &mut ErpWorld, id: String) {
-    let account = user_input(w, &id)
-        .await
-        .idp_username
-        .expect("未設定公司帳號");
+    let password = w.passwords.get(&id).cloned().expect("未設定 Web 密碼");
     let s = w
         .sign_in
-        .sign_in(identity(&account, &format!("sub-{id}")))
+        .sign_in(&id, &password)
         .await
         .unwrap_or_else(|e| panic!("{id} 登入失敗：{e}"));
     w.session = Some(s);
 }
 
 // ----- 當 -----
-
-#[when(expr = "公司帳號 {string}（識別碼 {string}）登入")]
-async fn sign_in(w: &mut ErpWorld, account: String, subject: String) {
-    let result = w.sign_in.sign_in(identity(&account, &subject)).await;
-    keep_session(w, result);
-}
 
 #[when(expr = "使用者切換到營運中心 {string}")]
 async fn switch_plant(w: &mut ErpWorld, plant: String) {
@@ -165,17 +131,6 @@ fn signed_in_user(w: &mut ErpWorld, expected: String) {
 #[then(expr = "目前營運中心應為 {string}")]
 fn current_plant(w: &mut ErpWorld, expected: String) {
     assert_eq!(session(w).plant, expected);
-}
-
-/// 以識別碼登入（公司帳號名稱不同）仍對應到同一使用者，表示識別碼已記下
-#[then(expr = "使用者 {string} 的公司帳號識別碼應為 {string}")]
-async fn bound_subject(w: &mut ErpWorld, id: String, subject: String) {
-    let s = w
-        .sign_in
-        .sign_in(identity("someone-else@corp.example", &subject))
-        .await
-        .unwrap_or_else(|e| panic!("以識別碼 {subject} 登入失敗：{e}"));
-    assert_eq!(s.user_id, id);
 }
 
 #[then(expr = "可切換的營運中心應為 {string}")]

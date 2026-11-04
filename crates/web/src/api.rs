@@ -4,15 +4,16 @@
 //! （開發由 dx proxy、正式由 nginx 轉發），桌面/行動版預設連本機 API。
 
 use ttrs_shared::{
-    ApiError, ColumnInfoDto, ColumnTextDto, ConstraintDto, CopyPermissionsRequest,
-    CopyUserPermissionsRequest, CreateItemRequest, DepartmentAccountingInput, DepartmentDto,
-    DepartmentInput, EmployeeDto, EmployeeInput, GeneratePermissionsRequest, GrantRequest,
-    IndexDto, ItemDto, LegacyTableDto, LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto,
-    MyPermissionDto, NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page,
-    PermissionBatchResultDto, PermissionClassDto, PermissionClassInput, PlantDto, PlantInput,
-    ProgramDto, ProgramInput, ProgramPermissionDto, ProgramPermissionInput, QueryRequest,
-    SessionDto, SwitchPlantInput, TableDictionaryDto, TableDictionaryInput, TableTextDto,
-    UpdatedCountDto, UserDto, UserInput, UserPermissionDto, UserPermissionInput,
+    ApiError, ChangePasswordInput, ColumnInfoDto, ColumnTextDto, ConstraintDto,
+    CopyPermissionsRequest, CopyUserPermissionsRequest, CreateItemRequest,
+    DepartmentAccountingInput, DepartmentDto, DepartmentInput, EmployeeDto, EmployeeInput,
+    GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto, LegacyTableDto,
+    LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto, MyPermissionDto,
+    NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PermissionBatchResultDto,
+    PermissionClassDto, PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput,
+    ProgramPermissionDto, ProgramPermissionInput, QueryRequest, SessionDto, SignInInput,
+    SwitchPlantInput, TableDictionaryDto, TableDictionaryInput, TableTextDto, UpdatedCountDto,
+    UserDto, UserInput, UserPermissionDto, UserPermissionInput,
 };
 
 fn base_url() -> String {
@@ -35,6 +36,34 @@ async fn into_result<T: serde::de::DeserializeOwned>(res: reqwest::Response) -> 
         res.json::<T>().await.map_err(|e| e.to_string())
     } else {
         Err(error_message(res).await)
+    }
+}
+
+/// 帶錯誤代碼的失敗結果：畫面要依代碼決定下一步時使用（如須改密碼）
+#[derive(Debug, Clone, PartialEq)]
+pub struct ApiFailure {
+    pub code: String,
+    pub message: String,
+}
+
+async fn failure(res: reqwest::Response) -> ApiFailure {
+    let status = res.status();
+    match res.json::<ApiError>().await {
+        Ok(e) => ApiFailure {
+            message: crate::i18n::error_text(&e.code, &e.message),
+            code: e.code,
+        },
+        Err(_) => ApiFailure {
+            code: String::new(),
+            message: format!("HTTP {status}"),
+        },
+    }
+}
+
+fn network(e: reqwest::Error) -> ApiFailure {
+    ApiFailure {
+        code: String::new(),
+        message: e.to_string(),
     }
 }
 
@@ -124,9 +153,55 @@ async fn no_content(res: reqwest::Response) -> Result<(), String> {
     }
 }
 
-/// 目前的連線（sign_in.feature）：登入者、目前營運中心、可切換的營運中心
-pub async fn session() -> Result<SessionDto, String> {
-    get_json(url("/api/session")).await
+/// 目前的連線（sign_in.feature）：登入者、目前營運中心、可切換的營運中心；未登入為 None
+pub async fn session() -> Result<Option<SessionDto>, String> {
+    let res = reqwest::Client::new()
+        .get(url("/api/session"))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if res.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Ok(None);
+    }
+    into_result(res).await.map(Some)
+}
+
+/// 登入（ADR 0009）：成功時伺服器設定連線 cookie
+pub async fn sign_in(user_id: &str, password: &str) -> Result<SessionDto, ApiFailure> {
+    let res = reqwest::Client::new()
+        .post(url("/api/session"))
+        .json(&SignInInput {
+            user_id: user_id.to_owned(),
+            password: password.to_owned(),
+        })
+        .send()
+        .await
+        .map_err(network)?;
+    if res.status().is_success() {
+        res.json().await.map_err(network)
+    } else {
+        Err(failure(res).await)
+    }
+}
+
+pub async fn sign_out() -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(url("/api/session"))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 變更密碼（webpasswd）
+pub async fn change_password(input: &ChangePasswordInput) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/password"))
+        .json(input)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
 }
 
 /// 切換營運中心（aoos901）
@@ -415,6 +490,16 @@ pub async fn set_user_active(id: &str, active: bool) -> Result<UserDto, String> 
         .await
         .map_err(|e| e.to_string())?;
     into_result(res).await
+}
+
+/// 解除鎖定（p_zx user_unlock）
+pub async fn unlock_user(id: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .post(user_url(id, "/unlock"))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
 }
 
 // ----- Permission Class Maintenance 權限類別維護（TipTop p_zw） -----

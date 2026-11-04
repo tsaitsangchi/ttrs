@@ -100,10 +100,36 @@ pub enum DomainError {
     UserMenuInvalid(String),
     #[error("非多營運中心使用者只能有一個可使用的營運中心")]
     UserSinglePlant,
+    #[error("可使用營運中心須包含預設營運中心")]
+    UserDefaultPlantRequired,
     #[error("公司帳號已綁定其他使用者：{0}")]
     IdpAccountInUse(String),
 
     // 登入（sign_in.feature）
+    #[error("尚未登入或連線已失效，請重新登入")]
+    NotSignedIn,
+    #[error("使用者代號或密碼錯誤")]
+    SignInFailed,
+    #[error("密碼試誤次數已達上限，帳號已鎖定，請洽系統管理員解除")]
+    UserLocked,
+    #[error("請先變更密碼再登入")]
+    PasswordChangeRequired,
+    #[error("舊密碼不正確")]
+    OldPasswordIncorrect,
+    #[error("新密碼與確認密碼不一致")]
+    PasswordConfirmMismatch,
+    #[error("密碼至少要 {min} 個字")]
+    PasswordTooShort { min: usize },
+    #[error("密碼最多 {max} 個字")]
+    PasswordTooLong { max: usize },
+    #[error("密碼不可包含使用者代號")]
+    PasswordContainsUserId,
+    #[error("密碼必須包含數字")]
+    PasswordNeedsDigit,
+    #[error("密碼必須包含符號")]
+    PasswordNeedsSymbol,
+    #[error("新密碼不可與舊密碼相同")]
+    PasswordSameAsOld,
     #[error("此公司帳號尚未在 TTRS 註冊，請洽系統管理員")]
     UserNotRegistered,
     #[error("使用者已停用")]
@@ -286,7 +312,20 @@ impl DomainError {
             Self::UserIdImmutable => "USER_ID_IMMUTABLE",
             Self::UserMenuInvalid(_) => "USER_MENU_INVALID",
             Self::UserSinglePlant => "USER_SINGLE_PLANT",
+            Self::UserDefaultPlantRequired => "USER_DEFAULT_PLANT_REQUIRED",
             Self::IdpAccountInUse(_) => "IDP_ACCOUNT_IN_USE",
+            Self::NotSignedIn => "NOT_SIGNED_IN",
+            Self::SignInFailed => "SIGN_IN_FAILED",
+            Self::UserLocked => "USER_LOCKED",
+            Self::PasswordChangeRequired => "PASSWORD_CHANGE_REQUIRED",
+            Self::OldPasswordIncorrect => "OLD_PASSWORD_INCORRECT",
+            Self::PasswordConfirmMismatch => "PASSWORD_CONFIRM_MISMATCH",
+            Self::PasswordTooShort { .. } => "PASSWORD_TOO_SHORT",
+            Self::PasswordTooLong { .. } => "PASSWORD_TOO_LONG",
+            Self::PasswordContainsUserId => "PASSWORD_CONTAINS_USER_ID",
+            Self::PasswordNeedsDigit => "PASSWORD_NEEDS_DIGIT",
+            Self::PasswordNeedsSymbol => "PASSWORD_NEEDS_SYMBOL",
+            Self::PasswordSameAsOld => "PASSWORD_SAME_AS_OLD",
             Self::UserNotRegistered => "USER_NOT_REGISTERED",
             Self::UserInactive => "USER_INACTIVE",
             Self::UserExpired => "USER_EXPIRED",

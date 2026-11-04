@@ -290,6 +290,7 @@
       | user-maintenance    | reproduce                  | 複製使用者 u001            |
       | user-maintenance    | invalid                    | 停用使用者 u001            |
       | user-maintenance    | invalid                    | 啟用使用者 u001            |
+      | user-maintenance    | user_unlock                | 解除使用者 u001 的鎖定     |
       | permission-class-maintenance    | query                      | 查詢權限類別               |
       | permission-class-maintenance    | query                      | 查看權限類別 MGR           |
       | permission-class-maintenance    | detail                     | 新增權限類別 NEW           |

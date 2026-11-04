@@ -387,3 +387,27 @@ pub trait EmployeeRepository: Send + Sync {
     /// 回傳是否有刪到資料
     async fn delete(&self, plant: &PlantId, id: &EmployeeId) -> Result<bool, RepoError>;
 }
+
+// ---------------------------------------------------------------------------
+// Web 密碼與帳號稽核原則（TipTop zx10、zx16、zx17、zx19、zx20 / gbt_file；ADR 0009）
+// ---------------------------------------------------------------------------
+
+pub use ttrs_domain::password::{AccountPolicy, Credential};
+
+#[async_trait]
+pub trait CredentialRepository: Send + Sync {
+    /// 尚未設定密碼的使用者回 None（初始密碼＝使用者代號，W1）
+    async fn credential(&self, user: &UserId) -> Result<Option<Credential>, RepoError>;
+    /// 新增或取代使用者的密碼狀態；使用者刪除時一併刪除
+    async fn save_credential(
+        &self,
+        user: &UserId,
+        credential: &Credential,
+    ) -> Result<(), RepoError>;
+}
+
+#[async_trait]
+pub trait AccountPolicyRepository: Send + Sync {
+    /// 系統帳號稽核原則（gbt00＝0 那一筆）
+    async fn account_policy(&self) -> Result<AccountPolicy, RepoError>;
+}

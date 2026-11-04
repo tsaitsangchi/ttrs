@@ -1,10 +1,11 @@
 //! User Maintenance 使用者維護（TipTop p_zx 部門使用者資料維護作業）
 //! 版面比照 tiptop/azz/4fd/p_zx.4fd，視覺採 Material 3（components::material）：
 //!   動作列（新增 / 修改 / 刪除 / 停用・啟用 / 複製）＋ 上下筆
-//!   ＋ 頁籤（Basic Data：group01 代號～選單、group02 營運中心～失效日期；Language；Status；另加可使用營運中心 U7）
+//!   ＋ 頁籤（Basic Data：group01 代號～選單、group02 營運中心～失效日期；Language；Status；
+//!     另加可使用營運中心勾選清單，取代 TipTop p_zxy，user_maintenance_plants.feature）
 //!   ＋ 使用者清單。
 //! 查詢比照 TipTop Q.查詢（p_zx_curs CONSTRUCT）：在同一個表單的欄位上輸入 QBE 條件（user_maintenance_query.feature）。
-//! 密碼、解鎖等欄位不移植（ADR 0006）；規則在後端 UserService。
+//! Web 密碼與解除鎖定見 ADR 0009；規則在後端 UserService。
 
 use dioxus::prelude::*;
 use ttrs_shared::{UserDto, UserInput, user_max_len as max_len};
@@ -112,7 +113,19 @@ fn UserMaintenancePage() -> Element {
 
     let cur_id = cur.as_ref().map(|u| u.user_id.clone()).unwrap_or_default();
     let save = move |_| {
-        let req = form();
+        let mut req = form();
+        // 勾選清單一定含預設營運中心；非多營運中心只留預設營運中心、不可全部營運中心（PZ1、PZ3）
+        let default_plant = req.default_plant.clone();
+        if let Some(list) = req.allowed_plants.as_mut() {
+            if !req.multi_plant {
+                *list = vec![default_plant.clone()];
+            } else if !list.contains(&default_plant) {
+                list.push(default_plant);
+            }
+        }
+        if !req.multi_plant && req.all_plants.is_some() {
+            req.all_plants = Some(false);
+        }
         let editing = mode() == Mode::Edit;
         let original = cur_id.clone();
         spawn(async move {
@@ -131,6 +144,7 @@ fn UserMaintenancePage() -> Element {
     let cur_cancel = cur.clone();
     let cur_delete = cur.clone();
     let cur_toggle = cur.clone();
+    let cur_unlock = cur.clone();
     let cur_copy = cur.clone();
     let m = mode();
     let q = m == Mode::Query;
@@ -188,6 +202,36 @@ fn UserMaintenancePage() -> Element {
         }
         opts
     };
+    // 可使用營運中心（p_zxy；user_maintenance_plants.feature）：勾選清單，未勾動前沿用目前這一筆的清單
+    let stored_plants = if m == Mode::New {
+        Vec::new()
+    } else {
+        cur.as_ref()
+            .map(|u| u.allowed_plants.clone())
+            .unwrap_or_default()
+    };
+    let chosen: Vec<String> = v.allowed_plants.clone().unwrap_or(stored_plants);
+    let all_plants = v
+        .all_plants
+        .unwrap_or_else(|| m != Mode::New && cur.as_ref().is_some_and(|u| u.all_plants));
+    // 檢視時列出清單中的營運中心；編輯時列出有效的營運中心與清單中已停用的營運中心
+    let plant_rows: Vec<(String, String, bool)> = plants
+        .read()
+        .as_ref()
+        .map(|ps| {
+            ps.iter()
+                .filter(|p| {
+                    let listed = chosen.contains(&p.plant_id) || p.plant_id == v.default_plant;
+                    if ro {
+                        listed
+                    } else {
+                        listed || (v.multi_plant && p.active)
+                    }
+                })
+                .map(|p| (p.plant_id.clone(), p.name.clone(), p.active))
+                .collect()
+        })
+        .unwrap_or_default();
     let lang_options: Vec<(String, String)> = UiLang::ALL
         .iter()
         .map(|l| (l.code().to_owned(), l.native_name().to_owned()))
@@ -297,6 +341,23 @@ fn UserMaintenancePage() -> Element {
                                 if cur.as_ref().is_some_and(|u| !u.active) { {t("user-action-activate")} } else { {t("user-action-deactivate")} }
                             }
                         }
+                        // 解除鎖定（p_zx user_unlock）：試誤次數歸零
+                        if perm.can("user_unlock") {
+                            Button {
+                                variant: ButtonVariant::Outlined,
+                                disabled: no_cur,
+                                onclick: move |_| {
+                                    let Some(u) = cur_unlock.clone() else { return };
+                                    spawn(async move {
+                                        match api::unlock_user(&u.user_id).await {
+                                            Ok(()) => done(tf("user-msg-unlocked", &[("id", u.user_id.as_str())]), None),
+                                            Err(e) => error.set(Some(e)),
+                                        }
+                                    });
+                                },
+                                {t("user-action-unlock")}
+                            }
+                        }
                         // 串接 p_zxw「維護使用者特殊權限」（p_zx action maintain_zxw）
                         if let Some(u) = cur.as_ref() {
                             Link {
@@ -399,8 +460,9 @@ fn UserMaintenancePage() -> Element {
                                     Q { field: "email", label: t("user-field-email"), query: q, qbe,
                                         TextField { id: "zx09", label: t("user-field-email"), maxlength: max_len::EMAIL, value: v.email.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().email = opt(x) }
                                     }
-                                    Q { field: "idp_username", label: t("user-field-idp-username"), query: q, qbe,
-                                        TextField { id: "idp", label: t("user-field-idp-username"), maxlength: max_len::IDP_USERNAME, placeholder: t("user-hint-idp-username"), value: v.idp_username.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().idp_username = opt(x) }
+                                    // zx10 Web 密碼（ADR 0009）：只寫不讀、不可查詢；設定後下次登入須改密碼。公司帳號不再使用（W8）
+                                    if !q {
+                                        TextField { id: "zx10", label: t("user-field-web-password"), input_type: "password", maxlength: 64usize, placeholder: if m == Mode::New { t("user-hint-web-password-new") } else { t("user-hint-web-password") }, value: v.web_password.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().web_password = opt(x) }
                                     }
                                     Q { field: "valid_until", label: t("user-field-valid-until"), hint: HINT_DATE, query: q, qbe,
                                         TextField {
@@ -450,13 +512,50 @@ fn UserMaintenancePage() -> Element {
                         },
                         _ => rsx! {
                             p { class: "muted", {t("user-hint-plants")} }
+                            if !ro {
+                                Checkbox {
+                                    id: "zxy03_all",
+                                    label: t("user-field-all-plants"),
+                                    checked: v.multi_plant && all_plants,
+                                    disabled: !v.multi_plant,
+                                    onchange: move |x| form.write().all_plants = Some(x),
+                                }
+                            } else if all_plants {
+                                p { Chip { label: t("user-field-all-plants") } }
+                            }
                             table { class: "md-table",
-                                thead { tr { th { {t("user-col-plant")} } th { {t("user-col-default")} } } }
+                                thead { tr { th {} th { {t("user-col-plant")} } th { {t("user-col-default")} } } }
                                 tbody {
-                                    for p in cur.as_ref().map(|u| u.allowed_plants.clone()).unwrap_or_default() {
-                                        tr { key: "{p}",
-                                            td { class: "mono", "{p}" }
-                                            td { if cur.as_ref().is_some_and(|u| u.default_plant == p) { "✓" } }
+                                    for (id, name, active) in plant_rows.clone() {
+                                        tr { key: "{id}",
+                                            td {
+                                                Checkbox {
+                                                    id: "zxy03_{id}",
+                                                    label: String::new(),
+                                                    checked: chosen.contains(&id) || id == v.default_plant,
+                                                    readonly: ro,
+                                                    // 預設營運中心不可取消（azz-075）；非多營運中心只能有預設營運中心（azz-136）；
+                                                    // 停用的營運中心不可新加入（PZ4）；全部營運中心時個別勾選停用（PZ3）
+                                                    disabled: id == v.default_plant || !v.multi_plant || all_plants
+                                                        || (!active && !chosen.contains(&id)),
+                                                    onchange: {
+                                                        let id = id.clone();
+                                                        let base = chosen.clone();
+                                                        move |on: bool| {
+                                                            let mut list = base.clone();
+                                                            list.retain(|p| p != &id);
+                                                            if on {
+                                                                list.push(id.clone());
+                                                            }
+                                                            form.write().allowed_plants = Some(list);
+                                                        }
+                                                    },
+                                                }
+                                            }
+                                            td { class: "mono", "{id} {name}"
+                                                if !active { " " Chip { label: t("user-status-inactive") } }
+                                            }
+                                            td { if id == v.default_plant { "✓" } }
                                         }
                                     }
                                 }

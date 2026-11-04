@@ -30,6 +30,8 @@ The API has no login: every request runs as `actor_from_env()` (environment vari
 
 ### 1. Authentication: company SSO (OIDC)
 
+> **Superseded by ADR 0009 (2026-11-04):** TTRS signs in with user ID + Web password; §1, §2 (company account binding) and the password fields in §3 no longer apply.
+
 TTRS doesn't store passwords; the company identity system (IdP) verifies identity. Each client type uses a different flow:
 
 | Client | Flow | Credential held by the API |

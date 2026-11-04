@@ -16,6 +16,7 @@ use ttrs_shared::{
 
 use super::{
     azz_program_maintenance::seed,
+    azz_user_maintenance::seed_user,
     common::{rows, set_query_result},
 };
 use crate::ErpWorld;
@@ -200,6 +201,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["刪除使用者", id] => w.users.delete(a, id).await,
         ["複製使用者", id] => w.users.copy(a, id, "u101").await.map(drop),
         ["停用使用者", id] => w.users.deactivate(a, id).await.map(drop),
+        ["解除使用者", id, "的鎖定"] => w.users.unlock(a, id).await,
         ["啟用使用者", id] => w.users.activate(a, id).await.map(drop),
         // p_zw 權限類別維護
         ["查詢權限類別"] => w.classes.query(a, QueryRequest::default()).await.map(drop),
@@ -414,10 +416,7 @@ async fn ported_programs(w: &mut ErpWorld) {
 #[given(expr = "已有使用者 {string}，資料所有者 {string}，所有部門 {string}")]
 async fn user_owned_by(w: &mut ErpWorld, id: String, user: String, dept: String) {
     ensure_menu(w).await;
-    w.users
-        .create(&owner(&user, &dept), user_input(&id))
-        .await
-        .unwrap_or_else(|e| panic!("建立使用者 {id} 失敗：{e}"));
+    seed_user(w, &owner(&user, &dept), user_input(&id)).await;
 }
 
 #[given(expr = "已有程式 {string} 模組 {string}，資料所有者 {string}，所有部門 {string}")]

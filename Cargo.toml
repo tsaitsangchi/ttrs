@@ -10,6 +10,8 @@ license = "UNLICENSED"
 publish = false
 
 [workspace.dependencies]
+argon2 = { version = "0.5.3", features = ["std"] }
+getrandom = "0.3"
 ttrs-shared = { path = "crates/shared" }
 ttrs-domain = { path = "crates/domain" }
 ttrs-app = { path = "crates/app" }
@@ -37,3 +39,10 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 float_arithmetic = "deny" # ERP 金額/數量一律用 rust_decimal
+
+# 密碼雜湊（ADR 0009）：debug 版也最佳化，否則 BDD 每次雜湊要數秒
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3

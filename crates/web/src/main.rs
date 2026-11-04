@@ -5,9 +5,10 @@ mod components;
 mod i18n;
 mod pages;
 
-use components::material::{MenuButton, icons};
+use components::material::{Dialog, MenuButton, icons};
+use components::session::{ChangePasswordForm, SessionState, SignInPage, use_session};
 use dioxus::prelude::*;
-use i18n::{UiLang, t};
+use i18n::{UiLang, t, tf};
 use pages::{
     aim::ItemList,
     aoo::{DepartmentMaintenance, EmployeeMaintenance, PlantMaintenance},
@@ -74,7 +75,7 @@ fn App() -> Element {
     // 介面語系（L3）：啟動時讀取瀏覽器記住的語系；供外框切換
     use_context_provider(|| Signal::new(i18n::load()));
     // 目前的連線（sign_in.feature）：登入者與目前營運中心，供外框與工廠層作業使用
-    use_context_provider(|| Signal::new(None::<Result<ttrs_shared::SessionDto, String>>));
+    use_context_provider(|| Signal::new(SessionState::Loading));
     rsx! {
         document::Link { rel: "stylesheet", href: M3_COLORS_CSS }
         document::Link { rel: "stylesheet", href: M3_CSS }
@@ -87,11 +88,33 @@ fn App() -> Element {
 fn Shell() -> Element {
     let mut lang = use_context::<Signal<UiLang>>();
     let current = lang();
-    let mut session = use_context::<Signal<Option<Result<ttrs_shared::SessionDto, String>>>>();
+    let mut session = use_session();
+    let mut session_error = use_signal(|| None::<String>);
     use_future(move || async move {
-        session.set(Some(api::session().await));
+        match api::session().await {
+            Ok(Some(s)) => session.set(SessionState::SignedIn(Box::new(s))),
+            Ok(None) => session.set(SessionState::SignedOut),
+            Err(e) => {
+                session_error.set(Some(e));
+                session.set(SessionState::SignedOut);
+            }
+        }
     });
     let mut switch_error = use_signal(|| None::<String>);
+    let mut changing_password = use_signal(|| false);
+    // 未登入：只顯示登入畫面（weblogin）
+    match session() {
+        SessionState::Loading => return rsx! {},
+        SessionState::SignedOut => {
+            return rsx! {
+                SignInPage {}
+                if let Some(e) = session_error() {
+                    p { class: "session-error", "{e}" }
+                }
+            };
+        }
+        SessionState::SignedIn(_) => {}
+    }
     rsx! {
         // M3 淺色主題；深色改為 md-theme-dark
         div { class: "shell md-theme-light", lang: current.code(),
@@ -112,10 +135,10 @@ fn Shell() -> Element {
                     }
                     h1 { "TTRS ERP" }
                 }
-                // 登入者與目前營運中心；多營運中心使用者可切換（aoos901）
-                match session() {
-                    Some(Ok(s)) => rsx! {
-                        div { class: "session",
+                // 登入者與目前營運中心；多營運中心使用者可切換（aoos901）；變更密碼（webpasswd）、登出
+                if let SessionState::SignedIn(s) = session() {
+                    div { class: "session",
+                        div { class: "session-row",
                             div { class: "session-text",
                                 div { class: "session-user", "{s.user_id} {s.name.clone().unwrap_or_default()}" }
                                 div { class: "session-plant", "{s.plant} {s.plant_name}" }
@@ -128,21 +151,50 @@ fn Shell() -> Element {
                                     selected: s.plant.clone(),
                                     onselect: move |plant: String| async move {
                                         match api::switch_plant(&plant).await {
-                                            Ok(s) => { switch_error.set(None); session.set(Some(Ok(s))); }
+                                            Ok(s) => { switch_error.set(None); session.set(SessionState::SignedIn(Box::new(s))); }
                                             Err(e) => switch_error.set(Some(e)),
                                         }
                                     },
                                 }
                             }
                         }
-                        if let Some(e) = switch_error() {
-                            p { class: "session-error", "{e}" }
+                        if let Some(days) = s.password_expires_in_days {
+                            div { class: "session-notice", {tf("shell-password-expiring", &[("days", days.to_string().as_str())])} }
                         }
-                    },
-                    Some(Err(e)) => rsx! {
-                        p { class: "session-error", title: "{e}", {t("shell-not-signed-in")} }
-                    },
-                    None => rsx! {},
+                        if let Some(uses) = s.password_uses_left {
+                            div { class: "session-notice", {tf("shell-password-uses-left", &[("uses", uses.to_string().as_str())])} }
+                        }
+                        div { class: "session-actions",
+                            button { r#type: "button", class: "md-button md-state md-button--text", onclick: move |_| changing_password.set(true), {t("shell-change-password")} }
+                            button {
+                                r#type: "button",
+                                class: "md-button md-state md-button--text",
+                                onclick: move |_| async move {
+                                    let _ = api::sign_out().await;
+                                    session.set(SessionState::SignedOut);
+                                },
+                                {t("shell-sign-out")}
+                            }
+                        }
+                    }
+                    if let Some(e) = switch_error() {
+                        p { class: "session-error", "{e}" }
+                    }
+                    if changing_password() {
+                        Dialog {
+                            title: t("password-title"),
+                            oncancel: move |_| changing_password.set(false),
+                            actions: rsx! {},
+                            ChangePasswordForm {
+                                user_id: s.user_id.clone(),
+                                ondone: move |_| {
+                                    changing_password.set(false);
+                                    switch_error.set(Some(t("password-msg-changed")));
+                                },
+                                oncancel: move |_| changing_password.set(false),
+                            }
+                        }
+                    }
                 }
                 Link { active_class: "active", to: Route::Home {}, {t("shell-nav-home")} }
                 p { class: "group", {t("shell-group-aim")} }

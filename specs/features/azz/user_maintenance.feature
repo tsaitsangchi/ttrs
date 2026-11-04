@@ -28,8 +28,8 @@
 #   U2. Company account (UPN) is optional: a user with no company account can be created but can't log in.
 #       The account must be unique (IDP_ACCOUNT_IN_USE). The bulk-binding rule waits for IT's answer to Q2 in ADR 0006.
 #   U3. Department: TipTop only warns when the department isn't in the department master gem_file and still saves (p_zx.4gl:566-580).
-#       The new system has no department master yet (aoo, Phase 2), so for now free text up to 10 characters;
-#       once the department master is ported, change it to "must exist".
+#       Superseded 2026-11-04: the department must exist and be active in the user's default plant
+#       (user_maintenance_department.feature UD1–UD6).
 #   U4. Permission class must exist (PERMISSION_CLASS_NOT_FOUND). TipTop also rejects inactive classes (azz-218, p_zx.4gl:597-602);
 #       the new permission class has no active code yet, so that check is added when p_zw is ported.
 #       Defaulting the user menu from the class's default menu zw03 (p_zx.4gl:585-588) is likewise added with p_zw.
@@ -55,6 +55,8 @@
     而且 營運中心 "TW01" 已啟用
     而且 營運中心 "CN01" 已啟用
     而且 選單程式 "menu-main" 已存在
+    而且 "TW01" 已有部門 "SAL"
+    而且 "CN01" 已有部門 "SAL"
 
   # p_zx.4gl:441-455 新增預設：語言別 0、非多營運中心、資料有效；資料所有者／部門＝目前使用者／部門
   # p_zx.4gl:490-501 預設營運中心不在允許清單時自動加入

@@ -12,7 +12,9 @@ publish.workspace = true
 memory = []
 
 [dependencies]
+argon2.workspace = true
 chrono.workspace = true
+getrandom.workspace = true
 ttrs-domain.workspace = true
 ttrs-shared.workspace = true
 async-trait.workspace = true

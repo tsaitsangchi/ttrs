@@ -1,5 +1,5 @@
 //! 營運中心選擇（工廠層作業用，docs/adr/0007-multi-plant.md）：選項來自營運中心維護的有效營運中心。
-//! 已登入時一律用目前營運中心（sign_in.feature，由外框切換）；尚未登入（開發用身分未註冊）時在畫面上自行選擇。
+//! 已登入時一律用目前營運中心（sign_in.feature，由外框切換）；固定身分（TTRS_AUTH=fixed）且未註冊時在畫面上自行選擇。
 
 use dioxus::prelude::*;
 
@@ -26,13 +26,12 @@ pub fn plant_options(plants: &[ttrs_shared::PlantDto], current: &str) -> Vec<(St
 /// 營運中心下拉選單；尚未選擇時自動選第一個有效的營運中心
 #[component]
 pub fn PlantPicker(plant: Signal<String>) -> Element {
-    let session = use_context::<Signal<Option<Result<ttrs_shared::SessionDto, String>>>>();
-    let current = match session() {
-        Some(Ok(s)) => Some((s.plant.clone(), format!("{} {}", s.plant, s.plant_name))),
-        _ => None,
-    };
+    let session = crate::components::session::use_session();
+    let current = session()
+        .session()
+        .map(|s| (s.plant.clone(), format!("{} {}", s.plant, s.plant_name)));
     use_effect(move || {
-        if let Some(Ok(s)) = session()
+        if let Some(s) = session().session()
             && *plant.peek() != s.plant
         {
             plant.set(s.plant.clone());

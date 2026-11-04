@@ -559,7 +559,7 @@ pub struct UserInput {
     pub user_id: String,
     /// zx02 使用者名稱
     pub name: Option<String>,
-    /// zx03 部門代號（U3：部門主檔移植前為自由輸入）
+    /// zx03 部門代號：須為預設營運中心存在且有效的部門（user_maintenance_department.feature）
     pub dept_code: Option<String>,
     /// zx04 權限類別
     pub permission_class: String,
@@ -577,6 +577,16 @@ pub struct UserInput {
     pub lang: Option<String>,
     /// zx18 失效日期
     pub valid_until: Option<NaiveDate>,
+    /// zx10 Web 密碼：只寫不讀，空白表示不變更；設定後下次登入須改密碼（ADR 0009 W7）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub web_password: Option<String>,
+    /// zxy 可使用營運中心（勾選清單，須含預設營運中心）；未給時沿用目前清單，
+    /// 改預設營運中心時自動加入（user_maintenance_plants.feature PZ1）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_plants: Option<Vec<String>>,
+    /// zxy03＝ALL 可使用全部營運中心；未給時不變（PZ3）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub all_plants: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -596,8 +606,11 @@ pub struct UserDto {
     pub valid_until: Option<NaiveDate>,
     /// zxacti 資料有效
     pub active: bool,
-    /// zxy 可使用的營運中心
+    /// zxy 可使用的營運中心（不含 ALL）
     pub allowed_plants: Vec<String>,
+    /// zxy03＝ALL 可使用全部營運中心（PZ3）
+    #[serde(default)]
+    pub all_plants: bool,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -620,6 +633,9 @@ impl UserDto {
             idp_username: self.idp_username.clone(),
             lang: Some(self.lang.clone()),
             valid_until: self.valid_until,
+            web_password: None,
+            allowed_plants: None,
+            all_plants: None,
         }
     }
 }
@@ -753,8 +769,27 @@ pub struct SessionDto {
     /// 目前營運中心
     pub plant: String,
     pub plant_name: String,
+    /// 密碼即將到期的剩餘天數／次數（weblogin.4gl:566-608 提前通知）
+    pub password_expires_in_days: Option<i64>,
+    pub password_uses_left: Option<u32>,
     /// 可切換的營運中心（q_zxy），依代號排序
     pub plants: Vec<PlantOptionDto>,
+}
+
+/// 登入（ADR 0009）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SignInInput {
+    pub user_id: String,
+    pub password: String,
+}
+
+/// 變更密碼（webpasswd）：以舊密碼驗證
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChangePasswordInput {
+    pub user_id: String,
+    pub old_password: String,
+    pub new_password: String,
+    pub confirm_password: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
