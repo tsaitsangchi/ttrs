@@ -345,6 +345,36 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             w.employees.create(a, "TW01", req).await.map(drop)
         }
         ["刪除員工", id] => w.employees.delete(a, "TW01", id).await,
+        // aooi300 分類碼維護（工廠層，營運中心 TW01）
+        ["查詢分類碼", kind] => w.classification.list(a, "TW01", kind).await.map(drop),
+        ["新增分類碼", kind, code] => {
+            let req = ttrs_shared::ClassificationCodeInput {
+                code: (*code).into(),
+                description: Some("分類".into()),
+                ..Default::default()
+            };
+            w.classification
+                .create(a, "TW01", kind, req)
+                .await
+                .map(drop)
+        }
+        ["修改分類碼", kind, code] => {
+            let req = ttrs_shared::ClassificationCodeInput {
+                code: (*code).into(),
+                description: Some("分類".into()),
+                ..Default::default()
+            };
+            w.classification
+                .update(a, "TW01", kind, code, req)
+                .await
+                .map(drop)
+        }
+        ["停用分類碼", kind, code] => w
+            .classification
+            .set_active(a, "TW01", kind, code, false)
+            .await
+            .map(drop),
+        ["刪除分類碼", kind, code] => w.classification.delete(a, "TW01", kind, code).await,
         _ => panic!("未定義的操作：{op}（{}）", arg(0)),
     }
 }

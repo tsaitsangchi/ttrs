@@ -12,10 +12,10 @@ use std::{fmt, sync::Arc};
 use cucumber::World;
 use sqlx::PgPool;
 use ttrs_app::{
-    Actor, AppError, DataDictionaryService, DepartmentService, EmergencyService, EmployeeService,
-    ItemService, LegacyCatalogService, PasswordResetService, PermissionClassService, PlantService,
-    ProgramPermissionService, ProgramService, Services, SignInService, UserPermissionService,
-    UserService,
+    Actor, AppError, ClassificationCodeService, DataDictionaryService, DepartmentService,
+    EmergencyService, EmployeeService, ItemService, LegacyCatalogService, PasswordResetService,
+    PermissionClassService, PlantService, ProgramPermissionService, ProgramService, Services,
+    SignInService, UserPermissionService, UserService,
     memory::{InMemoryStore, Outbox},
 };
 use ttrs_infra::PgStore;
@@ -69,6 +69,8 @@ pub struct ErpWorld {
     pub special: UserPermissionService,
     pub departments: DepartmentService,
     pub employees: EmployeeService,
+    /// 分類碼（classification_code.feature）
+    pub classification: ClassificationCodeService,
     /// 最近一次批次作業的處理筆數（更新所有使用者目錄編號）
     pub updated_count: Option<u64>,
     /// 最近一次查看的有效權限（authorization.feature）
@@ -152,6 +154,7 @@ impl ErpWorld {
             special,
             departments,
             employees,
+            classification,
             sign_in,
             password_reset,
             emergency,
@@ -184,6 +187,7 @@ impl ErpWorld {
             special,
             departments,
             employees,
+            classification,
             updated_count: None,
             my_permission: None,
             sign_in,

@@ -1,0 +1,27 @@
+# Classification Code Maintenance (TipTop aooi300; specs/features/aoo/classification_code.feature)
+code-breadcrumb = General Management / Classification Code Maintenance
+code-title = Classification Code Maintenance
+code-list-title = Classification Codes
+code-field-kind = Code Type
+code-field-code = Code
+code-field-description = Description
+code-field-variance-account = Inventory Variance Account
+code-field-variance-account2 = Inventory Variance Account 2
+code-field-cost-nature = Cost Nature
+code-field-active = Active
+code-kind-8 = Material Category
+code-kind-d = Other Group Code 1
+code-kind-e = Other Group Code 2
+code-kind-f = Other Group Code 3
+code-kind-g = Other Group Code 4
+code-status-active = Active
+code-status-inactive = Disabled
+code-action-activate = Enable
+code-action-deactivate = Disable
+code-dialog-new = New Classification Code
+code-dialog-edit = Edit Classification Code { $code }
+code-msg-saved = Classification code { $code } saved
+code-msg-deleted = Classification code { $code } deleted
+code-msg-activated = Classification code { $code } enabled
+code-msg-deactivated = Classification code { $code } disabled
+code-hint-account = Accounts are not ported yet; variance accounts are not checked for existence.

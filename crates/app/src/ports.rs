@@ -452,3 +452,35 @@ pub trait PasswordResetTokenRepository: Send + Sync {
 pub trait AuditLog: Send + Sync {
     async fn record(&self, entry: &AuditEntry) -> Result<(), RepoError>;
 }
+
+// ---------------------------------------------------------------------------
+// 分類碼（TipTop azf_file，aooi300）：工廠層
+// ---------------------------------------------------------------------------
+
+pub use ttrs_domain::classification::{ClassificationCode, Code, CodeKind};
+
+#[async_trait]
+pub trait ClassificationCodeRepository: Send + Sync {
+    /// 該類別的全部分類碼，依代號排序（位元組順序）
+    async fn list_codes(
+        &self,
+        plant: &PlantId,
+        kind: CodeKind,
+    ) -> Result<Vec<ClassificationCode>, RepoError>;
+    async fn get_code(
+        &self,
+        plant: &PlantId,
+        kind: CodeKind,
+        code: &Code,
+    ) -> Result<Option<ClassificationCode>, RepoError>;
+    /// 同一類別內代號重複時回 Conflict
+    async fn insert_code(&self, plant: &PlantId, c: &ClassificationCode) -> Result<(), RepoError>;
+    async fn update_code(&self, plant: &PlantId, c: &ClassificationCode) -> Result<(), RepoError>;
+    /// 只刪除該類別的代號（CC4）；不存在回 false
+    async fn delete_code(
+        &self,
+        plant: &PlantId,
+        kind: CodeKind,
+        code: &Code,
+    ) -> Result<bool, RepoError>;
+}

@@ -12,8 +12,8 @@ use ttrs_shared::{UserDto, UserInput, user_max_len as max_len};
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Checkbox, Chip, Dialog, Notification, NotificationKind, Select,
-    Tabs, TextField, Tone, active_field_class, active_tone, icons,
+    Button, ButtonVariant, Card, Checkbox, Chip, Dialog, Notification, NotificationKind, Radio,
+    Select, Tabs, TextField, Tone, active_field_class, active_tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{
@@ -565,7 +565,31 @@ fn UserMaintenancePage() -> Element {
                                             td { class: "mono", "{id} {name}"
                                                 if !active { " " Chip { label: t("user-status-inactive"), tone: Tone::Error } }
                                             }
-                                            td { if id == v.default_plant { "✓" } }
+                                            // 預設營運中心：可直接在清單中改選（停用的營運中心不可設為預設，PZ4）；
+                                            // 多營運中心時一併加入可使用清單，非多營運中心時清單只留新的預設（PZ1）
+                                            td {
+                                                Radio {
+                                                    id: "zx08_{id}",
+                                                    name: "zx08_default",
+                                                    checked: id == v.default_plant,
+                                                    aria_label: tf("user-action-set-default", &[("plant", id.as_str())]),
+                                                    readonly: ro,
+                                                    disabled: !active && id != v.default_plant,
+                                                    onselect: {
+                                                        let id = id.clone();
+                                                        let base = chosen.clone();
+                                                        move |_| {
+                                                            let mut f = form.write();
+                                                            f.default_plant = id.clone();
+                                                            let mut list = if f.multi_plant { base.clone() } else { Vec::new() };
+                                                            if !list.contains(&id) {
+                                                                list.push(id.clone());
+                                                            }
+                                                            f.allowed_plants = Some(list);
+                                                        }
+                                                    },
+                                                }
+                                            }
                                         }
                                     }
                                 }

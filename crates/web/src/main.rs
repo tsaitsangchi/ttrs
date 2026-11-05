@@ -13,7 +13,9 @@ use dioxus::prelude::*;
 use i18n::{UiLang, t};
 use pages::{
     aim::ItemList,
-    aoo::{DepartmentMaintenance, EmployeeMaintenance, PlantMaintenance},
+    aoo::{
+        ClassificationCodeMaintenance, DepartmentMaintenance, EmployeeMaintenance, PlantMaintenance,
+    },
     azz::{
         DataDictionary, PermissionClassMaintenance, ProgramMaintenance, ProgramPermissions,
         ProgramPermissionsFor, UserMaintenance, UserPermissions, UserPermissionsFor,
@@ -45,6 +47,9 @@ enum Route {
         DepartmentMaintenance {},
         #[route("/aoo/employee-maintenance")]
         EmployeeMaintenance {},
+        /// Classification Code Maintenance 分類碼維護（TipTop aooi300）
+        #[route("/aoo/classification-codes")]
+        ClassificationCodeMaintenance {},
         /// Program Maintenance 程式維護（TipTop p_zz）
         #[route("/azz/program-maintenance")]
         ProgramMaintenance {},
@@ -201,6 +206,7 @@ fn Shell() -> Element {
                 Link { active_class: "active", to: Route::PlantMaintenance {}, NavIcon { path: icons::FACTORY, tone: Tone::Success } span { {t("shell-nav-plants")} } }
                 Link { active_class: "active", to: Route::DepartmentMaintenance {}, NavIcon { path: icons::ACCOUNT_TREE, tone: Tone::Success } span { {t("shell-nav-departments")} } }
                 Link { active_class: "active", to: Route::EmployeeMaintenance {}, NavIcon { path: icons::GROUP_PEOPLE, tone: Tone::Success } span { {t("shell-nav-employees")} } }
+                Link { active_class: "active", to: Route::ClassificationCodeMaintenance {}, NavIcon { path: icons::LABEL, tone: Tone::Success } span { {t("shell-nav-codes")} } }
                 p { class: "group", NavIcon { path: icons::SETTINGS, tone: Tone::Primary } span { {t("shell-group-azz")} } }
                 Link { active_class: "active", to: Route::ProgramMaintenance {}, NavIcon { path: icons::APPS, tone: Tone::Primary } span { {t("shell-nav-program")} } }
                 Link { active_class: "active", to: Route::DataDictionary {}, NavIcon { path: icons::MENU_BOOK, tone: Tone::Primary } span { {t("shell-nav-dictionary")} } }

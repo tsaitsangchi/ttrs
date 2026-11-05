@@ -19,23 +19,24 @@ use tower_http::{
     trace::TraceLayer,
 };
 use ttrs_app::{
-    Actor, ActorKind, AppError, Authorizer, DataDictionaryService, DepartmentService,
-    EmployeeService, ItemService, LegacyCatalogService, PasswordResetService,
+    Actor, ActorKind, AppError, Authorizer, ClassificationCodeService, DataDictionaryService,
+    DepartmentService, EmployeeService, ItemService, LegacyCatalogService, PasswordResetService,
     PermissionClassService, PlantService, ProgramPermissionService, ProgramService, Services,
     SignInService, UserPermissionService, UserService, program_service::DEFAULT_LANG,
 };
 use ttrs_shared::{
-    ApiError, ChangePasswordInput, ColumnInfoDto, ColumnTextDto, ConstraintDto,
-    CopyPermissionsRequest, CopyUserPermissionsRequest, CreateItemRequest,
-    DepartmentAccountingInput, DepartmentDto, DepartmentInput, EmployeeDto, EmployeeInput,
-    GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto, LegacyImportResultDto,
-    LegacyTableDto, LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto, MyPermissionDto,
-    NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PasswordResetInput,
-    PasswordResetRequestInput, PasswordResetStatusDto, PermissionBatchResultDto,
-    PermissionClassDto, PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput,
-    ProgramNameDto, ProgramPermissionDto, ProgramPermissionInput, QueryRequest, SessionDto,
-    SignInInput, SignInPlantsDto, SwitchPlantInput, TableDictionaryDto, TableDictionaryInput,
-    TableTextDto, UpdatedCountDto, UserDto, UserInput, UserPermissionDto, UserPermissionInput,
+    ApiError, ChangePasswordInput, ClassificationCodeDto, ClassificationCodeInput, ColumnInfoDto,
+    ColumnTextDto, ConstraintDto, CopyPermissionsRequest, CopyUserPermissionsRequest,
+    CreateItemRequest, DepartmentAccountingInput, DepartmentDto, DepartmentInput, EmployeeDto,
+    EmployeeInput, GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto,
+    LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto, MenuPermissionsRequest,
+    MigrationDto, MyPermissionDto, NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page,
+    PasswordResetInput, PasswordResetRequestInput, PasswordResetStatusDto,
+    PermissionBatchResultDto, PermissionClassDto, PermissionClassInput, PlantDto, PlantInput,
+    ProgramDto, ProgramInput, ProgramNameDto, ProgramPermissionDto, ProgramPermissionInput,
+    QueryRequest, SessionDto, SignInInput, SignInPlantsDto, SwitchPlantInput, TableDictionaryDto,
+    TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto, UserInput, UserPermissionDto,
+    UserPermissionInput,
 };
 
 #[derive(Clone)]
@@ -51,6 +52,7 @@ pub struct AppState {
     pub special: UserPermissionService,
     pub departments: DepartmentService,
     pub employees: EmployeeService,
+    pub classification: ClassificationCodeService,
     pub sign_in: SignInService,
     /// 忘記密碼（ADR 0010 §A）；緊急重設（EmergencyService）只給 ttrs-admin，不放在 API（R11）
     pub password_reset: PasswordResetService,
@@ -109,6 +111,7 @@ impl AppState {
             special,
             departments,
             employees,
+            classification,
             sign_in,
             password_reset,
             emergency: _,
@@ -126,6 +129,7 @@ impl AppState {
             special,
             departments,
             employees,
+            classification,
             sign_in,
             password_reset,
             authorizer,
@@ -264,6 +268,23 @@ pub fn router(state: AppState) -> Router {
             post(copy_user_permissions),
         )
         // Department Maintenance 部門維護（TipTop aooi030；工廠層）
+        // Classification Code 分類碼維護（TipTop aooi300）：工廠層，依類別
+        .route(
+            "/api/plants/{plant}/classification-codes/{kind}",
+            get(list_codes).post(create_code),
+        )
+        .route(
+            "/api/plants/{plant}/classification-codes/{kind}/{code}",
+            axum::routing::put(update_code).delete(delete_code),
+        )
+        .route(
+            "/api/plants/{plant}/classification-codes/{kind}/{code}/deactivate",
+            post(deactivate_code),
+        )
+        .route(
+            "/api/plants/{plant}/classification-codes/{kind}/{code}/activate",
+            post(activate_code),
+        )
         .route("/api/plants/{plant}/departments", post(create_department))
         .route(
             "/api/plants/{plant}/departments/query",
@@ -801,7 +822,8 @@ impl IntoResponse for HttpError {
             | "USER_NOT_FOUND"
             | "PERMISSION_NOT_FOUND"
             | "DEPARTMENT_NOT_FOUND"
-            | "EMPLOYEE_NOT_FOUND" => StatusCode::NOT_FOUND,
+            | "EMPLOYEE_NOT_FOUND"
+            | "CODE_NOT_FOUND" => StatusCode::NOT_FOUND,
             "PASSWORD_RESET_UNAVAILABLE" => StatusCode::SERVICE_UNAVAILABLE,
             "NOT_SIGNED_IN"
             | "SIGN_IN_FAILED"
@@ -824,6 +846,8 @@ impl IntoResponse for HttpError {
             | "PLANT_ALREADY_EXISTS"
             | "PLANT_IN_USE"
             | "PLANT_LAST_ACTIVE"
+            | "CODE_ALREADY_EXISTS"
+            | "CODE_IN_USE"
             | "PLANT_SCHEMA_DUPLICATE"
             | "DEPARTMENT_ALREADY_EXISTS"
             | "DEPARTMENT_IN_USE"
@@ -1254,6 +1278,74 @@ async fn query_departments(
     Json(req): Json<QueryRequest>,
 ) -> ApiResult<Json<Page<DepartmentDto>>> {
     Ok(Json(s.departments.query(&s.actor, &plant, req).await?))
+}
+
+// ----- Classification Code 分類碼維護（TipTop aooi300） -----
+
+async fn list_codes(
+    Ctx(s): Ctx,
+    Path((plant, kind)): Path<(String, String)>,
+) -> ApiResult<Json<Vec<ClassificationCodeDto>>> {
+    Ok(Json(s.classification.list(&s.actor, &plant, &kind).await?))
+}
+
+async fn create_code(
+    Ctx(s): Ctx,
+    Path((plant, kind)): Path<(String, String)>,
+    Json(req): Json<ClassificationCodeInput>,
+) -> ApiResult<(StatusCode, Json<ClassificationCodeDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(
+            s.classification
+                .create(&s.actor, &plant, &kind, req)
+                .await?,
+        ),
+    ))
+}
+
+async fn update_code(
+    Ctx(s): Ctx,
+    Path((plant, kind, code)): Path<(String, String, String)>,
+    Json(req): Json<ClassificationCodeInput>,
+) -> ApiResult<Json<ClassificationCodeDto>> {
+    Ok(Json(
+        s.classification
+            .update(&s.actor, &plant, &kind, &code, req)
+            .await?,
+    ))
+}
+
+async fn delete_code(
+    Ctx(s): Ctx,
+    Path((plant, kind, code)): Path<(String, String, String)>,
+) -> ApiResult<StatusCode> {
+    s.classification
+        .delete(&s.actor, &plant, &kind, &code)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn deactivate_code(
+    Ctx(s): Ctx,
+    Path((plant, kind, code)): Path<(String, String, String)>,
+) -> ApiResult<Json<ClassificationCodeDto>> {
+    Ok(Json(
+        s.classification
+            .set_active(&s.actor, &plant, &kind, &code, false)
+            .await?,
+    ))
+}
+
+async fn activate_code(
+    Ctx(s): Ctx,
+    Path((plant, kind, code)): Path<(String, String, String)>,
+) -> ApiResult<Json<ClassificationCodeDto>> {
+    Ok(Json(
+        s.classification
+            .set_active(&s.actor, &plant, &kind, &code, true)
+            .await?,
+    ))
 }
 
 async fn create_department(

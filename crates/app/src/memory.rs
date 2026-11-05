@@ -39,6 +39,7 @@ use crate::{
 use crate::{
     mail::{Mail, Mailer},
     ports::{AuditLog, PasswordResetTokenRepository, ResetToken},
+    ports::{ClassificationCode, ClassificationCodeRepository, Code, CodeKind},
 };
 
 #[derive(Default)]
@@ -63,6 +64,8 @@ struct State {
     plant_schemas: HashSet<String>,
     /// 部門（gem_file）、員工（gen_file）：工廠層，以營運中心區分
     departments: BTreeMap<(PlantId, DeptCode), Department>,
+    /// (營運中心, 碼類別, 代號) → 分類碼（azf_file，工廠層）
+    classification_codes: BTreeMap<(PlantId, String, String), ClassificationCode>,
     employees: BTreeMap<(PlantId, EmployeeId), Employee>,
     units: HashSet<String>,
     items: BTreeMap<(PlantId, ItemNo), Item>,
@@ -1162,6 +1165,85 @@ impl UserPermissionRepository for InMemoryStore {
         s.user_permissions.retain(|(u, _), _| u != user);
         Ok((before - s.user_permissions.len()) as u64)
     }
+}
+
+#[async_trait]
+impl ClassificationCodeRepository for InMemoryStore {
+    async fn list_codes(
+        &self,
+        plant: &PlantId,
+        kind: CodeKind,
+    ) -> Result<Vec<ClassificationCode>, RepoError> {
+        // BTreeMap 依代號排序（位元組順序，同 PostgreSQL COLLATE "C"）
+        Ok(self
+            .lock()
+            .classification_codes
+            .iter()
+            .filter(|((p, k, _), _)| p == plant && k == kind.code())
+            .map(|(_, c)| c.clone())
+            .collect())
+    }
+
+    async fn get_code(
+        &self,
+        plant: &PlantId,
+        kind: CodeKind,
+        code: &Code,
+    ) -> Result<Option<ClassificationCode>, RepoError> {
+        Ok(self
+            .lock()
+            .classification_codes
+            .get(&code_key(plant, kind, code))
+            .cloned())
+    }
+
+    async fn insert_code(&self, plant: &PlantId, c: &ClassificationCode) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.plants.contains_key(plant) {
+            return Err(RepoError::Other(format!(
+                "營運中心不存在：{}",
+                plant.as_str()
+            )));
+        }
+        let key = code_key(plant, c.kind, &c.code);
+        if s.classification_codes.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        s.classification_codes.insert(key, c.clone());
+        Ok(())
+    }
+
+    async fn update_code(&self, plant: &PlantId, c: &ClassificationCode) -> Result<(), RepoError> {
+        if let Some(old) = self
+            .lock()
+            .classification_codes
+            .get_mut(&code_key(plant, c.kind, &c.code))
+        {
+            *old = c.clone();
+        }
+        Ok(())
+    }
+
+    async fn delete_code(
+        &self,
+        plant: &PlantId,
+        kind: CodeKind,
+        code: &Code,
+    ) -> Result<bool, RepoError> {
+        Ok(self
+            .lock()
+            .classification_codes
+            .remove(&code_key(plant, kind, code))
+            .is_some())
+    }
+}
+
+fn code_key(plant: &PlantId, kind: CodeKind, code: &Code) -> (PlantId, String, String) {
+    (
+        plant.clone(),
+        kind.code().to_owned(),
+        code.as_str().to_owned(),
+    )
 }
 
 #[async_trait]

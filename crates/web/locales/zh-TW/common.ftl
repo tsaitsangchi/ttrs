@@ -56,6 +56,7 @@ query-msg-tab-not-queryable = 此頁籤的欄位不能作為查詢條件
 common-field-plant = 營運中心
 shell-nav-departments = 部門維護
 shell-nav-employees = 員工維護
+shell-nav-codes = 分類碼維護
 shell-change-password = 變更密碼
 shell-sign-out = 登出
 shell-password-expiring = 密碼將於 { $days } 天後到期，請盡早變更

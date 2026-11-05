@@ -56,6 +56,7 @@ query-msg-tab-not-queryable = 此页签的栏位不能作为查询条件
 common-field-plant = 营运中心
 shell-nav-departments = 部门维护
 shell-nav-employees = 员工维护
+shell-nav-codes = 分类码维护
 shell-change-password = 变更密码
 shell-sign-out = 注销
 shell-password-expiring = 密码将于 { $days } 天后到期，请尽早变更

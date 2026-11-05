@@ -65,6 +65,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-TW/permission.ftl"),
         include_str!("../locales/zh-TW/plant.ftl"),
         include_str!("../locales/zh-TW/department.ftl"),
+        include_str!("../locales/zh-TW/classification.ftl"),
         include_str!("../locales/zh-TW/employee.ftl"),
         include_str!("../locales/zh-TW/program_permission.ftl"),
         include_str!("../locales/zh-TW/user_permission.ftl"),
@@ -79,6 +80,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/en/permission.ftl"),
         include_str!("../locales/en/plant.ftl"),
         include_str!("../locales/en/department.ftl"),
+        include_str!("../locales/en/classification.ftl"),
         include_str!("../locales/en/employee.ftl"),
         include_str!("../locales/en/program_permission.ftl"),
         include_str!("../locales/en/user_permission.ftl"),
@@ -93,6 +95,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-CN/permission.ftl"),
         include_str!("../locales/zh-CN/plant.ftl"),
         include_str!("../locales/zh-CN/department.ftl"),
+        include_str!("../locales/zh-CN/classification.ftl"),
         include_str!("../locales/zh-CN/employee.ftl"),
         include_str!("../locales/zh-CN/program_permission.ftl"),
         include_str!("../locales/zh-CN/user_permission.ftl"),
@@ -288,7 +291,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 17] = [
+        const TRANSLATED: [(&str, &str); 18] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/session.rs",
@@ -301,6 +304,10 @@ mod tests {
             (
                 "pages/aoo/employee_maintenance.rs",
                 include_str!("pages/aoo/employee_maintenance.rs"),
+            ),
+            (
+                "pages/aoo/classification_code_maintenance.rs",
+                include_str!("pages/aoo/classification_code_maintenance.rs"),
             ),
             ("components/plant.rs", include_str!("components/plant.rs")),
             (

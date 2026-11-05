@@ -56,6 +56,7 @@ query-msg-tab-not-queryable = Fields on this tab cannot be used as query conditi
 common-field-plant = Plant
 shell-nav-departments = Departments
 shell-nav-employees = Employees
+shell-nav-codes = Classification Codes
 shell-change-password = Change password
 shell-sign-out = Sign out
 shell-password-expiring = Your password expires in { $days } days. Please change it soon.

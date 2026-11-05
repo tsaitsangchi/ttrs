@@ -1117,6 +1117,62 @@ pub mod department_max_len {
 }
 
 // ---------------------------------------------------------------------------
+// Classification Code 分類碼維護（TipTop aooi300 / azf_file；classification_code.feature）
+// ---------------------------------------------------------------------------
+
+/// 分類碼
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ClassificationCodeDto {
+    /// azf02 碼類別：8、D、E、F、G
+    pub kind: String,
+    /// azf01 碼別代號
+    pub code: String,
+    /// azf03 說明
+    pub description: Option<String>,
+    /// azf05、azf051 存貨差異科目（類別 G）
+    pub variance_account: Option<String>,
+    pub variance_account2: Option<String>,
+    /// azf06 成本性質（類別 G）
+    pub cost_nature: Option<i32>,
+    pub active: bool,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+}
+
+/// 分類碼新增、修改；類別由網址決定
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ClassificationCodeInput {
+    pub code: String,
+    pub description: Option<String>,
+    pub variance_account: Option<String>,
+    pub variance_account2: Option<String>,
+    pub cost_nature: Option<i32>,
+}
+
+impl ClassificationCodeDto {
+    pub fn to_input(&self) -> ClassificationCodeInput {
+        ClassificationCodeInput {
+            code: self.code.clone(),
+            description: self.description.clone(),
+            variance_account: self.variance_account.clone(),
+            variance_account2: self.variance_account2.clone(),
+            cost_nature: self.cost_nature,
+        }
+    }
+}
+
+/// 欄位上限（與 ttrs_domain::classification::max_len 一致）
+pub mod classification_max_len {
+    pub const CODE: usize = 10;
+    pub const DESCRIPTION: usize = 80;
+    pub const ACCOUNT: usize = 24;
+}
+
+// ---------------------------------------------------------------------------
 // Employee Maintenance 員工維護（aooi040 / gen_file；工廠層）
 // ---------------------------------------------------------------------------
 

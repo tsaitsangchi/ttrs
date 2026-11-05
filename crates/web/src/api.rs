@@ -4,10 +4,10 @@
 //! （開發由 dx proxy、正式由 nginx 轉發），桌面/行動版預設連本機 API。
 
 use ttrs_shared::{
-    ApiError, ChangePasswordInput, ColumnInfoDto, ColumnTextDto, ConstraintDto,
-    CopyPermissionsRequest, CopyUserPermissionsRequest, CreateItemRequest,
-    DepartmentAccountingInput, DepartmentDto, DepartmentInput, EmployeeDto, EmployeeInput,
-    GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto, LegacyTableDto,
+    ApiError, ChangePasswordInput, ClassificationCodeDto, ClassificationCodeInput, ColumnInfoDto,
+    ColumnTextDto, ConstraintDto, CopyPermissionsRequest, CopyUserPermissionsRequest,
+    CreateItemRequest, DepartmentAccountingInput, DepartmentDto, DepartmentInput, EmployeeDto,
+    EmployeeInput, GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto, LegacyTableDto,
     LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto, MyPermissionDto,
     NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PasswordResetInput,
     PasswordResetRequestInput, PasswordResetStatusDto, PermissionBatchResultDto,
@@ -931,6 +931,72 @@ async fn send_json<T: serde::de::DeserializeOwned, B: serde::Serialize>(
     }
     let res = req.send().await.map_err(|e| e.to_string())?;
     into_result(res).await
+}
+
+// ----- Classification Code 分類碼維護（TipTop aooi300） -----
+
+fn code_url(plant: &str, kind: &str, code: &str, suffix: &str) -> String {
+    plant_part_url(
+        plant,
+        &format!("classification-codes/{}", urlencoding(kind)),
+        code,
+        suffix,
+    )
+}
+
+pub async fn list_codes(plant: &str, kind: &str) -> Result<Vec<ClassificationCodeDto>, String> {
+    get_json(code_url(plant, kind, "", "")).await
+}
+
+pub async fn create_code(
+    plant: &str,
+    kind: &str,
+    req: &ClassificationCodeInput,
+) -> Result<ClassificationCodeDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        code_url(plant, kind, "", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_code(
+    plant: &str,
+    kind: &str,
+    code: &str,
+    req: &ClassificationCodeInput,
+) -> Result<ClassificationCodeDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        code_url(plant, kind, code, ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn set_code_active(
+    plant: &str,
+    kind: &str,
+    code: &str,
+    active: bool,
+) -> Result<ClassificationCodeDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        code_url(plant, kind, code, suffix),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_code(plant: &str, kind: &str, code: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(code_url(plant, kind, code, ""))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
 }
 
 pub async fn query_departments(

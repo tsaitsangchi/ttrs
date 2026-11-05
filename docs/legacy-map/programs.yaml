@@ -15,6 +15,13 @@ programs:
   - { tiptop: aooi901, english: plant-maintenance,              spec: specs/features/aoo/plant_maintenance.feature }
   - { tiptop: aooi030, english: department-maintenance,         spec: specs/features/aoo/department_maintenance.feature }
   - { tiptop: aooi040, english: employee-maintenance,           spec: specs/features/aoo/employee_maintenance.feature }
+  # aooi300 分類碼共用程式：TTRS 一支作業以類別切換（CC1）；aooi305、aooi309–aooi312 為 TipTop 選單上帶入類別的代號
+  - { tiptop: aooi300, english: classification-code-maintenance, spec: specs/features/aoo/classification_code.feature }
+  - { tiptop: aooi305, english: classification-code-maintenance, spec: specs/features/aoo/classification_code.feature, registered: false }
+  - { tiptop: aooi309, english: classification-code-maintenance, spec: specs/features/aoo/classification_code.feature, registered: false }
+  - { tiptop: aooi310, english: classification-code-maintenance, spec: specs/features/aoo/classification_code.feature, registered: false }
+  - { tiptop: aooi311, english: classification-code-maintenance, spec: specs/features/aoo/classification_code.feature, registered: false }
+  - { tiptop: aooi312, english: classification-code-maintenance, spec: specs/features/aoo/classification_code.feature, registered: false }
   - { tiptop: aimi100, english: item-maintenance,               spec: specs/features/aim/item_master.feature }
   # 登入與切換營運中心：每個已註冊使用者都能用，不登錄為程式、不檢查程式執行權限（sign_in.feature SQ9）
   - { tiptop: weblogin, english: sign-in,                       spec: specs/features/azz/sign_in.feature, registered: false }

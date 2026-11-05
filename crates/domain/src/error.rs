@@ -140,6 +140,20 @@ pub enum DomainError {
     LastUserAdmin,
     #[error("沒有可使用的營運中心，請洽系統管理員")]
     NoUsablePlant,
+
+    // 分類碼（classification_code.feature，aooi300）
+    #[error("不支援的碼類別：{0}")]
+    CodeKindInvalid(String),
+    #[error("代號不可空白")]
+    CodeEmpty,
+    #[error("代號最多 {max} 個字")]
+    CodeTooLong { max: usize },
+    #[error("此類別已有相同代號")]
+    CodeAlreadyExists,
+    #[error("分類碼不存在")]
+    CodeNotFound,
+    #[error("分類碼已被使用，不可刪除；請改為停用")]
+    CodeInUse,
     #[error("此公司帳號尚未在 TTRS 註冊，請洽系統管理員")]
     UserNotRegistered,
     #[error("使用者已停用")]
@@ -342,6 +356,12 @@ impl DomainError {
             Self::PasswordResetUnavailable => "PASSWORD_RESET_UNAVAILABLE",
             Self::LastUserAdmin => "LAST_USER_ADMIN",
             Self::NoUsablePlant => "NO_USABLE_PLANT",
+            Self::CodeKindInvalid(_) => "CODE_KIND_INVALID",
+            Self::CodeEmpty => "CODE_EMPTY",
+            Self::CodeTooLong { .. } => "CODE_TOO_LONG",
+            Self::CodeAlreadyExists => "CODE_ALREADY_EXISTS",
+            Self::CodeNotFound => "CODE_NOT_FOUND",
+            Self::CodeInUse => "CODE_IN_USE",
             Self::UserNotRegistered => "USER_NOT_REGISTERED",
             Self::UserInactive => "USER_INACTIVE",
             Self::UserExpired => "USER_EXPIRED",

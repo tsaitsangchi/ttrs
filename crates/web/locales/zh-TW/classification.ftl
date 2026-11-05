@@ -1,0 +1,27 @@
+# 分類碼維護（TipTop aooi300；specs/features/aoo/classification_code.feature）
+code-breadcrumb = 整體管理 / Classification Code Maintenance
+code-title = 分類碼維護
+code-list-title = 分類碼
+code-field-kind = 碼類別
+code-field-code = 碼別代號
+code-field-description = 說明內容
+code-field-variance-account = 存貨差異科目
+code-field-variance-account2 = 存貨差異科目二
+code-field-cost-nature = 成本性質
+code-field-active = 資料有效
+code-kind-8 = 材料類別
+code-kind-d = 其他分群碼一
+code-kind-e = 其他分群碼二
+code-kind-f = 其他分群碼三
+code-kind-g = 其他分群碼四
+code-status-active = 有效
+code-status-inactive = 停用
+code-action-activate = 啟用
+code-action-deactivate = 停用
+code-dialog-new = 新增分類碼
+code-dialog-edit = 修改分類碼 { $code }
+code-msg-saved = 分類碼 { $code } 已儲存
+code-msg-deleted = 分類碼 { $code } 已刪除
+code-msg-activated = 分類碼 { $code } 已啟用
+code-msg-deactivated = 分類碼 { $code } 已停用
+code-hint-account = 會計科目尚未移植，存貨差異科目暫不檢查是否存在。

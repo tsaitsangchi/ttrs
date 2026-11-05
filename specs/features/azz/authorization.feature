@@ -334,6 +334,11 @@
       | employee-maintenance | query                      | 查詢員工                   |
       | employee-maintenance | detail                     | 新增員工 E01               |
       | employee-maintenance | detail                     | 刪除員工 E01               |
+      | classification-code-maintenance | query           | 查詢分類碼 D               |
+      | classification-code-maintenance | detail          | 新增分類碼 D X01           |
+      | classification-code-maintenance | detail          | 修改分類碼 D X01           |
+      | classification-code-maintenance | detail          | 停用分類碼 D X01           |
+      | classification-code-maintenance | detail          | 刪除分類碼 D X01           |
 
   # AQ2 權限檢查在輸入檢查之前
   場景: 沒有權限時先回權限錯誤

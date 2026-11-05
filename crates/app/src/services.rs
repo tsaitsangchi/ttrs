@@ -3,16 +3,16 @@
 use std::sync::Arc;
 
 use crate::{
-    Authorizer, DataDictionaryService, DepartmentService, EmergencyService, EmployeeService,
-    ItemService, LegacyCatalogService, PasswordResetService, PermissionAuthorizer,
-    PermissionClassService, PlantService, ProgramPermissionService, ProgramService, SignInService,
-    UserPermissionService, UserService,
+    Authorizer, ClassificationCodeService, DataDictionaryService, DepartmentService,
+    EmergencyService, EmployeeService, ItemService, LegacyCatalogService, PasswordResetService,
+    PermissionAuthorizer, PermissionClassService, PlantService, ProgramPermissionService,
+    ProgramService, SignInService, UserPermissionService, UserService,
     ports::{
-        AccountPolicyRepository, AuditLog, CredentialRepository, DepartmentRepository,
-        DictionaryRepository, EmployeeRepository, ItemRepository, LegacyCatalogRepository,
-        MasterDataRepository, PasswordResetTokenRepository, PermissionClassRepository,
-        PlantRepository, ProgramPermissionRepository, ProgramRepository, SchemaCatalog,
-        UserPermissionRepository, UserRepository,
+        AccountPolicyRepository, AuditLog, ClassificationCodeRepository, CredentialRepository,
+        DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemRepository,
+        LegacyCatalogRepository, MasterDataRepository, PasswordResetTokenRepository,
+        PermissionClassRepository, PlantRepository, ProgramPermissionRepository, ProgramRepository,
+        SchemaCatalog, UserPermissionRepository, UserRepository,
     },
 };
 
@@ -35,6 +35,7 @@ pub trait Store:
     + AccountPolicyRepository
     + PasswordResetTokenRepository
     + AuditLog
+    + ClassificationCodeRepository
     + 'static
 {
 }
@@ -57,6 +58,7 @@ impl<T> Store for T where
         + AccountPolicyRepository
         + PasswordResetTokenRepository
         + AuditLog
+        + ClassificationCodeRepository
         + 'static
 {
 }
@@ -74,6 +76,8 @@ pub struct Services {
     pub special: UserPermissionService,
     pub departments: DepartmentService,
     pub employees: EmployeeService,
+    /// 分類碼（aooi300）
+    pub classification: ClassificationCodeService,
     pub sign_in: SignInService,
     /// 忘記密碼（ADR 0010 §A）；寄信設定以 [`PasswordResetService::with_mail`] 接上
     pub password_reset: PasswordResetService,
@@ -140,6 +144,7 @@ impl Services {
             ),
             emergency: EmergencyService::new(store.clone(), store.clone(), store.clone()),
             employees: EmployeeService::new(a.clone(), store.clone(), store.clone(), store.clone()),
+            classification: ClassificationCodeService::new(a.clone(), store.clone(), store.clone()),
             special: UserPermissionService::new(
                 a,
                 store.clone(),

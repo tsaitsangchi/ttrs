@@ -41,6 +41,35 @@ tables:
     target: "(待營運中心切換)"
     note: "使用者目前使用的營運中心；ADR 0006 §5 營運中心切換時另行設計（web 存於 session）"
 
+  - legacy: azf_file
+    target: classification_code
+    scope: plant
+    program: aooi300（Classification Code Maintenance 分類碼維護；aooi305、aooi309–aooi312 帶入類別執行）
+    spec: specs/features/aoo/classification_code.feature
+    note: "分類碼；工廠層（CC8）。第一階段只開放料件用到的類別 8、D、E、F、G（CC2），其他類別等引用的作業移植時加入"
+    columns:
+      - { legacy: azf01,   type: varchar2(10) NOT NULL, target: code, sch: 碼別代號, note: "同一類別內不可重複（-239）；不轉大寫" }
+      - { legacy: azf02,   type: varchar2(1) NOT NULL, target: kind, sch: 碼類別, note: "8、D、E、F、G（CC2）" }
+      - { legacy: azf03,   type: varchar2(80), target: description, sch: 說明內容, note: "不做多語言（CC9）" }
+      - { legacy: azf05,   type: varchar2(24), target: variance_account, sch: 存貨差異科目代號, note: "類別 G；會計科目未移植，暫不檢查（CC3）", verify: true }
+      - { legacy: azf051,  type: varchar2(24), target: variance_account2, sch: 存貨差異科目代號二, note: "類別 G（兩套帳）", verify: true }
+      - { legacy: azf06,   type: number(5), target: cost_nature, sch: 成本性質, note: "類別 G" }
+      - { legacy: azfacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean；新增預設有效" }
+      - { legacy: azfuser, type: varchar2(10), target: created_by, sch: 原始資料建立者 }
+      - { legacy: azfgrup, type: varchar2(10), target: created_dept, sch: 使用者部門 }
+      - { legacy: azfmodu, type: varchar2(10), target: updated_by, sch: 最後修改資料者 }
+      - { legacy: azfdate, type: date, target: "created_on / updated_on", sch: 最後修改日期, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+    not_ported:
+      - { legacy: azf04,  type: number(5), sch: 保稅異動類別, reason: "保稅相關類別（第一階段未開放的類別使用），等相關作業移植時加入" }
+      - { legacy: azf07,  type: varchar2(24), sch: 會計科目, reason: "只有類別 H（aooi313）使用，第一階段未開放" }
+      - { legacy: azf08,  type: varchar2(1), sch: 是否列入銷售費用, reason: "只有類別 H 使用" }
+      - { legacy: azf09,  type: varchar2(1), sch: 用途, reason: "只有類別 H 使用" }
+      - { legacy: azf10,  type: varchar2(1), sch: 是否搭贈, reason: "只有類別 H 使用" }
+      - { legacy: azf11,  type: varchar2(1), sch: 是否計算業績, reason: "只有類別 H 使用" }
+      - { legacy: azf12,  type: varchar2(1), sch: 是否影響呆滯日期, reason: "只有類別 H 使用" }
+      - { legacy: azf13,  type: varchar2(1), sch: 是否拒收, reason: "只有類別 H 使用" }
+      - { legacy: azf14,  type: varchar2(24), sch: 銷售費用會計科目, reason: "只有類別 H 使用" }
+
   - legacy: gem_file
     target: department
     scope: plant
