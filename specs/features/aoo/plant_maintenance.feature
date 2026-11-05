@@ -5,7 +5,8 @@
 #           action labels tiptop/config/4ad/0/aoo/aooi901.4ad; no topcust override. Line numbers are noted on each scenario.
 # Data model: docs/adr/0001-architecture.md §4 (one schema + plant_id), docs/adr/0006-authentication-authorization.md §5
 # Status: P1–P12 confirmed (Key User, 2026-11-02; all as proposed). P13–P15 (database code = plant schema,
-#         ADR 0007) confirmed (Key User, 2026-11-03; as drafted); entering Red
+#         ADR 0007) confirmed (Key User, 2026-11-03; as drafted); entering Red. P16–P18 (keep one active plant)
+#         confirmed (Key User, 2026-11-05; all as recommended, P16 option A)
 #
 # Scope:
 #   - Maintain plants: plant code, name, time zone, address, phone, fax, active code; add / query / modify / delete / copy / deactivate
@@ -46,7 +47,7 @@
 #       is an IdP / IT policy. Keep it if your Genero license terms still matter for the new system?
 #   P9. Active code: azp_file has no active flag, but TTRS already has plant.active, and an inactive plant can't be used
 #       for new users or new business data (PLANT_NOT_FOUND, as today). I recommend deactivate / activate actions;
-#       deactivating is always allowed and existing data stays as it is.
+#       deactivating is always allowed and existing data stays as it is (revised by P16: not the last active plant).
 #  P10. Delete: TipTop refuses while users may use the plant (zxy, aoo-088, :944-953). TTRS refuses while any user has
 #       it as default or allowed plant, or any business data belongs to it (PLANT_IN_USE); deactivate instead.
 #       Nothing is deleted in cascade.
@@ -76,6 +77,21 @@
 #       and applies all plant migrations as one step: if any part fails, nothing is created (ADR 0007 §5, Q12). Copy copies only the
 #       plant record (name, time zone, address, phone, fax), never business data.
 #  P15. Deleting a plant (only when unused, P10) also drops its schema and role.
+#
+# Decisions (Key User, 2026-11-05: "只有一個營運中心時不可失效"; all ✅ confirmed as recommended, scenarios P16a–P16d):
+#  P16. Keep at least one active plant. Deactivating every plant locks everyone out: sign-in has no usable plant
+#       (NO_USABLE_PLANT, sign_in.feature SQ16), so nobody can open this program to activate one again.
+#       TipTop has no active flag on azp_file, so it has no such rule (revises P9 "deactivating is always allowed").
+#       | Option | Rule |
+#       | A (chosen) | The last active plant in the system can't be deactivated → PLANT_LAST_ACTIVE |
+#       | B | A, and also refuse when deactivating would leave any active user without a usable plant (lists the users) |
+#       B protects every user, but a large plant with many users could then only be deactivated after all of them
+#       are moved; A covers the lock-out case. Inactive plants don't count as "another plant".
+#  P17. Delete: should the last active plant also be undeletable (PLANT_LAST_ACTIVE)? Today P10 already refuses while
+#       any user or business data uses it, so this only matters for an unused last plant. Confirmed: yes.
+#  P18. Existing scenarios that deactivate TW01 while it is the only plant
+#       ("停用的營運中心不可設為使用者的預設營運中心", "啟用停用的營運中心") got a second active plant CN01 in their setup;
+#       the expected results stay the same.
 
 功能: 營運中心維護（Plant Maintenance）
   身為 系統管理員
@@ -142,6 +158,7 @@
 
   # P9 停用後不可再指定給使用者（PLANT_NOT_FOUND：營運中心不存在或未啟用）
   場景: 停用的營運中心不可設為使用者的預設營運中心
+    假設 營運中心 "CN01" 已啟用
     當 使用者停用營運中心 "TW01"
     那麼 操作應成功
     而且 營運中心 "TW01" 的資料有效應為 "否"
@@ -149,7 +166,8 @@
     那麼 應出現錯誤 "PLANT_NOT_FOUND"
 
   場景: 啟用停用的營運中心
-    假設 使用者停用營運中心 "TW01"
+    假設 營運中心 "CN01" 已啟用
+    而且 使用者停用營運中心 "TW01"
     當 使用者啟用營運中心 "TW01"
     那麼 營運中心 "TW01" 的資料有效應為 "是"
 
@@ -248,3 +266,30 @@
     那麼 操作應成功
     而且 工廠 schema "ds09" 應不存在
     而且 工廠 schema "ds09" 的資料庫角色應不存在
+
+  # ----- 至少保留一個有效的營運中心（P16–P18）-----
+
+  # P16 選項 A
+  場景: P16a 最後一個有效的營運中心不可停用
+    當 使用者停用營運中心 "TW01"
+    那麼 應出現錯誤 "PLANT_LAST_ACTIVE"
+    而且 營運中心 "TW01" 的資料有效應為 "是"
+
+  # P16 還有其他有效的營運中心時可停用
+  場景: P16b 還有其他有效的營運中心時可停用
+    假設 營運中心 "CN01" 已啟用
+    當 使用者停用營運中心 "TW01"
+    那麼 操作應成功
+    而且 營運中心 "TW01" 的資料有效應為 "否"
+
+  # P16 已停用的營運中心不算「其他營運中心」
+  場景: P16c 其他營運中心都已停用時不可停用
+    假設 營運中心 "CN01" 已啟用
+    而且 營運中心 "CN01" 已停用
+    當 使用者停用營運中心 "TW01"
+    那麼 應出現錯誤 "PLANT_LAST_ACTIVE"
+
+  # P17 最後一個有效的營運中心不可刪除
+  場景: P16d 最後一個有效的營運中心不可刪除
+    當 使用者刪除營運中心 "TW01"
+    那麼 應出現錯誤 "PLANT_LAST_ACTIVE"

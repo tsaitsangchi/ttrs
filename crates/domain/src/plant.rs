@@ -143,6 +143,15 @@ pub struct Plant {
     pub updated_on: Option<NaiveDate>,
 }
 
+/// 至少保留一個有效的營運中心（plant_maintenance.feature P16、P17）：停用或刪除 `target` 前，
+/// `others_active` 為其他有效營運中心的數目；target 本身已停用時不檢查
+pub fn check_keeps_active(target: &Plant, others_active: usize) -> Result<(), DomainError> {
+    if target.active && others_active == 0 {
+        return Err(DomainError::PlantLastActive);
+    }
+    Ok(())
+}
+
 impl Plant {
     /// 新增：資料有效；資料所有者／部門＝目前使用者（P9、P12）
     pub fn new(

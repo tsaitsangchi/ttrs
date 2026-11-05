@@ -823,6 +823,7 @@ impl IntoResponse for HttpError {
             | "PERMISSION_CLASS_HAS_PERMISSIONS"
             | "PLANT_ALREADY_EXISTS"
             | "PLANT_IN_USE"
+            | "PLANT_LAST_ACTIVE"
             | "PLANT_SCHEMA_DUPLICATE"
             | "DEPARTMENT_ALREADY_EXISTS"
             | "DEPARTMENT_IN_USE"

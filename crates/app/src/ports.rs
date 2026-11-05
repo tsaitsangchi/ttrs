@@ -280,6 +280,8 @@ pub trait PlantRepository: Send + Sync {
     /// 仍有使用者（預設或可使用營運中心）或工廠 schema 內有任何資料時回 InUse，不做連帶刪除（P10）；
     /// 刪除時一併移除工廠 schema 與資料庫角色（P15）
     async fn delete(&self, id: &PlantId) -> Result<(), RepoError>;
+    /// 是否仍被使用（同 delete 回 InUse 的條件），供刪除前決定錯誤訊息的先後（P10 優先於 P17）
+    async fn in_use(&self, id: &PlantId) -> Result<bool, RepoError>;
 }
 
 // ---------------------------------------------------------------------------

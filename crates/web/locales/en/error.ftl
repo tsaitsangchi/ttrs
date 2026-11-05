@@ -68,6 +68,7 @@ error-PLANT_ID_IMMUTABLE = Plant code cannot be changed.
 error-PLANT_NAME_EMPTY = Plant name is required.
 error-PLANT_TIME_ZONE_INVALID = Time zone must be a valid IANA name (e.g. Asia/Taipei).
 error-PLANT_IN_USE = The plant still has users or business data and cannot be deleted; deactivate it instead.
+error-PLANT_LAST_ACTIVE = At least one plant must stay active.
 error-PLANT_SCHEMA_INVALID = The database code must be ds followed by two digits (for example ds01).
 error-PLANT_SCHEMA_DUPLICATE = The database code is already used by another plant.
 error-PLANT_SCHEMA_IMMUTABLE = The database code can't be changed after the plant is created.

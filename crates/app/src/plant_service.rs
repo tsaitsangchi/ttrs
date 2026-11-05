@@ -9,7 +9,7 @@ use std::sync::Arc;
 use chrono::NaiveDate;
 use ttrs_domain::{
     DomainError,
-    plant::{Plant, PlantAttrs, PlantId, PlantSchema},
+    plant::{Plant, PlantAttrs, PlantId, PlantSchema, check_keeps_active},
 };
 use ttrs_shared::{Page, PlantDto, PlantInput, QueryRequest};
 
@@ -104,6 +104,11 @@ impl PlantService {
     pub async fn delete(&self, actor: &Actor, id: &str) -> Result<(), AppError> {
         self.authorize(actor, "delete").await?;
         let plant = self.load(id).await?;
+        // 使用中（P10）優先；沒有使用的最後一個有效營運中心也不可刪除（P17）
+        if self.plants.in_use(&plant.id).await.map_err(infra)? {
+            return Err(DomainError::PlantInUse.into());
+        }
+        self.check_keeps_active(&plant).await?;
         match self.plants.delete(&plant.id).await {
             Ok(()) => Ok(()),
             Err(RepoError::InUse) => Err(DomainError::PlantInUse.into()),
@@ -111,7 +116,8 @@ impl PlantService {
         }
     }
 
-    /// 停用（P9）：一律允許，既有資料不受影響；之後不可再指定給使用者或新的業務資料。
+    /// 停用（P9）：既有資料不受影響；之後不可再指定給使用者或新的業務資料。
+    /// 最後一個有效的營運中心不可停用（P16）
     /// azp_file 沒有有效碼，停用／啟用用 modify（AQ3）
     pub async fn deactivate(&self, actor: &Actor, id: &str) -> Result<PlantDto, AppError> {
         self.set_active(actor, id, false).await
@@ -162,9 +168,25 @@ impl PlantService {
     ) -> Result<PlantDto, AppError> {
         self.authorize(actor, "modify").await?;
         let mut plant = self.load(id).await?;
+        if !active {
+            self.check_keeps_active(&plant).await?;
+        }
         plant.set_active(active, &actor.user_id, today());
         self.plants.update(&plant).await.map_err(infra)?;
         Ok(to_dto(&plant))
+    }
+
+    /// 停用或刪除前：系統內須還有其他有效的營運中心（P16、P17）
+    async fn check_keeps_active(&self, plant: &Plant) -> Result<(), AppError> {
+        let others = self
+            .plants
+            .list()
+            .await
+            .map_err(infra)?
+            .iter()
+            .filter(|p| p.active && p.id != plant.id)
+            .count();
+        check_keeps_active(plant, others).map_err(Into::into)
     }
 
     async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {

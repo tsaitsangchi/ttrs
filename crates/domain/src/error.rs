@@ -184,6 +184,8 @@ pub enum DomainError {
     PlantTimeZoneInvalid(String),
     #[error("營運中心仍有使用者或業務資料，不可刪除（可改為停用）")]
     PlantInUse,
+    #[error("至少要保留一個有效的營運中心")]
+    PlantLastActive,
 
     // 權限類別維護（permission_class_maintenance.feature）
     #[error("權限類別代號不可空白")]
@@ -359,6 +361,7 @@ impl DomainError {
             Self::PlantNameEmpty => "PLANT_NAME_EMPTY",
             Self::PlantTimeZoneInvalid(_) => "PLANT_TIME_ZONE_INVALID",
             Self::PlantInUse => "PLANT_IN_USE",
+            Self::PlantLastActive => "PLANT_LAST_ACTIVE",
             Self::PermissionClassCodeEmpty => "PERMISSION_CLASS_CODE_EMPTY",
             Self::PermissionClassCodeTooLong { .. } => "PERMISSION_CLASS_CODE_TOO_LONG",
             Self::PermissionClassAlreadyExists => "PERMISSION_CLASS_ALREADY_EXISTS",

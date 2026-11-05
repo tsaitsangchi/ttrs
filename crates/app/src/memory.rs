@@ -969,20 +969,24 @@ impl PlantRepository for InMemoryStore {
     }
 
     async fn delete(&self, id: &PlantId) -> Result<(), RepoError> {
-        let mut s = self.lock();
-        // 與 PostgreSQL 一致：使用者預設／可使用營運中心（外鍵）、工廠 schema 內有資料（料件、庫存異動）
-        let referenced = s.users.values().any(|u| &u.attrs.default_plant == id)
-            || s.user_plants.values().any(|ps| ps.contains(id))
-            || s.items.keys().any(|(p, _)| p == id)
-            || s.departments.keys().any(|(p, _)| p == id)
-            || s.employees.keys().any(|(p, _)| p == id);
-        if referenced {
+        if self.in_use(id).await? {
             return Err(RepoError::InUse);
         }
+        let mut s = self.lock();
         if let Some(p) = s.plants.remove(id) {
             s.plant_schemas.remove(p.schema.as_str());
         }
         Ok(())
+    }
+
+    /// 與 PostgreSQL 一致：使用者預設／可使用營運中心（外鍵）、工廠 schema 內有資料（料件、部門、員工）
+    async fn in_use(&self, id: &PlantId) -> Result<bool, RepoError> {
+        let s = self.lock();
+        Ok(s.users.values().any(|u| &u.attrs.default_plant == id)
+            || s.user_plants.values().any(|ps| ps.contains(id))
+            || s.items.keys().any(|(p, _)| p == id)
+            || s.departments.keys().any(|(p, _)| p == id)
+            || s.employees.keys().any(|(p, _)| p == id))
     }
 }
 

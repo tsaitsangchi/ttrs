@@ -68,6 +68,7 @@ error-PLANT_ID_IMMUTABLE = （使用伺服器訊息）
 error-PLANT_NAME_EMPTY = （使用伺服器訊息）
 error-PLANT_TIME_ZONE_INVALID = （使用伺服器訊息）
 error-PLANT_IN_USE = （使用伺服器訊息）
+error-PLANT_LAST_ACTIVE = （使用伺服器訊息）
 error-PLANT_SCHEMA_INVALID = （使用伺服器訊息）
 error-PLANT_SCHEMA_DUPLICATE = （使用伺服器訊息）
 error-PLANT_SCHEMA_IMMUTABLE = （使用伺服器訊息）

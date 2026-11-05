@@ -68,6 +68,7 @@ error-PLANT_ID_IMMUTABLE = 营运中心代号不可修改
 error-PLANT_NAME_EMPTY = 营运中心名称不可空白
 error-PLANT_TIME_ZONE_INVALID = 时区必须是有效的 IANA 时区名称（例：Asia/Taipei）
 error-PLANT_IN_USE = 营运中心仍有用户或业务数据，不可删除（可改为停用）
+error-PLANT_LAST_ACTIVE = 至少要保留一个有效的营运中心。
 error-PLANT_SCHEMA_INVALID = 数据库代码须为 ds 加两位数字（例如 ds01）
 error-PLANT_SCHEMA_DUPLICATE = 数据库代码已被其他营运中心使用
 error-PLANT_SCHEMA_IMMUTABLE = 数据库代码建立后不可修改
