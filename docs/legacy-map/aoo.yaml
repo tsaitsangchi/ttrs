@@ -75,7 +75,7 @@ tables:
     scope: plant
     program: aooi030（Department Maintenance 部門維護）
     spec: specs/features/aoo/department_maintenance.feature
-    note: "部門名稱資料；工廠層，每廠的 schema 各一份（DQ1）"
+    note: "部門名稱資料；工廠層，每廠的 schema 各一份（DQ1）。列印（output）與匯出 Excel（exporttoexcel）見 specs/features/aoo/department_report.feature"
     columns:
       - { legacy: gem01,   type: varchar2(10) NOT NULL, target: dept_code, sch: 部門編號, note: "轉大寫、建立後不可修改（DQ2）" }
       - { legacy: gem02,   type: varchar2(80), target: name, sch: 部門名稱, note: "簡稱；新系統必填" }

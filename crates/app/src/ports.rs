@@ -47,6 +47,8 @@ pub struct AuditEntry {
     pub user_id: String,
     pub key: String,
     pub action: String,
+    /// 補充說明，例如報表的條件、格式、筆數（ADR 0011 §4）
+    pub detail: Option<String>,
 }
 
 /// 程式維護（TipTop: zz_file、gaz_file、zy_file、zm_file、azo_file）。

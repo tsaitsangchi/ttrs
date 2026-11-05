@@ -106,6 +106,7 @@ impl EmergencyService {
                 user_id: actor(operator),
                 key: user.user_id.as_str().to_owned(),
                 action: action.to_owned(),
+                detail: None,
             })
             .await
             .map_err(infra)

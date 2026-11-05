@@ -205,6 +205,7 @@ impl PasswordResetService {
                 user_id: id.as_str().to_owned(),
                 key: id.as_str().to_owned(),
                 action: action.to_owned(),
+                detail: None,
             })
             .await
             .map_err(infra)

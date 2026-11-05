@@ -3,6 +3,7 @@
 mod aim_item;
 mod aoo_classification_code;
 mod aoo_department_employee;
+mod aoo_department_report;
 mod aoo_plant_maintenance;
 mod aoo_plant_maintenance_query;
 mod azz_authorization;

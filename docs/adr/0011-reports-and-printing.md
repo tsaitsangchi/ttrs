@@ -69,6 +69,7 @@ TTRS 目前只有資料字典的 CSV 匯出，還沒有報表。TipTop 的報表
 | RP3 | DOCX 先不支援，有實際需求再加，可以嗎？ | 可以 |
 | RP4 | 報表版面：比照 TipTop 該報表的格式逐支移植（欄位、順序、小計），不另行設計，可以嗎？ | 可以 |
 | RP5 | 第一支試做報表選哪一支？ | `aimr100` 料件基本資料列印表（料件已移植、條件單純；無 topcust 客製） |
+|  | （2026-11-05 改為部門維護的列印 aooi030，department_report.feature DR1；aimr100 等料件移植完成後再做） |  |
 | RP6 | 背景作業門檻：超過幾筆或幾秒改為背景？ | 5,000 筆或預估超過 30 秒 |
 | RP7 | 背景產出的檔案保留多久？ | 7 天 |
 | RP8 | 有沒有需要伺服器直接送印的報表（標籤、條碼、中一刀連續報表紙）？哪些？ | 請提供清單；沒有就先不做 |
@@ -92,7 +93,8 @@ TTRS 目前只有資料字典的 CSV 匯出，還沒有報表。TipTop 的報表
 
 ## 影響
 
-- 新增套件：`typst`、`typst-pdf`（infra）、`rust_xlsxwriter`（infra）；字型檔（Noto Sans TC 等）隨程式部署。
+- 新增套件：`typst-as-lib`、`typst`、`typst-pdf`、`typst-layout`、`rust_xlsxwriter`（infra）；字型 Noto Sans TC、SC 子集（SIL OFL，約 14 MB）
+  放 `crates/infra/reports/fonts`，編譯時內嵌（DR9）。
 - 新 port：`ReportRenderer`；背景作業表與工作者（RP6 確認後）。
 - 新增功能代號 output（及 RP9 的 exporttoexcel）到各報表程式的權限設定；`PORTED_PROGRAMS` 與起始資料 migration 照規則加入。
 - legacy-map：zv_file、zaa_file 列為不移植（RP14）；zy06 依 RP11 更新。

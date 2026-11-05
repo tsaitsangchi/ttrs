@@ -154,6 +154,10 @@ pub enum DomainError {
     CodeNotFound,
     #[error("分類碼已被使用，不可刪除；請改為停用")]
     CodeInUse,
+
+    // 報表（ADR 0011）
+    #[error("資料超過 {limit} 筆，請縮小條件後再列印")]
+    ReportTooLarge { limit: u64 },
     #[error("此公司帳號尚未在 TTRS 註冊，請洽系統管理員")]
     UserNotRegistered,
     #[error("使用者已停用")]
@@ -362,6 +366,7 @@ impl DomainError {
             Self::CodeAlreadyExists => "CODE_ALREADY_EXISTS",
             Self::CodeNotFound => "CODE_NOT_FOUND",
             Self::CodeInUse => "CODE_IN_USE",
+            Self::ReportTooLarge { .. } => "REPORT_TOO_LARGE",
             Self::UserNotRegistered => "USER_NOT_REGISTERED",
             Self::UserInactive => "USER_INACTIVE",
             Self::UserExpired => "USER_EXPIRED",

@@ -290,6 +290,11 @@ pub fn router(state: AppState) -> Router {
             "/api/plants/{plant}/departments/query",
             post(query_departments),
         )
+        // 列印、匯出 Excel（aooi030 output／exporttoexcel；department_report.feature，ADR 0011）
+        .route(
+            "/api/plants/{plant}/departments/report.{format}",
+            get(department_report),
+        )
         .route(
             "/api/plants/{plant}/departments/{code}",
             get(get_department)
@@ -833,6 +838,7 @@ impl IntoResponse for HttpError {
             | "USER_EXPIRED" => StatusCode::UNAUTHORIZED,
             "PASSWORD_CHANGE_REQUIRED" => StatusCode::FORBIDDEN,
             "PLANT_NOT_ALLOWED" | "NO_USABLE_PLANT" => StatusCode::FORBIDDEN,
+            "REPORT_TOO_LARGE" => StatusCode::PAYLOAD_TOO_LARGE,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
             | "ITEM_HAS_TRANSACTIONS"
@@ -1346,6 +1352,77 @@ async fn activate_code(
             .set_active(&s.actor, &plant, &kind, &code, true)
             .await?,
     ))
+}
+
+#[derive(Deserialize)]
+struct ReportQuery {
+    /// 查詢條件（QbeCondition 陣列的 JSON）；空白為全部
+    #[serde(default)]
+    q: Option<String>,
+    #[serde(default)]
+    lang: Option<String>,
+}
+
+/// 報表檔：PDF 以內嵌方式開啟（瀏覽器預覽、列印），Excel 為下載
+fn report_response(
+    data: &ttrs_app::report::ReportData,
+    format: ttrs_app::report::ReportFormat,
+) -> ApiResult<Response> {
+    use ttrs_app::report::ReportFormat;
+    let (bytes, mime, disposition) = match format {
+        ReportFormat::Pdf => (
+            ttrs_infra::report::render_pdf(data),
+            "application/pdf",
+            "inline",
+        ),
+        ReportFormat::Excel => (
+            ttrs_infra::report::render_xlsx(data),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "attachment",
+        ),
+    };
+    let bytes = bytes.map_err(|e| HttpError::from(AppError::Infra(e)))?;
+    let file = format!("{}-{}.{}", data.program, data.plant, format.code());
+    Ok((
+        [
+            (header::CONTENT_TYPE, mime.to_owned()),
+            (
+                header::CONTENT_DISPOSITION,
+                format!("{disposition}; filename=\"{file}\""),
+            ),
+        ],
+        bytes,
+    )
+        .into_response())
+}
+
+async fn department_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    use ttrs_app::report::ReportFormat;
+    let format = match format.as_str() {
+        "pdf" => ReportFormat::Pdf,
+        "xlsx" => ReportFormat::Excel,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    let conditions: Vec<ttrs_shared::QbeCondition> =
+        match q.q.as_deref().filter(|v| !v.trim().is_empty()) {
+            Some(json) => serde_json::from_str(json).map_err(|e| {
+                HttpError::from(AppError::from(ttrs_domain::DomainError::QbeInvalidSyntax(
+                    e.to_string(),
+                )))
+            })?,
+            None => Vec::new(),
+        };
+    let lang = ttrs_domain::lang::Lang::parse(q.lang.as_deref().unwrap_or(DEFAULT_LANG))
+        .unwrap_or_else(|_| ttrs_domain::lang::Lang::default_lang());
+    let data = s
+        .departments
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 async fn create_department(

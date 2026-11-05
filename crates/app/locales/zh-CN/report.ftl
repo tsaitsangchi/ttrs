@@ -1,0 +1,26 @@
+# 报表文字（ADR 0011 RP12：依界面语系产生）；三个语系的 ID 必须一致
+report-label-plant = 营运中心
+report-label-printed-by = 打印人
+report-label-printed-at = 打印时间
+report-label-page = 第 { $page } 页／共 { $total } 页
+report-label-condition = 查询条件
+report-yes = 是
+report-no = 否
+report-active = 有效
+report-inactive = 停用
+dept-report-title = 部门资料
+dept-col-code = 部门编号
+dept-col-name = 简称
+dept-col-full-name = 全称
+dept-col-accounting = 会计部门
+dept-col-expense = 费用类别
+dept-col-control = 管理类别
+dept-col-cost-center = 对应成本中心
+dept-col-active = 资料有效
+dept-expense-m = 管理
+dept-expense-p = 制造
+dept-expense-r = 研发
+dept-expense-s = 销售
+dept-control-1 = 成本中心
+dept-control-2 = 利润中心
+dept-control-3 = 其他

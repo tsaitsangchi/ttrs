@@ -90,6 +90,8 @@ pub struct ErpWorld {
     pub reset_token: Option<String>,
     /// 伺服器端緊急重設（emergency_password_reset.feature）
     pub emergency: EmergencyService,
+    /// 最近一次產生的報表資料（department_report.feature）
+    pub report: Option<ttrs_app::report::ReportData>,
     /// 最近一次 ttrs-admin 指令的結果
     pub command: Option<Result<ttrs_api::admin_cli::AdminOutput, ttrs_api::admin_cli::AdminError>>,
 }
@@ -199,6 +201,7 @@ impl ErpWorld {
             reset_token: None,
             emergency,
             command: None,
+            report: None,
         }
     }
 }

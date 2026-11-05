@@ -87,7 +87,7 @@ fn message(lang: &str, id: &str) -> Option<String> {
 }
 
 /// `id = 值`；值可空白，接著的縮排行（或空行）為續行
-fn parse(src: &str) -> Vec<(String, String)> {
+pub(crate) fn parse(src: &str) -> Vec<(String, String)> {
     let mut out: Vec<(String, Vec<String>)> = Vec::new();
     for line in src.lines() {
         if line.starts_with('#') {

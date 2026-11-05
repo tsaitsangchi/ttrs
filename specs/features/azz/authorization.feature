@@ -331,6 +331,8 @@
       | department-maintenance | detail                     | 修改部門 D01               |
       | department-maintenance | account                    | 修改部門 D01 的會計資料    |
       | department-maintenance | detail                     | 刪除部門 D01               |
+      | department-maintenance | output                     | 列印部門                   |
+      | department-maintenance | exporttoexcel              | 匯出部門為 Excel           |
       | employee-maintenance | query                      | 查詢員工                   |
       | employee-maintenance | detail                     | 新增員工 E01               |
       | employee-maintenance | detail                     | 刪除員工 E01               |

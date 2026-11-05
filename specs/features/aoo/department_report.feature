@@ -4,7 +4,7 @@
 # 規則來源：tiptop/aoo/4gl/aooi030.4gl:103-127（報表欄位 FUN-760083）、:155-190（output、exporttoexcel 經 cl_chk_act_auth）、
 #           :1081-1153（i030_out）、:1154-1201（停用前的文字版面 i030_rep）、tiptop/lib/4gl/cl_prt.4gl、cl_wcchp；
 #           tiptop/aoo/sch/gem_file.sch；無 topcust 覆寫。報表架構見 docs/adr/0011-reports-and-printing.md（本報表為第一支試做）。
-# 狀態：@draft，待確認 DR1–DR12
+# 狀態：DR1–DR12 依建議確認（Key User，2026-11-05），進入 Red
 #
 # TipTop 的做法（萃取）：
 #   - 列印 output（i030_out）：須先查詢（g_wc2 空白 → 9057「請先查詢」，:1089-1093），依目前的查詢條件取 gem_file，
@@ -16,7 +16,7 @@
 #   - 表頭：公司名稱（zo02）、報表名稱、頁次「第 n／共 m 頁」；表尾「接下頁／結束」。
 #   - 匯出 Excel（exporttoexcel，:186-189）：cl_export_to_excel 匯出畫面上的表格（g_gem）。
 #
-# 待確認：
+# 確認事項（皆採建議）：
 #  DR1. 以部門維護的列印作為 ADR 0011 第一支試做報表（取代 RP5 的 aimr100，該報表等料件移植完成後再做），可以嗎？
 #  DR2. TipTop 須先查詢才可列印（9057）。TTRS 部門維護一進畫面就列出全部部門，建議直接列印目前清單的條件（沒有條件時為全部部門），
 #       不要求先查詢，可以嗎？
@@ -38,7 +38,6 @@
 #        | 表尾「接下頁／結束」 | 改為第幾頁／共幾頁 |
 #        | 相關文件（related_document）、上線人數設定（online_count） | 與列印無關；上線人數設定屬 Genero 授權（P8 已決定不移植） |
 
-@draft
 功能: 部門維護列印與匯出 Excel（Department Report）
   身為 管理部門資料的人員
   我想要 把部門清單印成 PDF 或匯出 Excel

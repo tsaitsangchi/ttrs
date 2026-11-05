@@ -26,7 +26,7 @@ use crate::{
 
 /// TTRS 已移植、經 Authorizer 檢查的作業：(英文程式代號, TipTop 程式代號, 模組, 功能清單)
 /// （docs/adr/0008-english-program-codes.md、docs/legacy-map/programs.yaml）。
-/// 起始資料（AQ11）：登錄這些程式並給權限類別 ADMIN 全部功能；須與 migrations/0015、0017、0018、0022 對齊
+/// 起始資料（AQ11）：登錄這些程式並給權限類別 ADMIN 全部功能；須與 migrations/0015、0017、0018、0022、0023 對齊
 pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
     (
         "program-maintenance",
@@ -80,7 +80,7 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "department-maintenance",
         "aooi030",
         "AOO",
-        "query, detail, account",
+        "query, detail, account, output, exporttoexcel",
     ),
     ("employee-maintenance", "aooi040", "AOO", "query, detail"),
     (

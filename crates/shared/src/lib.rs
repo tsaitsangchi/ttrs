@@ -286,6 +286,9 @@ pub struct AuditEntryDto {
     pub key: String,
     /// "delete" 等
     pub action: String,
+    /// 補充說明（報表的條件、格式、筆數）
+    #[serde(default)]
+    pub detail: Option<String>,
 }
 
 /// 複製時指定新代號

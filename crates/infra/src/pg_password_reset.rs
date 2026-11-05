@@ -102,12 +102,13 @@ impl PasswordResetTokenRepository for PgStore {
 impl AuditLog for PgStore {
     async fn record(&self, entry: &AuditEntry) -> Result<(), RepoError> {
         sqlx::query(
-            "INSERT INTO audit_log (program, user_id, key, action) VALUES ($1, $2, $3, $4)",
+            "INSERT INTO audit_log (program, user_id, key, action, detail) VALUES ($1, $2, $3, $4, $5)",
         )
         .bind(&entry.program)
         .bind(&entry.user_id)
         .bind(&entry.key)
         .bind(&entry.action)
+        .bind(&entry.detail)
         .execute(&self.pool)
         .await
         .map_err(db_err)?;

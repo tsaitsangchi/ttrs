@@ -308,6 +308,41 @@ fn DepartmentMaintenancePage() -> Element {
                             if cur.as_ref().is_some_and(|d| !d.active) { {t("dept-action-activate")} } else { {t("dept-action-deactivate")} }
                         }
                     }
+                    // 列印、匯出 Excel（aooi030 output／exporttoexcel；department_report.feature）：依目前的查詢條件
+                    if perm.can("output") {
+                        Button {
+                            icon: icons::PRINT, tone: Tone::Primary,
+                            variant: ButtonVariant::Outlined,
+                            onclick: move |_| {
+                                let tab = api::ReportTab::open(api::ReportFormat::Pdf);
+                                let p = plant();
+                                let conds = conditions();
+                                spawn(async move {
+                                    if let Err(e) = api::department_report(&p, api::ReportFormat::Pdf, &conds, crate::i18n::current().code(), tab).await {
+                                        error.set(Some(e));
+                                    }
+                                });
+                            },
+                            {t("common-action-print")}
+                        }
+                    }
+                    if perm.can("exporttoexcel") {
+                        Button {
+                            icon: icons::DOWNLOAD, tone: Tone::Primary,
+                            variant: ButtonVariant::Outlined,
+                            onclick: move |_| {
+                                let tab = api::ReportTab::open(api::ReportFormat::Excel);
+                                let p = plant();
+                                let conds = conditions();
+                                spawn(async move {
+                                    if let Err(e) = api::department_report(&p, api::ReportFormat::Excel, &conds, crate::i18n::current().code(), tab).await {
+                                        error.set(Some(e));
+                                    }
+                                });
+                            },
+                            {t("common-action-export-excel")}
+                        }
+                    }
                     if perm.can("account") {
                         Button {
                             icon: icons::ACCOUNT_BALANCE, tone: Tone::Tertiary,

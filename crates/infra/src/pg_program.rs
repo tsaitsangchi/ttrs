@@ -341,12 +341,13 @@ impl ProgramRepository for PgStore {
             .await
             .map_err(db_err)?;
         sqlx::query(
-            "INSERT INTO audit_log (program, user_id, key, action) VALUES ($1, $2, $3, $4)",
+            "INSERT INTO audit_log (program, user_id, key, action, detail) VALUES ($1, $2, $3, $4, $5)",
         )
         .bind(&audit.program)
         .bind(&audit.user_id)
         .bind(&audit.key)
         .bind(&audit.action)
+        .bind(&audit.detail)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
@@ -438,8 +439,8 @@ impl ProgramRepository for PgStore {
     }
 
     async fn audit_entries(&self, key: &str) -> Result<Vec<AuditEntry>, RepoError> {
-        let rows: Vec<(String, String, String, String)> = sqlx::query_as(
-            "SELECT program, user_id, key, action FROM audit_log WHERE key = $1 ORDER BY audit_id",
+        let rows: Vec<(String, String, String, String, Option<String>)> = sqlx::query_as(
+            "SELECT program, user_id, key, action, detail FROM audit_log WHERE key = $1 ORDER BY audit_id",
         )
         .bind(key)
         .fetch_all(&self.pool)
@@ -447,11 +448,12 @@ impl ProgramRepository for PgStore {
         .map_err(db_err)?;
         Ok(rows
             .into_iter()
-            .map(|(program, user_id, key, action)| AuditEntry {
+            .map(|(program, user_id, key, action, detail)| AuditEntry {
                 program,
                 user_id,
                 key,
                 action,
+                detail,
             })
             .collect())
     }

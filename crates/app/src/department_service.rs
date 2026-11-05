@@ -18,9 +18,15 @@ use crate::{
     Actor, AppError, Authorizer,
     authorization::Grant,
     error::RepoError,
-    ports::{DepartmentRepository, MasterDataRepository},
+    ports::{
+        AuditEntry, AuditLog, DepartmentRepository, MasterDataRepository, PlantRepository,
+        ProgramRepository,
+    },
     query,
+    report::{self, ReportData, ReportFormat},
 };
+use ttrs_domain::{lang::Lang, program::ProgramNo, report::MAX_SYNC_ROWS};
+use ttrs_shared::QbeCondition;
 
 /// 權限檢查用的程式代號
 const PROGRAM: &str = "department-maintenance";
@@ -30,6 +36,12 @@ pub struct DepartmentService {
     authz: Arc<dyn Authorizer>,
     depts: Arc<dyn DepartmentRepository>,
     master: Arc<dyn MasterDataRepository>,
+    /// 報表：營運中心名稱（表頭）、程式資料 zz05（列印條件）、稽核紀錄（department_report.feature）
+    plants: Arc<dyn PlantRepository>,
+    programs: Arc<dyn ProgramRepository>,
+    audit: Arc<dyn AuditLog>,
+    /// 同步產生報表的筆數上限（ADR 0011 RP6、DR10）
+    report_limit: u64,
 }
 
 impl DepartmentService {
@@ -37,12 +49,163 @@ impl DepartmentService {
         authz: Arc<dyn Authorizer>,
         depts: Arc<dyn DepartmentRepository>,
         master: Arc<dyn MasterDataRepository>,
+        plants: Arc<dyn PlantRepository>,
+        programs: Arc<dyn ProgramRepository>,
+        audit: Arc<dyn AuditLog>,
     ) -> Self {
         Self {
             authz,
             depts,
             master,
+            plants,
+            programs,
+            audit,
+            report_limit: MAX_SYNC_ROWS,
         }
+    }
+
+    /// 測試用：調整同步產生報表的筆數上限
+    pub fn with_report_limit(self, limit: u64) -> Self {
+        Self {
+            report_limit: limit,
+            ..self
+        }
+    }
+
+    /// 列印、匯出 Excel（aooi030 output／exporttoexcel，i030_out :1081-1153）：依目前的查詢條件（沒有條件時全部，DR2）、
+    /// 依部門編號排序；超過上限 → REPORT_TOO_LARGE（DR10）；寫入稽核紀錄（DR11）。報表文字用繁中
+    pub async fn report(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        conditions: Vec<QbeCondition>,
+        format: ReportFormat,
+    ) -> Result<ReportData, AppError> {
+        self.report_in(actor, plant, conditions, format, &Lang::default_lang())
+            .await
+    }
+
+    /// 同上，報表文字依指定語系（ADR 0011 RP12）
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        conditions: Vec<QbeCondition>,
+        format: ReportFormat,
+        lang: &Lang,
+    ) -> Result<ReportData, AppError> {
+        self.authorize(actor, format.action()).await?;
+        let plant = PlantId::parse(plant)?;
+        let filters = query::department::filters(&conditions)?;
+        let (rows, total) = self
+            .depts
+            .query_departments(&plant, &filters, 0, self.report_limit + 1)
+            .await
+            .map_err(infra)?;
+        ttrs_domain::report::check_size(total, self.report_limit)?;
+        let t = |id: &str| report::text(lang, id);
+        let yes_no = |b: bool| t(if b { "report-yes" } else { "report-no" });
+        let mut lines = Vec::with_capacity(rows.len());
+        for d in &rows {
+            let dto = self.to_dto(&plant, d).await?;
+            lines.push(vec![
+                dto.dept_code.clone(),
+                dto.name.clone(),
+                dto.full_name.clone().unwrap_or_default(),
+                yes_no(dto.accounting_dept),
+                dto.expense_type
+                    .as_deref()
+                    .map(|e| t(&format!("dept-expense-{}", e.to_lowercase())))
+                    .unwrap_or_default(),
+                t(&format!("dept-control-{}", dto.control_type)),
+                dto.cost_center
+                    .as_ref()
+                    .map(|c| format!("{c} {}", dto.cost_center_name.clone().unwrap_or_default()))
+                    .unwrap_or_default(),
+                t(if dto.active {
+                    "report-active"
+                } else {
+                    "report-inactive"
+                }),
+            ]);
+        }
+        // zz05 列印選擇條件（aooi030.4gl:1146-1149，DR7）
+        let print_conditions = match ProgramNo::parse(PROGRAM) {
+            Ok(no) => self
+                .programs
+                .get(&no)
+                .await
+                .map_err(infra)?
+                .is_some_and(|p| p.other.print_conditions),
+            Err(_) => false,
+        };
+        let condition = if print_conditions {
+            report::describe_conditions(&conditions, |f| {
+                let id = match f {
+                    "dept_code" => "dept-col-code",
+                    "name" => "dept-col-name",
+                    "full_name" => "dept-col-full-name",
+                    "accounting_dept" => "dept-col-accounting",
+                    "expense_type" => "dept-col-expense",
+                    "control_type" => "dept-col-control",
+                    "cost_center" => "dept-col-cost-center",
+                    "active" => "dept-col-active",
+                    _ => return None,
+                };
+                Some(t(id))
+            })
+        } else {
+            None
+        };
+        let plant_name = self
+            .plants
+            .get(&plant)
+            .await
+            .map_err(infra)?
+            .map(|p| p.attrs.name)
+            .unwrap_or_default();
+        let data = ReportData {
+            program: PROGRAM.to_owned(),
+            title: t("dept-report-title"),
+            plant: plant.as_str().to_owned(),
+            plant_name,
+            printed_by: actor.user_id.clone(),
+            printed_at: chrono::Local::now().format("%Y/%m/%d %H:%M").to_string(),
+            columns: [
+                "dept-col-code",
+                "dept-col-name",
+                "dept-col-full-name",
+                "dept-col-accounting",
+                "dept-col-expense",
+                "dept-col-control",
+                "dept-col-cost-center",
+                "dept-col-active",
+            ]
+            .iter()
+            .map(|id| t(id))
+            .collect(),
+            rows: lines,
+            condition,
+            labels: report::labels(lang),
+            lang: lang.clone(),
+        };
+        let all =
+            report::describe_conditions(&conditions, |f| Some(f.to_owned())).unwrap_or_default();
+        self.audit
+            .record(&AuditEntry {
+                program: PROGRAM.to_owned(),
+                user_id: actor.user_id.clone(),
+                key: plant.as_str().to_owned(),
+                action: format.action().to_owned(),
+                detail: Some(format!(
+                    "條件={all}；格式={}；筆數={}",
+                    format.code(),
+                    data.rows.len()
+                )),
+            })
+            .await
+            .map_err(infra)?;
+        Ok(data)
     }
 
     /// QBE 查詢（DQ8）；依部門編號排序並分頁

@@ -179,6 +179,7 @@ impl ProgramService {
             user_id: actor.user_id.clone(),
             key: no.as_str().to_owned(),
             action: "delete".to_owned(),
+            detail: None,
         };
         self.repo.delete(&no, &audit).await.map_err(infra)
     }
@@ -294,6 +295,7 @@ impl ProgramService {
                 user_id: a.user_id,
                 key: a.key,
                 action: a.action,
+                detail: a.detail,
             })
             .collect())
     }

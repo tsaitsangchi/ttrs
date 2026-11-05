@@ -75,6 +75,7 @@ error-CODE_TOO_LONG = （使用伺服器訊息）
 error-CODE_ALREADY_EXISTS = （使用伺服器訊息）
 error-CODE_NOT_FOUND = （使用伺服器訊息）
 error-CODE_IN_USE = （使用伺服器訊息）
+error-REPORT_TOO_LARGE = （使用伺服器訊息）
 error-PLANT_SCHEMA_INVALID = （使用伺服器訊息）
 error-PLANT_SCHEMA_DUPLICATE = （使用伺服器訊息）
 error-PLANT_SCHEMA_IMMUTABLE = （使用伺服器訊息）

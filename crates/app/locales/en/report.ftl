@@ -1,0 +1,26 @@
+# Report text (ADR 0011 RP12: generated in the interface language); IDs must match across locales
+report-label-plant = Plant
+report-label-printed-by = Printed by
+report-label-printed-at = Printed at
+report-label-page = Page { $page } of { $total }
+report-label-condition = Conditions
+report-yes = Yes
+report-no = No
+report-active = Active
+report-inactive = Disabled
+dept-report-title = Departments
+dept-col-code = Department
+dept-col-name = Short Name
+dept-col-full-name = Full Name
+dept-col-accounting = Accounting Dept.
+dept-col-expense = Expense Type
+dept-col-control = Control Type
+dept-col-cost-center = Cost Center
+dept-col-active = Active
+dept-expense-m = Administration
+dept-expense-p = Production
+dept-expense-r = R&D
+dept-expense-s = Sales
+dept-control-1 = Cost Center
+dept-control-2 = Profit Center
+dept-control-3 = Other

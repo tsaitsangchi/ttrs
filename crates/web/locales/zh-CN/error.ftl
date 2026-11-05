@@ -75,6 +75,7 @@ error-CODE_TOO_LONG = 代号过长。
 error-CODE_ALREADY_EXISTS = 此类别已有相同代号。
 error-CODE_NOT_FOUND = 分类码不存在。
 error-CODE_IN_USE = 分类码已被使用，不可删除；请改为停用。
+error-REPORT_TOO_LARGE = 资料过多，请缩小条件后再打印。
 error-PLANT_SCHEMA_INVALID = 数据库代码须为 ds 加两位数字（例如 ds01）
 error-PLANT_SCHEMA_DUPLICATE = 数据库代码已被其他营运中心使用
 error-PLANT_SCHEMA_IMMUTABLE = 数据库代码建立后不可修改

@@ -331,6 +331,16 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
                 .map(drop)
         }
         ["刪除部門", code] => w.departments.delete(a, "TW01", code).await,
+        ["列印部門"] => w
+            .departments
+            .report(a, "TW01", Vec::new(), ttrs_app::report::ReportFormat::Pdf)
+            .await
+            .map(drop),
+        ["匯出部門為", "Excel"] => w
+            .departments
+            .report(a, "TW01", Vec::new(), ttrs_app::report::ReportFormat::Excel)
+            .await
+            .map(drop),
         ["查詢員工"] => w
             .employees
             .query(a, "TW01", QueryRequest::default())

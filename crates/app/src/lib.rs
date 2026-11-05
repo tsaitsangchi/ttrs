@@ -21,6 +21,7 @@ pub mod ports;
 pub mod program_query;
 pub mod program_service;
 pub mod query;
+pub mod report;
 pub mod services;
 pub mod sign_in_service;
 pub mod user_permission_service;

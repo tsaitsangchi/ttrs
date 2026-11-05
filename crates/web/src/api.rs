@@ -12,9 +12,9 @@ use ttrs_shared::{
     NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PasswordResetInput,
     PasswordResetRequestInput, PasswordResetStatusDto, PermissionBatchResultDto,
     PermissionClassDto, PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput,
-    ProgramPermissionDto, ProgramPermissionInput, QueryRequest, SessionDto, SignInInput,
-    SignInPlantsDto, SwitchPlantInput, TableDictionaryDto, TableDictionaryInput, TableTextDto,
-    UpdatedCountDto, UserDto, UserInput, UserPermissionDto, UserPermissionInput,
+    ProgramPermissionDto, ProgramPermissionInput, QbeCondition, QueryRequest, SessionDto,
+    SignInInput, SignInPlantsDto, SwitchPlantInput, TableDictionaryDto, TableDictionaryInput,
+    TableTextDto, UpdatedCountDto, UserDto, UserInput, UserPermissionDto, UserPermissionInput,
 };
 
 fn base_url() -> String {
@@ -931,6 +931,152 @@ async fn send_json<T: serde::de::DeserializeOwned, B: serde::Serialize>(
     }
     let res = req.send().await.map_err(|e| e.to_string())?;
     into_result(res).await
+}
+
+// ----- 報表（ADR 0011）：PDF 在新分頁預覽列印，Excel 下載 -----
+
+/// 報表格式
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReportFormat {
+    Pdf,
+    Excel,
+}
+
+impl ReportFormat {
+    fn ext(self) -> &'static str {
+        match self {
+            Self::Pdf => "pdf",
+            Self::Excel => "xlsx",
+        }
+    }
+
+    #[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+    fn mime(self) -> &'static str {
+        match self {
+            Self::Pdf => "application/pdf",
+            Self::Excel => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
+    }
+}
+
+/// 列印時先開好的分頁（在按下按鈕的當下開，避免被瀏覽器的彈出視窗封鎖擋下）
+pub struct ReportTab(#[cfg(target_arch = "wasm32")] Option<web_sys::Window>);
+
+impl ReportTab {
+    /// 列印才需要先開分頁；匯出 Excel 直接下載
+    pub fn open(format: ReportFormat) -> Self {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let win = (format == ReportFormat::Pdf)
+                .then(|| {
+                    web_sys::window()?
+                        .open_with_url_and_target("", "_blank")
+                        .ok()?
+                })
+                .flatten();
+            Self(win)
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let _ = format;
+            Self()
+        }
+    }
+}
+
+/// 取得部門報表；成功時 PDF 顯示在先開好的分頁、Excel 下載；失敗時關掉分頁並回傳錯誤訊息
+pub async fn department_report(
+    plant: &str,
+    format: ReportFormat,
+    conditions: &[QbeCondition],
+    lang: &str,
+    tab: ReportTab,
+) -> Result<(), String> {
+    let q = serde_json::to_string(conditions).map_err(|e| e.to_string())?;
+    let u = plant_part_url(
+        plant,
+        "departments",
+        "",
+        &format!("/report.{}", format.ext()),
+    );
+    let res = reqwest::Client::new()
+        .get(u)
+        .query(&[("q", q.as_str()), ("lang", lang)])
+        .send()
+        .await
+        .map_err(|e| e.to_string());
+    let res = match res {
+        Ok(r) if r.status().is_success() => r,
+        Ok(r) => {
+            close_tab(&tab);
+            return Err(error_message(r).await);
+        }
+        Err(e) => {
+            close_tab(&tab);
+            return Err(e);
+        }
+    };
+    let bytes = res.bytes().await.map_err(|e| e.to_string())?;
+    show_report(
+        &bytes,
+        format,
+        &format!("{plant}-departments.{}", format.ext()),
+        tab,
+    )
+}
+
+#[cfg(target_arch = "wasm32")]
+fn close_tab(tab: &ReportTab) {
+    if let Some(w) = &tab.0 {
+        let _ = w.close();
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn close_tab(_tab: &ReportTab) {}
+
+#[cfg(target_arch = "wasm32")]
+fn show_report(
+    bytes: &[u8],
+    format: ReportFormat,
+    file: &str,
+    tab: ReportTab,
+) -> Result<(), String> {
+    use wasm_bindgen::JsCast;
+    let err = |e: wasm_bindgen::JsValue| format!("{e:?}");
+    let parts = js_sys::Array::new();
+    parts.push(&js_sys::Uint8Array::from(bytes));
+    let opts = web_sys::BlobPropertyBag::new();
+    opts.set_type(format.mime());
+    let blob = web_sys::Blob::new_with_u8_array_sequence_and_options(&parts, &opts).map_err(err)?;
+    let url = web_sys::Url::create_object_url_with_blob(&blob).map_err(err)?;
+    match (format, tab.0) {
+        (ReportFormat::Pdf, Some(w)) => w.location().set_href(&url).map_err(err)?,
+        _ => {
+            let doc = web_sys::window()
+                .and_then(|w| w.document())
+                .ok_or("沒有 document")?;
+            let a: web_sys::HtmlAnchorElement = doc
+                .create_element("a")
+                .map_err(err)?
+                .dyn_into()
+                .map_err(|_| "建立連結失敗".to_owned())?;
+            a.set_href(&url);
+            a.set_download(file);
+            a.click();
+        }
+    }
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn show_report(
+    _bytes: &[u8],
+    _format: ReportFormat,
+    _file: &str,
+    _tab: ReportTab,
+) -> Result<(), String> {
+    Ok(())
 }
 
 // ----- Classification Code 分類碼維護（TipTop aooi300） -----

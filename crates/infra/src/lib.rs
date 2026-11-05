@@ -17,6 +17,7 @@ mod pg_user;
 mod pg_user_permission;
 mod plant_schema;
 mod qbe_sql;
+pub mod report;
 pub mod smtp;
 
 pub use pg::PgStore;

@@ -75,6 +75,7 @@ error-CODE_TOO_LONG = The code is too long.
 error-CODE_ALREADY_EXISTS = This code type already has the same code.
 error-CODE_NOT_FOUND = The classification code does not exist.
 error-CODE_IN_USE = The classification code is in use and cannot be deleted; disable it instead.
+error-REPORT_TOO_LARGE = Too many records to print. Please narrow the conditions.
 error-PLANT_SCHEMA_INVALID = The database code must be ds followed by two digits (for example ds01).
 error-PLANT_SCHEMA_DUPLICATE = The database code is already used by another plant.
 error-PLANT_SCHEMA_IMMUTABLE = The database code can't be changed after the plant is created.

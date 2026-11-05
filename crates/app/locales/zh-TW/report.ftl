@@ -1,0 +1,26 @@
+# 報表文字（ADR 0011 RP12：依介面語系產生）；三個語系的 ID 必須一致
+report-label-plant = 營運中心
+report-label-printed-by = 列印人
+report-label-printed-at = 列印時間
+report-label-page = 第 { $page } 頁／共 { $total } 頁
+report-label-condition = 查詢條件
+report-yes = 是
+report-no = 否
+report-active = 有效
+report-inactive = 停用
+dept-report-title = 部門資料
+dept-col-code = 部門編號
+dept-col-name = 簡稱
+dept-col-full-name = 全稱
+dept-col-accounting = 會計部門
+dept-col-expense = 費用類別
+dept-col-control = 管理類別
+dept-col-cost-center = 對應成本中心
+dept-col-active = 資料有效
+dept-expense-m = 管理
+dept-expense-p = 製造
+dept-expense-r = 研發
+dept-expense-s = 銷售
+dept-control-1 = 成本中心
+dept-control-2 = 利潤中心
+dept-control-3 = 其他

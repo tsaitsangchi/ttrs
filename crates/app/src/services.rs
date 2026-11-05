@@ -133,7 +133,14 @@ impl Services {
                 store.clone(),
                 store.clone(),
             ),
-            departments: DepartmentService::new(a.clone(), store.clone(), store.clone()),
+            departments: DepartmentService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+            ),
             sign_in: SignInService::new(store.clone(), store.clone(), store.clone(), store.clone()),
             password_reset: PasswordResetService::new(
                 store.clone(),
