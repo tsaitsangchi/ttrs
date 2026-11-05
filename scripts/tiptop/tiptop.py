@@ -11,6 +11,8 @@
   TIPTOP_ORACLE_USER      帳號（建議 DBA 提供的唯讀帳號）
   TIPTOP_ORACLE_PASSWORD  密碼
   TIPTOP_ORACLE_SCHEMA    （選用）要查的 schema，預設同帳號；TipTop 各營運中心各一個 schema，如 ds、ds63
+  TIPTOP_ORACLE_CLIENT_DIR（選用）Oracle Instant Client 目錄，設定後改用 thick 模式。
+                          資料庫早於 12.1（出現 DPY-3010）時必須設定；11.2 請用 Instant Client 19（21 以後不支援 11.2）
 
 用法（在專案根目錄）：
   .venv-tiptop/bin/python scripts/tiptop/tiptop.py ping
@@ -91,6 +93,15 @@ def check_select(sql: str) -> str:
 class TipTop:
     def __init__(self) -> None:
         load_env()
+        client_dir = os.environ.get("TIPTOP_ORACLE_CLIENT_DIR", "").strip()
+        if client_dir:
+            # Instant Client 的相依程式庫（libnnz19 等）要經 LD_LIBRARY_PATH 找到；
+            # 尚未設定時帶入後重新啟動本程序（只影響本程序，免改系統設定）
+            paths = os.environ.get("LD_LIBRARY_PATH", "").split(":")
+            if client_dir not in paths:
+                env = dict(os.environ, LD_LIBRARY_PATH=":".join([client_dir, *filter(None, paths)]))
+                os.execve(sys.executable, [sys.executable, *sys.argv], env)
+            oracledb.init_oracle_client(lib_dir=client_dir)
         self.conn = oracledb.connect(
             user=setting("TIPTOP_ORACLE_USER"),
             password=setting("TIPTOP_ORACLE_PASSWORD"),

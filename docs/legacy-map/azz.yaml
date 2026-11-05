@@ -109,7 +109,7 @@ tables:
       - { legacy: zymodu, type: varchar2(10), target: updated_by, sch: USER }
       - { legacy: zydate, type: date, target: "created_on / updated_on", sch: MODIFY DATE, note: "TipTop 新增與修改共用；轉入時同時填 created_on" }
     not_ported:
-      - { legacy: zy06, type: varchar2(20), sch: 使用者允許印表方式, reason: "TipTop FUN-5C0057 已取消" }
+      - { legacy: zy06, type: varchar2(20), sch: 使用者允許印表方式, reason: "TipTop FUN-5C0057 已取消（cl_prt.4gl:2390 Crystal Reports 匯出仍讀取）；TTRS 以功能代號 output／exporttoexcel 控管列印與匯出（ADR 0011 RP9、RP11）", verify: true, verify_note: "請確認 TOPPROD 是否仍使用 zy06" }
       - { legacy: "gap_file / gbd_file", reason: "程式動作關係與動作多語名稱；常見動作由 TTRS 翻譯（Y2）" }
       - { legacy: "gbl_file（p_auth_as 權限加嚴控管設定）", reason: "自訂動作比照 query/modify/delete 檢查資料權限；這次不做，沒有對應時自訂動作不檢查資料權限（同 TipTop 查無 gbl 資料，authorization.feature AQ7）", verify: true, verify_note: "請 DBA 確認 TOPPROD 的 gbl_file 是否有 p_zx、p_zz 的資料（如 invalid、authorization 比照 M）；有的話需提前移植" }
 
@@ -210,6 +210,14 @@ tables:
   - legacy: gbq_file
     target: (不移植)
     note: "執行中程序記錄（weblogin 登入時寫入 FGLSERVER、營運中心）；Genero 執行環境專用，目前營運中心改存在登入連線（sign_in.feature SQ10）"
+
+  - legacy: zv_file
+    target: (不移植)
+    note: "個人列印設定（程式＋使用者＋權限類別：固定列印方式、報表樣板、印表機名稱、立即列印、份數；cl_prt）。改由瀏覽器列印對話框選印表機與份數，特殊印表機另行設定（ADR 0011 RP8、RP14）"
+
+  - legacy: zaa_file
+    target: (不移植)
+    note: "使用者自訂報表樣板（欄位內容、順序、隱藏、定位點、邊界、簽核備註；cl_prt_type_list）。報表版面改由 Typst 範本統一維護，要不同欄位時用匯出 Excel（ADR 0011 RP14）"
 
   - legacy: gbt_file
     target: account_policy
