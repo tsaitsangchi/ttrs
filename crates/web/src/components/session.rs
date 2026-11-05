@@ -6,9 +6,9 @@ use ttrs_shared::{ChangePasswordInput, PasswordResetInput, SessionDto};
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Notification, NotificationKind, TextField,
+    Button, ButtonVariant, Notification, NotificationKind, TextField, icons,
 };
-use crate::i18n::t;
+use crate::i18n::{t, tf};
 
 /// 目前的連線（以 context 提供給外框與工廠層作業）
 #[derive(Debug, Clone, PartialEq)]
@@ -268,6 +268,125 @@ pub fn ResetPasswordPage(token: String) -> Element {
                 }
                 if let Some(msg) = error() {
                     Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }
+                }
+            }
+        }
+    }
+}
+
+/// 登入者選單（外框左上角、語系圖示右邊）：使用者、目前營運中心、切換營運中心（aoos901）、
+/// 密碼即將到期提示、變更密碼（webpasswd）、登出。有密碼提示時圖示加上提示點
+#[component]
+pub fn UserMenu(
+    session: SessionDto,
+    onswitch: EventHandler<String>,
+    onchangepassword: EventHandler<()>,
+    onsignout: EventHandler<()>,
+) -> Element {
+    let mut open = use_signal(|| false);
+    let label = t("shell-user-menu");
+    let mut notices = Vec::new();
+    if let Some(days) = session.password_expires_in_days {
+        notices.push(tf(
+            "shell-password-expiring",
+            &[("days", days.to_string().as_str())],
+        ));
+    }
+    if let Some(uses) = session.password_uses_left {
+        notices.push(tf(
+            "shell-password-uses-left",
+            &[("uses", uses.to_string().as_str())],
+        ));
+    }
+    let has_notice = !notices.is_empty();
+    let switchable = session.multi_plant && session.plants.len() > 1;
+    let name = session.name.clone().unwrap_or_default();
+    rsx! {
+        div { class: "md-menu-anchor",
+            button {
+                r#type: "button",
+                class: "md-icon-button md-state user-menu-button",
+                class: if open() { "md-icon-button--selected" },
+                title: "{session.user_id} {name}",
+                aria_label: "{label}",
+                aria_haspopup: "menu",
+                aria_expanded: open(),
+                onclick: move |_| open.toggle(),
+                svg { width: "24", height: "24", view_box: "0 0 24 24", fill: "currentColor",
+                    path { d: icons::ACCOUNT }
+                }
+                if has_notice {
+                    span { class: "user-menu-badge" }
+                }
+            }
+            if open() {
+                div { class: "md-menu-scrim", onclick: move |_| open.set(false) }
+                div { class: "md-menu user-menu", role: "menu", aria_label: "{label}",
+                    div { class: "user-menu__header",
+                        div { class: "session-user", "{session.user_id} {name}" }
+                        div { class: "session-plant", "{session.plant} {session.plant_name}" }
+                        for n in notices {
+                            div { class: "session-notice", "{n}" }
+                        }
+                    }
+                    if switchable {
+                        div { class: "user-menu__divider" }
+                        div { class: "user-menu__label",
+                            svg { width: "16", height: "16", view_box: "0 0 24 24", fill: "currentColor",
+                                path { d: icons::PLANT }
+                            }
+                            span { {t("shell-switch-plant")} }
+                        }
+                        for p in session.plants.clone() {
+                            div {
+                                key: "{p.plant_id}",
+                                role: "menuitemradio",
+                                aria_checked: p.plant_id == session.plant,
+                                class: "md-menu__item md-state",
+                                class: if p.plant_id == session.plant { "md-menu__item--selected" },
+                                onclick: {
+                                    let id = p.plant_id.clone();
+                                    move |_| {
+                                        open.set(false);
+                                        onswitch.call(id.clone());
+                                    }
+                                },
+                                span { class: "md-menu__check",
+                                    if p.plant_id == session.plant {
+                                        svg { width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor",
+                                            path { d: icons::CHECK }
+                                        }
+                                    }
+                                }
+                                span { "{p.plant_id} {p.name}" }
+                            }
+                        }
+                    }
+                    div { class: "user-menu__divider" }
+                    div {
+                        role: "menuitem",
+                        class: "md-menu__item md-state",
+                        onclick: move |_| {
+                            open.set(false);
+                            onchangepassword.call(());
+                        },
+                        svg { width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor",
+                            path { d: icons::KEY }
+                        }
+                        span { {t("shell-change-password")} }
+                    }
+                    div {
+                        role: "menuitem",
+                        class: "md-menu__item md-state",
+                        onclick: move |_| {
+                            open.set(false);
+                            onsignout.call(());
+                        },
+                        svg { width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor",
+                            path { d: icons::LOGOUT }
+                        }
+                        span { {t("shell-sign-out")} }
+                    }
                 }
             }
         }

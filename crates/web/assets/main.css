@@ -232,15 +232,18 @@ a.md-button { text-decoration: none; }
 }
 
 /* 登入者與目前營運中心（sign_in.feature） */
-.session { display: flex; align-items: center; gap: 4px; margin: 0 0 12px; padding: 8px 4px 8px 12px; border-radius: 12px; background: var(--md-sys-color-surface-container-high); }
-.session-text { flex: 1; min-width: 0; }
 .session-user { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-plant { font-size: 0.8125rem; color: var(--md-sys-color-on-surface-variant); }
 .session-error { margin: 0 0 12px; font-size: 0.8125rem; color: var(--md-sys-color-error); }
-.session { flex-direction: column; align-items: stretch; }
-.session-row { display: flex; align-items: center; gap: 4px; }
 .session-notice { font-size: 0.8125rem; color: var(--md-sys-color-tertiary); }
-.session-actions { display: flex; gap: 4px; margin: 4px -8px -4px; }
+
+/* 登入者選單（語系圖示右邊） */
+.user-menu-button { position: relative; }
+.user-menu-badge { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--md-sys-color-error); }
+.user-menu { min-width: 16rem; max-width: 20rem; }
+.user-menu__header { padding: 8px 16px 12px; display: flex; flex-direction: column; gap: 2px; }
+.user-menu__label { display: flex; align-items: center; gap: 8px; padding: 8px 16px 4px; font-size: 0.75rem; font-weight: 500; color: var(--md-sys-color-on-surface-variant); }
+.user-menu__divider { height: 1px; margin: 4px 0; background: var(--md-sys-color-outline-variant); }
 
 /* 登入畫面（weblogin.per） */
 .sign-in { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--md-sys-color-surface-container); }

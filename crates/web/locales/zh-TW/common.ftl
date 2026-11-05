@@ -14,6 +14,7 @@ shell-nav-classes = 權限類別維護
 shell-nav-permissions = 程式執行權限
 shell-nav-dictionary = 資料字典維護
 shell-language = 語言
+shell-user-menu = 使用者
 shell-switch-plant = 切換營運中心
 common-action-ok = 確定
 common-action-cancel = 放棄

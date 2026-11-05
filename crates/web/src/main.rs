@@ -7,10 +7,10 @@ mod pages;
 
 use components::material::{Dialog, MenuButton, icons};
 use components::session::{
-    ChangePasswordForm, ResetPasswordPage, SessionState, SignInPage, use_session,
+    ChangePasswordForm, ResetPasswordPage, SessionState, SignInPage, UserMenu, use_session,
 };
 use dioxus::prelude::*;
-use i18n::{UiLang, t, tf};
+use i18n::{UiLang, t};
 use pages::{
     aim::ItemList,
     aoo::{DepartmentMaintenance, EmployeeMaintenance, PlantMaintenance},
@@ -143,50 +143,26 @@ fn Shell() -> Element {
                             }
                         },
                     }
-                    h1 { "TTRS ERP" }
-                }
-                // 登入者與目前營運中心；多營運中心使用者可切換（aoos901）；變更密碼（webpasswd）、登出
-                if let SessionState::SignedIn(s) = session() {
-                    div { class: "session",
-                        div { class: "session-row",
-                            div { class: "session-text",
-                                div { class: "session-user", "{s.user_id} {s.name.clone().unwrap_or_default()}" }
-                                div { class: "session-plant", "{s.plant} {s.plant_name}" }
-                            }
-                            if s.multi_plant && s.plants.len() > 1 {
-                                MenuButton {
-                                    label: t("shell-switch-plant"),
-                                    path: icons::PLANT,
-                                    items: s.plants.iter().map(|p| (p.plant_id.clone(), format!("{} {}", p.plant_id, p.name))).collect::<Vec<_>>(),
-                                    selected: s.plant.clone(),
-                                    onselect: move |plant: String| async move {
-                                        match api::switch_plant(&plant).await {
-                                            Ok(s) => { switch_error.set(None); session.set(SessionState::SignedIn(Box::new(s))); }
-                                            Err(e) => switch_error.set(Some(e)),
-                                        }
-                                    },
+                    // 登入者選單：語系圖示右邊（使用者、營運中心、切換營運中心、變更密碼、登出）
+                    if let SessionState::SignedIn(s) = session() {
+                        UserMenu {
+                            session: (*s).clone(),
+                            onswitch: move |plant: String| async move {
+                                match api::switch_plant(&plant).await {
+                                    Ok(s) => { switch_error.set(None); session.set(SessionState::SignedIn(Box::new(s))); }
+                                    Err(e) => switch_error.set(Some(e)),
                                 }
-                            }
-                        }
-                        if let Some(days) = s.password_expires_in_days {
-                            div { class: "session-notice", {tf("shell-password-expiring", &[("days", days.to_string().as_str())])} }
-                        }
-                        if let Some(uses) = s.password_uses_left {
-                            div { class: "session-notice", {tf("shell-password-uses-left", &[("uses", uses.to_string().as_str())])} }
-                        }
-                        div { class: "session-actions",
-                            button { r#type: "button", class: "md-button md-state md-button--text", onclick: move |_| changing_password.set(true), {t("shell-change-password")} }
-                            button {
-                                r#type: "button",
-                                class: "md-button md-state md-button--text",
-                                onclick: move |_| async move {
-                                    let _ = api::sign_out().await;
-                                    session.set(SessionState::SignedOut);
-                                },
-                                {t("shell-sign-out")}
-                            }
+                            },
+                            onchangepassword: move |_| changing_password.set(true),
+                            onsignout: move |_| async move {
+                                let _ = api::sign_out().await;
+                                session.set(SessionState::SignedOut);
+                            },
                         }
                     }
+                    h1 { "TTRS ERP" }
+                }
+                if let SessionState::SignedIn(s) = session() {
                     if let Some(e) = switch_error() {
                         p { class: "session-error", "{e}" }
                     }

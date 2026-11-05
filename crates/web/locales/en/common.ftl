@@ -14,6 +14,7 @@ shell-nav-classes = Permission Classes
 shell-nav-permissions = Program Permissions
 shell-nav-dictionary = Data Dictionary
 shell-language = Language
+shell-user-menu = User
 shell-switch-plant = Switch plant
 common-action-ok = OK
 common-action-cancel = Cancel

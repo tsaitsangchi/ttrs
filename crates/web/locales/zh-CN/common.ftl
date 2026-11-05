@@ -14,6 +14,7 @@ shell-nav-classes = 权限类别维护
 shell-nav-permissions = 程序执行权限
 shell-nav-dictionary = 数据字典维护
 shell-language = 语言
+shell-user-menu = 用户
 shell-switch-plant = 切换营运中心
 common-action-ok = 确定
 common-action-cancel = 放弃
