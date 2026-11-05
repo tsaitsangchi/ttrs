@@ -80,6 +80,9 @@ pub fn TextField(
     #[props(default)]
     maxlength: Option<usize>,
     #[props(default)] oninput: EventHandler<String>,
+    /// 離開欄位時（例如登入畫面輸入完使用者代號後載入營運中心選項）
+    #[props(default)]
+    onblur: EventHandler<()>,
 ) -> Element {
     rsx! {
         div { class: field_class(readonly, disabled, &class),
@@ -94,6 +97,7 @@ pub fn TextField(
                 readonly,
                 disabled,
                 oninput: move |e| oninput.call(e.value()),
+                onblur: move |_| onblur.call(()),
             }
         }
     }

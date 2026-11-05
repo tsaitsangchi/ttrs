@@ -180,3 +180,25 @@ async fn password_sign_in_flow() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::UNAUTHORIZED);
 }
+
+/// 登入畫面的營運中心選項：不需登入；帳號不存在時 200 空白清單（SQ11），不回錯誤
+#[tokio::test]
+async fn sign_in_plants_needs_no_session() {
+    let app = router(AppState::with_sign_in(
+        Services::new(Arc::new(InMemoryStore::seeded())),
+        false,
+    ));
+    let res = app
+        .oneshot(
+            Request::get("/api/sign-in/plants?user_id=nouse")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let dto: ttrs_shared::SignInPlantsDto =
+        serde_json::from_slice(&to_bytes(res.into_body(), usize::MAX).await.unwrap()).unwrap();
+    assert!(dto.plants.is_empty());
+    assert_eq!(dto.selected, None);
+}

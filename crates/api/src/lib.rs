@@ -34,8 +34,8 @@ use ttrs_shared::{
     PasswordResetRequestInput, PasswordResetStatusDto, PermissionBatchResultDto,
     PermissionClassDto, PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput,
     ProgramNameDto, ProgramPermissionDto, ProgramPermissionInput, QueryRequest, SessionDto,
-    SignInInput, SwitchPlantInput, TableDictionaryDto, TableDictionaryInput, TableTextDto,
-    UpdatedCountDto, UserDto, UserInput, UserPermissionDto, UserPermissionInput,
+    SignInInput, SignInPlantsDto, SwitchPlantInput, TableDictionaryDto, TableDictionaryInput,
+    TableTextDto, UpdatedCountDto, UserDto, UserInput, UserPermissionDto, UserPermissionInput,
 };
 
 #[derive(Clone)]
@@ -167,6 +167,8 @@ pub fn router(state: AppState) -> Router {
             get(current_session).post(sign_in).delete(sign_out),
         )
         .route("/api/password", post(change_password))
+        // 登入畫面輸入使用者代號後的營運中心選項（sign_in.feature SL1–SL8）：登入前使用
+        .route("/api/sign-in/plants", get(sign_in_plants))
         // 忘記密碼（ADR 0010 §A）：登入前使用
         .route(
             "/api/password-reset",
@@ -808,7 +810,7 @@ impl IntoResponse for HttpError {
             | "USER_INACTIVE"
             | "USER_EXPIRED" => StatusCode::UNAUTHORIZED,
             "PASSWORD_CHANGE_REQUIRED" => StatusCode::FORBIDDEN,
-            "PLANT_NOT_ALLOWED" => StatusCode::FORBIDDEN,
+            "PLANT_NOT_ALLOWED" | "NO_USABLE_PLANT" => StatusCode::FORBIDDEN,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
             | "ITEM_HAS_TRANSACTIONS"
@@ -862,7 +864,10 @@ async fn sign_in(
     else {
         return Ok(StatusCode::NOT_FOUND.into_response());
     };
-    let result = s.sign_in.sign_in(&input.user_id, &input.password).await;
+    let result = s
+        .sign_in
+        .sign_in_at(&input.user_id, &input.password, input.plant_id.as_deref())
+        .await;
     match &result {
         Ok(session) => {
             tracing::info!(user = %session.user_id, plant = %session.plant, "sign-in")
@@ -916,6 +921,21 @@ async fn change_password(
         .await?;
     tracing::info!(user = %input.user_id, "password changed");
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Deserialize)]
+struct SignInPlantsQuery {
+    user_id: String,
+}
+
+/// 營運中心選項：不需密碼（SQ11 選項 A），每次查詢都記錄
+async fn sign_in_plants(
+    State(s): State<AppState>,
+    Query(q): Query<SignInPlantsQuery>,
+) -> ApiResult<Json<SignInPlantsDto>> {
+    let options = s.sign_in.plant_options(&q.user_id).await?;
+    tracing::info!(user = %q.user_id, count = options.plants.len(), "sign-in plant options");
+    Ok(Json(options))
 }
 
 /// 忘記密碼是否開放（R9）

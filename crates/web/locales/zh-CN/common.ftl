@@ -63,6 +63,7 @@ shell-password-uses-left = 此密码剩 { $uses } 次登录可用，请尽早变
 signin-title = 登录 TTRS
 signin-field-user = 用户代号
 signin-field-password = 密码
+signin-field-plant = 营运中心
 signin-action-sign-in = 登录
 password-title = 变更密码
 password-hint-required = 请先变更密码才能登录。

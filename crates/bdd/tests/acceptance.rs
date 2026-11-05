@@ -76,6 +76,8 @@ pub struct ErpWorld {
     pub sign_in: SignInService,
     /// 目前登入的連線（sign_in.feature）
     pub session: Option<SessionDto>,
+    /// 登入畫面輸入使用者代號後的營運中心選項（sign_in.feature SL1–SL8）
+    pub sign_in_plants: Option<ttrs_shared::SignInPlantsDto>,
     /// 各使用者目前的 Web 密碼（「使用者 … 已登入」用）
     pub passwords: std::collections::HashMap<String, String>,
     /// 忘記密碼（password_reset.feature）
@@ -186,6 +188,7 @@ impl ErpWorld {
             my_permission: None,
             sign_in,
             session: None,
+            sign_in_plants: None,
             passwords: Default::default(),
             password_reset,
             outbox: Outbox::default(),

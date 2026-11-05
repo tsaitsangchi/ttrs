@@ -63,6 +63,7 @@ shell-password-uses-left = 此密碼剩 { $uses } 次登入可用，請盡早變
 signin-title = 登入 TTRS
 signin-field-user = 使用者代號
 signin-field-password = 密碼
+signin-field-plant = 營運中心
 signin-action-sign-in = 登入
 password-title = 變更密碼
 password-hint-required = 請先變更密碼才能登入。

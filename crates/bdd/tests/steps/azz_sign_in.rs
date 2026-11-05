@@ -147,3 +147,54 @@ fn switchable_plants(w: &mut ErpWorld, expected: String) {
 async fn default_plant(w: &mut ErpWorld, id: String, expected: String) {
     assert_eq!(user_input(w, &id).await.default_plant, expected);
 }
+
+// ----- 登入時選擇營運中心（SL1–SL8）-----
+
+fn plant_options(w: &ErpWorld) -> &ttrs_shared::SignInPlantsDto {
+    w.sign_in_plants
+        .as_ref()
+        .expect("尚未在登入畫面輸入使用者代號")
+}
+
+#[when(expr = "在登入畫面輸入使用者代號 {string}")]
+async fn enter_user_id(w: &mut ErpWorld, id: String) {
+    let options = w
+        .sign_in
+        .plant_options(&id)
+        .await
+        .unwrap_or_else(|e| panic!("取得 {id} 的營運中心選項失敗：{e}"));
+    w.sign_in_plants = Some(options);
+}
+
+#[when(expr = "以使用者代號 {string}、密碼 {string}、營運中心 {string} 登入")]
+async fn sign_in_at_plant(w: &mut ErpWorld, id: String, password: String, plant: String) {
+    w.session = None;
+    let result = w.sign_in.sign_in_at(&id, &password, Some(&plant)).await;
+    keep_session(w, result);
+}
+
+#[then(expr = "登入畫面的營運中心選項應為 {string}")]
+fn plant_option_ids(w: &mut ErpWorld, expected: String) {
+    let ids: Vec<&str> = plant_options(w)
+        .plants
+        .iter()
+        .map(|p| p.plant_id.as_str())
+        .collect();
+    assert_eq!(ids.join(","), expected);
+}
+
+#[then(expr = "登入畫面選取的營運中心應為 {string}")]
+fn selected_plant(w: &mut ErpWorld, expected: String) {
+    assert_eq!(
+        plant_options(w).selected.as_deref(),
+        Some(expected.as_str())
+    );
+}
+
+#[then("登入畫面的營運中心選單不能改")]
+fn plant_fixed(w: &mut ErpWorld) {
+    assert!(
+        plant_options(w).fixed,
+        "非多營運中心使用者的營運中心選單應不能改"
+    );
+}

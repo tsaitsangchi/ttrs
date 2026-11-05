@@ -118,3 +118,4 @@ error-PASSWORD_SAME_AS_OLD = （使用伺服器訊息）
 error-PASSWORD_RESET_TOKEN_INVALID = （使用伺服器訊息）
 error-PASSWORD_RESET_UNAVAILABLE = （使用伺服器訊息）
 error-LAST_USER_ADMIN = （使用伺服器訊息）
+error-NO_USABLE_PLANT = （使用伺服器訊息）

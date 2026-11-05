@@ -11,10 +11,12 @@ use ttrs_domain::{
     DomainError,
     password::{Credential, PasswordAge, check_new_password, must_change, password_age},
     plant::{Plant, PlantId},
-    sign_in::{check_account, check_plant, check_switch, switchable_plants},
+    sign_in::{
+        check_account, check_plant, check_switch, pick_plant, sign_in_plants, switchable_plants,
+    },
     user::{User, UserId},
 };
-use ttrs_shared::{PlantOptionDto, SessionDto};
+use ttrs_shared::{PlantOptionDto, SessionDto, SignInPlantsDto};
 
 use crate::{
     AppError,
@@ -46,8 +48,19 @@ impl SignInService {
         }
     }
 
-    /// 登入（weblogin，ADR 0009）：帳號（存在、有效、未過期、未鎖定）→ 密碼 → 須改密碼 → 營運中心（SQ4–SQ6）
+    /// 登入並自動選取營運中心（SQ12）
     pub async fn sign_in(&self, user_id: &str, password: &str) -> Result<SessionDto, AppError> {
+        self.sign_in_at(user_id, password, None).await
+    }
+
+    /// 登入（weblogin，ADR 0009）：帳號（存在、有效、未過期、未鎖定）→ 密碼 → 須改密碼 → 營運中心。
+    /// 營運中心為登入畫面選的（SQ14）；未指定時自動選取（SQ12），與預設不同時寫回預設（SQ15）
+    pub async fn sign_in_at(
+        &self,
+        user_id: &str,
+        password: &str,
+        plant: Option<&str>,
+    ) -> Result<SessionDto, AppError> {
         // 帳號不存在與密碼錯誤同一訊息（W2，lib-064）
         let Ok(id) = UserId::parse(user_id) else {
             return Err(DomainError::SignInFailed.into());
@@ -74,13 +87,67 @@ impl SignInService {
         if must_change(&policy, id.as_str(), &cred, password, today()) {
             return Err(DomainError::PasswordChangeRequired.into());
         }
-        let mut session = self.enter(&user, &user.attrs.default_plant).await?;
+        let target = self.choose_plant(&user, plant).await?;
+        let mut session = self.enter(&user, &target).await?;
+        if target != user.attrs.default_plant {
+            self.users
+                .set_default_plant(&user.user_id, &target)
+                .await
+                .map_err(infra)?;
+        }
         match password_age(&policy, &cred, today()) {
             PasswordAge::ExpiringInDays(d) => session.password_expires_in_days = Some(d),
             PasswordAge::ExpiringInUses(n) => session.password_uses_left = Some(n),
             PasswordAge::Valid | PasswordAge::Expired => {}
         }
         Ok(session)
+    }
+
+    /// 登入畫面輸入使用者代號後的營運中心選項（SL1–SL8）：有效、可使用者並自動選取（SQ12、SQ13）。
+    /// 不需密碼（SQ11 選項 A）；帳號不存在、停用、過期或鎖定時回空白清單
+    pub async fn plant_options(&self, user_id: &str) -> Result<SignInPlantsDto, AppError> {
+        let Ok(id) = UserId::parse(user_id) else {
+            return Ok(SignInPlantsDto::default());
+        };
+        let Some(user) = self.users.get(&id).await.map_err(infra)? else {
+            return Ok(SignInPlantsDto::default());
+        };
+        let policy = self.policy.account_policy().await.map_err(infra)?;
+        if check_account(&user, today()).is_err() || self.credential(&id).await?.locked(&policy) {
+            return Ok(SignInPlantsDto::default());
+        }
+        let allowed = self.users.plants(&id).await.map_err(infra)?;
+        let all = self.plants.list().await.map_err(infra)?;
+        let options = sign_in_plants(&user, &allowed, &all);
+        Ok(SignInPlantsDto {
+            selected: pick_plant(&user.attrs.default_plant, &options)
+                .map(|p| p.as_str().to_owned()),
+            plants: options
+                .iter()
+                .map(|p| PlantOptionDto {
+                    plant_id: p.id.as_str().to_owned(),
+                    name: plant_name(p),
+                })
+                .collect(),
+            fixed: !user.attrs.multi_plant,
+        })
+    }
+
+    /// 登入的營運中心：指定時非多營運中心使用者只能用預設營運中心（SQ7、SQ13）；
+    /// 未指定時自動選取，沒有可用的營運中心 → NO_USABLE_PLANT（SQ16）。可否使用、是否有效由 enter 檢查
+    async fn choose_plant(&self, user: &User, plant: Option<&str>) -> Result<PlantId, AppError> {
+        if let Some(p) = plant.map(str::trim).filter(|p| !p.is_empty()) {
+            let id = PlantId::parse(p)?;
+            if !user.attrs.multi_plant && id != user.attrs.default_plant {
+                return Err(DomainError::UserSinglePlant.into());
+            }
+            return Ok(id);
+        }
+        let allowed = self.users.plants(&user.user_id).await.map_err(infra)?;
+        let all = self.plants.list().await.map_err(infra)?;
+        let options = sign_in_plants(user, &allowed, &all);
+        pick_plant(&user.attrs.default_plant, &options)
+            .ok_or_else(|| DomainError::NoUsablePlant.into())
     }
 
     /// 變更密碼（webpasswd）：以舊密碼驗證身分，登入前（須改密碼時）與登入後都可使用

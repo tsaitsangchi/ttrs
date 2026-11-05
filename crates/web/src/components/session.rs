@@ -2,11 +2,11 @@
 //! 外框依連線狀態顯示登入畫面或作業；須改密碼時登入畫面改為變更密碼表單。
 
 use dioxus::prelude::*;
-use ttrs_shared::{ChangePasswordInput, PasswordResetInput, SessionDto};
+use ttrs_shared::{ChangePasswordInput, PasswordResetInput, SessionDto, SignInPlantsDto};
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Notification, NotificationKind, TextField, icons,
+    Button, ButtonVariant, Notification, NotificationKind, Select, TextField, icons,
 };
 use crate::i18n::{t, tf};
 
@@ -44,13 +44,36 @@ pub fn SignInPage() -> Element {
     // 忘記密碼（ADR 0010 §A）：未設定寄信伺服器時不顯示入口（R9）
     let reset_available = use_resource(api::password_reset_available);
     let mut forgot = use_signal(|| false);
+    // 營運中心（sign_in.feature SL1–SL8）：輸入完使用者代號（離開欄位）後載入有效的營運中心並自動選取
+    let mut plants = use_signal(SignInPlantsDto::default);
+    let mut plants_for = use_signal(String::new);
+    let mut plant = use_signal(String::new);
+    let load_plants = move |_| async move {
+        let id = user_id().trim().to_owned();
+        if id.is_empty() || id == plants_for() {
+            return;
+        }
+        let options = api::sign_in_plants(&id).await;
+        // 載入期間又改了代號：丟棄舊結果
+        if user_id().trim() != id {
+            return;
+        }
+        plant.set(options.selected.clone().unwrap_or_default());
+        plants.set(options);
+        plants_for.set(id);
+    };
+    // 已載入此代號的選項時送出選的營運中心，否則由伺服器自動選取（SQ12）
+    let chosen_plant = move || {
+        let p = plant();
+        (plants_for() == user_id().trim() && !p.is_empty()).then_some(p)
+    };
 
     let submit = move || async move {
         if busy() {
             return;
         }
         busy.set(true);
-        match api::sign_in(&user_id(), &password()).await {
+        match api::sign_in(&user_id(), &password(), chosen_plant().as_deref()).await {
             Ok(s) => session.set(SessionState::SignedIn(Box::new(s))),
             Err(e) if e.code == "PASSWORD_CHANGE_REQUIRED" => {
                 error.set(None);
@@ -78,7 +101,7 @@ pub fn SignInPage() -> Element {
                         old_password: password(),
                         ondone: move |new_password: String| async move {
                             // 改好後以新密碼登入
-                            match api::sign_in(&user_id(), &new_password).await {
+                            match api::sign_in(&user_id(), &new_password, chosen_plant().as_deref()).await {
                                 Ok(s) => session.set(SessionState::SignedIn(Box::new(s))),
                                 Err(e) => {
                                     must_change.set(false);
@@ -99,8 +122,20 @@ pub fn SignInPage() -> Element {
                             e.prevent_default();
                             submit().await;
                         },
-                        TextField { id: "zx01", label: t("signin-field-user"), maxlength: 10usize, value: user_id(), oninput: move |v| user_id.set(v) }
+                        TextField { id: "zx01", label: t("signin-field-user"), maxlength: 10usize, value: user_id(), oninput: move |v| user_id.set(v), onblur: load_plants }
                         TextField { id: "zx10", label: t("signin-field-password"), input_type: "password", maxlength: 64usize, value: password(), oninput: move |v| password.set(v) }
+                        Select {
+                            id: "plant",
+                            label: t("signin-field-plant"),
+                            options: if plants_for() == user_id().trim() {
+                                plants().plants.iter().map(|p| (p.plant_id.clone(), format!("{} {}", p.plant_id, p.name))).collect::<Vec<_>>()
+                            } else {
+                                Vec::new()
+                            },
+                            value: plant(),
+                            disabled: plants_for() != user_id().trim() || plants().plants.is_empty() || plants().fixed,
+                            onchange: move |v| plant.set(v),
+                        }
                         button { r#type: "submit", class: "md-button md-state md-button--filled", disabled: busy() || user_id().trim().is_empty(),
                             {t("signin-action-sign-in")}
                         }

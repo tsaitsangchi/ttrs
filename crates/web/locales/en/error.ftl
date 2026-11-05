@@ -118,3 +118,4 @@ error-PASSWORD_SAME_AS_OLD = The new password must be different from the current
 error-PASSWORD_RESET_TOKEN_INVALID = The reset link is invalid or has expired. Please request a new one.
 error-PASSWORD_RESET_UNAVAILABLE = Password reset by email is not set up. Please contact the system administrator.
 error-LAST_USER_ADMIN = At least one active administrator who can modify users must remain.
+error-NO_USABLE_PLANT = You have no plant you can use. Please contact the system administrator.

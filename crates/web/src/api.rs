@@ -13,8 +13,8 @@ use ttrs_shared::{
     PasswordResetRequestInput, PasswordResetStatusDto, PermissionBatchResultDto,
     PermissionClassDto, PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput,
     ProgramPermissionDto, ProgramPermissionInput, QueryRequest, SessionDto, SignInInput,
-    SwitchPlantInput, TableDictionaryDto, TableDictionaryInput, TableTextDto, UpdatedCountDto,
-    UserDto, UserInput, UserPermissionDto, UserPermissionInput,
+    SignInPlantsDto, SwitchPlantInput, TableDictionaryDto, TableDictionaryInput, TableTextDto,
+    UpdatedCountDto, UserDto, UserInput, UserPermissionDto, UserPermissionInput,
 };
 
 fn base_url() -> String {
@@ -168,12 +168,18 @@ pub async fn session() -> Result<Option<SessionDto>, String> {
 }
 
 /// 登入（ADR 0009）：成功時伺服器設定連線 cookie
-pub async fn sign_in(user_id: &str, password: &str) -> Result<SessionDto, ApiFailure> {
+/// 登入；`plant` 為登入畫面選的營運中心，None 時由伺服器自動選取（sign_in.feature SQ12）
+pub async fn sign_in(
+    user_id: &str,
+    password: &str,
+    plant: Option<&str>,
+) -> Result<SessionDto, ApiFailure> {
     let res = reqwest::Client::new()
         .post(url("/api/session"))
         .json(&SignInInput {
             user_id: user_id.to_owned(),
             password: password.to_owned(),
+            plant_id: plant.map(str::to_owned),
         })
         .send()
         .await
@@ -203,6 +209,19 @@ pub async fn change_password(input: &ChangePasswordInput) -> Result<(), String> 
         .await
         .map_err(|e| e.to_string())?;
     no_content(res).await
+}
+
+/// 登入畫面輸入使用者代號後的營運中心選項（SL1–SL8）；無法連線時空白
+pub async fn sign_in_plants(user_id: &str) -> SignInPlantsDto {
+    let Ok(res) = reqwest::Client::new()
+        .get(url("/api/sign-in/plants"))
+        .query(&[("user_id", user_id)])
+        .send()
+        .await
+    else {
+        return SignInPlantsDto::default();
+    };
+    into_result(res).await.unwrap_or_default()
 }
 
 /// 忘記密碼是否開放（ADR 0010 R9）；無法連線時視為不開放

@@ -63,6 +63,29 @@ pub fn switchable_plants<'a>(allowed: &[PlantId], plants: &'a [Plant]) -> Vec<&'
     out
 }
 
+/// 登入畫面可選的營運中心（sign_in.feature SQ13）：可使用且有效者，依代號排序；
+/// 非多營運中心使用者（zx07＝N）只有預設營運中心
+pub fn sign_in_plants<'a>(user: &User, allowed: &[PlantId], plants: &'a [Plant]) -> Vec<&'a Plant> {
+    let usable = switchable_plants(allowed, plants);
+    if user.attrs.multi_plant {
+        usable
+    } else {
+        usable
+            .into_iter()
+            .filter(|p| p.id == user.attrs.default_plant)
+            .collect()
+    }
+}
+
+/// 自動選取（SQ12）：預設營運中心在選項中就選它，否則選代號最小者；沒有選項時 None
+pub fn pick_plant(default: &PlantId, options: &[&Plant]) -> Option<PlantId> {
+    options
+        .iter()
+        .find(|p| &p.id == default)
+        .or_else(|| options.first())
+        .map(|p| p.id.clone())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

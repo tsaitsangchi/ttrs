@@ -779,11 +779,24 @@ pub struct SessionDto {
     pub session_version: u32,
 }
 
-/// 登入（ADR 0009）
+/// 登入（ADR 0009）；營運中心未指定時自動選取（sign_in.feature SQ12、SQ14）
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SignInInput {
     pub user_id: String,
     pub password: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plant_id: Option<String>,
+}
+
+/// 登入畫面輸入使用者代號後的營運中心選項（sign_in.feature SL1–SL8）
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct SignInPlantsDto {
+    /// 有效、可使用的營運中心，依代號排序；帳號不存在或不能登入時空白（SQ11）
+    pub plants: Vec<PlantOptionDto>,
+    /// 自動選取的營運中心（SQ12）
+    pub selected: Option<String>,
+    /// 非多營運中心使用者：不能改（SQ13）
+    pub fixed: bool,
 }
 
 /// 變更密碼（webpasswd）：以舊密碼驗證

@@ -138,6 +138,8 @@ pub enum DomainError {
     PasswordResetUnavailable,
     #[error("至少要保留一位有效、可修改使用者資料的管理員")]
     LastUserAdmin,
+    #[error("沒有可使用的營運中心，請洽系統管理員")]
+    NoUsablePlant,
     #[error("此公司帳號尚未在 TTRS 註冊，請洽系統管理員")]
     UserNotRegistered,
     #[error("使用者已停用")]
@@ -337,6 +339,7 @@ impl DomainError {
             Self::PasswordResetTokenInvalid => "PASSWORD_RESET_TOKEN_INVALID",
             Self::PasswordResetUnavailable => "PASSWORD_RESET_UNAVAILABLE",
             Self::LastUserAdmin => "LAST_USER_ADMIN",
+            Self::NoUsablePlant => "NO_USABLE_PLANT",
             Self::UserNotRegistered => "USER_NOT_REGISTERED",
             Self::UserInactive => "USER_INACTIVE",
             Self::UserExpired => "USER_EXPIRED",

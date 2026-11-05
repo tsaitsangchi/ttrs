@@ -118,3 +118,4 @@ error-PASSWORD_SAME_AS_OLD = 新密码不可与旧密码相同。
 error-PASSWORD_RESET_TOKEN_INVALID = 重设链接无效或已过期，请重新申请。
 error-PASSWORD_RESET_UNAVAILABLE = 尚未设置邮件服务器，无法自助重设密码，请联系系统管理员。
 error-LAST_USER_ADMIN = 至少要保留一位有效、可修改用户资料的管理员。
+error-NO_USABLE_PLANT = 没有可使用的营运中心，请联系系统管理员。

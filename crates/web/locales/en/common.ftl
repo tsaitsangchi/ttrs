@@ -63,6 +63,7 @@ shell-password-uses-left = Your password can be used for { $uses } more sign-ins
 signin-title = Sign in to TTRS
 signin-field-user = User ID
 signin-field-password = Password
+signin-field-plant = Plant
 signin-action-sign-in = Sign in
 password-title = Change password
 password-hint-required = Please change your password before signing in.
