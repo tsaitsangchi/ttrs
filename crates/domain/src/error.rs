@@ -130,6 +130,14 @@ pub enum DomainError {
     PasswordNeedsSymbol,
     #[error("新密碼不可與舊密碼相同")]
     PasswordSameAsOld,
+
+    // 忘記密碼與緊急重設（password_reset.feature、emergency_password_reset.feature，ADR 0010）
+    #[error("重設連結無效或已過期，請重新申請")]
+    PasswordResetTokenInvalid,
+    #[error("尚未設定寄信伺服器，無法自助重設密碼，請洽系統管理員")]
+    PasswordResetUnavailable,
+    #[error("至少要保留一位有效、可修改使用者資料的管理員")]
+    LastUserAdmin,
     #[error("此公司帳號尚未在 TTRS 註冊，請洽系統管理員")]
     UserNotRegistered,
     #[error("使用者已停用")]
@@ -326,6 +334,9 @@ impl DomainError {
             Self::PasswordNeedsDigit => "PASSWORD_NEEDS_DIGIT",
             Self::PasswordNeedsSymbol => "PASSWORD_NEEDS_SYMBOL",
             Self::PasswordSameAsOld => "PASSWORD_SAME_AS_OLD",
+            Self::PasswordResetTokenInvalid => "PASSWORD_RESET_TOKEN_INVALID",
+            Self::PasswordResetUnavailable => "PASSWORD_RESET_UNAVAILABLE",
+            Self::LastUserAdmin => "LAST_USER_ADMIN",
             Self::UserNotRegistered => "USER_NOT_REGISTERED",
             Self::UserInactive => "USER_INACTIVE",
             Self::UserExpired => "USER_EXPIRED",

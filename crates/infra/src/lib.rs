@@ -7,6 +7,7 @@ mod pg_credential;
 mod pg_department;
 mod pg_dictionary;
 mod pg_legacy;
+mod pg_password_reset;
 mod pg_permission;
 mod pg_permission_class;
 mod pg_plant;
@@ -15,11 +16,13 @@ mod pg_user;
 mod pg_user_permission;
 mod plant_schema;
 mod qbe_sql;
+pub mod smtp;
 
 pub use pg::PgStore;
 pub use plant_schema::{
     PLANT_MIGRATOR, drop_all_plant_schemas, plant_role_exists, plant_schema_version,
 };
+pub use smtp::SmtpMailer;
 
 use sqlx::{PgPool, migrate::Migrator, postgres::PgPoolOptions};
 

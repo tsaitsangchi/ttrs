@@ -71,6 +71,14 @@ async fn create_get_duplicate_and_delete() {
     assert_eq!(res.status(), StatusCode::CONFLICT);
     assert_eq!(body::<ApiError>(res).await.code, "USER_ALREADY_EXISTS");
 
+    // 另一位管理員：u001 才不是最後一位（LAST_USER_ADMIN，ADR 0010 R14）
+    let res = app
+        .clone()
+        .oneshot(request("POST", "/api/users", Some(new_user("u000"))))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CREATED);
+
     let res = app
         .clone()
         .oneshot(request("POST", "/api/users/u001/deactivate", None))
@@ -104,4 +112,21 @@ async fn invalid_menu_returns_422() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(body::<ApiError>(res).await.code, "USER_MENU_INVALID");
+}
+
+#[tokio::test]
+async fn last_user_admin_returns_409() {
+    let app = app().await;
+    let res = app
+        .clone()
+        .oneshot(request("POST", "/api/users", Some(new_user("u001"))))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CREATED);
+    let res = app
+        .oneshot(request("DELETE", "/api/users/u001", None))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CONFLICT);
+    assert_eq!(body::<ApiError>(res).await.code, "LAST_USER_ADMIN");
 }

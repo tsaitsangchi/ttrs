@@ -115,3 +115,6 @@ error-PASSWORD_CONTAINS_USER_ID = The password must not contain the user ID.
 error-PASSWORD_NEEDS_DIGIT = The password must contain a digit.
 error-PASSWORD_NEEDS_SYMBOL = The password must contain a symbol.
 error-PASSWORD_SAME_AS_OLD = The new password must be different from the current one.
+error-PASSWORD_RESET_TOKEN_INVALID = The reset link is invalid or has expired. Please request a new one.
+error-PASSWORD_RESET_UNAVAILABLE = Password reset by email is not set up. Please contact the system administrator.
+error-LAST_USER_ADMIN = At least one active administrator who can modify users must remain.

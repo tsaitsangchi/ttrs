@@ -13,6 +13,9 @@ publish.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
 ttrs-app = { workspace = true, features = ["memory"] }
+ttrs-api = { path = "../api" }
+axum.workspace = true
+tower = { version = "0.5", features = ["util"] }
 ttrs-domain.workspace = true
 ttrs-infra.workspace = true
 ttrs-shared.workspace = true

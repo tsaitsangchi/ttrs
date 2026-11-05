@@ -2,7 +2,7 @@
 //! 外框依連線狀態顯示登入畫面或作業；須改密碼時登入畫面改為變更密碼表單。
 
 use dioxus::prelude::*;
-use ttrs_shared::{ChangePasswordInput, SessionDto};
+use ttrs_shared::{ChangePasswordInput, PasswordResetInput, SessionDto};
 
 use crate::api;
 use crate::components::material::{
@@ -41,6 +41,9 @@ pub fn SignInPage() -> Element {
     // 須改密碼（PASSWORD_CHANGE_REQUIRED）：改用變更密碼表單，舊密碼為剛輸入的密碼
     let mut must_change = use_signal(|| false);
     let mut busy = use_signal(|| false);
+    // 忘記密碼（ADR 0010 §A）：未設定寄信伺服器時不顯示入口（R9）
+    let reset_available = use_resource(api::password_reset_available);
+    let mut forgot = use_signal(|| false);
 
     let submit = move || async move {
         if busy() {
@@ -62,7 +65,12 @@ pub fn SignInPage() -> Element {
         div { class: "sign-in md-theme-light",
             div { class: "sign-in-card",
                 h1 { "TTRS ERP" }
-                if must_change() {
+                if forgot() {
+                    ForgotPasswordForm {
+                        user_id: user_id(),
+                        onback: move |_| forgot.set(false),
+                    }
+                } else if must_change() {
                     h2 { {t("password-title")} }
                     p { class: "note", {t("password-hint-required")} }
                     ChangePasswordForm {
@@ -95,6 +103,16 @@ pub fn SignInPage() -> Element {
                         TextField { id: "zx10", label: t("signin-field-password"), input_type: "password", maxlength: 64usize, value: password(), oninput: move |v| password.set(v) }
                         button { r#type: "submit", class: "md-button md-state md-button--filled", disabled: busy() || user_id().trim().is_empty(),
                             {t("signin-action-sign-in")}
+                        }
+                    }
+                    if reset_available() == Some(true) {
+                        Button {
+                            variant: ButtonVariant::Text,
+                            onclick: move |_| {
+                                error.set(None);
+                                forgot.set(true);
+                            },
+                            {t("forgot-action-open")}
                         }
                     }
                 }
@@ -151,6 +169,106 @@ pub fn ChangePasswordForm(
             }
             if let Some(msg) = error() {
                 Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }
+            }
+        }
+    }
+}
+
+/// 忘記密碼（ADR 0010 §A）：輸入使用者代號寄出重設連結；不論帳號是否存在都顯示同一個訊息（R2）
+#[component]
+fn ForgotPasswordForm(user_id: String, onback: EventHandler<()>) -> Element {
+    let mut id = use_signal(|| user_id.clone());
+    let mut sent = use_signal(|| false);
+    let mut busy = use_signal(|| false);
+    let mut error = use_signal(|| None::<String>);
+    rsx! {
+        h2 { {t("forgot-title")} }
+        if sent() {
+            Notification { kind: NotificationKind::Success, title: t("forgot-msg-sent"), onclose: move |_| {} }
+        } else {
+            p { class: "note", {t("forgot-hint")} }
+            form {
+                class: "sign-in-form",
+                onsubmit: move |e| async move {
+                    e.prevent_default();
+                    if busy() {
+                        return;
+                    }
+                    busy.set(true);
+                    match api::request_password_reset(&id()).await {
+                        Ok(()) => sent.set(true),
+                        Err(e) => error.set(Some(e)),
+                    }
+                    busy.set(false);
+                },
+                TextField { id: "zx01_forgot", label: t("signin-field-user"), maxlength: 10usize, value: id(), oninput: move |v| id.set(v) }
+                button { r#type: "submit", class: "md-button md-state md-button--filled", disabled: busy() || id().trim().is_empty(),
+                    {t("forgot-action-send")}
+                }
+            }
+        }
+        Button { variant: ButtonVariant::Text, onclick: move |_| onback.call(()), {t("forgot-action-back")} }
+        if let Some(msg) = error() {
+            Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }
+        }
+    }
+}
+
+/// 重設連結開啟的畫面（/reset-password?token=…）：不需登入；成功後回登入畫面以新密碼登入
+#[component]
+pub fn ResetPasswordPage(token: String) -> Element {
+    let mut new = use_signal(String::new);
+    let mut confirm = use_signal(String::new);
+    let mut done = use_signal(|| false);
+    let mut busy = use_signal(|| false);
+    let mut error = use_signal(|| None::<String>);
+    // 回到首頁：網址不再帶權杖，外框重新取得連線狀態（原連線已失效）
+    let back = move |_| {
+        navigator().replace("/");
+    };
+    rsx! {
+        div { class: "sign-in md-theme-light",
+            div { class: "sign-in-card",
+                h1 { "TTRS ERP" }
+                h2 { {t("reset-title")} }
+                if done() {
+                    Notification { kind: NotificationKind::Success, title: t("reset-msg-done"), onclose: move |_| {} }
+                    Button { onclick: back, {t("forgot-action-back")} }
+                } else {
+                    p { class: "note", {t("reset-hint")} }
+                    form {
+                        class: "sign-in-form",
+                        onsubmit: move |e| {
+                            e.prevent_default();
+                            let token = token.clone();
+                            async move {
+                                if busy() {
+                                    return;
+                                }
+                                busy.set(true);
+                                let input = PasswordResetInput {
+                                    token,
+                                    new_password: new(),
+                                    confirm_password: confirm(),
+                                };
+                                match api::confirm_password_reset(&input).await {
+                                    Ok(()) => done.set(true),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                                busy.set(false);
+                            }
+                        },
+                        TextField { id: "zx10_new", label: t("password-field-new"), input_type: "password", maxlength: 64usize, value: new(), oninput: move |v| new.set(v) }
+                        TextField { id: "zx10_ver", label: t("password-field-confirm"), input_type: "password", maxlength: 64usize, value: confirm(), oninput: move |v| confirm.set(v) }
+                        button { r#type: "submit", class: "md-button md-state md-button--filled", disabled: busy() || new().is_empty(),
+                            {t("common-action-ok")}
+                        }
+                    }
+                    Button { variant: ButtonVariant::Text, onclick: back, {t("forgot-action-back")} }
+                }
+                if let Some(msg) = error() {
+                    Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }
+                }
             }
         }
     }

@@ -3,14 +3,16 @@
 use std::sync::Arc;
 
 use crate::{
-    Authorizer, DataDictionaryService, DepartmentService, EmployeeService, ItemService,
-    LegacyCatalogService, PermissionAuthorizer, PermissionClassService, PlantService,
-    ProgramPermissionService, ProgramService, SignInService, UserPermissionService, UserService,
+    Authorizer, DataDictionaryService, DepartmentService, EmergencyService, EmployeeService,
+    ItemService, LegacyCatalogService, PasswordResetService, PermissionAuthorizer,
+    PermissionClassService, PlantService, ProgramPermissionService, ProgramService, SignInService,
+    UserPermissionService, UserService,
     ports::{
-        AccountPolicyRepository, CredentialRepository, DepartmentRepository, DictionaryRepository,
-        EmployeeRepository, ItemRepository, LegacyCatalogRepository, MasterDataRepository,
-        PermissionClassRepository, PlantRepository, ProgramPermissionRepository, ProgramRepository,
-        SchemaCatalog, UserPermissionRepository, UserRepository,
+        AccountPolicyRepository, AuditLog, CredentialRepository, DepartmentRepository,
+        DictionaryRepository, EmployeeRepository, ItemRepository, LegacyCatalogRepository,
+        MasterDataRepository, PasswordResetTokenRepository, PermissionClassRepository,
+        PlantRepository, ProgramPermissionRepository, ProgramRepository, SchemaCatalog,
+        UserPermissionRepository, UserRepository,
     },
 };
 
@@ -31,6 +33,8 @@ pub trait Store:
     + EmployeeRepository
     + CredentialRepository
     + AccountPolicyRepository
+    + PasswordResetTokenRepository
+    + AuditLog
     + 'static
 {
 }
@@ -51,6 +55,8 @@ impl<T> Store for T where
         + EmployeeRepository
         + CredentialRepository
         + AccountPolicyRepository
+        + PasswordResetTokenRepository
+        + AuditLog
         + 'static
 {
 }
@@ -69,6 +75,10 @@ pub struct Services {
     pub departments: DepartmentService,
     pub employees: EmployeeService,
     pub sign_in: SignInService,
+    /// 忘記密碼（ADR 0010 §A）；寄信設定以 [`PasswordResetService::with_mail`] 接上
+    pub password_reset: PasswordResetService,
+    /// 伺服器端緊急重設（ttrs-admin，ADR 0010 §B）；不提供給 HTTP API
+    pub emergency: EmergencyService,
     pub authorizer: Arc<dyn Authorizer>,
 }
 
@@ -81,6 +91,9 @@ impl Services {
 
     pub fn with_authorizer<S: Store>(store: Arc<S>, authorizer: Arc<dyn Authorizer>) -> Self {
         let a = authorizer.clone();
+        // 判斷使用者維護管理員一律依權限資料（R14），與請求的權限檢查分開
+        let admins: Arc<dyn Authorizer> =
+            Arc::new(PermissionAuthorizer::new(store.clone(), store.clone()));
         Self {
             items: ItemService::new(a.clone(), store.clone(), store.clone()),
             programs: ProgramService::new(a.clone(), store.clone()),
@@ -101,6 +114,7 @@ impl Services {
                 store.clone(),
                 store.clone(),
                 store.clone(),
+                admins,
             ),
             classes: PermissionClassService::new(
                 a.clone(),
@@ -117,6 +131,14 @@ impl Services {
             ),
             departments: DepartmentService::new(a.clone(), store.clone(), store.clone()),
             sign_in: SignInService::new(store.clone(), store.clone(), store.clone(), store.clone()),
+            password_reset: PasswordResetService::new(
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+            ),
+            emergency: EmergencyService::new(store.clone(), store.clone(), store.clone()),
             employees: EmployeeService::new(a.clone(), store.clone(), store.clone(), store.clone()),
             special: UserPermissionService::new(
                 a,

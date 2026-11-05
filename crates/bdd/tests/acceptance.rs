@@ -12,10 +12,11 @@ use std::{fmt, sync::Arc};
 use cucumber::World;
 use sqlx::PgPool;
 use ttrs_app::{
-    Actor, AppError, DataDictionaryService, DepartmentService, EmployeeService, ItemService,
-    LegacyCatalogService, PermissionClassService, PlantService, ProgramPermissionService,
-    ProgramService, Services, SignInService, UserPermissionService, UserService,
-    memory::InMemoryStore,
+    Actor, AppError, DataDictionaryService, DepartmentService, EmergencyService, EmployeeService,
+    ItemService, LegacyCatalogService, PasswordResetService, PermissionClassService, PlantService,
+    ProgramPermissionService, ProgramService, Services, SignInService, UserPermissionService,
+    UserService,
+    memory::{InMemoryStore, Outbox},
 };
 use ttrs_infra::PgStore;
 
@@ -77,6 +78,16 @@ pub struct ErpWorld {
     pub session: Option<SessionDto>,
     /// 各使用者目前的 Web 密碼（「使用者 … 已登入」用）
     pub passwords: std::collections::HashMap<String, String>,
+    /// 忘記密碼（password_reset.feature）
+    pub password_reset: PasswordResetService,
+    /// 寄出的信件（「已設定寄信伺服器」時接上）
+    pub outbox: Outbox,
+    /// 最近收到的重設連結權杖
+    pub reset_token: Option<String>,
+    /// 伺服器端緊急重設（emergency_password_reset.feature）
+    pub emergency: EmergencyService,
+    /// 最近一次 ttrs-admin 指令的結果
+    pub command: Option<Result<ttrs_api::admin_cli::AdminOutput, ttrs_api::admin_cli::AdminError>>,
 }
 
 impl fmt::Debug for ErpWorld {
@@ -97,7 +108,7 @@ impl ErpWorld {
                 ttrs_infra::drop_all_plant_schemas(&pool)
                     .await
                     .expect("drop plant schemas");
-                sqlx::query("TRUNCATE user_permission, user_plant, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
+                sqlx::query("TRUNCATE user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, unit, plant \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
@@ -140,6 +151,8 @@ impl ErpWorld {
             departments,
             employees,
             sign_in,
+            password_reset,
+            emergency,
             authorizer: _,
         } = services;
         Self {
@@ -174,6 +187,11 @@ impl ErpWorld {
             sign_in,
             session: None,
             passwords: Default::default(),
+            password_reset,
+            outbox: Outbox::default(),
+            reset_token: None,
+            emergency,
+            command: None,
         }
     }
 }

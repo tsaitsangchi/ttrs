@@ -404,10 +404,49 @@ pub trait CredentialRepository: Send + Sync {
         user: &UserId,
         credential: &Credential,
     ) -> Result<(), RepoError>;
+    /// 連線版本：登入時記下，與目前值不同的連線即失效（ADR 0010 R6）；沒有資料時為 0
+    async fn session_version(&self, user: &UserId) -> Result<u32, RepoError>;
+    /// 結束使用者所有已登入的連線（連線版本＋1）
+    async fn end_sessions(&self, user: &UserId) -> Result<(), RepoError>;
 }
 
 #[async_trait]
 pub trait AccountPolicyRepository: Send + Sync {
     /// 系統帳號稽核原則（gbt00＝0 那一筆）
     async fn account_policy(&self) -> Result<AccountPolicy, RepoError>;
+}
+
+// ---------------------------------------------------------------------------
+// 忘記密碼（TTRS 新增；password_reset_token，ADR 0010）
+// ---------------------------------------------------------------------------
+
+pub use ttrs_domain::password_reset::ResetToken;
+
+#[async_trait]
+pub trait PasswordResetTokenRepository: Send + Sync {
+    /// 新增權杖（只存雜湊）；同一使用者先前尚未使用的權杖同時失效（決策 A4）
+    async fn issue_reset_token(
+        &self,
+        token_hash: &str,
+        token: &ResetToken,
+    ) -> Result<(), RepoError>;
+    async fn reset_token(&self, token_hash: &str) -> Result<Option<ResetToken>, RepoError>;
+    /// 此時間之後建立的權杖數（申請次數上限，R7）
+    async fn reset_requests_since(
+        &self,
+        user: &UserId,
+        since: chrono::DateTime<chrono::Utc>,
+    ) -> Result<u64, RepoError>;
+    /// 重設成功：該使用者所有尚未使用的權杖失效
+    async fn revoke_reset_tokens(
+        &self,
+        user: &UserId,
+        at: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(), RepoError>;
+}
+
+/// 寫入異動紀錄（azo_file / audit_log）；讀取用 [`ProgramRepository::audit_entries`]
+#[async_trait]
+pub trait AuditLog: Send + Sync {
+    async fn record(&self, entry: &AuditEntry) -> Result<(), RepoError>;
 }

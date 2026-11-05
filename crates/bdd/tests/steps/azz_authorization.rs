@@ -60,7 +60,7 @@ fn program_actions(program: &str) -> Vec<String> {
 }
 
 /// 設定權限類別對作業的權限（先移除再新增）；`actions` 為 None 時為作業的全部功能
-async fn set_class_permission(
+pub(crate) async fn set_class_permission(
     w: &ErpWorld,
     class: &str,
     program: &str,
@@ -359,7 +359,7 @@ fn dict_input(table: &str) -> TableDictionaryInput {
     }
 }
 
-fn class_input(code: &str) -> PermissionClassInput {
+pub(crate) fn class_input(code: &str) -> PermissionClassInput {
     PermissionClassInput {
         class_code: code.into(),
         name: Some("類別".into()),

@@ -6,7 +6,9 @@ mod i18n;
 mod pages;
 
 use components::material::{Dialog, MenuButton, icons};
-use components::session::{ChangePasswordForm, SessionState, SignInPage, use_session};
+use components::session::{
+    ChangePasswordForm, ResetPasswordPage, SessionState, SignInPage, use_session,
+};
 use dioxus::prelude::*;
 use i18n::{UiLang, t, tf};
 use pages::{
@@ -27,6 +29,9 @@ const MAIN_CSS: Asset = asset!("/assets/main.css");
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 enum Route {
+    /// 忘記密碼的重設連結（ADR 0010 §A）：不需登入，不在外框內
+    #[route("/reset-password?:token")]
+    ResetPassword { token: String },
     #[layout(Shell)]
         #[route("/")]
         Home {},
@@ -82,6 +87,11 @@ fn App() -> Element {
         document::Link { rel: "stylesheet", href: MAIN_CSS }
         Router::<Route> {}
     }
+}
+
+#[component]
+fn ResetPassword(token: String) -> Element {
+    rsx! { ResetPasswordPage { token } }
 }
 
 #[component]

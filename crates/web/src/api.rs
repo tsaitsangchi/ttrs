@@ -9,7 +9,8 @@ use ttrs_shared::{
     DepartmentAccountingInput, DepartmentDto, DepartmentInput, EmployeeDto, EmployeeInput,
     GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto, LegacyTableDto,
     LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto, MyPermissionDto,
-    NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PermissionBatchResultDto,
+    NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PasswordResetInput,
+    PasswordResetRequestInput, PasswordResetStatusDto, PermissionBatchResultDto,
     PermissionClassDto, PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput,
     ProgramPermissionDto, ProgramPermissionInput, QueryRequest, SessionDto, SignInInput,
     SwitchPlantInput, TableDictionaryDto, TableDictionaryInput, TableTextDto, UpdatedCountDto,
@@ -197,6 +198,44 @@ pub async fn sign_out() -> Result<(), String> {
 pub async fn change_password(input: &ChangePasswordInput) -> Result<(), String> {
     let res = reqwest::Client::new()
         .post(url("/api/password"))
+        .json(input)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 忘記密碼是否開放（ADR 0010 R9）；無法連線時視為不開放
+pub async fn password_reset_available() -> bool {
+    let Ok(res) = reqwest::Client::new()
+        .get(url("/api/password-reset"))
+        .send()
+        .await
+    else {
+        return false;
+    };
+    into_result::<PasswordResetStatusDto>(res)
+        .await
+        .is_ok_and(|s| s.available)
+}
+
+/// 申請重設密碼：帳號不存在也回成功（R2）
+pub async fn request_password_reset(user_id: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/password-reset"))
+        .json(&PasswordResetRequestInput {
+            user_id: user_id.to_owned(),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 以重設連結設定新密碼
+pub async fn confirm_password_reset(input: &PasswordResetInput) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/password-reset/confirm"))
         .json(input)
         .send()
         .await

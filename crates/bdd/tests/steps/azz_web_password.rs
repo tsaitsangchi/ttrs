@@ -111,7 +111,12 @@ async fn account_policy(w: &mut ErpWorld, step: &Step) {
 
 /// 建立使用者後由初始密碼（＝使用者代號）改為指定密碼，因此不須再改密碼
 #[given(expr = "已有使用者 {string}，預設營運中心 {string}，Web 密碼 {string}")]
-async fn user_with_password(w: &mut ErpWorld, id: String, plant: String, password: String) {
+pub(crate) async fn user_with_password(
+    w: &mut ErpWorld,
+    id: String,
+    plant: String,
+    password: String,
+) {
     new_user(w, id.clone(), plant).await;
     w.sign_in
         .change_password(&id, &id, &password, &password)

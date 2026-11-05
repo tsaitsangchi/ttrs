@@ -1,5 +1,6 @@
 //! 路由與錯誤對應。handler 只做轉譯，業務邏輯一律在 ttrs-app。
 
+pub mod admin_cli;
 pub mod session;
 
 use std::sync::Arc;
@@ -19,9 +20,9 @@ use tower_http::{
 };
 use ttrs_app::{
     Actor, ActorKind, AppError, Authorizer, DataDictionaryService, DepartmentService,
-    EmployeeService, ItemService, LegacyCatalogService, PermissionClassService, PlantService,
-    ProgramPermissionService, ProgramService, Services, SignInService, UserPermissionService,
-    UserService, program_service::DEFAULT_LANG,
+    EmployeeService, ItemService, LegacyCatalogService, PasswordResetService,
+    PermissionClassService, PlantService, ProgramPermissionService, ProgramService, Services,
+    SignInService, UserPermissionService, UserService, program_service::DEFAULT_LANG,
 };
 use ttrs_shared::{
     ApiError, ChangePasswordInput, ColumnInfoDto, ColumnTextDto, ConstraintDto,
@@ -29,7 +30,8 @@ use ttrs_shared::{
     DepartmentAccountingInput, DepartmentDto, DepartmentInput, EmployeeDto, EmployeeInput,
     GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto, LegacyImportResultDto,
     LegacyTableDto, LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto, MyPermissionDto,
-    NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PermissionBatchResultDto,
+    NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PasswordResetInput,
+    PasswordResetRequestInput, PasswordResetStatusDto, PermissionBatchResultDto,
     PermissionClassDto, PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput,
     ProgramNameDto, ProgramPermissionDto, ProgramPermissionInput, QueryRequest, SessionDto,
     SignInInput, SwitchPlantInput, TableDictionaryDto, TableDictionaryInput, TableTextDto,
@@ -50,6 +52,8 @@ pub struct AppState {
     pub departments: DepartmentService,
     pub employees: EmployeeService,
     pub sign_in: SignInService,
+    /// 忘記密碼（ADR 0010 §A）；緊急重設（EmergencyService）只給 ttrs-admin，不放在 API（R11）
+    pub password_reset: PasswordResetService,
     /// 權限檢查（ADR 0006 §4）：各 use case 已在 app 層檢查，這裡只供查詢有效權限
     pub authorizer: Arc<dyn Authorizer>,
     /// 操作者：固定身分時為 `actor_from_env`；開發用登入時由 [`Ctx`] 換成連線的使用者
@@ -106,6 +110,8 @@ impl AppState {
             departments,
             employees,
             sign_in,
+            password_reset,
+            emergency: _,
             authorizer,
         } = services;
         Self {
@@ -121,6 +127,7 @@ impl AppState {
             departments,
             employees,
             sign_in,
+            password_reset,
             authorizer,
             actor,
             auth: AuthMode::Fixed,
@@ -160,6 +167,12 @@ pub fn router(state: AppState) -> Router {
             get(current_session).post(sign_in).delete(sign_out),
         )
         .route("/api/password", post(change_password))
+        // 忘記密碼（ADR 0010 §A）：登入前使用
+        .route(
+            "/api/password-reset",
+            get(password_reset_status).post(request_password_reset),
+        )
+        .route("/api/password-reset/confirm", post(confirm_password_reset))
         .route("/api/session/plant", axum::routing::put(switch_plant))
         // 目前使用者的有效權限（authorization.feature AQ13）
         .route("/api/me/permissions/{program}", get(my_permission))
@@ -787,6 +800,7 @@ impl IntoResponse for HttpError {
             | "PERMISSION_NOT_FOUND"
             | "DEPARTMENT_NOT_FOUND"
             | "EMPLOYEE_NOT_FOUND" => StatusCode::NOT_FOUND,
+            "PASSWORD_RESET_UNAVAILABLE" => StatusCode::SERVICE_UNAVAILABLE,
             "NOT_SIGNED_IN"
             | "SIGN_IN_FAILED"
             | "USER_LOCKED"
@@ -813,7 +827,8 @@ impl IntoResponse for HttpError {
             | "EMPLOYEE_ALREADY_EXISTS"
             | "PERMISSION_ALREADY_EXISTS"
             | "USER_PERMISSION_DUPLICATE"
-            | "USER_HAS_SPECIAL_PERMISSIONS" => StatusCode::CONFLICT,
+            | "USER_HAS_SPECIAL_PERMISSIONS"
+            | "LAST_USER_ADMIN" => StatusCode::CONFLICT,
             "PERMISSION_DENIED" => StatusCode::FORBIDDEN,
             "INFRA_ERROR" => StatusCode::INTERNAL_SERVER_ERROR,
             _ => StatusCode::UNPROCESSABLE_ENTITY,
@@ -900,6 +915,35 @@ async fn change_password(
         )
         .await?;
     tracing::info!(user = %input.user_id, "password changed");
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// 忘記密碼是否開放（R9）
+async fn password_reset_status(State(s): State<AppState>) -> Json<PasswordResetStatusDto> {
+    Json(PasswordResetStatusDto {
+        available: s.password_reset.available(),
+    })
+}
+
+/// 申請重設（R2）：帳號不存在、沒有 Email 也一樣回 204，不透露帳號是否存在
+async fn request_password_reset(
+    State(s): State<AppState>,
+    Json(input): Json<PasswordResetRequestInput>,
+) -> ApiResult<StatusCode> {
+    s.password_reset.request(&input.user_id).await?;
+    tracing::info!(user = %input.user_id, "password reset requested");
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// 以重設連結設定新密碼；成功後該使用者原本的連線在下一次請求時失效（R6）
+async fn confirm_password_reset(
+    State(s): State<AppState>,
+    Json(input): Json<PasswordResetInput>,
+) -> ApiResult<StatusCode> {
+    s.password_reset
+        .reset(&input.token, &input.new_password, &input.confirm_password)
+        .await?;
+    tracing::info!("password reset with link");
     Ok(StatusCode::NO_CONTENT)
 }
 

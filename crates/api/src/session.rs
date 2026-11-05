@@ -23,6 +23,8 @@ const MAX_LIFETIME: Duration = Duration::from_secs(12 * 60 * 60);
 
 struct Entry {
     actor: Actor,
+    /// 登入時的連線版本；重設密碼後不同即失效（ADR 0010 R6）
+    version: u32,
     created: Instant,
     last_seen: Instant,
     checked: Instant,
@@ -43,6 +45,7 @@ impl Sessions {
             token.clone(),
             Entry {
                 actor: actor_of(session),
+                version: session.session_version,
                 created: now,
                 last_seen: now,
                 checked: now,
@@ -55,9 +58,10 @@ impl Sessions {
         self.lock().remove(token);
     }
 
-    /// 連線的操作者；閒置或超過最長時間即失效，超過檢查間隔時重新檢查帳號
+    /// 連線的操作者；閒置或超過最長時間即失效，超過檢查間隔時重新檢查帳號。
+    /// 每個請求都比對連線版本：忘記密碼重設或 ttrs-admin（另一個程序）重設後立即失效
     pub async fn actor(&self, token: &str, sign_in: &SignInService) -> Result<Actor, AppError> {
-        let (actor, due) = {
+        let (actor, version, due) = {
             let mut map = self.lock();
             let now = Instant::now();
             let e = map.get_mut(token).ok_or(DomainError::NotSignedIn)?;
@@ -66,8 +70,16 @@ impl Sessions {
                 return Err(DomainError::NotSignedIn.into());
             }
             e.last_seen = now;
-            (e.actor.clone(), e.checked.elapsed() >= REVALIDATE_EVERY)
+            (
+                e.actor.clone(),
+                e.version,
+                e.checked.elapsed() >= REVALIDATE_EVERY,
+            )
         };
+        if let Err(err) = sign_in.check_session(&actor.user_id, version).await {
+            self.close(token);
+            return Err(err);
+        }
         if !due {
             return Ok(actor);
         }

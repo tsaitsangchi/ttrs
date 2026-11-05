@@ -1,6 +1,6 @@
 //! 記憶體版 repository，行為需與 PostgreSQL 版一致（含唯一鍵衝突）。
 
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use std::{
     collections::{BTreeMap, HashSet},
     sync::{Arc, Mutex},
@@ -36,6 +36,10 @@ use crate::{
     },
     query,
 };
+use crate::{
+    mail::{Mail, Mailer},
+    ports::{AuditLog, PasswordResetTokenRepository, ResetToken},
+};
 
 #[derive(Default)]
 struct State {
@@ -44,6 +48,10 @@ struct State {
     user_plants: BTreeMap<UserId, Vec<PlantId>>,
     /// Web 密碼（ADR 0009）；使用者刪除時一併刪除
     credentials: BTreeMap<UserId, Credential>,
+    /// 連線版本（user_credential.session_version，ADR 0010 R6）
+    session_versions: BTreeMap<UserId, u32>,
+    /// 權杖雜湊 → 重設權杖（password_reset_token）
+    reset_tokens: BTreeMap<String, ResetToken>,
     account_policy: AccountPolicy,
     /// (使用者, 項次) → 使用者特殊權限（zxw_file）
     user_permissions: BTreeMap<(UserId, i32), UserPermission>,
@@ -199,6 +207,20 @@ impl InMemoryStore {
     pub fn credential_of(&self, user: &str) -> Option<Credential> {
         let id = UserId::parse(user).expect("使用者代號");
         self.lock().credentials.get(&id).cloned()
+    }
+
+    /// 測試用：已存的重設權杖雜湊
+    pub fn reset_token_hashes(&self) -> Vec<String> {
+        self.lock().reset_tokens.keys().cloned().collect()
+    }
+
+    /// 測試用：重設權杖的建立與到期時間往前推（模擬時間經過）
+    pub fn age_reset_tokens(&self, minutes: i64) {
+        let d = chrono::Duration::minutes(minutes);
+        for t in self.lock().reset_tokens.values_mut() {
+            t.created_at -= d;
+            t.expires_at -= d;
+        }
     }
 
     /// 直接設定密碼更新日（模擬先前變更的密碼）
@@ -772,6 +794,8 @@ impl UserRepository for InMemoryStore {
         s.users.remove(id);
         s.user_plants.remove(id);
         s.credentials.remove(id);
+        s.session_versions.remove(id);
+        s.reset_tokens.retain(|_, t| t.user_id != id.as_str());
         s.user_permissions.retain(|(u, _), _| u != id);
         Ok(())
     }
@@ -1288,6 +1312,96 @@ impl CredentialRepository for InMemoryStore {
             return Err(RepoError::Other(format!("使用者不存在：{}", user.as_str())));
         }
         s.credentials.insert(user.clone(), credential.clone());
+        Ok(())
+    }
+
+    async fn session_version(&self, user: &UserId) -> Result<u32, RepoError> {
+        Ok(self.lock().session_versions.get(user).copied().unwrap_or(0))
+    }
+
+    async fn end_sessions(&self, user: &UserId) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.users.contains_key(user) {
+            return Err(RepoError::Other(format!("使用者不存在：{}", user.as_str())));
+        }
+        *s.session_versions.entry(user.clone()).or_insert(0) += 1;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl PasswordResetTokenRepository for InMemoryStore {
+    async fn issue_reset_token(
+        &self,
+        token_hash: &str,
+        token: &ResetToken,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        for t in s.reset_tokens.values_mut() {
+            if t.user_id == token.user_id && t.used_at.is_none() {
+                t.used_at = Some(token.created_at);
+            }
+        }
+        if s.reset_tokens.contains_key(token_hash) {
+            return Err(RepoError::Conflict);
+        }
+        s.reset_tokens.insert(token_hash.to_owned(), token.clone());
+        Ok(())
+    }
+
+    async fn reset_token(&self, token_hash: &str) -> Result<Option<ResetToken>, RepoError> {
+        Ok(self.lock().reset_tokens.get(token_hash).cloned())
+    }
+
+    async fn reset_requests_since(
+        &self,
+        user: &UserId,
+        since: DateTime<Utc>,
+    ) -> Result<u64, RepoError> {
+        let n = self
+            .lock()
+            .reset_tokens
+            .values()
+            .filter(|t| t.user_id == user.as_str() && t.created_at > since)
+            .count();
+        Ok(n as u64)
+    }
+
+    async fn revoke_reset_tokens(&self, user: &UserId, at: DateTime<Utc>) -> Result<(), RepoError> {
+        for t in self.lock().reset_tokens.values_mut() {
+            if t.user_id == user.as_str() && t.used_at.is_none() {
+                t.used_at = Some(at);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl AuditLog for InMemoryStore {
+    async fn record(&self, entry: &AuditEntry) -> Result<(), RepoError> {
+        self.lock().audit.push(entry.clone());
+        Ok(())
+    }
+}
+
+/// 記憶體版寄信：信件留在寄件匣，供測試與沒有 SMTP 的本機開發檢視
+#[derive(Clone, Default)]
+pub struct Outbox(Arc<Mutex<Vec<Mail>>>);
+
+impl Outbox {
+    pub fn sent(&self) -> Vec<Mail> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+}
+
+#[async_trait]
+impl Mailer for Outbox {
+    async fn send(&self, mail: &Mail) -> Result<(), RepoError> {
+        self.0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(mail.clone());
         Ok(())
     }
 }

@@ -10,15 +10,17 @@ use ttrs_domain::{
     department::DeptCode,
     lang::DEFAULT_LANG,
     password::{Credential, MAX_LEN},
+    password_reset::check_keeps_admin,
     permission_class::ClassCode,
     plant::PlantId,
     program::ProgramNo,
+    sign_in::check_account,
     user::{User, UserAttrs, UserId, chosen_plants, plants_after_default_change},
 };
 use ttrs_shared::{Page, QueryRequest, UserDto, UserInput};
 
 use crate::{
-    Actor, AppError, Authorizer,
+    Actor, ActorKind, AppError, Authorizer,
     authorization::Grant,
     error::RepoError,
     password_hash,
@@ -49,6 +51,9 @@ pub struct UserService {
     depts: Arc<dyn DepartmentRepository>,
     /// 營運中心（azp_file）：勾選的可使用營運中心須存在且有效（user_maintenance_plants.feature PZ4）
     plants: Arc<dyn PlantRepository>,
+    /// 依權限資料判斷誰是使用者維護管理員（不受測試時關閉權限檢查影響）：
+    /// 至少保留一位（emergency_password_reset.feature，ADR 0010 R14）
+    admins: Arc<dyn Authorizer>,
 }
 
 impl UserService {
@@ -63,6 +68,7 @@ impl UserService {
         credentials: Arc<dyn CredentialRepository>,
         depts: Arc<dyn DepartmentRepository>,
         plants: Arc<dyn PlantRepository>,
+        admins: Arc<dyn Authorizer>,
     ) -> Self {
         Self {
             authz,
@@ -74,6 +80,7 @@ impl UserService {
             credentials,
             depts,
             plants,
+            admins,
         }
     }
 
@@ -177,7 +184,9 @@ impl UserService {
         let plants = chosen_plants(&attrs.default_plant, attrs.multi_plant, &chosen, all)?;
         let old_class = user.attrs.permission_class.clone();
         let new_class = attrs.permission_class.clone();
+        let before = user.clone();
         user.update(attrs, &actor.user_id, today());
+        self.check_keeps_admin(&before, Some(&user)).await?;
         self.users.update(&user, &plants).await.map_err(infra)?;
         if let Some(p) = password {
             self.set_password(&user.user_id, p).await?;
@@ -244,6 +253,7 @@ impl UserService {
         let grant = self.authorize(actor, "delete").await?;
         let user = self.load(user_id).await?;
         grant.record(&user.created_by, &user.created_dept)?;
+        self.check_keeps_admin(&user, None).await?;
         self.users.delete(&user.user_id).await.map_err(infra)
     }
 
@@ -286,14 +296,56 @@ impl UserService {
     ) -> Result<UserDto, AppError> {
         self.authorize(actor, "invalid").await?;
         let mut user = self.load(user_id).await?;
+        let before = user.clone();
         if active {
             user.activate(&actor.user_id, today());
         } else {
             user.deactivate(&actor.user_id, today());
         }
+        self.check_keeps_admin(&before, Some(&user)).await?;
         let plants = self.users.plants(&user.user_id).await.map_err(infra)?;
         self.users.update(&user, &plants).await.map_err(infra)?;
         Ok(to_dto(&user, &plants))
+    }
+
+    /// 有效、未過期，且有效權限含使用者維護的 modify（R14）
+    async fn is_admin(&self, user: &User) -> Result<bool, AppError> {
+        if check_account(user, today()).is_err() {
+            return Ok(false);
+        }
+        let as_actor = Actor {
+            user_id: user.user_id.as_str().to_owned(),
+            dept: user.attrs.dept_code.clone().unwrap_or_default(),
+            permission_class: user.attrs.permission_class.clone(),
+            kind: ActorKind::Person,
+        };
+        Ok(self
+            .admins
+            .effective(&as_actor, PROGRAM)
+            .await?
+            .is_some_and(|p| p.allows("modify")))
+    }
+
+    /// 停用、刪除或改權限後，系統內不可沒有使用者維護管理員（R14）；`after` 為 None 表示刪除
+    async fn check_keeps_admin(&self, before: &User, after: Option<&User>) -> Result<(), AppError> {
+        if !self.is_admin(before).await? {
+            return Ok(());
+        }
+        let after_admin = match after {
+            Some(u) => self.is_admin(u).await?,
+            None => false,
+        };
+        if after_admin {
+            return Ok(());
+        }
+        let mut others = 0;
+        for u in self.users.list().await.map_err(infra)? {
+            if u.user_id != before.user_id && self.is_admin(&u).await? {
+                others += 1;
+                break;
+            }
+        }
+        check_keeps_admin(true, after_admin, others).map_err(Into::into)
     }
 
     async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {

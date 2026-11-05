@@ -235,6 +235,25 @@ pub fn check_new_password(
     Ok(())
 }
 
+/// 以重設連結設定新密碼（ADR 0010 決策 A5）：規則同變更密碼，但不需舊密碼；
+/// 是否與現行密碼相同由呼叫端比對雜湊後傳入
+pub fn check_reset_password(
+    policy: &AccountPolicy,
+    user_id: &str,
+    same_as_current: bool,
+    new: &str,
+    confirm: &str,
+) -> Result<(), DomainError> {
+    if new != confirm {
+        return Err(DomainError::PasswordConfirmMismatch);
+    }
+    check_strength(policy, user_id, new)?;
+    if !policy.allow_same_as_old && same_as_current {
+        return Err(DomainError::PasswordSameAsOld);
+    }
+    Ok(())
+}
+
 /// 登入後是否須先改密碼（weblogin.4gl:329-388）：尚未設定密碼、管理員要求、不符現行規則或已過期（W4）
 pub fn must_change(
     policy: &AccountPolicy,

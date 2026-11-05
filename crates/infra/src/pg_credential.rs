@@ -74,6 +74,30 @@ impl CredentialRepository for PgStore {
         .map_err(db_err)?;
         Ok(())
     }
+
+    async fn session_version(&self, user: &UserId) -> Result<u32, RepoError> {
+        let v: Option<i32> =
+            sqlx::query_scalar("SELECT session_version FROM user_credential WHERE user_id = $1")
+                .bind(user.as_str())
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(db_err)?;
+        Ok(v.map_or(0, count))
+    }
+
+    /// 尚無密碼資料列時新增一列（密碼欄位同「尚未設定」）
+    async fn end_sessions(&self, user: &UserId) -> Result<(), RepoError> {
+        sqlx::query(
+            "INSERT INTO user_credential (user_id, session_version) VALUES ($1, 1)
+             ON CONFLICT (user_id) DO UPDATE
+                 SET session_version = user_credential.session_version + 1",
+        )
+        .bind(user.as_str())
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?;
+        Ok(())
+    }
 }
 
 #[derive(sqlx::FromRow)]

@@ -19,5 +19,9 @@ programs:
   # 登入與切換營運中心：每個已註冊使用者都能用，不登錄為程式、不檢查程式執行權限（sign_in.feature SQ9）
   - { tiptop: weblogin, english: sign-in,                       spec: specs/features/azz/sign_in.feature, registered: false }
   - { tiptop: aoos901,  english: switch-plant,                  spec: specs/features/azz/sign_in.feature, registered: false }
+  # TTRS 新增、TipTop 無對應程式（ADR 0010）：忘記密碼登錄為程式但不給權限（登入前使用，R10）；
+  # ttrs-admin 是伺服器指令，不登錄為程式、沒有 HTTP API（R11）
+  - { tiptop: ~,        english: forgot-password,               spec: specs/features/azz/password_reset.feature }
+  - { tiptop: ~,        english: ttrs-admin,                    spec: specs/features/azz/emergency_password_reset.feature, registered: false }
 
 # 選單程式（模組 MENU）：menu- 加原名轉成 kebab-case（E5），例如 menu_main → menu-main

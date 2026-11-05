@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use tracing_subscriber::EnvFilter;
 use ttrs_api::{AppState, actor_from_env, cors_from_env, router};
-use ttrs_app::{Services, memory::InMemoryStore};
-use ttrs_infra::PgStore;
+use ttrs_app::{Services, mail::MailSettings, memory::InMemoryStore};
+use ttrs_infra::{PgStore, SmtpMailer};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -28,6 +28,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
+    let services = with_mail(services)?;
+
     let addr = std::env::var("TTRS_API_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".into());
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("listening on http://{addr}");
@@ -47,4 +49,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     axum::serve(listener, app).await?;
     Ok(())
+}
+
+/// 忘記密碼的寄信設定（ADR 0010 R4、R9）：TTRS_SMTP_* 與 TTRS_PUBLIC_URL 都設定才開放
+fn with_mail(mut services: Services) -> Result<Services, Box<dyn std::error::Error>> {
+    let Some(mailer) = SmtpMailer::from_env()? else {
+        tracing::info!("TTRS_SMTP_HOST not set: forgot-password disabled");
+        return Ok(services);
+    };
+    let public_url = std::env::var("TTRS_PUBLIC_URL")
+        .ok()
+        .filter(|u| u.starts_with("http://") || u.starts_with("https://"))
+        .ok_or("TTRS_SMTP_HOST 已設定，但 TTRS_PUBLIC_URL 未設定或不是 http(s) 網址")?;
+    tracing::info!(%public_url, "forgot-password enabled");
+    services.password_reset = services.password_reset.with_mail(MailSettings {
+        mailer: Arc::new(mailer),
+        public_url,
+    });
+    Ok(services)
 }

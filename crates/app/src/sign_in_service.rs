@@ -131,6 +131,16 @@ impl SignInService {
         Ok(session)
     }
 
+    /// 連線是否仍有效：重設密碼（忘記密碼、ttrs-admin）後舊連線失效（ADR 0010 R6）
+    pub async fn check_session(&self, user_id: &str, version: u32) -> Result<(), AppError> {
+        let id = UserId::parse(user_id).map_err(|_| DomainError::NotSignedIn)?;
+        let current = self.credentials.session_version(&id).await.map_err(infra)?;
+        if current != version {
+            return Err(DomainError::NotSignedIn.into());
+        }
+        Ok(())
+    }
+
     /// 登入中的連線定期重新檢查（SQ3）：停用、過期、鎖定或預設營運中心不可用即失效
     pub async fn revalidate(&self, user_id: &str) -> Result<SessionDto, AppError> {
         let user = self.load(user_id).await?;
@@ -173,6 +183,11 @@ impl SignInService {
         let all = self.plants.list().await.map_err(infra)?;
         let plant = all.iter().find(|p| &p.id == target);
         check_plant(&allowed, target, plant)?;
+        let session_version = self
+            .credentials
+            .session_version(&user.user_id)
+            .await
+            .map_err(infra)?;
         let a = &user.attrs;
         Ok(SessionDto {
             user_id: user.user_id.as_str().to_owned(),
@@ -192,12 +207,13 @@ impl SignInService {
                     name: plant_name(p),
                 })
                 .collect(),
+            session_version,
         })
     }
 }
 
 /// 尚未設定密碼時初始密碼＝使用者代號（p_zx.4gl:561，W1）
-fn password_matches(id: &UserId, cred: &Credential, password: &str) -> bool {
+pub(crate) fn password_matches(id: &UserId, cred: &Credential, password: &str) -> bool {
     match &cred.password_hash {
         Some(h) => password_hash::verify(h, password),
         None => password == id.as_str(),

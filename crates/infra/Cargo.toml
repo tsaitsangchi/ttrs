@@ -13,6 +13,7 @@ ttrs-domain.workspace = true
 ttrs-app.workspace = true
 async-trait.workspace = true
 sqlx.workspace = true
+lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "pool", "hostname", "tokio1-rustls-tls"] }
 
 [lints]
 workspace = true

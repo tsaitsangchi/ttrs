@@ -774,6 +774,9 @@ pub struct SessionDto {
     pub password_uses_left: Option<u32>,
     /// 可切換的營運中心（q_zxy），依代號排序
     pub plants: Vec<PlantOptionDto>,
+    /// 連線版本：重設密碼後舊連線即失效（ADR 0010 R6）
+    #[serde(default)]
+    pub session_version: u32,
 }
 
 /// 登入（ADR 0009）
@@ -788,6 +791,26 @@ pub struct SignInInput {
 pub struct ChangePasswordInput {
     pub user_id: String,
     pub old_password: String,
+    pub new_password: String,
+    pub confirm_password: String,
+}
+
+/// 忘記密碼是否開放（ADR 0010 R9：未設定寄信伺服器時不開放）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PasswordResetStatusDto {
+    pub available: bool,
+}
+
+/// 申請重設密碼（R1：以使用者代號）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PasswordResetRequestInput {
+    pub user_id: String,
+}
+
+/// 以重設連結設定新密碼
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PasswordResetInput {
+    pub token: String,
     pub new_password: String,
     pub confirm_password: String,
 }

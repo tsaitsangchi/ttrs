@@ -52,7 +52,7 @@ async fn user_deactivated(w: &mut ErpWorld, id: String) {
 /// 有效日期是先前設定的（資料有效仍為是）：使用者維護在存檔當天就把到期的帳號設為無效
 /// （p_zx.4gl:977-981），登入時只擋早於今天的有效日期（weblogin.4gl:465）
 #[given(expr = "使用者 {string} 的有效日期為 {word}")]
-async fn user_valid_until(w: &mut ErpWorld, id: String, day: String) {
+pub(crate) async fn user_valid_until(w: &mut ErpWorld, id: String, day: String) {
     let today = Local::now().date_naive();
     let date = match day.as_str() {
         "昨天" => Some(today - Duration::days(1)),
