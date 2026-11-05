@@ -150,6 +150,25 @@ textarea.md-field__input:focus { padding: 9px 15px; }
   color: var(--md-sys-color-on-surface-variant);
   pointer-events: none;
 }
+/* 前置圖示與後置動作（M3 text field：圖示 24px、距左 12px，文字由 52px 起） */
+.md-field__leading {
+  position: absolute;
+  left: 12px;
+  top: calc(var(--md-field-height) / 2 - 12px);
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+.md-field--leading .md-field__input { padding-left: 48px; }
+.md-field--leading .md-field__input:focus { padding-left: 47px; }
+.md-field--leading .md-field__label { left: 44px; }
+.md-field__action {
+  position: absolute;
+  right: 4px;
+  top: calc(var(--md-field-height) / 2 - 20px);
+  z-index: 1;
+}
+.md-field--trailing-action .md-field__input { padding-right: 48px; }
 /* 唯讀（瀏覽模式）：框線淡化、不可游標輸入，但仍可選取複製 */
 .md-field--readonly .md-field__input,
 .md-field--readonly .md-field__input:hover {

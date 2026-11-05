@@ -6,9 +6,10 @@ use ttrs_shared::{ChangePasswordInput, PasswordResetInput, SessionDto, SignInPla
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Notification, NotificationKind, Select, TextField, Tone, icons,
+    Button, ButtonVariant, IconButton, MenuButton, Notification, NotificationKind, Select,
+    TextField, Tone, icons,
 };
-use crate::i18n::{t, tf};
+use crate::i18n::{UiLang, t, tf};
 
 /// 目前的連線（以 context 提供給外框與工廠層作業）
 #[derive(Debug, Clone, PartialEq)]
@@ -31,10 +32,52 @@ pub fn use_session() -> Signal<SessionState> {
     use_context::<Signal<SessionState>>()
 }
 
+/// 登入畫面共用外框：品牌、副標題、語系選單（登入前即可切換，ADR 0005）
+#[component]
+fn SignInFrame(children: Element) -> Element {
+    let mut lang = use_context::<Signal<UiLang>>();
+    let current = lang();
+    rsx! {
+        div { class: "sign-in md-theme-light", lang: current.code(),
+            div { class: "sign-in-card",
+                div { class: "sign-in-header",
+                    div { class: "sign-in-logo",
+                        svg { view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true",
+                            path { d: icons::FACTORY }
+                        }
+                    }
+                    div { class: "sign-in-brand",
+                        h1 { "TTRS ERP" }
+                        p { {t("signin-subtitle")} }
+                    }
+                    div { class: "sign-in-lang",
+                        MenuButton {
+                            label: t("shell-language"),
+                            path: icons::LANGUAGE,
+                            items: UiLang::ALL.iter().map(|l| (l.code().to_owned(), l.native_name().to_owned())).collect::<Vec<_>>(),
+                            selected: current.code().to_owned(),
+                            onselect: move |code: String| {
+                                if let Some(l) = UiLang::from_code(&code) {
+                                    crate::i18n::set(l);
+                                    lang.set(l);
+                                }
+                            },
+                        }
+                    }
+                }
+                {children}
+            }
+        }
+    }
+}
+
 /// 登入畫面（weblogin.per：使用者代號、密碼）
 #[component]
 pub fn SignInPage() -> Element {
+    // 語系切換時整頁重新產生文字
+    let _ = use_context::<Signal<UiLang>>()();
     let mut session = use_session();
+    let mut show_password = use_signal(|| false);
     let mut user_id = use_signal(String::new);
     let mut password = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
@@ -85,9 +128,7 @@ pub fn SignInPage() -> Element {
     };
 
     rsx! {
-        div { class: "sign-in md-theme-light",
-            div { class: "sign-in-card",
-                h1 { "TTRS ERP" }
+        SignInFrame {
                 if forgot() {
                     ForgotPasswordForm {
                         user_id: user_id(),
@@ -122,11 +163,29 @@ pub fn SignInPage() -> Element {
                             e.prevent_default();
                             submit().await;
                         },
-                        TextField { id: "zx01", label: t("signin-field-user"), maxlength: 10usize, value: user_id(), oninput: move |v| user_id.set(v), onblur: load_plants }
-                        TextField { id: "zx10", label: t("signin-field-password"), input_type: "password", maxlength: 64usize, value: password(), oninput: move |v| password.set(v) }
+                        TextField { id: "zx01", label: t("signin-field-user"), leading_icon: icons::PERSON, tone: Tone::Primary, maxlength: 10usize, value: user_id(), oninput: move |v| user_id.set(v), onblur: load_plants }
+                        TextField {
+                            id: "zx10",
+                            label: t("signin-field-password"),
+                            leading_icon: icons::LOCK,
+                            tone: Tone::Primary,
+                            input_type: if show_password() { "text" } else { "password" },
+                            maxlength: 64usize,
+                            value: password(),
+                            oninput: move |v| password.set(v),
+                            trailing: rsx! {
+                                IconButton {
+                                    label: if show_password() { t("signin-action-hide-password") } else { t("signin-action-show-password") },
+                                    path: if show_password() { icons::VISIBILITY_OFF } else { icons::VISIBILITY },
+                                    onclick: move |_| show_password.toggle(),
+                                }
+                            },
+                        }
                         Select {
                             id: "plant",
                             label: t("signin-field-plant"),
+                            leading_icon: icons::PLANT,
+                            tone: Tone::Primary,
                             options: if plants_for() == user_id().trim() {
                                 plants().plants.iter().map(|p| (p.plant_id.clone(), format!("{} {}", p.plant_id, p.name))).collect::<Vec<_>>()
                             } else {
@@ -157,7 +216,6 @@ pub fn SignInPage() -> Element {
                     Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }
                 }
             }
-        }
     }
 }
 
@@ -180,10 +238,10 @@ pub fn ChangePasswordForm(
     rsx! {
         div { class: "sign-in-form",
             if ask_old {
-                TextField { id: "zx10_old", label: t("password-field-old"), input_type: "password", maxlength: 64usize, value: old(), oninput: move |v| old.set(v) }
+                TextField { id: "zx10_old", label: t("password-field-old"), leading_icon: icons::LOCK, tone: Tone::Primary, input_type: "password", maxlength: 64usize, value: old(), oninput: move |v| old.set(v) }
             }
-            TextField { id: "zx10_new", label: t("password-field-new"), input_type: "password", maxlength: 64usize, value: new(), oninput: move |v| new.set(v) }
-            TextField { id: "zx10_ver", label: t("password-field-confirm"), input_type: "password", maxlength: 64usize, value: confirm(), oninput: move |v| confirm.set(v) }
+            TextField { id: "zx10_new", label: t("password-field-new"), leading_icon: icons::LOCK, tone: Tone::Primary, input_type: "password", maxlength: 64usize, value: new(), oninput: move |v| new.set(v) }
+            TextField { id: "zx10_ver", label: t("password-field-confirm"), leading_icon: icons::LOCK, tone: Tone::Primary, input_type: "password", maxlength: 64usize, value: confirm(), oninput: move |v| confirm.set(v) }
             div { class: "action-bar",
                 Button {
                     icon: icons::CHECK, tone: Tone::Success,
@@ -239,7 +297,7 @@ fn ForgotPasswordForm(user_id: String, onback: EventHandler<()>) -> Element {
                     }
                     busy.set(false);
                 },
-                TextField { id: "zx01_forgot", label: t("signin-field-user"), maxlength: 10usize, value: id(), oninput: move |v| id.set(v) }
+                TextField { id: "zx01_forgot", label: t("signin-field-user"), leading_icon: icons::PERSON, tone: Tone::Primary, maxlength: 10usize, value: id(), oninput: move |v| id.set(v) }
                 button { r#type: "submit", class: "md-button md-state md-button--filled md-button--with-icon", disabled: busy() || id().trim().is_empty(),
                     svg { class: "md-button__icon", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::SEND } }
                     {t("forgot-action-send")}
@@ -256,6 +314,7 @@ fn ForgotPasswordForm(user_id: String, onback: EventHandler<()>) -> Element {
 /// 重設連結開啟的畫面（/reset-password?token=…）：不需登入；成功後回登入畫面以新密碼登入
 #[component]
 pub fn ResetPasswordPage(token: String) -> Element {
+    let _ = use_context::<Signal<UiLang>>()();
     let mut new = use_signal(String::new);
     let mut confirm = use_signal(String::new);
     let mut done = use_signal(|| false);
@@ -266,9 +325,7 @@ pub fn ResetPasswordPage(token: String) -> Element {
         navigator().replace("/");
     };
     rsx! {
-        div { class: "sign-in md-theme-light",
-            div { class: "sign-in-card",
-                h1 { "TTRS ERP" }
+        SignInFrame {
                 h2 { {t("reset-title")} }
                 if done() {
                     Notification { kind: NotificationKind::Success, title: t("reset-msg-done"), onclose: move |_| {} }
@@ -297,8 +354,8 @@ pub fn ResetPasswordPage(token: String) -> Element {
                                 busy.set(false);
                             }
                         },
-                        TextField { id: "zx10_new", label: t("password-field-new"), input_type: "password", maxlength: 64usize, value: new(), oninput: move |v| new.set(v) }
-                        TextField { id: "zx10_ver", label: t("password-field-confirm"), input_type: "password", maxlength: 64usize, value: confirm(), oninput: move |v| confirm.set(v) }
+                        TextField { id: "zx10_new", label: t("password-field-new"), leading_icon: icons::LOCK, tone: Tone::Primary, input_type: "password", maxlength: 64usize, value: new(), oninput: move |v| new.set(v) }
+                        TextField { id: "zx10_ver", label: t("password-field-confirm"), leading_icon: icons::LOCK, tone: Tone::Primary, input_type: "password", maxlength: 64usize, value: confirm(), oninput: move |v| confirm.set(v) }
                         button { r#type: "submit", class: "md-button md-state md-button--filled md-button--with-icon", disabled: busy() || new().is_empty(),
                             svg { class: "md-button__icon", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::CHECK } }
                             {t("common-action-ok")}
@@ -310,7 +367,6 @@ pub fn ResetPasswordPage(token: String) -> Element {
                     Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }
                 }
             }
-        }
     }
 }
 

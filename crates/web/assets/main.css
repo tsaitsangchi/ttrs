@@ -46,6 +46,11 @@ body { margin: 0; }
   letter-spacing: 0.1px;
   text-decoration: none;
 }
+.sidebar .group { display: flex; align-items: center; gap: 8px; }
+.sidebar a { gap: 12px; }
+.nav-icon { flex: none; width: 20px; height: 20px; }
+.sidebar .group .nav-icon { width: 18px; height: 18px; }
+.sidebar a.active .nav-icon { color: inherit; }
 .sidebar a:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
 .sidebar a.active {
   background: var(--md-sys-color-secondary-container);
@@ -246,8 +251,50 @@ a.md-button { text-decoration: none; }
 .user-menu__divider { height: 1px; margin: 4px 0; background: var(--md-sys-color-outline-variant); }
 
 /* 登入畫面（weblogin.per） */
-.sign-in { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--md-sys-color-surface-container); }
-.sign-in-card { width: min(24rem, 92vw); padding: 32px 24px; border-radius: 28px; background: var(--md-sys-color-surface); display: flex; flex-direction: column; gap: 16px; }
-.sign-in-card h1 { margin: 0; }
-.sign-in-card h2 { margin: 0; font-weight: 400; }
-.sign-in-form { display: flex; flex-direction: column; gap: 16px; }
+.sign-in {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--md-font);
+  color: var(--md-sys-color-on-surface);
+  background:
+    radial-gradient(60rem 40rem at 10% 0%, var(--md-sys-color-primary-container), transparent 70%),
+    radial-gradient(50rem 36rem at 100% 100%, var(--md-sys-color-tertiary-container), transparent 70%),
+    var(--md-sys-color-surface-container);
+}
+.sign-in-card {
+  --md-field-label-bg: var(--md-sys-color-surface);
+  width: min(26rem, 100%);
+  box-sizing: border-box;
+  padding: 32px 32px 28px;
+  border-radius: var(--md-sys-shape-corner-extra-large, 28px);
+  background: var(--md-sys-color-surface);
+  box-shadow: 0 4px 8px 3px rgb(0 0 0 / 15%), 0 1px 3px rgb(0 0 0 / 30%);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.sign-in-header { display: flex; align-items: center; gap: 12px; }
+.sign-in-logo {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--md-sys-shape-corner-large, 16px);
+  display: grid;
+  place-items: center;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+.sign-in-logo svg { width: 28px; height: 28px; }
+.sign-in-brand { min-width: 0; }
+.sign-in-brand h1 { margin: 0; font: 600 1.375rem/1.75rem var(--md-font); color: var(--md-sys-color-primary); letter-spacing: 0.5px; }
+.sign-in-brand p { margin: 0; font: 400 0.8125rem/1.25rem var(--md-font); color: var(--md-sys-color-on-surface-variant); }
+.sign-in-lang { margin-left: auto; }
+.sign-in-card h2 { margin: 4px 0 0; font: 400 1.5rem/2rem var(--md-font); color: var(--md-sys-color-on-surface); }
+.sign-in-card .note { margin: 0; font: 400 0.875rem/1.25rem var(--md-font); color: var(--md-sys-color-on-surface-variant); }
+.sign-in-form { display: flex; flex-direction: column; gap: 20px; }
+.sign-in-form button[type="submit"] { width: 100%; height: 44px; margin-top: 4px; }
+@media (max-width: 480px) { .sign-in-card { padding: 24px 20px; } }

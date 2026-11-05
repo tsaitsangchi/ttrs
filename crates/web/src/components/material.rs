@@ -101,10 +101,32 @@ pub fn TextField(
     /// 離開欄位時（例如登入畫面輸入完使用者代號後載入營運中心選項）
     #[props(default)]
     onblur: EventHandler<()>,
+    /// 前置圖示（icons 的路徑），以 `tone` 著色
+    #[props(default)]
+    leading_icon: Option<&'static str>,
+    #[props(default)] tone: Tone,
+    /// 後置動作（例如顯示／隱藏密碼的圖示按鈕）
+    #[props(default)]
+    trailing: Option<Element>,
 ) -> Element {
+    let mut cls = field_class(readonly, disabled, &class);
+    if leading_icon.is_some() {
+        cls.push_str(" md-field--leading");
+    }
+    if trailing.is_some() {
+        cls.push_str(" md-field--trailing-action");
+    }
     rsx! {
-        div { class: field_class(readonly, disabled, &class),
+        div { class: cls,
             label { r#for: "{id}", class: "md-field__label", "{label}" }
+            if let Some(d) = leading_icon {
+                svg { class: "md-field__leading {tone.icon_class()}", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true",
+                    path { d }
+                }
+            }
+            if let Some(t) = trailing {
+                div { class: "md-field__action", {t} }
+            }
             input {
                 id: "{id}",
                 class: "md-field__input",
@@ -159,10 +181,23 @@ pub fn Select(
     #[props(default)] readonly: bool,
     #[props(default)] disabled: bool,
     #[props(default)] onchange: EventHandler<String>,
+    /// 前置圖示（icons 的路徑），以 `tone` 著色
+    #[props(default)]
+    leading_icon: Option<&'static str>,
+    #[props(default)] tone: Tone,
 ) -> Element {
+    let mut cls = field_class(readonly, disabled, "");
+    if leading_icon.is_some() {
+        cls.push_str(" md-field--leading");
+    }
     rsx! {
-        div { class: field_class(readonly, disabled, ""),
+        div { class: cls,
             label { r#for: "{id}", class: "md-field__label", "{label}" }
+            if let Some(d) = leading_icon {
+                svg { class: "md-field__leading {tone.icon_class()}", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true",
+                    path { d }
+                }
+            }
             select {
                 id: "{id}",
                 class: "md-field__input",
@@ -389,7 +424,7 @@ pub enum Tone {
 }
 
 impl Tone {
-    fn icon_class(self) -> &'static str {
+    pub fn icon_class(self) -> &'static str {
         match self {
             Self::Neutral => "md-icon--neutral",
             Self::Primary => "md-icon--primary",
@@ -548,6 +583,22 @@ pub mod icons {
     /// 取消確認（undo）
     pub const UNDO: &str = "M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z";
     pub const DOWNLOAD: &str = "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z";
+    /// 品牌（factory）
+    pub const FACTORY: &str = "M22 22H2V10l7-3v2l5-2v3h3l1-8h3l1 8v12zM12 9.95l-5 2V10l-3 1.32V20h16v-8h-8V9.95zM11 18h2v-4h-2v4zm-4 0h2v-4H7v4zm10-4h-2v4h2v-4z";
+    // ----- 側欄節點 -----
+    pub const HOME: &str = "M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z";
+    pub const INVENTORY: &str = "M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4l16-.02V7z";
+    pub const CATEGORY: &str = "M12 2l-5.5 9h11L12 2zm5.5 11c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5zM3 21.5h8v-8H3v8z";
+    pub const ACCOUNT_TREE: &str = "M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3z";
+    pub const GROUP_PEOPLE: &str = "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z";
+    pub const SETTINGS: &str = "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z";
+    pub const APPS: &str = "M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z";
+    pub const MENU_BOOK: &str = "M21 5c-1.11-.35-2.33-.5-3.5-.5-1.95 0-4.05.4-5.5 1.5-1.45-1.1-3.55-1.5-5.5-1.5S2.45 4.9 1 6v14.65c0 .25.25.5.5.5.1 0 .15-.05.25-.05C3.1 20.45 5.05 20 6.5 20c1.95 0 4.05.4 5.5 1.5 1.35-.85 3.8-1.5 5.5-1.5 1.65 0 3.35.3 4.75 1.05.1.05.15.05.25.05.25 0 .5-.25.5-.5V6c-.6-.45-1.25-.75-2-1zm0 13.5c-1.1-.35-2.3-.5-3.5-.5-1.7 0-4.15.65-5.5 1.5V8c1.35-.85 3.8-1.5 5.5-1.5 1.2 0 2.4.15 3.5.5v11.5z";
+    pub const SHIELD: &str = "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z";
+    pub const PERSON: &str = "M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z";
+    pub const LOCK: &str = "M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z";
+    pub const VISIBILITY: &str = "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z";
+    pub const VISIBILITY_OFF: &str = "M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z";
     pub const SEND: &str = "M2.01 21L23 12 2.01 3 2 10l15 2-15 2z";
     /// 使用者（account_circle）：登入者選單
     pub const ACCOUNT: &str = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm0 14c-2.03 0-4.43-.82-6.14-2.88C7.55 15.8 9.68 15 12 15s4.45.8 6.14 2.12C16.43 19.18 14.03 20 12 20z";

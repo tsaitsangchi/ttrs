@@ -5,7 +5,7 @@ mod components;
 mod i18n;
 mod pages;
 
-use components::material::{Dialog, MenuButton, icons};
+use components::material::{Dialog, MenuButton, Tone, icons};
 use components::session::{
     ChangePasswordForm, ResetPasswordPage, SessionState, SignInPage, UserMenu, use_session,
 };
@@ -88,6 +88,16 @@ fn App() -> Element {
         document::Link { rel: "stylesheet", href: M3_CSS }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
         Router::<Route> {}
+    }
+}
+
+/// 側欄節點的圖示：模組群組與作業依模組著色（aim 第三色、aoo 綠、azz 藍），選取中的作業與文字同色
+#[component]
+fn NavIcon(path: &'static str, tone: Tone) -> Element {
+    rsx! {
+        svg { class: "nav-icon {tone.icon_class()}", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true",
+            path { d: path }
+        }
     }
 }
 
@@ -184,20 +194,20 @@ fn Shell() -> Element {
                         }
                     }
                 }
-                Link { active_class: "active", to: Route::Home {}, {t("shell-nav-home")} }
-                p { class: "group", {t("shell-group-aim")} }
-                Link { active_class: "active", to: Route::ItemList {}, {t("shell-nav-items")} }
-                p { class: "group", {t("shell-group-aoo")} }
-                Link { active_class: "active", to: Route::PlantMaintenance {}, {t("shell-nav-plants")} }
-                Link { active_class: "active", to: Route::DepartmentMaintenance {}, {t("shell-nav-departments")} }
-                Link { active_class: "active", to: Route::EmployeeMaintenance {}, {t("shell-nav-employees")} }
-                p { class: "group", {t("shell-group-azz")} }
-                Link { active_class: "active", to: Route::ProgramMaintenance {}, {t("shell-nav-program")} }
-                Link { active_class: "active", to: Route::DataDictionary {}, {t("shell-nav-dictionary")} }
-                Link { active_class: "active", to: Route::UserMaintenance {}, {t("shell-nav-users")} }
-                Link { active_class: "active", to: Route::UserPermissions {}, {t("shell-nav-user-permissions")} }
-                Link { active_class: "active", to: Route::PermissionClassMaintenance {}, {t("shell-nav-classes")} }
-                Link { active_class: "active", to: Route::ProgramPermissions {}, {t("shell-nav-permissions")} }
+                Link { active_class: "active", to: Route::Home {}, NavIcon { path: icons::HOME, tone: Tone::Primary } span { {t("shell-nav-home")} } }
+                p { class: "group", NavIcon { path: icons::INVENTORY, tone: Tone::Tertiary } span { {t("shell-group-aim")} } }
+                Link { active_class: "active", to: Route::ItemList {}, NavIcon { path: icons::CATEGORY, tone: Tone::Tertiary } span { {t("shell-nav-items")} } }
+                p { class: "group", NavIcon { path: icons::PLANT, tone: Tone::Success } span { {t("shell-group-aoo")} } }
+                Link { active_class: "active", to: Route::PlantMaintenance {}, NavIcon { path: icons::FACTORY, tone: Tone::Success } span { {t("shell-nav-plants")} } }
+                Link { active_class: "active", to: Route::DepartmentMaintenance {}, NavIcon { path: icons::ACCOUNT_TREE, tone: Tone::Success } span { {t("shell-nav-departments")} } }
+                Link { active_class: "active", to: Route::EmployeeMaintenance {}, NavIcon { path: icons::GROUP_PEOPLE, tone: Tone::Success } span { {t("shell-nav-employees")} } }
+                p { class: "group", NavIcon { path: icons::SETTINGS, tone: Tone::Primary } span { {t("shell-group-azz")} } }
+                Link { active_class: "active", to: Route::ProgramMaintenance {}, NavIcon { path: icons::APPS, tone: Tone::Primary } span { {t("shell-nav-program")} } }
+                Link { active_class: "active", to: Route::DataDictionary {}, NavIcon { path: icons::MENU_BOOK, tone: Tone::Primary } span { {t("shell-nav-dictionary")} } }
+                Link { active_class: "active", to: Route::UserMaintenance {}, NavIcon { path: icons::PERSON, tone: Tone::Primary } span { {t("shell-nav-users")} } }
+                Link { active_class: "active", to: Route::UserPermissions {}, NavIcon { path: icons::VERIFIED_USER, tone: Tone::Primary } span { {t("shell-nav-user-permissions")} } }
+                Link { active_class: "active", to: Route::PermissionClassMaintenance {}, NavIcon { path: icons::SHIELD, tone: Tone::Primary } span { {t("shell-nav-classes")} } }
+                Link { active_class: "active", to: Route::ProgramPermissions {}, NavIcon { path: icons::KEY, tone: Tone::Primary } span { {t("shell-nav-permissions")} } }
             }
             // 以語系為 key：切換語系時重新載入畫面，所有文字改用新語系
             for l in [current] {
