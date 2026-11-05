@@ -6,6 +6,8 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
+default-run = "ttrs-api"
+# 另有伺服器指令 ttrs-admin（src/bin），`cargo run -p ttrs-api` 預設執行 API
 
 [dependencies]
 ttrs-app = { workspace = true, features = ["memory"] }
