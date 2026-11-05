@@ -36,6 +36,12 @@ impl ButtonVariant {
 pub fn Button(
     #[props(default)] variant: ButtonVariant,
     #[props(default)] disabled: bool,
+    /// 前置圖示（icons 的路徑），依功能配對
+    #[props(default)]
+    icon: Option<&'static str>,
+    /// 圖示顏色；實心（filled、error）按鈕上維持與文字同色以保持對比
+    #[props(default)]
+    tone: Tone,
     onclick: EventHandler<MouseEvent>,
     children: Element,
 ) -> Element {
@@ -43,8 +49,20 @@ pub fn Button(
         button {
             r#type: "button",
             class: "md-button md-state {variant.class()}",
+            class: if icon.is_some() { "md-button--with-icon" },
             disabled,
             onclick: move |e| onclick.call(e),
+            if let Some(d) = icon {
+                svg {
+                    class: "md-button__icon {tone.icon_class()}",
+                    width: "18",
+                    height: "18",
+                    view_box: "0 0 24 24",
+                    fill: "currentColor",
+                    "aria-hidden": "true",
+                    path { d }
+                }
+            }
             {children}
         }
     }
@@ -341,9 +359,58 @@ pub fn IconButton(
 
 /// 標記（M3 assist chip 的靜態樣式）；`warning` 用於待確認等需注意的標記
 #[component]
-pub fn Chip(label: String, #[props(default)] warning: bool) -> Element {
+pub fn Chip(
+    label: String,
+    #[props(default)] warning: bool,
+    /// 狀態色（例如資料有效＝綠、停用＝紅）；`warning` 為提醒用的第三色
+    #[props(default)]
+    tone: Tone,
+) -> Element {
+    let class = match (warning, tone) {
+        (true, _) => "md-chip md-chip--small md-chip--warning",
+        (false, Tone::Success) => "md-chip md-chip--small md-chip--success",
+        (false, Tone::Error) => "md-chip md-chip--small md-chip--error",
+        (false, Tone::Neutral | Tone::Primary | Tone::Tertiary) => "md-chip md-chip--small",
+    };
     rsx! {
-        span { class: if warning { "md-chip md-chip--small md-chip--warning" } else { "md-chip md-chip--small" }, "{label}" }
+        span { class, "{label}" }
+    }
+}
+
+/// 色調（只用 M3 色彩 token）：狀態標籤用 Success、Error；按鈕圖示另用 Primary、Tertiary
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Tone {
+    #[default]
+    Neutral,
+    Primary,
+    Tertiary,
+    Success,
+    Error,
+}
+
+impl Tone {
+    fn icon_class(self) -> &'static str {
+        match self {
+            Self::Neutral => "md-icon--neutral",
+            Self::Primary => "md-icon--primary",
+            Self::Tertiary => "md-icon--tertiary",
+            Self::Success => "md-icon--success",
+            Self::Error => "md-icon--error",
+        }
+    }
+}
+
+/// 資料有效碼的色調：有效＝綠、停用／無效＝紅
+pub fn active_tone(active: bool) -> Tone {
+    if active { Tone::Success } else { Tone::Error }
+}
+
+/// 唯讀的資料有效欄位用：文字依狀態著色；沒有資料時不著色
+pub fn active_field_class(active: Option<bool>) -> &'static str {
+    match active {
+        Some(true) => "md-field--success",
+        Some(false) => "md-field--error",
+        None => "",
     }
 }
 
@@ -445,6 +512,43 @@ pub mod icons {
     /// 營運中心（Material Symbols business）
     pub const PLANT: &str = "M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z";
     pub const CHECK: &str = "M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z";
+    // ----- 功能鈕圖示（Material Symbols）-----
+    pub const SEARCH: &str = "M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z";
+    pub const ADD: &str = "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
+    pub const EDIT: &str = "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z";
+    pub const DELETE: &str =
+        "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z";
+    pub const COPY: &str = "M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z";
+    pub const CLOSE: &str = "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z";
+    /// 停用（block）
+    pub const BLOCK: &str = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z";
+    /// 啟用（check_circle）
+    pub const CHECK_CIRCLE: &str = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z";
+    pub const ARROW_BACK: &str = "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z";
+    pub const ARROW_FORWARD: &str = "M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z";
+    pub const REMOVE: &str = "M19 13H5v-2h14v2z";
+    pub const DELETE_SWEEP: &str = "M15 16h4v2h-4zm0-8h7v2h-7zm0 4h6v2h-6zM3 18c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V8H3v10zM14 5h-3l-1-1H6L5 5H2v2h12z";
+    pub const CHECK_BOX: &str = "M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z";
+    pub const CHECK_BOX_BLANK: &str = "M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z";
+    /// 授權（verified_user）
+    pub const VERIFIED_USER: &str = "M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z";
+    pub const SYNC: &str = "M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z";
+    pub const OPEN_IN_NEW: &str = "M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z";
+    pub const CLEAR_ALL: &str = "M5 13h14v-2H5v2zm-2 4h14v-2H3v2zM7 7v2h14V7H7z";
+    pub const PLAYLIST_ADD: &str =
+        "M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z";
+    pub const PLAYLIST_REMOVE: &str = "M14 10H3v2h11v-2zm0-4H3v2h11V6zM3 16h7v-2H3v2zm11.41 6L17 19.41 19.59 22 21 20.59 18.41 18 21 15.41 19.59 14 17 16.59 14.41 14 13 15.41 15.59 18 13 20.59 14.41 22z";
+    pub const LOCK_OPEN: &str = "M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h1.9c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z";
+    /// 會計資料（account_balance）
+    pub const ACCOUNT_BALANCE: &str =
+        "M4 10v7h3v-7H4zm6 0v7h3v-7h-3zM2 22h19v-3H2v3zm14-12v7h3v-7h-3zm-4.5-9L2 6v2h19V6l-9.5-5z";
+    pub const HELP: &str = "M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z";
+    /// 登入（login）
+    pub const LOGIN: &str = "M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z";
+    /// 取消確認（undo）
+    pub const UNDO: &str = "M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z";
+    pub const DOWNLOAD: &str = "M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z";
+    pub const SEND: &str = "M2.01 21L23 12 2.01 3 2 10l15 2-15 2z";
     /// 使用者（account_circle）：登入者選單
     pub const ACCOUNT: &str = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm0 14c-2.03 0-4.43-.82-6.14-2.88C7.55 15.8 9.68 15 12 15s4.45.8 6.14 2.12C16.43 19.18 14.03 20 12 20z";
     /// 鑰匙（key）：變更密碼

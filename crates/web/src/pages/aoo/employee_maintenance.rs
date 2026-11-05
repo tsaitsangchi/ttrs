@@ -11,6 +11,7 @@ use ttrs_shared::{
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Chip, Dialog, Notification, NotificationKind, Select, TextField,
+    Tone, active_tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::plant::PlantPicker;
@@ -211,14 +212,15 @@ fn EmployeeMaintenancePage() -> Element {
 
             if querying() {
                 div { class: "action-bar",
-                    Button { onclick: run_query, {t("common-action-ok")} }
-                    Button { variant: ButtonVariant::Text, onclick: move |_| { error.set(None); querying.set(false); }, {t("common-action-cancel")} }
+                    Button { icon: icons::CHECK, tone: Tone::Success, onclick: run_query, {t("common-action-ok")} }
+                    Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| { error.set(None); querying.set(false); }, {t("common-action-cancel")} }
                 }
                 p { class: "query-hint", {t("query-hint")} }
             } else {
                 div { class: "action-bar",
                     if perm.can("query") {
                         Button {
+                            icon: icons::SEARCH, tone: Tone::Primary,
                             variant: ButtonVariant::Tonal,
                             onclick: move |_| { message.set(None); error.set(None); qbe.set(Default::default()); querying.set(true); },
                             {t("common-action-query")}
@@ -226,6 +228,7 @@ fn EmployeeMaintenancePage() -> Element {
                     }
                     if perm.add_row() {
                         Button {
+                            icon: icons::ADD, tone: Tone::Success,
                             onclick: move |_| {
                                 message.set(None);
                                 error.set(None);
@@ -238,6 +241,7 @@ fn EmployeeMaintenancePage() -> Element {
                     }
                     if perm.can("detail") {
                         Button {
+                            icon: icons::EDIT, tone: Tone::Tertiary,
                             variant: ButtonVariant::Tonal,
                             disabled: no_cur,
                             onclick: move |_| {
@@ -251,6 +255,7 @@ fn EmployeeMaintenancePage() -> Element {
                     }
                     if perm.delete_row() {
                         Button {
+                            icon: icons::DELETE, tone: Tone::Error,
                             variant: ButtonVariant::Error,
                             disabled: no_cur,
                             onclick: move |_| {
@@ -268,6 +273,7 @@ fn EmployeeMaintenancePage() -> Element {
                     }
                     if perm.can("detail") {
                         Button {
+                            icon: if cur.as_ref().is_some_and(|e| !e.active) { icons::CHECK_CIRCLE } else { icons::BLOCK }, tone: if cur.as_ref().is_some_and(|e| !e.active) { Tone::Success } else { Tone::Error },
                             variant: ButtonVariant::Outlined,
                             disabled: no_cur,
                             onclick: move |_| {
@@ -347,7 +353,7 @@ fn EmployeeMaintenancePage() -> Element {
                                             td { {e.extension.clone().unwrap_or_default()} }
                                             td { {e.email.clone().unwrap_or_default()} }
                                             td {
-                                                if e.active { Chip { label: t("emp-status-active") } } else { Chip { label: t("emp-status-inactive"), warning: true } }
+                                                Chip { label: if e.active { t("emp-status-active") } else { t("emp-status-inactive") }, tone: active_tone(e.active) }
                                             }
                                         }
                                     }
@@ -367,8 +373,8 @@ fn EmployeeMaintenancePage() -> Element {
                     },
                     oncancel: move |_| { editor.set(None); dialog_error.set(None); },
                     actions: rsx! {
-                        Button { variant: ButtonVariant::Text, onclick: move |_| { editor.set(None); dialog_error.set(None); }, {t("common-action-cancel")} }
-                        Button { onclick: save, {t("common-action-ok")} }
+                        Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| { editor.set(None); dialog_error.set(None); }, {t("common-action-cancel")} }
+                        Button { icon: icons::CHECK, tone: Tone::Success, onclick: save, {t("common-action-ok")} }
                     },
                     if let Some(msg) = dialog_error() {
                         Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| dialog_error.set(None) }

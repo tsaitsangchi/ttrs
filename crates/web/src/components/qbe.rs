@@ -6,7 +6,7 @@ use std::{collections::BTreeMap, future::Future};
 use dioxus::prelude::*;
 use ttrs_shared::{Page, QbeCondition, QueryRequest};
 
-use crate::components::material::{Button, ButtonVariant, IconButton, TextField, icons};
+use crate::components::material::{Button, ButtonVariant, IconButton, TextField, Tone, icons};
 use crate::i18n::{t, tf};
 
 /// 清單每頁筆數（QBE7）
@@ -122,6 +122,7 @@ pub fn RecordNav(
                 oninput: move |v| jump.set(v),
             }
             Button {
+                icon: icons::ARROW_FORWARD, tone: Tone::Primary,
                 variant: ButtonVariant::Outlined,
                 onclick: move |_| {
                     match jump().trim().parse::<u64>() {

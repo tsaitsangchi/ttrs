@@ -15,7 +15,7 @@ use ttrs_shared::{
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Chip, Dialog, IconButton, Notification,
-    NotificationKind, Select, TextField, icons,
+    NotificationKind, Select, TextField, Tone, active_field_class, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{Qbe, conditions_of};
@@ -310,8 +310,8 @@ fn PermissionMain(initial: Option<String>) -> Element {
             // ----- 動作列 -----
             if querying() {
                 div { class: "action-bar",
-                    Button { onclick: run_query, {t("common-action-ok")} }
-                    Button { variant: ButtonVariant::Text, onclick: move |_| { error.set(None); querying.set(false); }, {t("common-action-cancel")} }
+                    Button { icon: icons::CHECK, tone: Tone::Success, onclick: run_query, {t("common-action-ok")} }
+                    Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| { error.set(None); querying.set(false); }, {t("common-action-cancel")} }
                 }
                 p { class: "query-hint", {t("query-hint")} }
                 // 單頭權限類別＋單身第一列（p_zy.4gl:154）
@@ -345,6 +345,7 @@ fn PermissionMain(initial: Option<String>) -> Element {
             div { class: "action-bar",
                 if perm.can("query") {
                     Button {
+                        icon: icons::SEARCH, tone: Tone::Primary,
                         variant: ButtonVariant::Tonal,
                         onclick: move |_| {
                             message.set(None);
@@ -357,6 +358,7 @@ fn PermissionMain(initial: Option<String>) -> Element {
                 }
                 if filtered {
                     Button {
+                        icon: icons::CLEAR_ALL, tone: Tone::Neutral,
                         variant: ButtonVariant::Outlined,
                         onclick: move |_| {
                             message.set(None);
@@ -368,6 +370,7 @@ fn PermissionMain(initial: Option<String>) -> Element {
                 }
                 if perm.add_row() {
                     Button {
+                        icon: icons::ADD, tone: Tone::Success,
                         disabled: no_class,
                         onclick: move |_| {
                             message.set(None);
@@ -379,6 +382,7 @@ fn PermissionMain(initial: Option<String>) -> Element {
                 }
                 if perm.can("detail") {
                     Button {
+                        icon: icons::EDIT, tone: Tone::Tertiary,
                         variant: ButtonVariant::Tonal,
                         disabled: no_cur,
                         onclick: move |_| {
@@ -392,6 +396,7 @@ fn PermissionMain(initial: Option<String>) -> Element {
                 }
                 if perm.delete_row() {
                     Button {
+                        icon: icons::REMOVE, tone: Tone::Error,
                         variant: ButtonVariant::Error,
                         disabled: no_cur,
                         onclick: move |_| {
@@ -410,14 +415,15 @@ fn PermissionMain(initial: Option<String>) -> Element {
                     }
                 }
                 if perm.can("delete") {
-                    Button { variant: ButtonVariant::Outlined, disabled: no_class, onclick: move |_| { message.set(None); open.set(Some(Open::DeleteAll)); }, {t("perm-action-delete-all")} }
+                    Button { icon: icons::DELETE_SWEEP, tone: Tone::Error, variant: ButtonVariant::Outlined, disabled: no_class, onclick: move |_| { message.set(None); open.set(Some(Open::DeleteAll)); }, {t("perm-action-delete-all")} }
                 }
                 div { class: "spacer" }
                 if perm.can("reproduce") {
-                    Button { variant: ButtonVariant::Outlined, disabled: no_class, onclick: move |_| { message.set(None); target.set(String::new()); open.set(Some(Open::Copy)); }, {t("common-action-copy")} }
+                    Button { icon: icons::COPY, tone: Tone::Tertiary, variant: ButtonVariant::Outlined, disabled: no_class, onclick: move |_| { message.set(None); target.set(String::new()); open.set(Some(Open::Copy)); }, {t("common-action-copy")} }
                 }
                 if perm.can("batch_gen_by_prog") {
                     Button {
+                        icon: icons::PLAYLIST_ADD, tone: Tone::Success,
                         variant: ButtonVariant::Outlined,
                         disabled: no_class,
                         onclick: move |_| {
@@ -432,6 +438,7 @@ fn PermissionMain(initial: Option<String>) -> Element {
                 }
                 if perm.can("batch_gen_by_menu") {
                     Button {
+                        icon: icons::PLAYLIST_ADD, tone: Tone::Success,
                         variant: ButtonVariant::Outlined,
                         disabled: no_class,
                         onclick: move |_| {
@@ -446,6 +453,7 @@ fn PermissionMain(initial: Option<String>) -> Element {
                 }
                 if perm.can("batch_del_by_menu") {
                     Button {
+                        icon: icons::PLAYLIST_REMOVE, tone: Tone::Error,
                         variant: ButtonVariant::Outlined,
                         disabled: no_class,
                         onclick: move |_| {
@@ -489,7 +497,7 @@ fn PermissionMain(initial: Option<String>) -> Element {
                     div { class: "form-grid cols-4",
                         Select { id: "zy01", label: t("perm-field-class"), options: class_options, value: code.clone(), onchange: move |x: String| { selected.set(None); message.set(None); class.set(Some(x)); } }
                         TextField { id: "zw02", class: "span-2", label: t("perm-field-class-name"), readonly: true, value: cur_class.as_ref().map(|c| c.name.clone()).unwrap_or_default() }
-                        TextField { id: "zwacti", label: t("perm-field-class-active"), readonly: true, value: cur_class.as_ref().map(|c| if c.active { t("perm-status-active") } else { t("perm-status-inactive") }).unwrap_or_default() }
+                        TextField { id: "zwacti", label: t("perm-field-class-active"), readonly: true, class: active_field_class(cur_class.as_ref().map(|c| c.active)), value: cur_class.as_ref().map(|c| if c.active { t("perm-status-active") } else { t("perm-status-inactive") }).unwrap_or_default() }
                     }
                 }
             }
@@ -549,8 +557,9 @@ fn PermissionMain(initial: Option<String>) -> Element {
                         title: tf("perm-dialog-add", &[("class", code.as_str())]),
                         oncancel: move |_| close(),
                         actions: rsx! {
-                            Button { variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
+                            Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
                             Button {
+                                icon: icons::CHECK, tone: Tone::Success,
                                 onclick: move |_| {
                                     let class_code = class().unwrap_or_default();
                                     let req = ProgramPermissionInput { program_no: add_program(), ..Default::default() };
@@ -579,8 +588,9 @@ fn PermissionMain(initial: Option<String>) -> Element {
                         title: tf("perm-dialog-edit", &[("class", r.class_code.as_str()), ("program", r.program_no.as_str())]),
                         oncancel: move |_| close(),
                         actions: rsx! {
-                            Button { variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
+                            Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
                             Button {
+                                icon: icons::CHECK, tone: Tone::Success,
                                 onclick: {
                                     let r = r.clone();
                                     move |_| {
@@ -626,8 +636,8 @@ fn PermissionMain(initial: Option<String>) -> Element {
                                 }
                             }
                             div { class: "action-bar",
-                                Button { variant: ButtonVariant::Text, onclick: { let all = r.available_actions.clone(); move |_| form.write().actions = Some(all.clone()) }, {t("perm-action-select-all")} }
-                                Button { variant: ButtonVariant::Text, onclick: move |_| form.write().actions = Some(Vec::new()), {t("perm-action-select-none")} }
+                                Button { icon: icons::CHECK_BOX, tone: Tone::Primary, variant: ButtonVariant::Text, onclick: { let all = r.available_actions.clone(); move |_| form.write().actions = Some(all.clone()) }, {t("perm-action-select-all")} }
+                                Button { icon: icons::CHECK_BOX_BLANK, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| form.write().actions = Some(Vec::new()), {t("perm-action-select-none")} }
                             }
                         }
                         div { class: "form-grid",
@@ -642,8 +652,9 @@ fn PermissionMain(initial: Option<String>) -> Element {
                         title: tf("perm-dialog-copy", &[("class", code.as_str())]),
                         oncancel: move |_| close(),
                         actions: rsx! {
-                            Button { variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
+                            Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
                             Button {
+                                icon: icons::CHECK, tone: Tone::Success,
                                 onclick: move |_| {
                                     let from = class().unwrap_or_default();
                                     let to = target();
@@ -669,8 +680,9 @@ fn PermissionMain(initial: Option<String>) -> Element {
                         title: tf("perm-dialog-gen-by-program", &[("class", code.as_str())]),
                         oncancel: move |_| close(),
                         actions: rsx! {
-                            Button { variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
+                            Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
                             Button {
+                                icon: icons::CHECK, tone: Tone::Success,
                                 disabled: ticked().is_empty(),
                                 onclick: move |_| {
                                     let class_code = class().unwrap_or_default();
@@ -720,8 +732,9 @@ fn PermissionMain(initial: Option<String>) -> Element {
                         title: tf("perm-dialog-gen-by-menu", &[("class", code.as_str())]),
                         oncancel: move |_| close(),
                         actions: rsx! {
-                            Button { variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
+                            Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
                             Button {
+                                icon: icons::CHECK, tone: Tone::Success,
                                 onclick: move |_| {
                                     let class_code = class().unwrap_or_default();
                                     let m = menu();
@@ -749,8 +762,9 @@ fn PermissionMain(initial: Option<String>) -> Element {
                         title: tf("perm-dialog-del-by-menu", &[("class", code.as_str())]),
                         oncancel: move |_| close(),
                         actions: rsx! {
-                            Button { variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
+                            Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
                             Button {
+                                icon: icons::DELETE, tone: Tone::Error,
                                 variant: ButtonVariant::Error,
                                 onclick: move |_| {
                                     let class_code = class().unwrap_or_default();
@@ -777,8 +791,9 @@ fn PermissionMain(initial: Option<String>) -> Element {
                         title: tf("perm-dialog-delete-all", &[("class", code.as_str())]),
                         oncancel: move |_| close(),
                         actions: rsx! {
-                            Button { variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
+                            Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
                             Button {
+                                icon: icons::DELETE, tone: Tone::Error,
                                 variant: ButtonVariant::Error,
                                 onclick: move |_| {
                                     let class_code = class().unwrap_or_default();

@@ -72,6 +72,17 @@
   align-items: center;
   justify-content: center;
 }
+/* 前置圖示（M3：左側 16px、圖示 18px、間距 8px）；實心按鈕上的圖示與文字同色以保持對比 */
+.md-button--with-icon { padding-left: 16px; gap: 8px; }
+.md-button__icon { flex: none; }
+.md-icon--neutral { color: var(--md-sys-color-on-surface-variant); }
+.md-icon--primary { color: var(--md-sys-color-primary); }
+.md-icon--tertiary { color: var(--md-sys-color-tertiary); }
+.md-icon--success { color: var(--md-sys-color-success); }
+.md-icon--error { color: var(--md-sys-color-error); }
+.md-button--filled .md-button__icon,
+.md-button--error .md-button__icon,
+.md-button:disabled .md-button__icon { color: inherit; }
 .md-button--filled { background: var(--md-sys-color-primary); color: var(--md-sys-color-on-primary); }
 .md-button--tonal { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
 .md-button--outlined {
@@ -398,6 +409,19 @@ textarea.md-field__input:focus { padding: 9px 15px; }
 
 /* Chip 小尺寸（表格內標記）與警示色（待確認） */
 .md-chip--small { height: 22px; padding: 0 8px; font-size: 0.6875rem; white-space: nowrap; }
+.md-chip--success {
+  background: var(--md-sys-color-success-container);
+  color: var(--md-sys-color-on-success-container);
+  border-color: transparent;
+}
+.md-chip--error {
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+  border-color: transparent;
+}
+/* 唯讀狀態欄位（資料有效）：文字依狀態著色 */
+.md-field--readonly.md-field--success .md-field__input { color: var(--md-sys-color-success); font-weight: 500; }
+.md-field--readonly.md-field--error .md-field__input { color: var(--md-sys-color-error); font-weight: 500; }
 .md-chip--warning {
   background: var(--md-sys-color-tertiary-container);
   color: var(--md-sys-color-on-tertiary-container);

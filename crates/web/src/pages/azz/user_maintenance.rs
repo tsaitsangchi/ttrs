@@ -13,7 +13,7 @@ use ttrs_shared::{UserDto, UserInput, user_max_len as max_len};
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Chip, Dialog, Notification, NotificationKind, Select,
-    Tabs, TextField,
+    Tabs, TextField, Tone, active_field_class, active_tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{
@@ -254,8 +254,9 @@ fn UserMaintenancePage() -> Element {
             div { class: "action-bar",
                 match m {
                     Mode::New | Mode::Edit => rsx! {
-                        Button { onclick: save, {t("common-action-ok")} }
+                        Button { icon: icons::CHECK, tone: Tone::Success, onclick: save, {t("common-action-ok")} }
                         Button {
+                            icon: icons::CLOSE, tone: Tone::Neutral,
                             variant: ButtonVariant::Text,
                             onclick: move |_| {
                                 error.set(None);
@@ -266,8 +267,9 @@ fn UserMaintenancePage() -> Element {
                         }
                     },
                     Mode::Query => rsx! {
-                        Button { onclick: run_query, {t("common-action-ok")} }
+                        Button { icon: icons::CHECK, tone: Tone::Success, onclick: run_query, {t("common-action-ok")} }
                         Button {
+                            icon: icons::CLOSE, tone: Tone::Neutral,
                             variant: ButtonVariant::Text,
                             onclick: move |_| {
                                 error.set(None);
@@ -280,6 +282,7 @@ fn UserMaintenancePage() -> Element {
                     Mode::View => rsx! {
                         if perm.can("query") {
                             Button {
+                                icon: icons::SEARCH, tone: Tone::Primary,
                                 variant: ButtonVariant::Tonal,
                                 onclick: move |_| {
                                     message.set(None);
@@ -293,6 +296,7 @@ fn UserMaintenancePage() -> Element {
                         }
                         if perm.can("insert") {
                             Button {
+                                icon: icons::ADD, tone: Tone::Success,
                                 onclick: move |_| {
                                     message.set(None);
                                     error.set(None);
@@ -303,10 +307,11 @@ fn UserMaintenancePage() -> Element {
                             }
                         }
                         if perm.can("modify") {
-                            Button { variant: ButtonVariant::Tonal, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), {t("common-action-edit")} }
+                            Button { icon: icons::EDIT, tone: Tone::Tertiary, variant: ButtonVariant::Tonal, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), {t("common-action-edit")} }
                         }
                         if perm.can("delete") {
                             Button {
+                                icon: icons::DELETE, tone: Tone::Error,
                                 variant: ButtonVariant::Error,
                                 disabled: no_cur,
                                 onclick: move |_| {
@@ -324,6 +329,7 @@ fn UserMaintenancePage() -> Element {
                         // TipTop 無效切換：有效 → 停用、停用 → 啟用
                         if perm.can("invalid") {
                             Button {
+                                icon: if cur.as_ref().is_some_and(|u| !u.active) { icons::CHECK_CIRCLE } else { icons::BLOCK }, tone: if cur.as_ref().is_some_and(|u| !u.active) { Tone::Success } else { Tone::Error },
                                 variant: ButtonVariant::Outlined,
                                 disabled: no_cur,
                                 onclick: move |_| {
@@ -344,6 +350,7 @@ fn UserMaintenancePage() -> Element {
                         // 解除鎖定（p_zx user_unlock）：試誤次數歸零
                         if perm.can("user_unlock") {
                             Button {
+                                icon: icons::LOCK_OPEN, tone: Tone::Success,
                                 variant: ButtonVariant::Outlined,
                                 disabled: no_cur,
                                 onclick: move |_| {
@@ -361,8 +368,9 @@ fn UserMaintenancePage() -> Element {
                         // 串接 p_zxw「維護使用者特殊權限」（p_zx action maintain_zxw）
                         if let Some(u) = cur.as_ref() {
                             Link {
-                                class: "md-button md-state md-button--outlined",
+                                class: "md-button md-state md-button--outlined md-button--with-icon",
                                 to: crate::Route::UserPermissionsFor { user: u.user_id.clone() },
+                                svg { class: "md-button__icon md-icon--primary", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::VERIFIED_USER } }
                                 {t("user-action-special")}
                             }
                         }
@@ -370,6 +378,7 @@ fn UserMaintenancePage() -> Element {
                         if perm.can("reproduce") {
                             TextField { id: "copy-id", label: t("user-field-copy-as"), maxlength: max_len::USER_ID, value: copy_id(), disabled: no_cur, oninput: move |v| copy_id.set(v) }
                             Button {
+                                icon: icons::COPY, tone: Tone::Tertiary,
                                 variant: ButtonVariant::Outlined,
                                 disabled: no_cur,
                                 onclick: move |_| {
@@ -429,6 +438,7 @@ fn UserMaintenancePage() -> Element {
                                             TextField { id: "zx03-name", label: t("user-field-dept-name"), readonly: true, value: dept_name.clone() }
                                             if !ro {
                                                 Button {
+                                                    icon: icons::SEARCH, tone: Tone::Primary,
                                                     variant: ButtonVariant::Outlined,
                                                     onclick: move |_| {
                                                         if dept_plant().is_empty() {
@@ -488,7 +498,7 @@ fn UserMaintenancePage() -> Element {
                         2 => rsx! {
                             div { class: "form-grid cols-4",
                                 Q { field: "active", label: t("user-field-active"), hint: HINT_FLAG, query: q, qbe,
-                                    TextField { id: "zxacti", label: t("user-field-active"), readonly: true, value: cur.as_ref().map(|u| if u.active { t("user-status-active") } else { t("user-status-inactive") }).unwrap_or_default() }
+                                    TextField { id: "zxacti", label: t("user-field-active"), readonly: true, class: active_field_class(cur.as_ref().map(|u| u.active)), value: cur.as_ref().map(|u| if u.active { t("user-status-active") } else { t("user-status-inactive") }).unwrap_or_default() }
                                 }
                                 if !q {
                                     TextField { id: "idp-bound", label: t("user-field-idp-bound"), readonly: true, value: cur.as_ref().map(|u| if u.idp_bound { t("user-idp-bound") } else { t("user-idp-unbound") }).unwrap_or_default() }
@@ -553,7 +563,7 @@ fn UserMaintenancePage() -> Element {
                                                 }
                                             }
                                             td { class: "mono", "{id} {name}"
-                                                if !active { " " Chip { label: t("user-status-inactive") } }
+                                                if !active { " " Chip { label: t("user-status-inactive"), tone: Tone::Error } }
                                             }
                                             td { if id == v.default_plant { "✓" } }
                                         }
@@ -596,7 +606,7 @@ fn UserMaintenancePage() -> Element {
                                             td { "{u.permission_class}" }
                                             td { class: "mono", "{u.default_plant}" }
                                             td {
-                                                if u.active { Chip { label: t("user-status-active") } } else { Chip { label: t("user-status-inactive"), warning: true } }
+                                                Chip { label: if u.active { t("user-status-active") } else { t("user-status-inactive") }, tone: active_tone(u.active) }
                                             }
                                         }
                                     }
@@ -615,7 +625,7 @@ fn UserMaintenancePage() -> Element {
                     title: tf("user-dialog-pick-dept", &[("plant", dept_plant().as_str())]),
                     oncancel: move |_| picking.set(false),
                     actions: rsx! {
-                        Button { variant: ButtonVariant::Text, onclick: move |_| picking.set(false), {t("common-action-cancel")} }
+                        Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| picking.set(false), {t("common-action-cancel")} }
                     },
                     div { class: "table-scroll",
                         table { class: "md-table",

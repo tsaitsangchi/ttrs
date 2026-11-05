@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 use ttrs_shared::{CreateItemRequest, ItemStatusDto};
 
 use crate::api;
+use crate::components::material::{Button, ButtonVariant, Tone, icons};
 use crate::components::permission::{Perm, ProgramGate};
 use crate::i18n::{t, tf};
 
@@ -64,7 +65,7 @@ fn ItemListPage() -> Element {
             input { placeholder: t("item-field-spec"), value: "{spec}", oninput: move |e| spec.set(e.value()) }
             input { placeholder: t("item-field-stock-unit"), value: "{unit}", oninput: move |e| unit.set(e.value()) }
             if perm.can("insert") {
-                button { onclick: create, {t("common-action-new")} }
+                Button { icon: icons::ADD, tone: Tone::Success, variant: ButtonVariant::Filled, onclick: create, {t("common-action-new")} }
             }
         }
 
@@ -98,7 +99,8 @@ fn ItemListPage() -> Element {
                                 td { {t(status_id(it.status))} }
                                 td {
                                     if it.status == ItemStatusDto::Unconfirmed && perm.can("confirm") {
-                                        button {
+                                        Button {
+                                            icon: icons::CHECK_CIRCLE, tone: Tone::Success, variant: ButtonVariant::Text,
                                             onclick: {
                                                 let no = it.item_no.clone();
                                                 move |_| {
@@ -115,7 +117,8 @@ fn ItemListPage() -> Element {
                                         }
                                     }
                                     if it.status == ItemStatusDto::Confirmed && perm.can("notconfirm") {
-                                        button {
+                                        Button {
+                                            icon: icons::UNDO, tone: Tone::Tertiary, variant: ButtonVariant::Text,
                                             onclick: {
                                                 let no = it.item_no.clone();
                                                 move |_| {
@@ -132,8 +135,8 @@ fn ItemListPage() -> Element {
                                         }
                                     }
                                     if perm.can("delete") {
-                                        button {
-                                            class: "danger",
+                                        Button {
+                                            icon: icons::DELETE, tone: Tone::Error, variant: ButtonVariant::Text,
                                             onclick: {
                                                 let no = it.item_no.clone();
                                                 move |_| {

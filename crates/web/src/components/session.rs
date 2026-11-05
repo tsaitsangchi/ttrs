@@ -6,7 +6,7 @@ use ttrs_shared::{ChangePasswordInput, PasswordResetInput, SessionDto, SignInPla
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Notification, NotificationKind, Select, TextField, icons,
+    Button, ButtonVariant, Notification, NotificationKind, Select, TextField, Tone, icons,
 };
 use crate::i18n::{t, tf};
 
@@ -136,12 +136,14 @@ pub fn SignInPage() -> Element {
                             disabled: plants_for() != user_id().trim() || plants().plants.is_empty() || plants().fixed,
                             onchange: move |v| plant.set(v),
                         }
-                        button { r#type: "submit", class: "md-button md-state md-button--filled", disabled: busy() || user_id().trim().is_empty(),
+                        button { r#type: "submit", class: "md-button md-state md-button--filled md-button--with-icon", disabled: busy() || user_id().trim().is_empty(),
+                            svg { class: "md-button__icon", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::LOGIN } }
                             {t("signin-action-sign-in")}
                         }
                     }
                     if reset_available() == Some(true) {
                         Button {
+                            icon: icons::HELP, tone: Tone::Primary,
                             variant: ButtonVariant::Text,
                             onclick: move |_| {
                                 error.set(None);
@@ -184,6 +186,7 @@ pub fn ChangePasswordForm(
             TextField { id: "zx10_ver", label: t("password-field-confirm"), input_type: "password", maxlength: 64usize, value: confirm(), oninput: move |v| confirm.set(v) }
             div { class: "action-bar",
                 Button {
+                    icon: icons::CHECK, tone: Tone::Success,
                     onclick: move |_| {
                         let input = ChangePasswordInput {
                             user_id: id.clone(),
@@ -200,7 +203,7 @@ pub fn ChangePasswordForm(
                     },
                     {t("common-action-ok")}
                 }
-                Button { variant: ButtonVariant::Text, onclick: move |_| oncancel.call(()), {t("common-action-cancel")} }
+                Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| oncancel.call(()), {t("common-action-cancel")} }
             }
             if let Some(msg) = error() {
                 Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }
@@ -237,12 +240,13 @@ fn ForgotPasswordForm(user_id: String, onback: EventHandler<()>) -> Element {
                     busy.set(false);
                 },
                 TextField { id: "zx01_forgot", label: t("signin-field-user"), maxlength: 10usize, value: id(), oninput: move |v| id.set(v) }
-                button { r#type: "submit", class: "md-button md-state md-button--filled", disabled: busy() || id().trim().is_empty(),
+                button { r#type: "submit", class: "md-button md-state md-button--filled md-button--with-icon", disabled: busy() || id().trim().is_empty(),
+                    svg { class: "md-button__icon", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::SEND } }
                     {t("forgot-action-send")}
                 }
             }
         }
-        Button { variant: ButtonVariant::Text, onclick: move |_| onback.call(()), {t("forgot-action-back")} }
+        Button { icon: icons::ARROW_BACK, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| onback.call(()), {t("forgot-action-back")} }
         if let Some(msg) = error() {
             Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }
         }
@@ -268,7 +272,7 @@ pub fn ResetPasswordPage(token: String) -> Element {
                 h2 { {t("reset-title")} }
                 if done() {
                     Notification { kind: NotificationKind::Success, title: t("reset-msg-done"), onclose: move |_| {} }
-                    Button { onclick: back, {t("forgot-action-back")} }
+                    Button { icon: icons::ARROW_BACK, tone: Tone::Neutral, onclick: back, {t("forgot-action-back")} }
                 } else {
                     p { class: "note", {t("reset-hint")} }
                     form {
@@ -295,11 +299,12 @@ pub fn ResetPasswordPage(token: String) -> Element {
                         },
                         TextField { id: "zx10_new", label: t("password-field-new"), input_type: "password", maxlength: 64usize, value: new(), oninput: move |v| new.set(v) }
                         TextField { id: "zx10_ver", label: t("password-field-confirm"), input_type: "password", maxlength: 64usize, value: confirm(), oninput: move |v| confirm.set(v) }
-                        button { r#type: "submit", class: "md-button md-state md-button--filled", disabled: busy() || new().is_empty(),
+                        button { r#type: "submit", class: "md-button md-state md-button--filled md-button--with-icon", disabled: busy() || new().is_empty(),
+                            svg { class: "md-button__icon", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::CHECK } }
                             {t("common-action-ok")}
                         }
                     }
-                    Button { variant: ButtonVariant::Text, onclick: back, {t("forgot-action-back")} }
+                    Button { icon: icons::ARROW_BACK, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: back, {t("forgot-action-back")} }
                 }
                 if let Some(msg) = error() {
                     Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }

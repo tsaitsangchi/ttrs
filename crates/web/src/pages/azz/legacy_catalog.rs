@@ -7,7 +7,7 @@ use ttrs_shared::{LegacyTableDto, LegacyTableSummaryDto};
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Chip, IconButton, TextArea, TextField, icons,
+    Button, ButtonVariant, Card, Chip, IconButton, TextArea, TextField, Tone, icons,
 };
 use crate::i18n::{self, tf};
 
@@ -42,6 +42,7 @@ pub fn LegacyCatalog(onclose: EventHandler<()>) -> Element {
                 oninput: move |v| query.set(v),
             }
             Button {
+                icon: icons::SEARCH, tone: Tone::Primary,
                 variant: ButtonVariant::Tonal,
                 onclick: move |_| {
                     pos.set(0);
@@ -50,7 +51,7 @@ pub fn LegacyCatalog(onclose: EventHandler<()>) -> Element {
                 {i18n::t("common-action-query")}
             }
             div { class: "spacer" }
-            Button { variant: ButtonVariant::Outlined, onclick: move |_| onclose.call(()), {i18n::t("legacy-action-back")} }
+            Button { icon: icons::ARROW_BACK, tone: Tone::Neutral, variant: ButtonVariant::Outlined, onclick: move |_| onclose.call(()), {i18n::t("legacy-action-back")} }
         }
 
         if total > 0 {

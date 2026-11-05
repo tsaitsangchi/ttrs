@@ -14,6 +14,7 @@ use ttrs_shared::{
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Chip, Dialog, Notification, NotificationKind, Select, TextField,
+    Tone, active_tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{HINT_FLAG, HINT_NUMBER, ListPager, PAGE_SIZE, Qbe, conditions_of};
@@ -241,8 +242,8 @@ fn PermissionClassMaintenancePage() -> Element {
             // ----- 動作列 -----
             if querying() {
                 div { class: "action-bar",
-                    Button { onclick: run_query, {t("common-action-ok")} }
-                    Button { variant: ButtonVariant::Text, onclick: move |_| { error.set(None); querying.set(false); }, {t("common-action-cancel")} }
+                    Button { icon: icons::CHECK, tone: Tone::Success, onclick: run_query, {t("common-action-ok")} }
+                    Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| { error.set(None); querying.set(false); }, {t("common-action-cancel")} }
                 }
                 p { class: "query-hint", {t("query-hint")} }
                 // 查詢列欄位較窄，代碼說明另列（WQ2）
@@ -252,6 +253,7 @@ fn PermissionClassMaintenancePage() -> Element {
             div { class: "action-bar",
                 if perm.can("query") {
                     Button {
+                        icon: icons::SEARCH, tone: Tone::Primary,
                         variant: ButtonVariant::Tonal,
                         onclick: move |_| {
                             message.set(None);
@@ -264,6 +266,7 @@ fn PermissionClassMaintenancePage() -> Element {
                 }
                 if perm.add_row() {
                     Button {
+                        icon: icons::ADD, tone: Tone::Success,
                         onclick: move |_| {
                             message.set(None);
                             error.set(None);
@@ -276,6 +279,7 @@ fn PermissionClassMaintenancePage() -> Element {
                 }
                 if perm.can("detail") {
                     Button {
+                        icon: icons::EDIT, tone: Tone::Tertiary,
                         variant: ButtonVariant::Tonal,
                         disabled: no_cur,
                         onclick: move |_| {
@@ -289,6 +293,7 @@ fn PermissionClassMaintenancePage() -> Element {
                 }
                 if perm.delete_row() {
                     Button {
+                        icon: icons::DELETE, tone: Tone::Error,
                         variant: ButtonVariant::Error,
                         disabled: no_cur,
                         onclick: move |_| {
@@ -306,6 +311,7 @@ fn PermissionClassMaintenancePage() -> Element {
                 // TipTop 有效欄位：有效 → 停用、無效 → 啟用
                 if perm.can("detail") {
                     Button {
+                        icon: if cur.as_ref().is_some_and(|c| !c.active) { icons::CHECK_CIRCLE } else { icons::BLOCK }, tone: if cur.as_ref().is_some_and(|c| !c.active) { Tone::Success } else { Tone::Error },
                         variant: ButtonVariant::Outlined,
                         disabled: no_cur,
                         onclick: move |_| {
@@ -326,14 +332,16 @@ fn PermissionClassMaintenancePage() -> Element {
                 // 串接 p_zy「維護群組執行權限」（p_zw.4gl:130-138）
                 if let Some(c) = cur.as_ref() {
                     Link {
-                        class: "md-button md-state md-button--outlined",
+                        class: "md-button md-state md-button--outlined md-button--with-icon",
                         to: crate::Route::ProgramPermissionsFor { class: c.class_code.clone() },
+                        svg { class: "md-button__icon md-icon--primary", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::VERIFIED_USER } }
                         {t("class-action-permissions")}
                     }
                 }
                 div { class: "spacer" }
                 if perm.can("detail") {
                     Button {
+                        icon: icons::SYNC, tone: Tone::Primary,
                         variant: ButtonVariant::Outlined,
                         onclick: move |_| { message.set(None); error.set(None); confirm_menus.set(true); },
                         {t("class-action-update-menus")}
@@ -401,7 +409,7 @@ fn PermissionClassMaintenancePage() -> Element {
                                             td { {action_label(c.idle_action)} }
                                             td { {c.idle_seconds.map(|s| s.to_string()).unwrap_or_default()} }
                                             td {
-                                                if c.active { Chip { label: t("class-status-active") } } else { Chip { label: t("class-status-inactive"), warning: true } }
+                                                Chip { label: if c.active { t("class-status-active") } else { t("class-status-inactive") }, tone: active_tone(c.active) }
                                             }
                                         }
                                     }
@@ -423,8 +431,8 @@ fn PermissionClassMaintenancePage() -> Element {
                     },
                     oncancel: move |_| { editor.set(None); dialog_error.set(None); },
                     actions: rsx! {
-                        Button { variant: ButtonVariant::Text, onclick: move |_| { editor.set(None); dialog_error.set(None); }, {t("common-action-cancel")} }
-                        Button { onclick: save, {t("common-action-ok")} }
+                        Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| { editor.set(None); dialog_error.set(None); }, {t("common-action-cancel")} }
+                        Button { icon: icons::CHECK, tone: Tone::Success, onclick: save, {t("common-action-ok")} }
                     },
                     if let Some(msg) = dialog_error() {
                         Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| dialog_error.set(None) }
@@ -476,8 +484,9 @@ fn PermissionClassMaintenancePage() -> Element {
                     title: t("class-dialog-update-menus"),
                     oncancel: move |_| confirm_menus.set(false),
                     actions: rsx! {
-                        Button { variant: ButtonVariant::Text, onclick: move |_| confirm_menus.set(false), {t("common-action-cancel")} }
+                        Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| confirm_menus.set(false), {t("common-action-cancel")} }
                         Button {
+                            icon: icons::CHECK, tone: Tone::Success,
                             onclick: move |_| {
                                 confirm_menus.set(false);
                                 spawn(async move {

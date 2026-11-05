@@ -9,7 +9,8 @@ use ttrs_shared::{PlantDto, PlantInput, plant_max_len as max_len};
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Chip, Notification, NotificationKind, Select, TextField,
+    Button, ButtonVariant, Card, Chip, Notification, NotificationKind, Select, TextField, Tone,
+    active_field_class, active_tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{
@@ -185,8 +186,9 @@ fn PlantMaintenancePage() -> Element {
             div { class: "action-bar",
                 match m {
                     Mode::New | Mode::Edit => rsx! {
-                        Button { onclick: save, {t("common-action-ok")} }
+                        Button { icon: icons::CHECK, tone: Tone::Success, onclick: save, {t("common-action-ok")} }
                         Button {
+                            icon: icons::CLOSE, tone: Tone::Neutral,
                             variant: ButtonVariant::Text,
                             onclick: move |_| {
                                 error.set(None);
@@ -197,8 +199,9 @@ fn PlantMaintenancePage() -> Element {
                         }
                     },
                     Mode::Query => rsx! {
-                        Button { onclick: run_query, {t("common-action-ok")} }
+                        Button { icon: icons::CHECK, tone: Tone::Success, onclick: run_query, {t("common-action-ok")} }
                         Button {
+                            icon: icons::CLOSE, tone: Tone::Neutral,
                             variant: ButtonVariant::Text,
                             onclick: move |_| {
                                 error.set(None);
@@ -211,6 +214,7 @@ fn PlantMaintenancePage() -> Element {
                     Mode::View => rsx! {
                         if perm.can("query") {
                             Button {
+                                icon: icons::SEARCH, tone: Tone::Primary,
                                 variant: ButtonVariant::Tonal,
                                 onclick: move |_| {
                                     message.set(None);
@@ -223,6 +227,7 @@ fn PlantMaintenancePage() -> Element {
                         }
                         if perm.can("insert") {
                             Button {
+                                icon: icons::ADD, tone: Tone::Success,
                                 onclick: move |_| {
                                     message.set(None);
                                     error.set(None);
@@ -233,10 +238,11 @@ fn PlantMaintenancePage() -> Element {
                             }
                         }
                         if perm.can("modify") {
-                            Button { variant: ButtonVariant::Tonal, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), {t("common-action-edit")} }
+                            Button { icon: icons::EDIT, tone: Tone::Tertiary, variant: ButtonVariant::Tonal, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), {t("common-action-edit")} }
                         }
                         if perm.can("delete") {
                             Button {
+                                icon: icons::DELETE, tone: Tone::Error,
                                 variant: ButtonVariant::Error,
                                 disabled: no_cur,
                                 onclick: move |_| {
@@ -254,6 +260,7 @@ fn PlantMaintenancePage() -> Element {
                         // 有效 → 停用、停用 → 啟用（P9）
                         if perm.can("modify") {
                             Button {
+                                icon: if cur.as_ref().is_some_and(|p| !p.active) { icons::CHECK_CIRCLE } else { icons::BLOCK }, tone: if cur.as_ref().is_some_and(|p| !p.active) { Tone::Success } else { Tone::Error },
                                 variant: ButtonVariant::Outlined,
                                 disabled: no_cur,
                                 onclick: move |_| {
@@ -275,6 +282,7 @@ fn PlantMaintenancePage() -> Element {
                         if perm.can("reproduce") {
                             TextField { id: "copy-id", label: t("plant-field-copy-as"), maxlength: max_len::ID, value: copy_id(), disabled: no_cur, oninput: move |v| copy_id.set(v) }
                             Button {
+                                icon: icons::COPY, tone: Tone::Tertiary,
                                 variant: ButtonVariant::Outlined,
                                 disabled: no_cur,
                                 onclick: move |_| {
@@ -339,7 +347,7 @@ fn PlantMaintenancePage() -> Element {
                             TextField { id: "azp07", label: t("plant-field-fax"), maxlength: max_len::FAX, value: v.fax.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().fax = opt(x) }
                         }
                         Q { field: "active", label: t("plant-field-active"), hint: HINT_FLAG, query: q, qbe,
-                            TextField { id: "active", label: t("plant-field-active"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).map(|p| if p.active { t("plant-status-active") } else { t("plant-status-inactive") }).unwrap_or_default() }
+                            TextField { id: "active", label: t("plant-field-active"), readonly: true, class: active_field_class(cur.as_ref().filter(|_| m != Mode::New).map(|p| p.active)), value: cur.as_ref().filter(|_| m != Mode::New).map(|p| if p.active { t("plant-status-active") } else { t("plant-status-inactive") }).unwrap_or_default() }
                         }
                     }
                     p { class: "muted", {t("plant-hint-time-zone")} }
@@ -385,7 +393,7 @@ fn PlantMaintenancePage() -> Element {
                                             td { class: "mono", "{p.time_zone}" }
                                             td { {p.phone.clone().unwrap_or_default()} }
                                             td {
-                                                if p.active { Chip { label: t("plant-status-active") } } else { Chip { label: t("plant-status-inactive"), warning: true } }
+                                                Chip { label: if p.active { t("plant-status-active") } else { t("plant-status-inactive") }, tone: active_tone(p.active) }
                                             }
                                         }
                                     }

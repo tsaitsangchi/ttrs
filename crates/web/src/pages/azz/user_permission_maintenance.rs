@@ -13,7 +13,7 @@ use super::program_permission_maintenance::{
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Dialog, IconButton, Notification, NotificationKind,
-    Select, TextField, icons,
+    Select, TextField, Tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::i18n::{t, tf};
@@ -183,6 +183,7 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
             div { class: "action-bar",
                 if perm.add_row() {
                     Button {
+                        icon: icons::ADD, tone: Tone::Success,
                         disabled: no_user,
                         onclick: move |_| {
                             message.set(None);
@@ -194,6 +195,7 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                 }
                 if perm.can("detail") {
                     Button {
+                        icon: icons::EDIT, tone: Tone::Tertiary,
                         variant: ButtonVariant::Tonal,
                         disabled: !cur_is_program,
                         onclick: move |_| {
@@ -207,6 +209,7 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                 }
                 if perm.delete_row() {
                     Button {
+                        icon: icons::REMOVE, tone: Tone::Error,
                         variant: ButtonVariant::Error,
                         disabled: no_cur,
                         onclick: move |_| {
@@ -225,11 +228,11 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                     }
                 }
                 if perm.can("delete") {
-                    Button { variant: ButtonVariant::Outlined, disabled: no_user, onclick: move |_| { message.set(None); open.set(Some(Open::DeleteAll)); }, {t("perm-action-delete-all")} }
+                    Button { icon: icons::DELETE_SWEEP, tone: Tone::Error, variant: ButtonVariant::Outlined, disabled: no_user, onclick: move |_| { message.set(None); open.set(Some(Open::DeleteAll)); }, {t("perm-action-delete-all")} }
                 }
                 div { class: "spacer" }
                 if perm.can("reproduce") {
-                    Button { variant: ButtonVariant::Outlined, disabled: no_user, onclick: move |_| { message.set(None); target_user.set(String::new()); open.set(Some(Open::Copy)); }, {t("common-action-copy")} }
+                    Button { icon: icons::COPY, tone: Tone::Tertiary, variant: ButtonVariant::Outlined, disabled: no_user, onclick: move |_| { message.set(None); target_user.set(String::new()); open.set(Some(Open::Copy)); }, {t("common-action-copy")} }
                 }
             }
 
@@ -322,8 +325,9 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                         title: tf("uperm-dialog-add", &[("user", id.as_str())]),
                         oncancel: move |_| close(),
                         actions: rsx! {
-                            Button { variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
+                            Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
                             Button {
+                                icon: icons::CHECK, tone: Tone::Success,
                                 onclick: move |_| {
                                     let uid = user().unwrap_or_default();
                                     let req = add_form();
@@ -365,8 +369,9 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                         title: tf("uperm-dialog-edit", &[("user", r.user_id.as_str()), ("program", r.target.as_str())]),
                         oncancel: move |_| close(),
                         actions: rsx! {
-                            Button { variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
+                            Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
                             Button {
+                                icon: icons::CHECK, tone: Tone::Success,
                                 onclick: {
                                     let r = r.clone();
                                     move |_| {
@@ -412,8 +417,8 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                                 }
                             }
                             div { class: "action-bar",
-                                Button { variant: ButtonVariant::Text, onclick: { let all = r.available_actions.clone(); move |_| form.write().actions = Some(all.clone()) }, {t("perm-action-select-all")} }
-                                Button { variant: ButtonVariant::Text, onclick: move |_| form.write().actions = Some(Vec::new()), {t("perm-action-select-none")} }
+                                Button { icon: icons::CHECK_BOX, tone: Tone::Primary, variant: ButtonVariant::Text, onclick: { let all = r.available_actions.clone(); move |_| form.write().actions = Some(all.clone()) }, {t("perm-action-select-all")} }
+                                Button { icon: icons::CHECK_BOX_BLANK, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| form.write().actions = Some(Vec::new()), {t("perm-action-select-none")} }
                             }
                         }
                         div { class: "form-grid",
@@ -428,8 +433,9 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                         title: tf("uperm-dialog-copy", &[("user", id.as_str())]),
                         oncancel: move |_| close(),
                         actions: rsx! {
-                            Button { variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
+                            Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
                             Button {
+                                icon: icons::CHECK, tone: Tone::Success,
                                 onclick: move |_| {
                                     let from = user().unwrap_or_default();
                                     let to = target_user();
@@ -455,8 +461,9 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                         title: tf("uperm-dialog-delete-all", &[("user", id.as_str())]),
                         oncancel: move |_| close(),
                         actions: rsx! {
-                            Button { variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
+                            Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close(), {t("common-action-cancel")} }
                             Button {
+                                icon: icons::DELETE, tone: Tone::Error,
                                 variant: ButtonVariant::Error,
                                 onclick: move |_| {
                                     let uid = user().unwrap_or_default();

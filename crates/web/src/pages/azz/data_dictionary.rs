@@ -17,7 +17,7 @@ use ttrs_shared::{
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Dialog, IconButton, Notification, NotificationKind, Select, Tabs,
-    TextArea, TextField, icons,
+    TextArea, TextField, Tone, icons,
 };
 use crate::components::multilingual::{
     LangField, LangValues, MultilingualDialogField, MultilingualField,
@@ -287,8 +287,9 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
             div { class: "action-bar",
                 match m {
                     Mode::New | Mode::Edit => rsx! {
-                        Button { onclick: save, {i18n::t("common-action-ok")} }
+                        Button { icon: icons::CHECK, tone: Tone::Success, onclick: save, {i18n::t("common-action-ok")} }
                         Button {
+                            icon: icons::CLOSE, tone: Tone::Neutral,
                             variant: ButtonVariant::Text,
                             onclick: move |_| { error.set(None); show(cur_cancel.clone()); },
                             {i18n::t("common-action-cancel")}
@@ -296,6 +297,7 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                     },
                     Mode::Query => rsx! {
                         Button {
+                            icon: icons::CHECK, tone: Tone::Success,
                             onclick: move |_| {
                                 error.set(None);
                                 query.set(draft_query());
@@ -311,6 +313,7 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                             {i18n::t("common-action-ok")}
                         }
                         Button {
+                            icon: icons::CLOSE, tone: Tone::Neutral,
                             variant: ButtonVariant::Text,
                             onclick: move |_| { error.set(None); mode.set(Mode::View); },
                             {i18n::t("common-action-cancel")}
@@ -319,6 +322,7 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                     Mode::View => rsx! {
                         if perm.can("query") {
                             Button {
+                                icon: icons::SEARCH, tone: Tone::Primary,
                                 variant: ButtonVariant::Tonal,
                                 onclick: move |_| {
                                     message.set(None);
@@ -332,6 +336,7 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                         }
                         if perm.can("insert") {
                             Button {
+                                icon: icons::ADD, tone: Tone::Success,
                                 onclick: move |_| {
                                     message.set(None);
                                     error.set(None);
@@ -346,6 +351,7 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                         }
                         if perm.can("modify") {
                             Button {
+                                icon: icons::EDIT, tone: Tone::Tertiary,
                                 variant: ButtonVariant::Tonal,
                                 disabled: no_cur,
                                 onclick: move |_| mode.set(Mode::Edit),
@@ -354,6 +360,7 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                         }
                         if perm.can("delete") {
                             Button {
+                                icon: icons::DELETE, tone: Tone::Error,
                                 variant: ButtonVariant::Error,
                                 disabled: no_cur,
                                 onclick: delete,
@@ -362,6 +369,7 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                         }
                         div { class: "spacer" }
                         Button {
+                            icon: icons::OPEN_IN_NEW, tone: Tone::Primary,
                             variant: ButtonVariant::Outlined,
                             onclick: move |_| {
                                 message.set(None);
@@ -372,8 +380,9 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                         }
                         if !no_cur && perm.can("exporttoexcel") {
                             a {
-                                class: "md-button md-button--outlined md-state",
+                                class: "md-button md-button--outlined md-state md-button--with-icon",
                                 href: api::export_url(&table, i18n::current().code()),
+                                svg { class: "md-button__icon md-icon--primary", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::DOWNLOAD } }
                                 {i18n::t("dictionary-action-export")}
                             }
                         }
@@ -703,8 +712,9 @@ fn ColumnsTab(table: String, editable: bool, on_error: EventHandler<String>) -> 
                 oncancel: move |_| editing.set(None),
                 actions: rsx! {
                     if editable {
-                        Button { variant: ButtonVariant::Text, onclick: move |_| editing.set(None), {i18n::t("common-action-cancel")} }
+                        Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| editing.set(None), {i18n::t("common-action-cancel")} }
                         Button {
+                            icon: icons::CHECK, tone: Tone::Success,
                             onclick: move |_| {
                                 let now = values();
                                 let langs = now.changed(&loaded());
@@ -730,7 +740,7 @@ fn ColumnsTab(table: String, editable: bool, on_error: EventHandler<String>) -> 
                             {i18n::t("common-action-ok")}
                         }
                     } else {
-                        Button { variant: ButtonVariant::Text, onclick: move |_| editing.set(None), {i18n::t("common-action-close")} }
+                        Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| editing.set(None), {i18n::t("common-action-close")} }
                     }
                 },
                 MultilingualField {

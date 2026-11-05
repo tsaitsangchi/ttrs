@@ -19,7 +19,7 @@ use ttrs_shared::program_max_len as max_len;
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Notification, NotificationKind, RadioGroup, Select,
-    Tabs, TextArea, TextField,
+    Tabs, TextArea, TextField, Tone, icons,
 };
 use crate::components::multilingual::{
     LangField, LangValues, MultilingualDialogField, MultilingualField,
@@ -306,8 +306,9 @@ fn ProgramMaintenancePage() -> Element {
             div { class: "action-bar",
                 match mode() {
                     Mode::New | Mode::Edit => rsx! {
-                        Button { onclick: save, {t("common-action-ok")} }
+                        Button { icon: icons::CHECK, tone: Tone::Success, onclick: save, {t("common-action-ok")} }
                         Button {
+                            icon: icons::CLOSE, tone: Tone::Neutral,
                             variant: ButtonVariant::Text,
                             onclick: move |_| {
                                 error.set(None);
@@ -317,8 +318,9 @@ fn ProgramMaintenancePage() -> Element {
                         }
                     },
                     Mode::Query => rsx! {
-                        Button { onclick: run_query, {t("common-action-ok")} }
+                        Button { icon: icons::CHECK, tone: Tone::Success, onclick: run_query, {t("common-action-ok")} }
                         Button {
+                            icon: icons::CLOSE, tone: Tone::Neutral,
                             variant: ButtonVariant::Text,
                             onclick: move |_| {
                                 error.set(None);
@@ -330,6 +332,7 @@ fn ProgramMaintenancePage() -> Element {
                     Mode::View => rsx! {
                         if perm.can("query") {
                             Button {
+                                icon: icons::SEARCH, tone: Tone::Primary,
                                 variant: ButtonVariant::Tonal,
                                 onclick: move |_| {
                                     message.set(None);
@@ -343,6 +346,7 @@ fn ProgramMaintenancePage() -> Element {
                         }
                         if perm.can("insert") {
                             Button {
+                                icon: icons::ADD, tone: Tone::Success,
                                 onclick: move |_| {
                                     message.set(None);
                                     error.set(None);
@@ -357,6 +361,7 @@ fn ProgramMaintenancePage() -> Element {
                         }
                         if perm.can("modify") {
                             Button {
+                                icon: icons::EDIT, tone: Tone::Tertiary,
                                 variant: ButtonVariant::Tonal,
                                 disabled: no_cur,
                                 onclick: move |_| mode.set(Mode::Edit),
@@ -365,6 +370,7 @@ fn ProgramMaintenancePage() -> Element {
                         }
                         if perm.can("delete") {
                             Button {
+                                icon: icons::DELETE, tone: Tone::Error,
                                 variant: ButtonVariant::Error,
                                 disabled: no_cur,
                                 onclick: delete,
@@ -381,6 +387,7 @@ fn ProgramMaintenancePage() -> Element {
                                 oninput: move |v| new_no.set(v),
                             }
                             Button {
+                                icon: icons::COPY, tone: Tone::Tertiary,
                                 variant: ButtonVariant::Outlined,
                                 disabled: no_cur,
                                 onclick: copy,
@@ -609,7 +616,7 @@ fn ProgramMaintenancePage() -> Element {
                                                 value: grant_class(),
                                                 oninput: move |v| grant_class.set(v),
                                             }
-                                            Button { variant: ButtonVariant::Tonal, onclick: grant, {t("program-action-grant")} }
+                                            Button { icon: icons::VERIFIED_USER, tone: Tone::Success, variant: ButtonVariant::Tonal, onclick: grant, {t("program-action-grant")} }
                                         }
                                     }
                                 }

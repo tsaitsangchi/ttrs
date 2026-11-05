@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use dioxus::prelude::*;
 
 use crate::components::material::{
-    Button, ButtonVariant, Dialog, IconButton, TextArea, TextField, icons,
+    Button, ButtonVariant, Dialog, IconButton, TextArea, TextField, Tone, icons,
 };
 use crate::i18n::{UiLang, current, t, tf};
 
@@ -206,10 +206,10 @@ pub fn MultilingualDialogField(
                 oncancel: move |_| cancel(),
                 actions: rsx! {
                     if readonly {
-                        Button { variant: ButtonVariant::Text, onclick: move |_| open.set(false), {t("common-action-close")} }
+                        Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| open.set(false), {t("common-action-close")} }
                     } else {
-                        Button { variant: ButtonVariant::Text, onclick: move |_| cancel(), {t("common-action-cancel")} }
-                        Button { onclick: move |_| open.set(false), {t("common-action-ok")} }
+                        Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| cancel(), {t("common-action-cancel")} }
+                        Button { icon: icons::CHECK, tone: Tone::Success, onclick: move |_| open.set(false), {t("common-action-ok")} }
                     }
                 },
                 MultilingualField { id: format!("{id}-dialog"), fields: vec![field.clone()], values, readonly }
