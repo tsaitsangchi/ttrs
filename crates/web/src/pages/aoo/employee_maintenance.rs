@@ -208,7 +208,7 @@ fn EmployeeMaintenancePage() -> Element {
                 div { class: "program-id", {t("emp-breadcrumb")} }
                 h2 { {t("emp-title")} }
             }
-            div { class: "form-grid", PlantPicker { plant } }
+            PlantPicker { plant }
 
             if querying() {
                 div { class: "action-bar",

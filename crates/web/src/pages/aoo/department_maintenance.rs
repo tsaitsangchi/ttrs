@@ -224,7 +224,7 @@ fn DepartmentMaintenancePage() -> Element {
                 div { class: "program-id", {t("dept-breadcrumb")} }
                 h2 { {t("dept-title")} }
             }
-            div { class: "form-grid", PlantPicker { plant } }
+            PlantPicker { plant }
 
             if querying() {
                 div { class: "action-bar",

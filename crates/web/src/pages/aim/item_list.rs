@@ -6,10 +6,10 @@ use ttrs_shared::{CreateItemRequest, ItemStatusDto};
 use crate::api;
 use crate::components::material::{Button, ButtonVariant, Tone, icons};
 use crate::components::permission::{Perm, ProgramGate};
+use crate::components::session::use_session;
 use crate::i18n::{t, tf};
 
 // TODO: 登入後改由使用者所屬營運中心帶入
-const PLANT: &str = "TW01";
 
 /// 權限檢查用的程式代號
 const PROGRAM: &str = "item-maintenance";
@@ -24,7 +24,15 @@ pub fn ItemList() -> Element {
 #[component]
 fn ItemListPage() -> Element {
     let perm = use_context::<Perm>();
-    let mut items = use_resource(|| api::list_items(PLANT));
+    // 營運中心：登入時決定（sign_in.feature），由使用者選單切換
+    let session = use_session();
+    let plant = use_memo(move || {
+        session()
+            .session()
+            .map(|s| s.plant.clone())
+            .unwrap_or_default()
+    });
+    let mut items = use_resource(move || async move { api::list_items(&plant()).await });
     let mut error = use_signal(|| None::<String>);
 
     let mut item_no = use_signal(String::new);
@@ -35,7 +43,7 @@ fn ItemListPage() -> Element {
     let create = move |_| {
         spawn(async move {
             let req = CreateItemRequest {
-                plant_id: PLANT.into(),
+                plant_id: plant(),
                 item_no: item_no(),
                 name: name(),
                 spec: Some(spec()).filter(|s| !s.trim().is_empty()),
@@ -106,7 +114,7 @@ fn ItemListPage() -> Element {
                                                 move |_| {
                                                     let no = no.clone();
                                                     spawn(async move {
-                                                        match api::confirm_item(PLANT, &no).await {
+                                                        match api::confirm_item(&plant(), &no).await {
                                                             Ok(_) => { error.set(None); items.restart(); }
                                                             Err(e) => error.set(Some(e)),
                                                         }
@@ -124,7 +132,7 @@ fn ItemListPage() -> Element {
                                                 move |_| {
                                                     let no = no.clone();
                                                     spawn(async move {
-                                                        match api::unconfirm_item(PLANT, &no).await {
+                                                        match api::unconfirm_item(&plant(), &no).await {
                                                             Ok(_) => { error.set(None); items.restart(); }
                                                             Err(e) => error.set(Some(e)),
                                                         }
@@ -142,7 +150,7 @@ fn ItemListPage() -> Element {
                                                 move |_| {
                                                     let no = no.clone();
                                                     spawn(async move {
-                                                        match api::delete_item(PLANT, &no).await {
+                                                        match api::delete_item(&plant(), &no).await {
                                                             Ok(()) => { error.set(None); items.restart(); }
                                                             Err(e) => error.set(Some(e)),
                                                         }
