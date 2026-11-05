@@ -82,6 +82,8 @@ fn App() -> Element {
     // 目前的連線（sign_in.feature）：登入者與目前營運中心，供外框與工廠層作業使用
     use_context_provider(|| Signal::new(SessionState::Loading));
     rsx! {
+        // 不要由瀏覽器翻譯（Chrome）：譯文會蓋掉畫面更新；語系由 i18n::set 設在 <html lang>
+        document::Meta { name: "google", content: "notranslate" }
         document::Link { rel: "stylesheet", href: M3_COLORS_CSS }
         document::Link { rel: "stylesheet", href: M3_CSS }
         document::Link { rel: "stylesheet", href: MAIN_CSS }

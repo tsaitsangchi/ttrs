@@ -130,12 +130,20 @@ pub fn current() -> UiLang {
     }
 }
 
-/// 切換語系並記在瀏覽器
+/// 切換語系並記在瀏覽器；同時設定 <html lang> 並標示不要由瀏覽器翻譯。
+/// 瀏覽器翻譯會把文字節點換成譯文副本，之後畫面更新（例如停用→啟用的按鈕）就看不到了；
+/// TTRS 自己提供三語介面（ADR 0005），由語系選單切換
 pub fn set(lang: UiLang) {
     CURRENT.store(lang.index() as u8, Ordering::Relaxed);
     #[cfg(target_arch = "wasm32")]
-    if let Some(s) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
-        let _ = s.set_item(STORAGE_KEY, lang.code());
+    if let Some(w) = web_sys::window() {
+        if let Some(s) = w.local_storage().ok().flatten() {
+            let _ = s.set_item(STORAGE_KEY, lang.code());
+        }
+        if let Some(root) = w.document().and_then(|d| d.document_element()) {
+            let _ = root.set_attribute("lang", lang.code());
+            let _ = root.set_attribute("translate", "no");
+        }
     }
 }
 
