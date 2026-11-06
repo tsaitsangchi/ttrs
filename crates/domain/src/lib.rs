@@ -17,6 +17,7 @@ pub mod permission_class;
 pub mod plant;
 pub mod program;
 pub mod qbe;
+pub mod record;
 pub mod report;
 pub mod sign_in;
 pub mod user;

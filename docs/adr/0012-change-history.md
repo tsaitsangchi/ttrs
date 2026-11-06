@@ -130,6 +130,22 @@ xxxuser、xxxmodu、xxxgrup、xxxdate、xxxacti）。共用元件 `crates/web/sr
 - 資料字典（p_zta）已有「狀態」頁，欄位為產生者 zta06、產生日期 zta05，維持原樣。
 - 新作業一律照此做；清單式的瀏覽表（單筆表單下方的清單）可保留資料有效欄方便挑選。
 
+## 實作狀態
+
+- **第一階段（2026-11-06）**：工廠層的 department、employee、classification_code。
+  - `migrations/0024_change_log.sql`：觸發器函式 `ttrs_bump_version`、`ttrs_change_log`，月份分割 `ttrs_change_log_partitions`
+    （由 `ttrs_ensure_plant_schema` 在啟動時呼叫）、功能 history。
+  - `migrations/plant/0004_change_log.sql`：各工廠 schema 的 `change_log`（月份分割＋預設分割表，應用程式角色只能新增與查詢）、
+    三張表加 `version`／`created_at`／`updated_at` 與觸發器（employee.email 遮蔽）。
+  - 操作情境：`ttrs_app::change_log::run`（use case）、`with_request`（API 中介層：X-Request-Id、X-Forwarded-For、User-Agent）；
+    `plant_tx` 寫入 `ttrs.*`。記憶體後端以相同規則記錄。
+  - API：修改、刪除、啟用／停用須帶版本（body `version` 或 `?version=`），沒帶 400 `VERSION_REQUIRED`、不符 409 `RECORD_CHANGED`；
+    `GET …/{key}/history?lang=`。畫面：「異動記錄」按鈕與對話框（`components/history.rs`）。
+  - AU2 先**新增** `created_at`／`updated_at`（timestamptz），原 `created_on`／`updated_on`（date）暫時保留；
+    domain 改用時間戳後於第二階段移除。
+- **第二階段**：共用層的表（change_history.feature CH1 其餘各表、CH-7）：寫入改在交易內並設定操作情境、`public.change_log`、
+  其餘作業的 history 功能與畫面；移除 date 欄位（AU2）。
+
 ## 確認事項（皆採建議）
 
 | # | 問題 | 建議 |

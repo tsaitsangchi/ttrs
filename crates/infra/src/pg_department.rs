@@ -2,12 +2,13 @@
 //! 表在營運中心的工廠 schema（migrations/plant/0002_department_employee.sql），每個方法在工廠交易內執行。
 
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::FromRow;
 use ttrs_app::{
     error::RepoError,
     ports::{DepartmentRepository, EmployeeRepository},
 };
+use ttrs_domain::record::Stamp;
 use ttrs_domain::{
     department::{Accounting, ControlType, Department, DepartmentAttrs, DeptCode, ExpenseType},
     employee::{Employee, EmployeeAttrs, EmployeeId},
@@ -57,13 +58,17 @@ struct DeptRow {
     created_on: NaiveDate,
     updated_by: Option<String>,
     updated_on: Option<NaiveDate>,
+    version: i32,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 macro_rules! select_dept {
     ($rest:literal) => {
         concat!(
             "SELECT dept_code, name, full_name, accounting_dept, expense_type, control_type, cost_center, ",
-            "active, created_by, created_dept, created_on, updated_by, updated_on FROM department ",
+            "active, created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at ",
+            "FROM department ",
             $rest
         )
     };
@@ -98,6 +103,11 @@ impl TryFrom<DeptRow> for Department {
             created_on: r.created_on,
             updated_by: r.updated_by,
             updated_on: r.updated_on,
+            stamp: Stamp {
+                version: r.version,
+                created_at: Some(r.created_at),
+                updated_at: r.updated_at,
+            },
         })
     }
 }
@@ -174,10 +184,10 @@ impl DepartmentRepository for PgStore {
     async fn update(&self, plant: &PlantId, d: &Department) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
         let a = &d.accounting;
-        sqlx::query(
+        let n = sqlx::query(
             "UPDATE department SET name = $2, full_name = $3, accounting_dept = $4, expense_type = $5,
                  control_type = $6, cost_center = $7, active = $8, updated_by = $9, updated_on = $10
-             WHERE dept_code = $1",
+             WHERE dept_code = $1 AND version = $11",
         )
         .bind(d.code.as_str())
         .bind(&d.attrs.name)
@@ -189,9 +199,15 @@ impl DepartmentRepository for PgStore {
         .bind(d.active)
         .bind(&d.updated_by)
         .bind(d.updated_on)
+        .bind(d.stamp.version)
         .execute(&mut *tx)
         .await
-        .map_err(db_err)?;
+        .map_err(db_err)?
+        .rows_affected();
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        if n == 0 {
+            return Err(RepoError::Stale);
+        }
         tx.commit().await.map_err(db_err)
     }
 
@@ -239,13 +255,17 @@ struct EmployeeRow {
     created_on: NaiveDate,
     updated_by: Option<String>,
     updated_on: Option<NaiveDate>,
+    version: i32,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 macro_rules! select_employee {
     ($rest:literal) => {
         concat!(
             "SELECT employee_id, name, dept_code, title, extension, email, active, ",
-            "created_by, created_dept, created_on, updated_by, updated_on FROM employee ",
+            "created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at ",
+            "FROM employee ",
             $rest
         )
     };
@@ -273,6 +293,11 @@ impl TryFrom<EmployeeRow> for Employee {
             created_on: r.created_on,
             updated_by: r.updated_by,
             updated_on: r.updated_on,
+            stamp: Stamp {
+                version: r.version,
+                created_at: Some(r.created_at),
+                updated_at: r.updated_at,
+            },
         })
     }
 }
@@ -348,10 +373,10 @@ impl EmployeeRepository for PgStore {
     async fn update(&self, plant: &PlantId, e: &Employee) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
         let a = &e.attrs;
-        sqlx::query(
+        let n = sqlx::query(
             "UPDATE employee SET name = $2, dept_code = $3, title = $4, extension = $5, email = $6,
                  active = $7, updated_by = $8, updated_on = $9
-             WHERE employee_id = $1",
+             WHERE employee_id = $1 AND version = $10",
         )
         .bind(e.id.as_str())
         .bind(&a.name)
@@ -362,9 +387,15 @@ impl EmployeeRepository for PgStore {
         .bind(e.active)
         .bind(&e.updated_by)
         .bind(e.updated_on)
+        .bind(e.stamp.version)
         .execute(&mut *tx)
         .await
-        .map_err(db_err)?;
+        .map_err(db_err)?
+        .rows_affected();
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        if n == 0 {
+            return Err(RepoError::Stale);
+        }
         tx.commit().await.map_err(db_err)
     }
 

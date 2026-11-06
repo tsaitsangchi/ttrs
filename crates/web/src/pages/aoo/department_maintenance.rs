@@ -10,6 +10,7 @@ use ttrs_shared::{
 };
 
 use crate::api;
+use crate::components::history::HistoryDialog;
 use crate::components::material::{
     Button, ButtonVariant, Card, Dialog, Notification, NotificationKind, Select, Tabs, TextField,
     Tone, icons,
@@ -122,6 +123,8 @@ fn DepartmentMaintenancePage() -> Element {
     let mut form = use_signal(DepartmentInput::default);
     let mut acct = use_signal(DepartmentAccountingInput::default);
     let mut dialog_error = use_signal(|| None::<String>);
+    // 異動記錄對話框（ADR 0012 §8）：（鍵值, 記錄）
+    let mut history = use_signal(|| None::<(String, Vec<ttrs_shared::ChangeDto>)>);
     let col_tab = use_signal(|| 0usize);
     let status_tab = col_tab() == 1;
     let cols = if status_tab {
@@ -213,6 +216,7 @@ fn DepartmentMaintenancePage() -> Element {
     let cur_edit = cur.clone();
     let cur_acct = cur.clone();
     let cur_delete = cur.clone();
+    let cur_history = cur.clone();
     let cur_toggle = cur.clone();
     let v = form();
     let av = acct();
@@ -281,6 +285,24 @@ fn DepartmentMaintenancePage() -> Element {
                             {t("common-action-edit")}
                         }
                     }
+                    if perm.can("history") {
+                        Button {
+                            icon: icons::HISTORY, tone: Tone::Primary,
+                            variant: ButtonVariant::Outlined,
+                            disabled: no_cur,
+                            onclick: move |_| {
+                                let Some(d) = cur_history.clone() else { return };
+                                let p = plant();
+                                spawn(async move {
+                                    match api::history(&p, "departments", &d.dept_code).await {
+                                        Ok(h) => history.set(Some((d.dept_code.clone(), h))),
+                                        Err(e) => error.set(Some(e)),
+                                    }
+                                });
+                            },
+                            {t("common-action-history")}
+                        }
+                    }
                     if perm.delete_row() {
                         Button {
                             icon: icons::DELETE, tone: Tone::Error,
@@ -290,7 +312,7 @@ fn DepartmentMaintenancePage() -> Element {
                                 let Some(d) = cur_delete.clone() else { return };
                                 let p = plant();
                                 spawn(async move {
-                                    match api::delete_department(&p, &d.dept_code).await {
+                                    match api::delete_department(&p, &d.dept_code, d.version).await {
                                         Ok(()) => done(tf("dept-msg-deleted", &[("code", d.dept_code.as_str())]), None),
                                         Err(e) => error.set(Some(e)),
                                     }
@@ -308,7 +330,7 @@ fn DepartmentMaintenancePage() -> Element {
                                 let Some(d) = cur_toggle.clone() else { return };
                                 let p = plant();
                                 spawn(async move {
-                                    match api::set_department_active(&p, &d.dept_code, !d.active).await {
+                                    match api::set_department_active(&p, &d.dept_code, !d.active, d.version).await {
                                         Ok(r) => {
                                             let id = if r.active { "dept-msg-activated" } else { "dept-msg-deactivated" };
                                             done(tf(id, &[("code", r.dept_code.as_str())]), Some(r.dept_code));
@@ -448,6 +470,9 @@ fn DepartmentMaintenancePage() -> Element {
                 ListPager { page, pages }
             }
 
+            if let Some((key, changes)) = history() {
+                HistoryDialog { record: key, changes, onclose: move |_| history.set(None) }
+            }
             if let Some(ed) = editor() {
                 Dialog {
                     title: match &ed {

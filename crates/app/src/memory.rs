@@ -20,18 +20,20 @@ use ttrs_domain::{
     plant::{DEFAULT_TIME_ZONE, Plant, PlantAttrs, PlantId, PlantSchema},
     program::{ModuleCode, OtherSettings, Program, ProgramAttrs, ProgramNo},
     qbe::QbeFilter,
+    record::Stamp,
     user::{User, UserId},
     user_permission::{SpecialTarget, UserPermission},
 };
 
 use crate::{
+    change_log::{self, ChangeRecord, Row, text},
     error::RepoError,
     ports::{
-        AccountPolicy, AccountPolicyRepository, AuditEntry, Credential, CredentialRepository,
-        DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemRepository,
-        LegacyCatalogRepository, LegacyTableSummary, MasterDataRepository, MigrationSource,
-        PermissionClassRepository, PermissionListItem, PlantRepository, ProgramName,
-        ProgramPermissionRepository, ProgramRepository, SchemaCatalog, TableSchema,
+        AccountPolicy, AccountPolicyRepository, AuditEntry, ChangeLogRepository, Credential,
+        CredentialRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
+        ItemRepository, LegacyCatalogRepository, LegacyTableSummary, MasterDataRepository,
+        MigrationSource, PermissionClassRepository, PermissionListItem, PlantRepository,
+        ProgramName, ProgramPermissionRepository, ProgramRepository, SchemaCatalog, TableSchema,
         UserPermissionItem, UserPermissionRepository, UserRepository,
     },
     query,
@@ -67,6 +69,8 @@ struct State {
     /// (營運中心, 碼類別, 代號) → 分類碼（azf_file，工廠層）
     classification_codes: BTreeMap<(PlantId, String, String), ClassificationCode>,
     employees: BTreeMap<(PlantId, EmployeeId), Employee>,
+    /// 資料異動記錄（change_log，ADR 0012）：營運中心（共用層為 None）＋記錄
+    changes: Vec<(Option<PlantId>, ChangeRecord)>,
     units: HashSet<String>,
     items: BTreeMap<(PlantId, ItemNo), Item>,
     transactions: HashSet<(PlantId, ItemNo)>,
@@ -1209,18 +1213,37 @@ impl ClassificationCodeRepository for InMemoryStore {
         if s.classification_codes.contains_key(&key) {
             return Err(RepoError::Conflict);
         }
-        s.classification_codes.insert(key, c.clone());
+        let mut c = c.clone();
+        c.stamp = new_stamp();
+        s.log_change(
+            plant,
+            "classification_code",
+            class_key(&c),
+            None,
+            Some(class_row(&c)),
+            &[],
+        );
+        s.classification_codes.insert(key, c);
         Ok(())
     }
 
     async fn update_code(&self, plant: &PlantId, c: &ClassificationCode) -> Result<(), RepoError> {
-        if let Some(old) = self
-            .lock()
-            .classification_codes
-            .get_mut(&code_key(plant, c.kind, &c.code))
-        {
-            *old = c.clone();
-        }
+        let mut s = self.lock();
+        let key = code_key(plant, c.kind, &c.code);
+        let Some(old) = s.classification_codes.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut new = c.clone();
+        new.stamp = bumped(&old.stamp, &c.stamp)?;
+        s.log_change(
+            plant,
+            "classification_code",
+            class_key(&new),
+            Some(class_row(&old)),
+            Some(class_row(&new)),
+            &[],
+        );
+        s.classification_codes.insert(key, new);
         Ok(())
     }
 
@@ -1230,11 +1253,19 @@ impl ClassificationCodeRepository for InMemoryStore {
         kind: CodeKind,
         code: &Code,
     ) -> Result<bool, RepoError> {
-        Ok(self
-            .lock()
-            .classification_codes
-            .remove(&code_key(plant, kind, code))
-            .is_some())
+        let mut s = self.lock();
+        let Some(old) = s.classification_codes.remove(&code_key(plant, kind, code)) else {
+            return Ok(false);
+        };
+        s.log_change(
+            plant,
+            "classification_code",
+            class_key(&old),
+            Some(class_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
     }
 }
 
@@ -1287,18 +1318,37 @@ impl DepartmentRepository for InMemoryStore {
         if s.departments.contains_key(&key) {
             return Err(RepoError::Conflict);
         }
-        s.departments.insert(key, dept.clone());
+        let mut d = dept.clone();
+        d.stamp = new_stamp();
+        s.log_change(
+            plant,
+            "department",
+            dept_key(&d),
+            None,
+            Some(dept_row(&d)),
+            &[],
+        );
+        s.departments.insert(key, d);
         Ok(())
     }
 
     async fn update(&self, plant: &PlantId, dept: &Department) -> Result<(), RepoError> {
-        if let Some(d) = self
-            .lock()
-            .departments
-            .get_mut(&(plant.clone(), dept.code.clone()))
-        {
-            *d = dept.clone();
-        }
+        let mut s = self.lock();
+        let key = (plant.clone(), dept.code.clone());
+        let Some(old) = s.departments.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut d = dept.clone();
+        d.stamp = bumped(&old.stamp, &dept.stamp)?;
+        s.log_change(
+            plant,
+            "department",
+            dept_key(&d),
+            Some(dept_row(&old)),
+            Some(dept_row(&d)),
+            &[],
+        );
+        s.departments.insert(key, d);
         Ok(())
     }
 
@@ -1311,9 +1361,18 @@ impl DepartmentRepository for InMemoryStore {
         {
             return Err(RepoError::InUse);
         }
-        Ok(s.departments
-            .remove(&(plant.clone(), code.clone()))
-            .is_some())
+        let Some(old) = s.departments.remove(&(plant.clone(), code.clone())) else {
+            return Ok(false);
+        };
+        s.log_change(
+            plant,
+            "department",
+            dept_key(&old),
+            Some(dept_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
     }
 }
 
@@ -1358,27 +1417,54 @@ impl EmployeeRepository for InMemoryStore {
         if s.employees.contains_key(&key) {
             return Err(RepoError::Conflict);
         }
-        s.employees.insert(key, employee.clone());
+        let mut e = employee.clone();
+        e.stamp = new_stamp();
+        s.log_change(
+            plant,
+            "employee",
+            employee_key(&e),
+            None,
+            Some(employee_row(&e)),
+            EMPLOYEE_MASKED,
+        );
+        s.employees.insert(key, e);
         Ok(())
     }
 
     async fn update(&self, plant: &PlantId, employee: &Employee) -> Result<(), RepoError> {
-        if let Some(e) = self
-            .lock()
-            .employees
-            .get_mut(&(plant.clone(), employee.id.clone()))
-        {
-            *e = employee.clone();
-        }
+        let mut s = self.lock();
+        let key = (plant.clone(), employee.id.clone());
+        let Some(old) = s.employees.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut e = employee.clone();
+        e.stamp = bumped(&old.stamp, &employee.stamp)?;
+        s.log_change(
+            plant,
+            "employee",
+            employee_key(&e),
+            Some(employee_row(&old)),
+            Some(employee_row(&e)),
+            EMPLOYEE_MASKED,
+        );
+        s.employees.insert(key, e);
         Ok(())
     }
 
     async fn delete(&self, plant: &PlantId, id: &EmployeeId) -> Result<bool, RepoError> {
-        Ok(self
-            .lock()
-            .employees
-            .remove(&(plant.clone(), id.clone()))
-            .is_some())
+        let mut s = self.lock();
+        let Some(old) = s.employees.remove(&(plant.clone(), id.clone())) else {
+            return Ok(false);
+        };
+        s.log_change(
+            plant,
+            "employee",
+            employee_key(&old),
+            Some(employee_row(&old)),
+            None,
+            EMPLOYEE_MASKED,
+        );
+        Ok(true)
     }
 }
 
@@ -1496,5 +1582,225 @@ impl Mailer for Outbox {
 impl AccountPolicyRepository for InMemoryStore {
     async fn account_policy(&self) -> Result<AccountPolicy, RepoError> {
         Ok(self.lock().account_policy.clone())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 資料異動記錄（ADR 0012）：與 PostgreSQL 觸發器 ttrs_change_log／ttrs_bump_version 相同的規則
+// ---------------------------------------------------------------------------
+
+/// 員工的個資欄位：只記「有修改」（CH6）
+const EMPLOYEE_MASKED: &[&str] = &["email"];
+
+fn new_stamp() -> Stamp {
+    Stamp {
+        version: 1,
+        created_at: Some(Utc::now()),
+        updated_at: None,
+    }
+}
+
+/// 修改：版本須與儲存的相同（樂觀鎖），新版本加 1、記修改時間
+fn bumped(stored: &Stamp, loaded: &Stamp) -> Result<Stamp, RepoError> {
+    if stored.version != loaded.version {
+        return Err(RepoError::Stale);
+    }
+    Ok(Stamp {
+        version: stored.version + 1,
+        created_at: stored.created_at,
+        updated_at: Some(Utc::now()),
+    })
+}
+
+fn row(pairs: Vec<(&str, Option<String>)>) -> Row {
+    pairs.into_iter().map(|(k, v)| (k.to_owned(), v)).collect()
+}
+
+fn audit_cols(
+    active: bool,
+    created_by: &str,
+    created_dept: &str,
+    created_on: NaiveDate,
+    updated_by: Option<&str>,
+    updated_on: Option<NaiveDate>,
+    stamp: &Stamp,
+) -> Vec<(&'static str, Option<String>)> {
+    vec![
+        ("active", text::b(active)),
+        ("created_by", text::s(created_by)),
+        ("created_dept", text::s(created_dept)),
+        ("created_on", text::date(created_on)),
+        ("updated_by", text::opt(updated_by)),
+        ("updated_on", text::opt_date(updated_on)),
+        ("version", text::int(i64::from(stamp.version))),
+    ]
+}
+
+fn dept_key(d: &Department) -> Vec<(&'static str, String)> {
+    vec![("dept_code", d.code.as_str().to_owned())]
+}
+
+fn dept_row(d: &Department) -> Row {
+    let a = &d.accounting;
+    let mut cols = vec![
+        ("dept_code", text::s(d.code.as_str())),
+        ("name", text::s(&d.attrs.name)),
+        ("full_name", text::opt(d.attrs.full_name.as_deref())),
+        ("accounting_dept", text::b(a.accounting_dept)),
+        ("expense_type", a.expense_type.map(|e| e.code().to_owned())),
+        ("control_type", text::s(a.control_type.code())),
+        (
+            "cost_center",
+            a.cost_center.as_ref().map(|c| c.as_str().to_owned()),
+        ),
+    ];
+    cols.extend(audit_cols(
+        d.active,
+        &d.created_by,
+        &d.created_dept,
+        d.created_on,
+        d.updated_by.as_deref(),
+        d.updated_on,
+        &d.stamp,
+    ));
+    row(cols)
+}
+
+fn employee_key(e: &Employee) -> Vec<(&'static str, String)> {
+    vec![("employee_id", e.id.as_str().to_owned())]
+}
+
+fn employee_row(e: &Employee) -> Row {
+    let a = &e.attrs;
+    let mut cols = vec![
+        ("employee_id", text::s(e.id.as_str())),
+        ("name", text::s(&a.name)),
+        (
+            "dept_code",
+            a.dept_code.as_ref().map(|d| d.as_str().to_owned()),
+        ),
+        ("title", text::opt(a.title.as_deref())),
+        ("extension", text::opt(a.extension.as_deref())),
+        ("email", text::opt(a.email.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        e.active,
+        &e.created_by,
+        &e.created_dept,
+        e.created_on,
+        e.updated_by.as_deref(),
+        e.updated_on,
+        &e.stamp,
+    ));
+    row(cols)
+}
+
+fn class_key(c: &ClassificationCode) -> Vec<(&'static str, String)> {
+    vec![
+        ("kind", c.kind.code().to_owned()),
+        ("code", c.code.as_str().to_owned()),
+    ]
+}
+
+fn class_row(c: &ClassificationCode) -> Row {
+    let a = &c.attrs;
+    let mut cols = vec![
+        ("kind", text::s(c.kind.code())),
+        ("code", text::s(c.code.as_str())),
+        ("description", text::opt(a.description.as_deref())),
+        ("variance_account", text::opt(a.variance_account.as_deref())),
+        (
+            "variance_account2",
+            text::opt(a.variance_account2.as_deref()),
+        ),
+        ("cost_nature", a.cost_nature.map(|n| n.to_string())),
+    ];
+    cols.extend(audit_cols(
+        c.active,
+        &c.created_by,
+        &c.created_dept,
+        c.created_on,
+        c.updated_by.as_deref(),
+        c.updated_on,
+        &c.stamp,
+    ));
+    row(cols)
+}
+
+impl State {
+    /// 寫一筆異動記錄；操作情境取自 change_log::current()，沒有時記為 db（直接修改資料）
+    fn log_change(
+        &mut self,
+        plant: &PlantId,
+        table: &str,
+        key: Vec<(&str, String)>,
+        before: Option<Row>,
+        after: Option<Row>,
+        masked: &[&str],
+    ) {
+        let ctx = change_log::current();
+        let changed = change_log::changed_fields(before.as_ref(), after.as_ref());
+        let masked_row = |r: Option<Row>| {
+            r.map(|mut r| {
+                change_log::mask(&mut r, masked);
+                r
+            })
+        };
+        let operation = match (&before, &after) {
+            (None, _) => "insert".to_owned(),
+            (_, None) => "delete".to_owned(),
+            _ => ctx
+                .as_ref()
+                .and_then(|c| c.operation.clone())
+                .unwrap_or_else(|| "update".to_owned()),
+        };
+        let version = after
+            .as_ref()
+            .or(before.as_ref())
+            .and_then(|r| r.get("version").cloned().flatten())
+            .and_then(|v| v.parse().ok());
+        let change_id = i64::try_from(self.changes.len()).unwrap_or(i64::MAX - 1) + 1;
+        let record = ChangeRecord {
+            change_id,
+            occurred_at: Utc::now(),
+            table_name: table.to_owned(),
+            record_key: key.into_iter().map(|(k, v)| (k.to_owned(), v)).collect(),
+            operation,
+            before: masked_row(before),
+            after: masked_row(after),
+            changed_fields: changed,
+            version,
+            user_id: ctx
+                .as_ref()
+                .map_or_else(|| "db:memory".to_owned(), |c| c.user_id.clone()),
+            user_dept: ctx.as_ref().map(|c| c.user_dept.clone()),
+            actor_kind: ctx.as_ref().map_or("db", |c| c.actor_kind).to_owned(),
+            on_behalf_of: ctx.as_ref().and_then(|c| c.on_behalf_of.clone()),
+            program: ctx.as_ref().map(|c| c.program.clone()),
+            action: ctx.as_ref().map(|c| c.action.clone()),
+            request_id: ctx.as_ref().map(|c| c.request.request_id.clone()),
+            client_ip: ctx.as_ref().and_then(|c| c.request.client_ip.clone()),
+            user_agent: ctx.as_ref().and_then(|c| c.request.user_agent.clone()),
+            reason: ctx.as_ref().and_then(|c| c.reason.clone()),
+        };
+        self.changes.push((Some(plant.clone()), record));
+    }
+}
+
+#[async_trait]
+impl ChangeLogRepository for InMemoryStore {
+    async fn history(
+        &self,
+        plant: Option<&PlantId>,
+        table: &str,
+        key: &BTreeMap<String, String>,
+    ) -> Result<Vec<ChangeRecord>, RepoError> {
+        Ok(self
+            .lock()
+            .changes
+            .iter()
+            .filter(|(p, r)| p.as_ref() == plant && r.table_name == table && &r.record_key == key)
+            .map(|(_, r)| r.clone())
+            .collect())
     }
 }

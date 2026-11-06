@@ -298,3 +298,11 @@ a.md-button { text-decoration: none; }
 .sign-in-form { display: flex; flex-direction: column; gap: 20px; }
 .sign-in-form button[type="submit"] { width: 100%; height: 44px; margin-top: 4px; }
 @media (max-width: 480px) { .sign-in-card { padding: 24px 20px; } }
+
+/* 異動記錄對話框（ADR 0012 §8） */
+.history-list { display: flex; flex-direction: column; gap: 16px; }
+.history-entry { border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; padding: 12px; }
+.history-entry__head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 8px; }
+.history-entry__fields { width: 100%; }
+.history-before { color: var(--md-sys-color-on-surface-variant); text-decoration: line-through; }
+.history-after { color: var(--md-sys-color-primary); }

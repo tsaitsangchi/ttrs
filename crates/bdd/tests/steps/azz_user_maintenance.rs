@@ -59,6 +59,7 @@ pub(crate) async fn ensure_dept(w: &ErpWorld, plant: &str, code: Option<&str>) {
     };
     if w.departments.get(&w.actor, plant, code).await.is_err() {
         let dept = DepartmentInput {
+            version: None,
             dept_code: code.into(),
             name: Some(code.into()),
             full_name: None,

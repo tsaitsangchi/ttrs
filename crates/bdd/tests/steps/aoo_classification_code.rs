@@ -48,14 +48,18 @@ async fn create(w: &mut ErpWorld, kind: String, code: String, description: Strin
 
 #[when(expr = "使用者刪除類別 {string} 的分類碼 {string}")]
 async fn delete(w: &mut ErpWorld, kind: String, code: String) {
-    w.last = Some(w.classification.delete(&w.actor, PLANT, &kind, &code).await);
+    w.last = Some(
+        w.classification
+            .delete(&w.actor, PLANT, &kind, &code, None)
+            .await,
+    );
 }
 
 #[when(expr = "使用者停用類別 {string} 的分類碼 {string}")]
 async fn deactivate(w: &mut ErpWorld, kind: String, code: String) {
     let result = w
         .classification
-        .set_active(&w.actor, PLANT, &kind, &code, false)
+        .set_active(&w.actor, PLANT, &kind, &code, false, None)
         .await;
     w.last = Some(result.map(drop));
 }

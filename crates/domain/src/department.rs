@@ -5,6 +5,7 @@
 
 use chrono::NaiveDate;
 
+use crate::record::Stamp;
 use crate::{
     DomainError,
     lang::normalize_text,
@@ -132,6 +133,8 @@ pub struct Department {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本與建立、修改時間（ADR 0012 §1）
+    pub stamp: Stamp,
 }
 
 impl Department {
@@ -153,6 +156,7 @@ impl Department {
             created_on: today,
             updated_by: None,
             updated_on: None,
+            stamp: Stamp::default(),
         }
     }
 

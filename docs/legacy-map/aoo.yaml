@@ -59,6 +59,7 @@ tables:
       - { legacy: azfgrup, type: varchar2(10), target: created_dept, sch: 使用者部門 }
       - { legacy: azfmodu, type: varchar2(10), target: updated_by, sch: 最後修改資料者 }
       - { legacy: azfdate, type: date, target: "created_on / updated_on", sch: 最後修改日期, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護（ADR 0012 §1、§4）；轉入時 version＝1、created_at＝轉檔時間、updated_at 空白" }
     not_ported:
       - { legacy: azf04,  type: number(5), sch: 保稅異動類別, reason: "保稅相關類別（第一階段未開放的類別使用），等相關作業移植時加入" }
       - { legacy: azf07,  type: varchar2(24), sch: 會計科目, reason: "只有類別 H（aooi313）使用，第一階段未開放" }
@@ -89,6 +90,7 @@ tables:
       - { legacy: gemgrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
       - { legacy: gemmodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
       - { legacy: gemdate, type: date, target: updated_on, sch: 最近修改日 }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護（ADR 0012 §1、§4）；轉入時 version＝1、created_at＝轉檔時間、updated_at 空白" }
     not_ported:
       - { legacy: gem04, type: varchar2(6), sch: No Use, reason: 未使用 }
       - { legacy: gem06, type: varchar2(1), sch: No Use, reason: 未使用 }
@@ -112,3 +114,19 @@ tables:
       - { legacy: gengrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
       - { legacy: genmodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
       - { legacy: gendate, type: date, target: updated_on, sch: 最近修改日 }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護（ADR 0012 §1、§4）；轉入時 version＝1、created_at＝轉檔時間、updated_at 空白" }
+
+  - legacy: azo_file
+    target: change_log
+    scope: plant
+    program: 各維護作業（176 支程式自行 INSERT，例如 aimi100.4gl:4399-4405、:7154-7160）
+    spec: specs/features/azz/change_history.feature
+    note: "系統重要資料修改記錄檔；TTRS 改為觸發器自動記錄每次新增、修改、刪除的改前改後（ADR 0012）。工廠層表在各工廠 schema 的 change_log；共用層表於第二階段加入 public.change_log。舊記錄只有一句說明，不轉入"
+    columns:
+      - { legacy: azo01, type: varchar2(20), target: program, sch: 程式編號 }
+      - { legacy: azo02, type: varchar2(10), target: user_id, sch: 異動人員 }
+      - { legacy: azo03, type: date, target: occurred_at, sch: 異動日期, note: "與 azo04 合併為交易時間 timestamptz" }
+      - { legacy: azo04, type: varchar2(10), target: occurred_at, sch: 異動時間, note: "與 azo03 合併" }
+      - { legacy: azo05, type: varchar2(80), target: record_key, sch: 異動資料的 KEY VALUE, note: "改為 jsonb（主鍵欄位與值）" }
+      - { legacy: azo06, type: varchar2(80), target: operation, sch: 異動說明, note: "改為動作代號（insert／update／delete／activate…）＋改前改後整筆內容（before／after）" }
+

@@ -92,6 +92,10 @@ pub struct ErpWorld {
     pub emergency: EmergencyService,
     /// 最近一次產生的報表資料（department_report.feature）
     pub report: Option<ttrs_app::report::ReportData>,
+    /// 最近一次查詢的異動記錄（change_history.feature）
+    pub history: Option<Vec<ttrs_shared::ChangeDto>>,
+    /// 以應用程式的資料庫角色修改異動記錄是否被拒（CH-9）
+    pub db_denied: Option<bool>,
     /// 最近一次 ttrs-admin 指令的結果
     pub command: Option<Result<ttrs_api::admin_cli::AdminOutput, ttrs_api::admin_cli::AdminError>>,
 }
@@ -202,6 +206,8 @@ impl ErpWorld {
             emergency,
             command: None,
             report: None,
+            history: None,
+            db_denied: None,
         }
     }
 }
@@ -218,14 +224,18 @@ fn main() {
         if database_url().is_some() {
             cucumber = cucumber.max_concurrent_scenarios(1);
         }
-        // @draft：規格審核中、尚未實作，不納入執行
+        // @draft：規格審核中、尚未實作，不納入執行；@pg：只對 PostgreSQL 有意義（資料庫權限、觸發器，CH9）
+        let pg = database_url().is_some();
         cucumber
             .fail_on_skipped()
-            .filter_run_and_exit(features, |feature, rule, scenario| {
-                let is_draft = |tags: &[String]| tags.iter().any(|t| t == "draft");
-                !(is_draft(&feature.tags)
-                    || rule.is_some_and(|r| is_draft(&r.tags))
-                    || is_draft(&scenario.tags))
+            .filter_run_and_exit(features, move |feature, rule, scenario| {
+                let has = |tags: &[String], tag: &str| tags.iter().any(|t| t == tag);
+                let tagged = |tag: &str| {
+                    has(&feature.tags, tag)
+                        || rule.is_some_and(|r| has(&r.tags, tag))
+                        || has(&scenario.tags, tag)
+                };
+                !(tagged("draft") || (!pg && tagged("pg")))
             })
             .await;
     });

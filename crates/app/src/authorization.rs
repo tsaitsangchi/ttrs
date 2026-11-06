@@ -80,14 +80,19 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "department-maintenance",
         "aooi030",
         "AOO",
-        "query, detail, account, output, exporttoexcel",
+        "query, detail, account, output, exporttoexcel, history",
     ),
-    ("employee-maintenance", "aooi040", "AOO", "query, detail"),
+    (
+        "employee-maintenance",
+        "aooi040",
+        "AOO",
+        "query, detail, history",
+    ),
     (
         "classification-code-maintenance",
         "aooi300",
         "AOO",
-        "query, detail",
+        "query, detail, history",
     ),
 ];
 

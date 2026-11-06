@@ -15,6 +15,7 @@ memory = []
 argon2.workspace = true
 chrono.workspace = true
 getrandom.workspace = true
+tokio.workspace = true
 sha2 = "0.10"
 ttrs-domain.workspace = true
 ttrs-shared.workspace = true

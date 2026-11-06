@@ -12,11 +12,14 @@ use ttrs_domain::{
     department::{Accounting, Department, DepartmentAttrs, DeptCode},
     plant::PlantId,
 };
-use ttrs_shared::{DepartmentAccountingInput, DepartmentDto, DepartmentInput, Page, QueryRequest};
+use ttrs_shared::{
+    ChangeDto, DepartmentAccountingInput, DepartmentDto, DepartmentInput, Page, QueryRequest,
+};
 
 use crate::{
     Actor, AppError, Authorizer,
     authorization::Grant,
+    change_log::HistoryReader,
     error::RepoError,
     ports::{
         AuditEntry, AuditLog, DepartmentRepository, MasterDataRepository, PlantRepository,
@@ -40,6 +43,7 @@ pub struct DepartmentService {
     plants: Arc<dyn PlantRepository>,
     programs: Arc<dyn ProgramRepository>,
     audit: Arc<dyn AuditLog>,
+    history: HistoryReader,
     /// 同步產生報表的筆數上限（ADR 0011 RP6、DR10）
     report_limit: u64,
 }
@@ -52,6 +56,7 @@ impl DepartmentService {
         plants: Arc<dyn PlantRepository>,
         programs: Arc<dyn ProgramRepository>,
         audit: Arc<dyn AuditLog>,
+        history: HistoryReader,
     ) -> Self {
         Self {
             authz,
@@ -60,6 +65,7 @@ impl DepartmentService {
             plants,
             programs,
             audit,
+            history,
             report_limit: MAX_SYNC_ROWS,
         }
     }
@@ -255,19 +261,25 @@ impl DepartmentService {
         plant: &str,
         input: DepartmentInput,
     ) -> Result<DepartmentDto, AppError> {
-        self.authorize(actor, "detail").await?.add_row()?;
-        let plant = PlantId::parse(plant)?;
-        if !self.master.plant_active(&plant).await.map_err(infra)? {
-            return Err(DomainError::PlantNotFound.into());
-        }
-        let code = DeptCode::parse(&input.dept_code)?;
-        let attrs = DepartmentAttrs::new(input.name, input.full_name)?;
-        let dept = Department::new(code, attrs, &actor.user_id, &actor.dept, today());
-        match self.depts.insert(&plant, &dept).await {
-            Ok(()) => self.to_dto(&plant, &dept).await,
-            Err(RepoError::Conflict) => Err(DomainError::DepartmentAlreadyExists.into()),
-            Err(e) => Err(infra(e)),
-        }
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?.add_row()?;
+            let plant = PlantId::parse(plant)?;
+            if !self.master.plant_active(&plant).await.map_err(infra)? {
+                return Err(DomainError::PlantNotFound.into());
+            }
+            let code = DeptCode::parse(&input.dept_code)?;
+            let attrs = DepartmentAttrs::new(input.name, input.full_name)?;
+            let dept = Department::new(code, attrs, &actor.user_id, &actor.dept, today());
+            match self.depts.insert(&plant, &dept).await {
+                Ok(()) => {
+                    let saved = self.load(&plant, dept.code.as_str()).await?;
+                    self.to_dto(&plant, &saved).await
+                }
+                Err(RepoError::Conflict) => Err(DomainError::DepartmentAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
     }
 
     /// 修改基本欄位：部門編號建立後不可修改（DQ2）
@@ -278,18 +290,23 @@ impl DepartmentService {
         code: &str,
         input: DepartmentInput,
     ) -> Result<DepartmentDto, AppError> {
-        self.authorize(actor, "detail").await?;
-        let plant = PlantId::parse(plant)?;
-        let mut dept = self.load(&plant, code).await?;
-        if !input.dept_code.trim().is_empty() && DeptCode::parse(&input.dept_code)? != dept.code {
-            return Err(DomainError::DepartmentCodeImmutable.into());
-        }
-        dept.update(
-            DepartmentAttrs::new(input.name, input.full_name)?,
-            &actor.user_id,
-            today(),
-        );
-        self.save(&plant, &dept).await
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?;
+            let plant = PlantId::parse(plant)?;
+            let mut dept = self.load(&plant, code).await?;
+            dept.stamp.check(input.version)?;
+            if !input.dept_code.trim().is_empty() && DeptCode::parse(&input.dept_code)? != dept.code
+            {
+                return Err(DomainError::DepartmentCodeImmutable.into());
+            }
+            dept.update(
+                DepartmentAttrs::new(input.name, input.full_name)?,
+                &actor.user_id,
+                today(),
+            );
+            self.save(&plant, &dept).await
+        })
+        .await
     }
 
     /// 會計資料維護（aooi030 account，:1260-1277）：對應成本中心須為有效的部門（:402-420）
@@ -300,33 +317,37 @@ impl DepartmentService {
         code: &str,
         input: DepartmentAccountingInput,
     ) -> Result<DepartmentDto, AppError> {
-        self.authorize(actor, "account").await?;
-        let plant = PlantId::parse(plant)?;
-        let mut dept = self.load(&plant, code).await?;
-        let accounting = Accounting::new(
-            &dept.code,
-            input.accounting_dept,
-            input.expense_type.as_deref(),
-            &input.control_type,
-            input.cost_center.as_deref(),
-        )?;
-        if let Some(cc) = &accounting.cost_center
-            && cc != &dept.code
-        {
-            let ok = self
-                .depts
-                .get(&plant, cc)
-                .await
-                .map_err(infra)?
-                .is_some_and(|d| d.active);
-            if !ok {
-                return Err(
-                    DomainError::DepartmentCostCenterInvalid(cc.as_str().to_owned()).into(),
-                );
+        crate::change_log::run(actor, PROGRAM, "account", async {
+            self.authorize(actor, "account").await?;
+            let plant = PlantId::parse(plant)?;
+            let mut dept = self.load(&plant, code).await?;
+            dept.stamp.check(input.version)?;
+            let accounting = Accounting::new(
+                &dept.code,
+                input.accounting_dept,
+                input.expense_type.as_deref(),
+                &input.control_type,
+                input.cost_center.as_deref(),
+            )?;
+            if let Some(cc) = &accounting.cost_center
+                && cc != &dept.code
+            {
+                let ok = self
+                    .depts
+                    .get(&plant, cc)
+                    .await
+                    .map_err(infra)?
+                    .is_some_and(|d| d.active);
+                if !ok {
+                    return Err(
+                        DomainError::DepartmentCostCenterInvalid(cc.as_str().to_owned()).into(),
+                    );
+                }
             }
-        }
-        dept.set_accounting(accounting, &actor.user_id, today());
-        self.save(&plant, &dept).await
+            dept.set_accounting(accounting, &actor.user_id, today());
+            self.save(&plant, &dept).await
+        })
+        .await
     }
 
     /// 停用（資料有效 → 無效）：一律允許（DQ5）
@@ -335,8 +356,12 @@ impl DepartmentService {
         actor: &Actor,
         plant: &str,
         code: &str,
+        version: Option<i32>,
     ) -> Result<DepartmentDto, AppError> {
-        self.set_active(actor, plant, code, false).await
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.set_active(actor, plant, code, false, version).await
+        })
+        .await
     }
 
     pub async fn activate(
@@ -344,21 +369,36 @@ impl DepartmentService {
         actor: &Actor,
         plant: &str,
         code: &str,
+        version: Option<i32>,
     ) -> Result<DepartmentDto, AppError> {
-        self.set_active(actor, plant, code, true).await
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.set_active(actor, plant, code, true, version).await
+        })
+        .await
     }
 
     /// 刪除：還有員工時拒絕（aoo-105，DQ5）；TipTop 在單身刪除列，需 detail 與單身刪除權限
-    pub async fn delete(&self, actor: &Actor, plant: &str, code: &str) -> Result<(), AppError> {
-        self.authorize(actor, "detail").await?.delete_row()?;
-        let plant = PlantId::parse(plant)?;
-        let code = DeptCode::parse(code).map_err(|_| DomainError::DepartmentNotFound)?;
-        match self.depts.delete(&plant, &code).await {
-            Ok(true) => Ok(()),
-            Ok(false) => Err(DomainError::DepartmentNotFound.into()),
-            Err(RepoError::InUse) => Err(DomainError::DepartmentInUse.into()),
-            Err(e) => Err(infra(e)),
-        }
+    pub async fn delete(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        code: &str,
+        version: Option<i32>,
+    ) -> Result<(), AppError> {
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?.delete_row()?;
+            let plant = PlantId::parse(plant)?;
+            let dept = self.load(&plant, code).await?;
+            dept.stamp.check(version)?;
+            let code = dept.code;
+            match self.depts.delete(&plant, &code).await {
+                Ok(true) => Ok(()),
+                Ok(false) => Err(DomainError::DepartmentNotFound.into()),
+                Err(RepoError::InUse) => Err(DomainError::DepartmentInUse.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
     }
 
     async fn set_active(
@@ -367,17 +407,47 @@ impl DepartmentService {
         plant: &str,
         code: &str,
         active: bool,
+        version: Option<i32>,
     ) -> Result<DepartmentDto, AppError> {
         self.authorize(actor, "detail").await?;
         let plant = PlantId::parse(plant)?;
         let mut dept = self.load(&plant, code).await?;
+        dept.stamp.check(version)?;
+        crate::change_log::set_operation(if active { "activate" } else { "deactivate" });
         dept.set_active(active, &actor.user_id, today());
         self.save(&plant, &dept).await
     }
 
+    /// 存檔：版本不符（他人已修改）→ RECORD_CHANGED；回傳重新讀取的資料（新版本號與修改時間）
     async fn save(&self, plant: &PlantId, dept: &Department) -> Result<DepartmentDto, AppError> {
-        self.depts.update(plant, dept).await.map_err(infra)?;
-        self.to_dto(plant, dept).await
+        match self.depts.update(plant, dept).await {
+            Ok(()) => {}
+            Err(RepoError::Stale) => return Err(DomainError::RecordChanged.into()),
+            Err(e) => return Err(infra(e)),
+        }
+        let saved = self.load(plant, dept.code.as_str()).await?;
+        self.to_dto(plant, &saved).await
+    }
+
+    /// 異動記錄（ADR 0012 §8，功能 history）
+    pub async fn history(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        code: &str,
+        lang: Option<&str>,
+    ) -> Result<Vec<ChangeDto>, AppError> {
+        self.authorize(actor, "history").await?;
+        let plant = PlantId::parse(plant)?;
+        let code = DeptCode::parse(code).map_err(|_| DomainError::DepartmentNotFound)?;
+        self.history
+            .read(
+                Some(&plant),
+                "department",
+                &[("dept_code", code.as_str())],
+                lang,
+            )
+            .await
     }
 
     async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
@@ -421,6 +491,9 @@ impl DepartmentService {
             created_on: d.created_on,
             updated_by: d.updated_by.clone(),
             updated_on: d.updated_on,
+            version: d.stamp.version,
+            created_at: d.stamp.created_at,
+            updated_at: d.stamp.updated_at,
         })
     }
 }

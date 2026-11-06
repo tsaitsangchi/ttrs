@@ -333,14 +333,17 @@
       | department-maintenance | detail                     | 刪除部門 D01               |
       | department-maintenance | output                     | 列印部門                   |
       | department-maintenance | exporttoexcel              | 匯出部門為 Excel           |
+      | department-maintenance | history                    | 查詢部門 D01 的異動記錄    |
       | employee-maintenance | query                      | 查詢員工                   |
       | employee-maintenance | detail                     | 新增員工 E01               |
       | employee-maintenance | detail                     | 刪除員工 E01               |
+      | employee-maintenance | history                    | 查詢員工 E01 的異動記錄    |
       | classification-code-maintenance | query           | 查詢分類碼 D               |
       | classification-code-maintenance | detail          | 新增分類碼 D X01           |
       | classification-code-maintenance | detail          | 修改分類碼 D X01           |
       | classification-code-maintenance | detail          | 停用分類碼 D X01           |
       | classification-code-maintenance | detail          | 刪除分類碼 D X01           |
+      | classification-code-maintenance | history         | 查詢分類碼 D X01 的異動記錄 |
 
   # AQ2 權限檢查在輸入檢查之前
   場景: 沒有權限時先回權限錯誤

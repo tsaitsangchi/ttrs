@@ -8,6 +8,7 @@ use ttrs_shared::{
 };
 
 use crate::api;
+use crate::components::history::HistoryDialog;
 use crate::components::material::{
     Button, ButtonVariant, Card, Dialog, Notification, NotificationKind, Select, Tabs, TextField,
     Tone, icons,
@@ -69,6 +70,8 @@ fn ClassificationCodePage() -> Element {
     let mut editor = use_signal(|| None::<Editor>);
     let mut form = use_signal(ClassificationCodeInput::default);
     let mut dialog_error = use_signal(|| None::<String>);
+    // 異動記錄對話框（ADR 0012 §8）：（鍵值, 記錄）
+    let mut history = use_signal(|| None::<(String, Vec<ttrs_shared::ChangeDto>)>);
 
     let list: Vec<ClassificationCodeDto> = codes
         .read()
@@ -122,6 +125,7 @@ fn ClassificationCodePage() -> Element {
 
     let cur_edit = cur.clone();
     let cur_delete = cur.clone();
+    let cur_history = cur.clone();
     let cur_toggle = cur.clone();
     let inactive = cur.as_ref().is_some_and(|c| !c.active);
     let v = form();
@@ -180,6 +184,25 @@ fn ClassificationCodePage() -> Element {
                         {t("common-action-edit")}
                     }
                 }
+                if perm.can("history") {
+                    Button {
+                        icon: icons::HISTORY, tone: Tone::Primary,
+                        variant: ButtonVariant::Outlined,
+                        disabled: no_cur,
+                        onclick: move |_| {
+                            let Some(c) = cur_history.clone() else { return };
+                            let p = plant();
+                                            let k = kind();
+                            spawn(async move {
+                                match api::code_history(&p, &k, &c.code).await {
+                                    Ok(h) => history.set(Some((c.code.clone(), h))),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        },
+                        {t("common-action-history")}
+                    }
+                }
                 if perm.delete_row() {
                     Button {
                         icon: icons::DELETE, tone: Tone::Error,
@@ -190,7 +213,7 @@ fn ClassificationCodePage() -> Element {
                             let p = plant();
                             let k = kind();
                             spawn(async move {
-                                match api::delete_code(&p, &k, &c.code).await {
+                                match api::delete_code(&p, &k, &c.code, c.version).await {
                                     Ok(()) => done(tf("code-msg-deleted", &[("code", c.code.as_str())]), None),
                                     Err(e) => error.set(Some(e)),
                                 }
@@ -210,7 +233,7 @@ fn ClassificationCodePage() -> Element {
                             let p = plant();
                             let k = kind();
                             spawn(async move {
-                                match api::set_code_active(&p, &k, &c.code, !c.active).await {
+                                match api::set_code_active(&p, &k, &c.code, !c.active, c.version).await {
                                     Ok(r) => {
                                         let id = if r.active { "code-msg-activated" } else { "code-msg-deactivated" };
                                         done(tf(id, &[("code", r.code.as_str())]), Some(r.code));
@@ -286,6 +309,9 @@ fn ClassificationCodePage() -> Element {
                 }
             }
 
+            if let Some((key, changes)) = history() {
+                HistoryDialog { record: key, changes, onclose: move |_| history.set(None) }
+            }
             if let Some(ed) = editor() {
                 Dialog {
                     title: match &ed {

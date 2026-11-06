@@ -5,11 +5,13 @@
 # 規則來源：docs/adr/0012-change-history.md（AU1–AU16 已確認，Key User 2026-11-06）；
 #           tiptop/aoo/sch/azo_file.sch、tiptop/aoo/sch/gem_file.sch、tiptop/aim/4gl/aimi100.4gl:4399-4405、:7154-7160、
 #           tiptop/lib/4gl/cl_log.4gl:40-142；無 topcust 覆寫。
-# 狀態：規格草稿，待確認 CH1–CH9
+# 狀態：CH1–CH9 依建議確認（Key User，2026-11-06），進入 Red。
+#   實作分兩階段：第一階段工廠層的表（department、employee、classification_code）與共用機制；
+#   第二階段共用層的表（CH1 其餘各表，寫入改為在交易內執行並設定操作情境），CH-7 標 @draft 待第二階段。
 #
 # 範例以部門維護（工廠層）與使用者維護（共用層）說明；規則適用於 CH1 所列的每張表。
 #
-# 待確認：
+# 確認事項（皆採建議）：
 #  CH1. 第一階段套用的表（AU1；之後新作業建表時一併套用）：
 #       | 層級 | 資料表 | 對應作業 |
 #       | 共用 | program、program_name | 程式資料維護 |
@@ -45,7 +47,6 @@
 #  | SELECT … FOR UPDATE 編輯鎖 | 改為 version 樂觀鎖 |
 #  | xxxdate 只到日 | 改為 updated_at（timestamptz） |
 
-@draft
 功能: 資料異動記錄（Change History）
   身為 負責查核的人員
   我想要 查到每筆資料由誰、在何時、透過哪支程式、把哪些欄位從什麼改成什麼
@@ -100,7 +101,8 @@
     當 AI 代表使用者 "mary" 將部門 "MIS" 的簡稱改為 "資訊處"
     那麼 部門 "MIS" 最新一筆異動記錄的操作者類型應為 "ai"，代表 "mary"
 
-  # §2 request_id（AU15、CH2）
+  # §2 request_id（AU15、CH2）；第二階段（共用層的表）
+  @draft
   場景: CH-7 主檔與子表一次存檔以同一個請求代號串起來
     假設 使用者 "mary" 可使用營運中心 "TW01"
     當 使用者將 "mary" 的可使用營運中心改為 "TW01、TW02"，預設 "TW02"
@@ -128,19 +130,14 @@
     那麼 部門 "MIS" 最新一筆異動記錄的操作者類型應為 "db"
     而且 部門 "MIS" 的版本應為 2
 
-  # §8 異動記錄功能與權限（AU11）
+  # §8 異動記錄功能與權限（AU11）；各作業的 history 功能另列在 authorization.feature 對照表。
+  # 查詢資料目前不套用資料權限（ADR 0006 只有修改、刪除才套用），異動記錄比照查詢；刪除後的資料仍可查（CH-3）。
   場景: CH-11 沒有異動記錄權限時不可查詢
     假設 營運中心 "TW01" 已有部門 "MIS"，簡稱 "資訊部"
-    而且 權限類別 "CLASS1" 的程式 "department-maintenance" 只有功能 "query"
-    而且 已啟用權限檢查
-    當 使用者查詢部門 "MIS" 的異動記錄
-    那麼 應出現錯誤 "PERMISSION_DENIED"
-
-  # §8 資料權限與查詢相同
-  場景: CH-12 查不到的資料也查不到異動記錄
-    假設 營運中心 "TW01" 已有部門 "MIS"，簡稱 "資訊部"
-    而且 使用者只能查詢自己部門建立的資料
-    而且 部門 "MIS" 由部門 "SAL" 的使用者建立
-    而且 已啟用權限檢查
-    當 使用者查詢部門 "MIS" 的異動記錄
+    而且 權限類別 "CLASS1" 已存在
+    而且 模組 "AZZ" 已存在
+    而且 模組 "AOO" 已存在
+    而且 模組 "AIM" 已存在
+    而且 已登錄 TTRS 已移植的作業
+    當 權限類別 "CLASS1" 在作業 "department-maintenance" 沒有功能 "history" 時，目前使用者執行 "查詢部門 MIS 的異動記錄"
     那麼 應出現錯誤 "PERMISSION_DENIED"

@@ -158,6 +158,12 @@ pub enum DomainError {
     // 報表（ADR 0011）
     #[error("資料超過 {limit} 筆，請縮小條件後再列印")]
     ReportTooLarge { limit: u64 },
+
+    // 異動記錄（ADR 0012 §4）
+    #[error("資料已被他人修改，請重新查詢")]
+    RecordChanged,
+    #[error("修改、刪除、啟用或停用時須帶版本號")]
+    VersionRequired,
     #[error("此公司帳號尚未在 TTRS 註冊，請洽系統管理員")]
     UserNotRegistered,
     #[error("使用者已停用")]
@@ -367,6 +373,8 @@ impl DomainError {
             Self::CodeNotFound => "CODE_NOT_FOUND",
             Self::CodeInUse => "CODE_IN_USE",
             Self::ReportTooLarge { .. } => "REPORT_TOO_LARGE",
+            Self::RecordChanged => "RECORD_CHANGED",
+            Self::VersionRequired => "VERSION_REQUIRED",
             Self::UserNotRegistered => "USER_NOT_REGISTERED",
             Self::UserInactive => "USER_INACTIVE",
             Self::UserExpired => "USER_EXPIRED",

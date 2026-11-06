@@ -99,3 +99,19 @@ common-field-updated-on = Last modified on
 common-status-active = Active
 common-status-inactive = Inactive
 common-tab-basic = Basic data
+
+# Change history (ADR 0012 §8, action history)
+common-action-history = History
+history-dialog-title = Change history: { $key }
+history-msg-none = No changes recorded
+history-op-insert = Created
+history-op-update = Modified
+history-op-delete = Deleted
+history-op-activate = Activated
+history-op-deactivate = Deactivated
+history-actor-ai = AI (on behalf of { $user })
+history-actor-db = Direct database change ({ $user })
+history-version = Version { $version }
+history-col-field = Field
+history-col-before = Before
+history-col-after = After

@@ -9,6 +9,7 @@ use ttrs_shared::{
 };
 
 use crate::api;
+use crate::components::history::HistoryDialog;
 use crate::components::material::{
     Button, ButtonVariant, Card, Dialog, Notification, NotificationKind, Select, Tabs, TextField,
     Tone, icons,
@@ -105,6 +106,8 @@ fn EmployeeMaintenancePage() -> Element {
     let mut editor = use_signal(|| None::<Editor>);
     let mut form = use_signal(EmployeeInput::default);
     let mut dialog_error = use_signal(|| None::<String>);
+    // 異動記錄對話框（ADR 0012 §8）：（鍵值, 記錄）
+    let mut history = use_signal(|| None::<(String, Vec<ttrs_shared::ChangeDto>)>);
     let col_tab = use_signal(|| 0usize);
     let status_tab = col_tab() == 1;
     let cols = if status_tab {
@@ -195,6 +198,7 @@ fn EmployeeMaintenancePage() -> Element {
 
     let cur_edit = cur.clone();
     let cur_delete = cur.clone();
+    let cur_history = cur.clone();
     let cur_toggle = cur.clone();
     let v = form();
     let current_dept = v.dept_code.clone().unwrap_or_default();
@@ -265,6 +269,24 @@ fn EmployeeMaintenancePage() -> Element {
                             {t("common-action-edit")}
                         }
                     }
+                    if perm.can("history") {
+                        Button {
+                            icon: icons::HISTORY, tone: Tone::Primary,
+                            variant: ButtonVariant::Outlined,
+                            disabled: no_cur,
+                            onclick: move |_| {
+                                let Some(e) = cur_history.clone() else { return };
+                                let p = plant();
+                                spawn(async move {
+                                    match api::history(&p, "employees", &e.employee_id).await {
+                                        Ok(h) => history.set(Some((e.employee_id.clone(), h))),
+                                        Err(e) => error.set(Some(e)),
+                                    }
+                                });
+                            },
+                            {t("common-action-history")}
+                        }
+                    }
                     if perm.delete_row() {
                         Button {
                             icon: icons::DELETE, tone: Tone::Error,
@@ -274,7 +296,7 @@ fn EmployeeMaintenancePage() -> Element {
                                 let Some(e) = cur_delete.clone() else { return };
                                 let p = plant();
                                 spawn(async move {
-                                    match api::delete_employee(&p, &e.employee_id).await {
+                                    match api::delete_employee(&p, &e.employee_id, e.version).await {
                                         Ok(()) => done(tf("emp-msg-deleted", &[("id", e.employee_id.as_str())]), None),
                                         Err(err) => error.set(Some(err)),
                                     }
@@ -292,7 +314,7 @@ fn EmployeeMaintenancePage() -> Element {
                                 let Some(e) = cur_toggle.clone() else { return };
                                 let p = plant();
                                 spawn(async move {
-                                    match api::set_employee_active(&p, &e.employee_id, !e.active).await {
+                                    match api::set_employee_active(&p, &e.employee_id, !e.active, e.version).await {
                                         Ok(r) => {
                                             let id = if r.active { "emp-msg-activated" } else { "emp-msg-deactivated" };
                                             done(tf(id, &[("id", r.employee_id.as_str())]), Some(r.employee_id));
@@ -382,6 +404,9 @@ fn EmployeeMaintenancePage() -> Element {
                 ListPager { page, pages }
             }
 
+            if let Some((key, changes)) = history() {
+                HistoryDialog { record: key, changes, onclose: move |_| history.set(None) }
+            }
             if let Some(ed) = editor() {
                 Dialog {
                     title: match &ed {

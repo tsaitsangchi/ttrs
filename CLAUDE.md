@@ -66,6 +66,8 @@ bdd：驗收測試，執行 specs/features/**/*.feature
 - 新增 repository 方法時，`memory.rs` 與 `infra/pg.rs` 要同時實作且行為一致；
   `TTRS_BDD_DATABASE_URL=... make bdd` 需能對 PostgreSQL 跑同一份規格。
 - Migration 只能新增，不可修改已存在的檔案。
+- 資料維護表一律帶 `version`／`created_at`／`updated_at` 並掛 `ttrs_bump_version`、`ttrs_change_log` 觸發器（ADR 0012）；
+  寫入的 use case 以 `change_log::run(actor, 程式, 功能, …)` 包住，修改／刪除／啟用停用比對版本，記憶體後端同步記錄異動。
 - 不要自行猜測 TipTop 欄位意義；不確定時在 legacy-map 標 `verify: true` 並詢問使用者。
 
 ## 多語言（ADR 0005）

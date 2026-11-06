@@ -26,6 +26,9 @@ pub enum RepoError {
     Conflict,
     #[error("資料仍被其他資料參照")]
     InUse,
+    /// 版本不符：資料已被他人修改（樂觀鎖，ADR 0012 §4）
+    #[error("資料已被他人修改")]
+    Stale,
     #[error("{0}")]
     Other(String),
 }

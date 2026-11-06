@@ -32,6 +32,7 @@ async fn employee(w: &ErpWorld, plant: &str, id: &str) -> EmployeeDto {
 
 fn dept_input(code: &str, name: &str, full_name: &str) -> DepartmentInput {
     DepartmentInput {
+        version: None,
         dept_code: code.into(),
         name: text(name),
         full_name: text(full_name),
@@ -77,7 +78,7 @@ async fn existing_dept(w: &mut ErpWorld, plant: String, code: String) {
 #[given(expr = "使用者停用 {string} 部門 {string}")]
 async fn dept_deactivated(w: &mut ErpWorld, plant: String, code: String) {
     w.departments
-        .deactivate(&w.actor, &plant, &code)
+        .deactivate(&w.actor, &plant, &code, None)
         .await
         .unwrap();
 }
@@ -126,7 +127,7 @@ async fn change_control_cc(w: &mut ErpWorld, plant: String, code: String, v: Str
 
 #[when(expr = "使用者刪除 {string} 部門 {string}")]
 async fn delete_dept(w: &mut ErpWorld, plant: String, code: String) {
-    let result = w.departments.delete(&w.actor, &plant, &code).await;
+    let result = w.departments.delete(&w.actor, &plant, &code, None).await;
     w.last = Some(result);
 }
 
@@ -235,7 +236,7 @@ async fn change_employee_id(w: &mut ErpWorld, plant: String, id: String, new_id:
 
 #[when(expr = "使用者刪除 {string} 員工 {string}")]
 async fn delete_employee(w: &mut ErpWorld, plant: String, id: String) {
-    let result = w.employees.delete(&w.actor, &plant, &id).await;
+    let result = w.employees.delete(&w.actor, &plant, &id, None).await;
     w.last = Some(result);
 }
 

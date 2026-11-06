@@ -305,6 +305,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .map(drop),
         ["新增部門", code] => {
             let req = ttrs_shared::DepartmentInput {
+                version: None,
                 dept_code: (*code).into(),
                 name: Some("部門".into()),
                 full_name: None,
@@ -313,6 +314,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         }
         ["修改部門", code] => {
             let req = ttrs_shared::DepartmentInput {
+                version: None,
                 dept_code: (*code).into(),
                 name: Some("部門".into()),
                 full_name: None,
@@ -330,7 +332,19 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
                 .await
                 .map(drop)
         }
-        ["刪除部門", code] => w.departments.delete(a, "TW01", code).await,
+        ["刪除部門", code] => w.departments.delete(a, "TW01", code, None).await,
+        // 異動記錄（ADR 0012 §8，功能 history）
+        ["查詢部門", code, "的異動記錄"] => {
+            w.departments.history(a, "TW01", code, None).await.map(drop)
+        }
+        ["查詢員工", id, "的異動記錄"] => {
+            w.employees.history(a, "TW01", id, None).await.map(drop)
+        }
+        ["查詢分類碼", kind, code, "的異動記錄"] => w
+            .classification
+            .history(a, "TW01", kind, code, None)
+            .await
+            .map(drop),
         ["列印部門"] => w
             .departments
             .report(a, "TW01", Vec::new(), ttrs_app::report::ReportFormat::Pdf)
@@ -354,7 +368,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             };
             w.employees.create(a, "TW01", req).await.map(drop)
         }
-        ["刪除員工", id] => w.employees.delete(a, "TW01", id).await,
+        ["刪除員工", id] => w.employees.delete(a, "TW01", id, None).await,
         // aooi300 分類碼維護（工廠層，營運中心 TW01）
         ["查詢分類碼", kind] => w.classification.list(a, "TW01", kind).await.map(drop),
         ["新增分類碼", kind, code] => {
@@ -381,10 +395,12 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         }
         ["停用分類碼", kind, code] => w
             .classification
-            .set_active(a, "TW01", kind, code, false)
+            .set_active(a, "TW01", kind, code, false, None)
             .await
             .map(drop),
-        ["刪除分類碼", kind, code] => w.classification.delete(a, "TW01", kind, code).await,
+        ["刪除分類碼", kind, code] => {
+            w.classification.delete(a, "TW01", kind, code, None).await
+        }
         _ => panic!("未定義的操作：{op}（{}）", arg(0)),
     }
 }

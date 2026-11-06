@@ -3,6 +3,7 @@
 
 use chrono::NaiveDate;
 
+use crate::record::Stamp;
 use crate::{
     DomainError, department::DeptCode, lang::normalize_text, program::check_length, user::is_email,
 };
@@ -91,6 +92,8 @@ pub struct Employee {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本與建立、修改時間（ADR 0012 §1）
+    pub stamp: Stamp,
 }
 
 impl Employee {
@@ -111,6 +114,7 @@ impl Employee {
             created_on: today,
             updated_by: None,
             updated_on: None,
+            stamp: Stamp::default(),
         }
     }
 

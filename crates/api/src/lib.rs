@@ -285,6 +285,10 @@ pub fn router(state: AppState) -> Router {
             "/api/plants/{plant}/classification-codes/{kind}/{code}/activate",
             post(activate_code),
         )
+        .route(
+            "/api/plants/{plant}/classification-codes/{kind}/{code}/history",
+            get(code_history),
+        )
         .route("/api/plants/{plant}/departments", post(create_department))
         .route(
             "/api/plants/{plant}/departments/query",
@@ -313,6 +317,10 @@ pub fn router(state: AppState) -> Router {
             "/api/plants/{plant}/departments/{code}/activate",
             post(activate_department),
         )
+        .route(
+            "/api/plants/{plant}/departments/{code}/history",
+            get(department_history),
+        )
         // Employee Maintenance 員工維護（TipTop aooi040；工廠層）
         .route("/api/plants/{plant}/employees", post(create_employee))
         .route("/api/plants/{plant}/employees/query", post(query_employees))
@@ -329,6 +337,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/plants/{plant}/employees/{id}/activate",
             post(activate_employee),
+        )
+        .route(
+            "/api/plants/{plant}/employees/{id}/history",
+            get(employee_history),
         )
         // Plant Maintenance 營運中心維護（TipTop aooi901）
         .route("/api/plants", get(list_plants).post(create_plant))
@@ -397,6 +409,7 @@ pub fn router(state: AppState) -> Router {
             "/api/permission-classes/{code}/delete-permissions-by-menu",
             post(delete_permissions_by_menu),
         )
+        .layer(axum::middleware::from_fn(change_request))
         .layer(TraceLayer::new_for_http())
         .with_state(state)
 }
@@ -839,6 +852,8 @@ impl IntoResponse for HttpError {
             "PASSWORD_CHANGE_REQUIRED" => StatusCode::FORBIDDEN,
             "PLANT_NOT_ALLOWED" | "NO_USABLE_PLANT" => StatusCode::FORBIDDEN,
             "REPORT_TOO_LARGE" => StatusCode::PAYLOAD_TOO_LARGE,
+            "RECORD_CHANGED" => StatusCode::CONFLICT,
+            "VERSION_REQUIRED" => StatusCode::BAD_REQUEST,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
             | "ITEM_HAS_TRANSACTIONS"
@@ -1315,6 +1330,7 @@ async fn update_code(
     Path((plant, kind, code)): Path<(String, String, String)>,
     Json(req): Json<ClassificationCodeInput>,
 ) -> ApiResult<Json<ClassificationCodeDto>> {
+    require_version(req.version)?;
     Ok(Json(
         s.classification
             .update(&s.actor, &plant, &kind, &code, req)
@@ -1325,9 +1341,16 @@ async fn update_code(
 async fn delete_code(
     Ctx(s): Ctx,
     Path((plant, kind, code)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<StatusCode> {
     s.classification
-        .delete(&s.actor, &plant, &kind, &code)
+        .delete(
+            &s.actor,
+            &plant,
+            &kind,
+            &code,
+            Some(require_version(v.version)?),
+        )
         .await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -1335,10 +1358,12 @@ async fn delete_code(
 async fn deactivate_code(
     Ctx(s): Ctx,
     Path((plant, kind, code)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<Json<ClassificationCodeDto>> {
+    let version = Some(require_version(v.version)?);
     Ok(Json(
         s.classification
-            .set_active(&s.actor, &plant, &kind, &code, false)
+            .set_active(&s.actor, &plant, &kind, &code, false, version)
             .await?,
     ))
 }
@@ -1346,10 +1371,12 @@ async fn deactivate_code(
 async fn activate_code(
     Ctx(s): Ctx,
     Path((plant, kind, code)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<Json<ClassificationCodeDto>> {
+    let version = Some(require_version(v.version)?);
     Ok(Json(
         s.classification
-            .set_active(&s.actor, &plant, &kind, &code, true)
+            .set_active(&s.actor, &plant, &kind, &code, true, version)
             .await?,
     ))
 }
@@ -1448,6 +1475,7 @@ async fn update_department(
     Path((plant, code)): Path<(String, String)>,
     Json(req): Json<DepartmentInput>,
 ) -> ApiResult<Json<DepartmentDto>> {
+    require_version(req.version)?;
     Ok(Json(
         s.departments.update(&s.actor, &plant, &code, req).await?,
     ))
@@ -1458,6 +1486,7 @@ async fn set_department_accounting(
     Path((plant, code)): Path<(String, String)>,
     Json(req): Json<DepartmentAccountingInput>,
 ) -> ApiResult<Json<DepartmentDto>> {
+    require_version(req.version)?;
     Ok(Json(
         s.departments
             .set_accounting(&s.actor, &plant, &code, req)
@@ -1468,24 +1497,38 @@ async fn set_department_accounting(
 async fn deactivate_department(
     Ctx(s): Ctx,
     Path((plant, code)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<Json<DepartmentDto>> {
+    let version = Some(require_version(v.version)?);
     Ok(Json(
-        s.departments.deactivate(&s.actor, &plant, &code).await?,
+        s.departments
+            .deactivate(&s.actor, &plant, &code, version)
+            .await?,
     ))
 }
 
 async fn activate_department(
     Ctx(s): Ctx,
     Path((plant, code)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<Json<DepartmentDto>> {
-    Ok(Json(s.departments.activate(&s.actor, &plant, &code).await?))
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.departments
+            .activate(&s.actor, &plant, &code, version)
+            .await?,
+    ))
 }
 
 async fn delete_department(
     Ctx(s): Ctx,
     Path((plant, code)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<StatusCode> {
-    s.departments.delete(&s.actor, &plant, &code).await?;
+    let version = Some(require_version(v.version)?);
+    s.departments
+        .delete(&s.actor, &plant, &code, version)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1520,27 +1563,115 @@ async fn update_employee(
     Path((plant, id)): Path<(String, String)>,
     Json(req): Json<EmployeeInput>,
 ) -> ApiResult<Json<EmployeeDto>> {
+    require_version(req.version)?;
     Ok(Json(s.employees.update(&s.actor, &plant, &id, req).await?))
 }
 
 async fn deactivate_employee(
     Ctx(s): Ctx,
     Path((plant, id)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<Json<EmployeeDto>> {
-    Ok(Json(s.employees.deactivate(&s.actor, &plant, &id).await?))
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.employees
+            .deactivate(&s.actor, &plant, &id, version)
+            .await?,
+    ))
 }
 
 async fn activate_employee(
     Ctx(s): Ctx,
     Path((plant, id)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<Json<EmployeeDto>> {
-    Ok(Json(s.employees.activate(&s.actor, &plant, &id).await?))
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.employees.activate(&s.actor, &plant, &id, version).await?,
+    ))
 }
 
 async fn delete_employee(
     Ctx(s): Ctx,
     Path((plant, id)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<StatusCode> {
-    s.employees.delete(&s.actor, &plant, &id).await?;
+    let version = Some(require_version(v.version)?);
+    s.employees.delete(&s.actor, &plant, &id, version).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- 資料異動記錄（ADR 0012；change_history.feature） -----
+
+/// 修改、刪除、啟用／停用的版本號（樂觀鎖，§4）
+#[derive(Deserialize)]
+struct VersionQuery {
+    #[serde(default)]
+    version: Option<i32>,
+}
+
+/// 請求一律要帶版本號（CH4）；沒帶回 400
+fn require_version(v: Option<i32>) -> Result<i32, HttpError> {
+    v.ok_or_else(|| AppError::from(ttrs_domain::DomainError::VersionRequired).into())
+}
+
+async fn department_history(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.departments
+            .history(&s.actor, &plant, &code, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+async fn employee_history(
+    Ctx(s): Ctx,
+    Path((plant, id)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.employees
+            .history(&s.actor, &plant, &id, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+async fn code_history(
+    Ctx(s): Ctx,
+    Path((plant, kind, code)): Path<(String, String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.classification
+            .history(&s.actor, &plant, &kind, &code, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+/// 請求範圍的操作情境（ADR 0012 §2）：請求代號（X-Request-Id 或新產生）、來源位址（nginx 的 X-Forwarded-For／X-Real-IP）、瀏覽器
+async fn change_request(req: axum::extract::Request, next: axum::middleware::Next) -> Response {
+    let h = req.headers();
+    let text = |name: &str| {
+        h.get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(str::to_owned)
+    };
+    let request_id = text("x-request-id")
+        .filter(|v| v.len() == 36 && v.chars().all(|c| c.is_ascii_hexdigit() || c == '-'))
+        .unwrap_or_else(ttrs_app::change_log::new_request_id);
+    let client_ip = text("x-forwarded-for")
+        .and_then(|v| v.split(',').next().map(|ip| ip.trim().to_owned()))
+        .or_else(|| text("x-real-ip"))
+        .filter(|ip| ip.parse::<std::net::IpAddr>().is_ok());
+    let info = ttrs_app::change_log::RequestInfo {
+        request_id,
+        client_ip,
+        user_agent: text("user-agent"),
+    };
+    ttrs_app::change_log::with_request(info, next.run(req)).await
 }

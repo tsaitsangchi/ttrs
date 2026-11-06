@@ -2,6 +2,7 @@
 //! 這裡只放純資料型別，不放業務邏輯，也不可依賴 tokio/sqlx 等非 wasm 套件。
 
 pub use chrono::NaiveDate;
+pub use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// 料件狀態（對應 TipTop 料件確認碼，見 docs/legacy-map/aim.yaml）
@@ -1059,6 +1060,8 @@ pub struct DepartmentInput {
     pub dept_code: String,
     pub name: Option<String>,
     pub full_name: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；API 要求必填，沒帶時回 400（CH4）
+    pub version: Option<i32>,
 }
 
 /// 部門會計欄位（aooi030「會計資料維護」）
@@ -1072,6 +1075,8 @@ pub struct DepartmentAccountingInput {
     pub control_type: String,
     /// 對應成本中心；管理類別 1、2 時未給為本部門
     pub cost_center: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；API 要求必填，沒帶時回 400（CH4）
+    pub version: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1091,6 +1096,14 @@ pub struct DepartmentDto {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本號（樂觀鎖，ADR 0012 §4）：修改、刪除、啟用／停用時帶回
+    #[serde(default)]
+    pub version: i32,
+    /// 建立、最後修改時間（到秒，ADR 0012 §1）
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 impl DepartmentDto {
@@ -1099,6 +1112,7 @@ impl DepartmentDto {
             dept_code: self.dept_code.clone(),
             name: Some(self.name.clone()),
             full_name: self.full_name.clone(),
+            version: Some(self.version),
         }
     }
 
@@ -1108,6 +1122,7 @@ impl DepartmentDto {
             expense_type: self.expense_type.clone(),
             control_type: self.control_type.clone(),
             cost_center: self.cost_center.clone(),
+            version: Some(self.version),
         }
     }
 }
@@ -1143,6 +1158,14 @@ pub struct ClassificationCodeDto {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本號（樂觀鎖，ADR 0012 §4）：修改、刪除、啟用／停用時帶回
+    #[serde(default)]
+    pub version: i32,
+    /// 建立、最後修改時間（到秒，ADR 0012 §1）
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 /// 分類碼新增、修改；類別由網址決定
@@ -1154,6 +1177,8 @@ pub struct ClassificationCodeInput {
     pub variance_account: Option<String>,
     pub variance_account2: Option<String>,
     pub cost_nature: Option<i32>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；API 要求必填，沒帶時回 400（CH4）
+    pub version: Option<i32>,
 }
 
 impl ClassificationCodeDto {
@@ -1164,6 +1189,7 @@ impl ClassificationCodeDto {
             variance_account: self.variance_account.clone(),
             variance_account2: self.variance_account2.clone(),
             cost_nature: self.cost_nature,
+            version: Some(self.version),
         }
     }
 }
@@ -1188,6 +1214,8 @@ pub struct EmployeeInput {
     pub title: Option<String>,
     pub extension: Option<String>,
     pub email: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；API 要求必填，沒帶時回 400（CH4）
+    pub version: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1206,6 +1234,14 @@ pub struct EmployeeDto {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本號（樂觀鎖，ADR 0012 §4）：修改、刪除、啟用／停用時帶回
+    #[serde(default)]
+    pub version: i32,
+    /// 建立、最後修改時間（到秒，ADR 0012 §1）
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 impl EmployeeDto {
@@ -1217,6 +1253,7 @@ impl EmployeeDto {
             title: self.title.clone(),
             extension: self.extension.clone(),
             email: self.email.clone(),
+            version: Some(self.version),
         }
     }
 }
@@ -1228,4 +1265,39 @@ pub mod employee_max_len {
     pub const TITLE: usize = 80;
     pub const EXTENSION: usize = 5;
     pub const EMAIL: usize = 80;
+}
+
+// ---------------------------------------------------------------------------
+// 資料異動記錄（ADR 0012；change_history.feature）
+// ---------------------------------------------------------------------------
+
+/// 一次異動中的一個欄位（label 為資料字典的欄位說明，依語系；字典沒有時為欄位名稱，CH5）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChangeFieldDto {
+    pub column: String,
+    pub label: String,
+    pub before: Option<String>,
+    pub after: Option<String>,
+}
+
+/// 一筆異動記錄
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ChangeDto {
+    pub change_id: i64,
+    pub occurred_at: DateTime<Utc>,
+    pub table_name: String,
+    /// insert／update／delete 或業務動作（activate、deactivate…）
+    pub operation: String,
+    pub version: Option<i32>,
+    pub user_id: String,
+    pub user_dept: Option<String>,
+    /// user／ai／service／db
+    pub actor_kind: String,
+    pub on_behalf_of: Option<String>,
+    pub program: Option<String>,
+    pub action: Option<String>,
+    pub request_id: Option<String>,
+    pub client_ip: Option<String>,
+    /// 新增、刪除為全部欄位；修改為變動的欄位
+    pub fields: Vec<ChangeFieldDto>,
 }

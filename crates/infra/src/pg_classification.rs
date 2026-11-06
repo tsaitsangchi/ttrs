@@ -2,12 +2,13 @@
 //! 表在營運中心的工廠 schema（migrations/plant/0003_classification_code.sql），每個方法在工廠交易內執行。
 
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::FromRow;
 use ttrs_app::{
     error::RepoError,
     ports::{ClassificationCode, ClassificationCodeRepository, Code, CodeKind},
 };
+use ttrs_domain::record::Stamp;
 use ttrs_domain::{classification::CodeAttrs, plant::PlantId};
 
 use crate::{PgStore, pg::db_err};
@@ -26,13 +27,17 @@ struct CodeRow {
     created_on: NaiveDate,
     updated_by: Option<String>,
     updated_on: Option<NaiveDate>,
+    version: i32,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 macro_rules! select_code {
     ($rest:literal) => {
         concat!(
             "SELECT kind, code, description, variance_account, variance_account2, cost_nature, ",
-            "active, created_by, created_dept, created_on, updated_by, updated_on FROM classification_code ",
+            "active, created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at ",
+            "FROM classification_code ",
             $rest
         )
     };
@@ -61,6 +66,11 @@ impl TryFrom<CodeRow> for ClassificationCode {
             created_on: r.created_on,
             updated_by: r.updated_by,
             updated_on: r.updated_on,
+            stamp: Stamp {
+                version: r.version,
+                created_at: Some(r.created_at),
+                updated_at: r.updated_at,
+            },
         })
     }
 }
@@ -131,10 +141,10 @@ impl ClassificationCodeRepository for PgStore {
 
     async fn update_code(&self, plant: &PlantId, c: &ClassificationCode) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
-        sqlx::query(
+        let n = sqlx::query(
             "UPDATE classification_code SET description = $3, variance_account = $4, variance_account2 = $5,
                  cost_nature = $6, active = $7, updated_by = $8, updated_on = $9
-             WHERE kind = $1 AND code = $2",
+             WHERE kind = $1 AND code = $2 AND version = $10",
         )
         .bind(c.kind.code())
         .bind(c.code.as_str())
@@ -145,9 +155,15 @@ impl ClassificationCodeRepository for PgStore {
         .bind(c.active)
         .bind(&c.updated_by)
         .bind(c.updated_on)
+        .bind(c.stamp.version)
         .execute(&mut *tx)
         .await
-        .map_err(db_err)?;
+        .map_err(db_err)?
+        .rows_affected();
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        if n == 0 {
+            return Err(RepoError::Stale);
+        }
         tx.commit().await.map_err(db_err)
     }
 

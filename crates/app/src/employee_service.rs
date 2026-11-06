@@ -13,11 +13,12 @@ use ttrs_domain::{
     employee::{Employee, EmployeeAttrs, EmployeeId},
     plant::PlantId,
 };
-use ttrs_shared::{EmployeeDto, EmployeeInput, Page, QueryRequest};
+use ttrs_shared::{ChangeDto, EmployeeDto, EmployeeInput, Page, QueryRequest};
 
 use crate::{
     Actor, AppError, Authorizer,
     authorization::Grant,
+    change_log::HistoryReader,
     error::RepoError,
     ports::{DepartmentRepository, EmployeeRepository, MasterDataRepository},
     query,
@@ -32,6 +33,7 @@ pub struct EmployeeService {
     employees: Arc<dyn EmployeeRepository>,
     depts: Arc<dyn DepartmentRepository>,
     master: Arc<dyn MasterDataRepository>,
+    history: HistoryReader,
 }
 
 impl EmployeeService {
@@ -40,12 +42,14 @@ impl EmployeeService {
         employees: Arc<dyn EmployeeRepository>,
         depts: Arc<dyn DepartmentRepository>,
         master: Arc<dyn MasterDataRepository>,
+        history: HistoryReader,
     ) -> Self {
         Self {
             authz,
             employees,
             depts,
             master,
+            history,
         }
     }
 
@@ -91,19 +95,25 @@ impl EmployeeService {
         plant: &str,
         input: EmployeeInput,
     ) -> Result<EmployeeDto, AppError> {
-        self.authorize(actor, "detail").await?.add_row()?;
-        let plant = PlantId::parse(plant)?;
-        if !self.master.plant_active(&plant).await.map_err(infra)? {
-            return Err(DomainError::PlantNotFound.into());
-        }
-        let id = EmployeeId::parse(&input.employee_id)?;
-        let attrs = self.attrs(&plant, &input).await?;
-        let employee = Employee::new(id, attrs, &actor.user_id, &actor.dept, today());
-        match self.employees.insert(&plant, &employee).await {
-            Ok(()) => self.to_dto(&plant, &employee).await,
-            Err(RepoError::Conflict) => Err(DomainError::EmployeeAlreadyExists.into()),
-            Err(e) => Err(infra(e)),
-        }
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?.add_row()?;
+            let plant = PlantId::parse(plant)?;
+            if !self.master.plant_active(&plant).await.map_err(infra)? {
+                return Err(DomainError::PlantNotFound.into());
+            }
+            let id = EmployeeId::parse(&input.employee_id)?;
+            let attrs = self.attrs(&plant, &input).await?;
+            let employee = Employee::new(id, attrs, &actor.user_id, &actor.dept, today());
+            match self.employees.insert(&plant, &employee).await {
+                Ok(()) => {
+                    let saved = self.load(&plant, employee.id.as_str()).await?;
+                    self.to_dto(&plant, &saved).await
+                }
+                Err(RepoError::Conflict) => Err(DomainError::EmployeeAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
     }
 
     /// 修改：員工編號建立後不可修改（EQ2）
@@ -114,17 +124,21 @@ impl EmployeeService {
         id: &str,
         input: EmployeeInput,
     ) -> Result<EmployeeDto, AppError> {
-        self.authorize(actor, "detail").await?;
-        let plant = PlantId::parse(plant)?;
-        let mut employee = self.load(&plant, id).await?;
-        if !input.employee_id.trim().is_empty()
-            && EmployeeId::parse(&input.employee_id)? != employee.id
-        {
-            return Err(DomainError::EmployeeIdImmutable.into());
-        }
-        let attrs = self.attrs(&plant, &input).await?;
-        employee.update(attrs, &actor.user_id, today());
-        self.save(&plant, &employee).await
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?;
+            let plant = PlantId::parse(plant)?;
+            let mut employee = self.load(&plant, id).await?;
+            employee.stamp.check(input.version)?;
+            if !input.employee_id.trim().is_empty()
+                && EmployeeId::parse(&input.employee_id)? != employee.id
+            {
+                return Err(DomainError::EmployeeIdImmutable.into());
+            }
+            let attrs = self.attrs(&plant, &input).await?;
+            employee.update(attrs, &actor.user_id, today());
+            self.save(&plant, &employee).await
+        })
+        .await
     }
 
     pub async fn deactivate(
@@ -132,8 +146,12 @@ impl EmployeeService {
         actor: &Actor,
         plant: &str,
         id: &str,
+        version: Option<i32>,
     ) -> Result<EmployeeDto, AppError> {
-        self.set_active(actor, plant, id, false).await
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.set_active(actor, plant, id, false, version).await
+        })
+        .await
     }
 
     pub async fn activate(
@@ -141,20 +159,35 @@ impl EmployeeService {
         actor: &Actor,
         plant: &str,
         id: &str,
+        version: Option<i32>,
     ) -> Result<EmployeeDto, AppError> {
-        self.set_active(actor, plant, id, true).await
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.set_active(actor, plant, id, true, version).await
+        })
+        .await
     }
 
     /// 刪除：不檢查引用（aooi040.4gl:380-405，EQ6）；需 detail 與單身刪除權限
-    pub async fn delete(&self, actor: &Actor, plant: &str, id: &str) -> Result<(), AppError> {
-        self.authorize(actor, "detail").await?.delete_row()?;
-        let plant = PlantId::parse(plant)?;
-        let id = EmployeeId::parse(id).map_err(|_| DomainError::EmployeeNotFound)?;
-        if self.employees.delete(&plant, &id).await.map_err(infra)? {
-            Ok(())
-        } else {
-            Err(DomainError::EmployeeNotFound.into())
-        }
+    pub async fn delete(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        id: &str,
+        version: Option<i32>,
+    ) -> Result<(), AppError> {
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?.delete_row()?;
+            let plant = PlantId::parse(plant)?;
+            let employee = self.load(&plant, id).await?;
+            employee.stamp.check(version)?;
+            let id = employee.id;
+            if self.employees.delete(&plant, &id).await.map_err(infra)? {
+                Ok(())
+            } else {
+                Err(DomainError::EmployeeNotFound.into())
+            }
+        })
+        .await
     }
 
     async fn set_active(
@@ -163,10 +196,13 @@ impl EmployeeService {
         plant: &str,
         id: &str,
         active: bool,
+        version: Option<i32>,
     ) -> Result<EmployeeDto, AppError> {
         self.authorize(actor, "detail").await?;
         let plant = PlantId::parse(plant)?;
         let mut employee = self.load(&plant, id).await?;
+        employee.stamp.check(version)?;
+        crate::change_log::set_operation(if active { "activate" } else { "deactivate" });
         employee.set_active(active, &actor.user_id, today());
         self.save(&plant, &employee).await
     }
@@ -190,9 +226,36 @@ impl EmployeeService {
         Ok(attrs)
     }
 
+    /// 存檔：版本不符（他人已修改）→ RECORD_CHANGED；回傳重新讀取的資料
     async fn save(&self, plant: &PlantId, e: &Employee) -> Result<EmployeeDto, AppError> {
-        self.employees.update(plant, e).await.map_err(infra)?;
-        self.to_dto(plant, e).await
+        match self.employees.update(plant, e).await {
+            Ok(()) => {}
+            Err(RepoError::Stale) => return Err(DomainError::RecordChanged.into()),
+            Err(err) => return Err(infra(err)),
+        }
+        let saved = self.load(plant, e.id.as_str()).await?;
+        self.to_dto(plant, &saved).await
+    }
+
+    /// 異動記錄（ADR 0012 §8，功能 history）
+    pub async fn history(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        id: &str,
+        lang: Option<&str>,
+    ) -> Result<Vec<ChangeDto>, AppError> {
+        self.authorize(actor, "history").await?;
+        let plant = PlantId::parse(plant)?;
+        let id = EmployeeId::parse(id).map_err(|_| DomainError::EmployeeNotFound)?;
+        self.history
+            .read(
+                Some(&plant),
+                "employee",
+                &[("employee_id", id.as_str())],
+                lang,
+            )
+            .await
     }
 
     async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
@@ -241,6 +304,9 @@ impl EmployeeService {
             created_on: e.created_on,
             updated_by: e.updated_by.clone(),
             updated_on: e.updated_on,
+            version: e.stamp.version,
+            created_at: e.stamp.created_at,
+            updated_at: e.stamp.updated_at,
         })
     }
 }

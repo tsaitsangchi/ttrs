@@ -99,3 +99,19 @@ common-field-updated-on = 最后修改日期
 common-status-active = 有效
 common-status-inactive = 停用
 common-tab-basic = 基本资料
+
+# 异动记录（ADR 0012 §8，功能 history）
+common-action-history = 异动记录
+history-dialog-title = 异动记录：{ $key }
+history-msg-none = 没有异动记录
+history-op-insert = 新增
+history-op-update = 修改
+history-op-delete = 删除
+history-op-activate = 启用
+history-op-deactivate = 停用
+history-actor-ai = AI（代表 { $user }）
+history-actor-db = 直接修改数据库（{ $user }）
+history-version = 第 { $version } 版
+history-col-field = 栏位
+history-col-before = 改前
+history-col-after = 改后

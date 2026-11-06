@@ -1126,19 +1126,23 @@ pub async fn set_code_active(
     kind: &str,
     code: &str,
     active: bool,
+    version: i32,
 ) -> Result<ClassificationCodeDto, String> {
     let suffix = if active { "/activate" } else { "/deactivate" };
     send_json::<_, ()>(
         reqwest::Method::POST,
-        code_url(plant, kind, code, suffix),
+        format!("{}?version={version}", code_url(plant, kind, code, suffix)),
         None,
     )
     .await
 }
 
-pub async fn delete_code(plant: &str, kind: &str, code: &str) -> Result<(), String> {
+pub async fn delete_code(plant: &str, kind: &str, code: &str, version: i32) -> Result<(), String> {
     let res = reqwest::Client::new()
-        .delete(code_url(plant, kind, code, ""))
+        .delete(format!(
+            "{}?version={version}",
+            code_url(plant, kind, code, "")
+        ))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -1194,19 +1198,26 @@ pub async fn set_department_active(
     plant: &str,
     code: &str,
     active: bool,
+    version: i32,
 ) -> Result<DepartmentDto, String> {
     let suffix = if active { "/activate" } else { "/deactivate" };
     send_json::<_, ()>(
         reqwest::Method::POST,
-        plant_part_url(plant, "departments", code, suffix),
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "departments", code, suffix)
+        ),
         None,
     )
     .await
 }
 
-pub async fn delete_department(plant: &str, code: &str) -> Result<(), String> {
+pub async fn delete_department(plant: &str, code: &str, version: i32) -> Result<(), String> {
     let res = reqwest::Client::new()
-        .delete(plant_part_url(plant, "departments", code, ""))
+        .delete(format!(
+            "{}?version={version}",
+            plant_part_url(plant, "departments", code, "")
+        ))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -1243,21 +1254,58 @@ pub async fn set_employee_active(
     plant: &str,
     id: &str,
     active: bool,
+    version: i32,
 ) -> Result<EmployeeDto, String> {
     let suffix = if active { "/activate" } else { "/deactivate" };
     send_json::<_, ()>(
         reqwest::Method::POST,
-        plant_part_url(plant, "employees", id, suffix),
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "employees", id, suffix)
+        ),
         None,
     )
     .await
 }
 
-pub async fn delete_employee(plant: &str, id: &str) -> Result<(), String> {
+pub async fn delete_employee(plant: &str, id: &str, version: i32) -> Result<(), String> {
     let res = reqwest::Client::new()
-        .delete(plant_part_url(plant, "employees", id, ""))
+        .delete(format!(
+            "{}?version={version}",
+            plant_part_url(plant, "employees", id, "")
+        ))
         .send()
         .await
         .map_err(|e| e.to_string())?;
     no_content(res).await
+}
+
+// ----- 資料異動記錄（ADR 0012 §8；功能 history） -----
+
+/// 部門、員工的異動記錄；欄位名稱依目前介面語系
+pub async fn history(
+    plant: &str,
+    part: &str,
+    key: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!(
+        "{}?lang={lang}",
+        plant_part_url(plant, part, key, "/history")
+    ))
+    .await
+}
+
+/// 分類碼的異動記錄
+pub async fn code_history(
+    plant: &str,
+    kind: &str,
+    code: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!(
+        "{}?lang={lang}",
+        code_url(plant, kind, code, "/history")
+    ))
+    .await
 }

@@ -1,6 +1,7 @@
 //! 應用層：協調 domain 與 repository，不含 SQL、不含 HTTP。
 
 pub mod authorization;
+pub mod change_log;
 pub mod classification_code_service;
 pub mod data_dictionary_service;
 pub mod department_service;

@@ -486,3 +486,15 @@ pub trait ClassificationCodeRepository: Send + Sync {
         code: &Code,
     ) -> Result<bool, RepoError>;
 }
+
+/// 資料異動記錄（change_log，ADR 0012 §2）；寫入由儲存端完成（PostgreSQL 觸發器、記憶體後端），這裡只查詢
+#[async_trait]
+pub trait ChangeLogRepository: Send + Sync {
+    /// 某筆資料的異動記錄，依發生順序。`plant` 為 None 時查共用 schema
+    async fn history(
+        &self,
+        plant: Option<&PlantId>,
+        table: &str,
+        key: &std::collections::BTreeMap<String, String>,
+    ) -> Result<Vec<crate::change_log::ChangeRecord>, RepoError>;
+}

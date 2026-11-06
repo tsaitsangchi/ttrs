@@ -2,17 +2,19 @@
 
 use std::sync::Arc;
 
+use crate::change_log::HistoryReader;
 use crate::{
     Authorizer, ClassificationCodeService, DataDictionaryService, DepartmentService,
     EmergencyService, EmployeeService, ItemService, LegacyCatalogService, PasswordResetService,
     PermissionAuthorizer, PermissionClassService, PlantService, ProgramPermissionService,
     ProgramService, SignInService, UserPermissionService, UserService,
     ports::{
-        AccountPolicyRepository, AuditLog, ClassificationCodeRepository, CredentialRepository,
-        DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemRepository,
-        LegacyCatalogRepository, MasterDataRepository, PasswordResetTokenRepository,
-        PermissionClassRepository, PlantRepository, ProgramPermissionRepository, ProgramRepository,
-        SchemaCatalog, UserPermissionRepository, UserRepository,
+        AccountPolicyRepository, AuditLog, ChangeLogRepository, ClassificationCodeRepository,
+        CredentialRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
+        ItemRepository, LegacyCatalogRepository, MasterDataRepository,
+        PasswordResetTokenRepository, PermissionClassRepository, PlantRepository,
+        ProgramPermissionRepository, ProgramRepository, SchemaCatalog, UserPermissionRepository,
+        UserRepository,
     },
 };
 
@@ -36,6 +38,7 @@ pub trait Store:
     + PasswordResetTokenRepository
     + AuditLog
     + ClassificationCodeRepository
+    + ChangeLogRepository
     + 'static
 {
 }
@@ -59,6 +62,7 @@ impl<T> Store for T where
         + PasswordResetTokenRepository
         + AuditLog
         + ClassificationCodeRepository
+        + ChangeLogRepository
         + 'static
 {
 }
@@ -98,6 +102,7 @@ impl Services {
         // 判斷使用者維護管理員一律依權限資料（R14），與請求的權限檢查分開
         let admins: Arc<dyn Authorizer> =
             Arc::new(PermissionAuthorizer::new(store.clone(), store.clone()));
+        let history = HistoryReader::new(store.clone(), store.clone());
         Self {
             items: ItemService::new(a.clone(), store.clone(), store.clone()),
             programs: ProgramService::new(a.clone(), store.clone()),
@@ -140,6 +145,7 @@ impl Services {
                 store.clone(),
                 store.clone(),
                 store.clone(),
+                history.clone(),
             ),
             sign_in: SignInService::new(store.clone(), store.clone(), store.clone(), store.clone()),
             password_reset: PasswordResetService::new(
@@ -150,8 +156,19 @@ impl Services {
                 store.clone(),
             ),
             emergency: EmergencyService::new(store.clone(), store.clone(), store.clone()),
-            employees: EmployeeService::new(a.clone(), store.clone(), store.clone(), store.clone()),
-            classification: ClassificationCodeService::new(a.clone(), store.clone(), store.clone()),
+            employees: EmployeeService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                history.clone(),
+            ),
+            classification: ClassificationCodeService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                history,
+            ),
             special: UserPermissionService::new(
                 a,
                 store.clone(),

@@ -112,6 +112,38 @@ impl PgStore {
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
+        set_change_context(&mut tx).await?;
         Ok(Some(tx))
     }
+}
+
+/// 異動記錄的操作情境（ADR 0012 §3）：寫進交易範圍的 `ttrs.*` 設定，由觸發器 ttrs_change_log 讀取。
+/// 不在 use case 的操作情境內時不設定（觸發器記為 db）
+pub(crate) async fn set_change_context(conn: &mut PgConnection) -> Result<(), RepoError> {
+    let Some(c) = ttrs_app::change_log::current() else {
+        return Ok(());
+    };
+    sqlx::query(
+        "SELECT set_config('ttrs.user_id', $1, true), set_config('ttrs.user_dept', $2, true),
+                set_config('ttrs.actor_kind', $3, true), set_config('ttrs.on_behalf_of', $4, true),
+                set_config('ttrs.program', $5, true), set_config('ttrs.action', $6, true),
+                set_config('ttrs.operation', $7, true), set_config('ttrs.request_id', $8, true),
+                set_config('ttrs.client_ip', $9, true), set_config('ttrs.user_agent', $10, true),
+                set_config('ttrs.reason', $11, true)",
+    )
+    .bind(&c.user_id)
+    .bind(&c.user_dept)
+    .bind(c.actor_kind)
+    .bind(c.on_behalf_of.unwrap_or_default())
+    .bind(&c.program)
+    .bind(&c.action)
+    .bind(c.operation.unwrap_or_default())
+    .bind(&c.request.request_id)
+    .bind(c.request.client_ip.unwrap_or_default())
+    .bind(c.request.user_agent.unwrap_or_default())
+    .bind(c.reason.unwrap_or_default())
+    .execute(&mut *conn)
+    .await
+    .map_err(db_err)?;
+    Ok(())
 }

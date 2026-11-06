@@ -53,6 +53,7 @@ fn report(w: &ErpWorld) -> &ReportData {
 async fn plant_has_departments(w: &mut ErpWorld, plant: String, step: &Step) {
     for r in rows(step) {
         let req = DepartmentInput {
+            version: None,
             dept_code: r[0].clone(),
             name: Some(r[1].clone()),
             full_name: Some(r[2].clone()).filter(|s| !s.is_empty()),
@@ -67,7 +68,7 @@ async fn plant_has_departments(w: &mut ErpWorld, plant: String, step: &Step) {
 #[given(expr = "部門 {string} 已停用")]
 async fn department_inactive(w: &mut ErpWorld, code: String) {
     w.departments
-        .deactivate(&w.actor, "TW01", &code)
+        .deactivate(&w.actor, "TW01", &code, None)
         .await
         .unwrap_or_else(|e| panic!("停用部門 {code} 失敗：{e}"));
 }
