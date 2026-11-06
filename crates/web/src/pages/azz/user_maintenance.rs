@@ -13,18 +13,28 @@ use ttrs_shared::{UserDto, UserInput, user_max_len as max_len};
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Chip, Dialog, Notification, NotificationKind, Radio,
-    Select, Tabs, TextField, Tone, active_field_class, active_tone, icons,
+    Select, Tabs, TextField, Tone, active_tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{
     HINT_DATE, HINT_FLAG, ListPager, Q, RecordNav, conditions_of, use_query_records,
 };
+use crate::components::status::{HasStatus, StatusField, StatusForm, TAB_STATUS};
 use crate::i18n::{self, UiLang, t, tf};
+
+/// 狀態頁可查詢的欄位（query.rs 使用者查詢欄位）
+const USER_QUERYABLE: &[StatusField] = &[
+    StatusField::Active,
+    StatusField::Owner,
+    StatusField::OwnerDept,
+    StatusField::UpdatedBy,
+    StatusField::UpdatedOn,
+];
 
 const TABS: [&str; 4] = [
     "user-tab-basic",
     "user-tab-language",
-    "user-tab-status",
+    TAB_STATUS,
     "user-tab-plants",
 ];
 
@@ -496,25 +506,9 @@ fn UserMaintenancePage() -> Element {
                             p { class: "muted", {t("user-hint-lang")} }
                         },
                         2 => rsx! {
-                            div { class: "form-grid cols-4",
-                                Q { field: "active", label: t("user-field-active"), hint: HINT_FLAG, query: q, qbe,
-                                    TextField { id: "zxacti", label: t("user-field-active"), readonly: true, class: active_field_class(cur.as_ref().map(|u| u.active)), value: cur.as_ref().map(|u| if u.active { t("user-status-active") } else { t("user-status-inactive") }).unwrap_or_default() }
-                                }
-                                if !q {
-                                    TextField { id: "idp-bound", label: t("user-field-idp-bound"), readonly: true, value: cur.as_ref().map(|u| if u.idp_bound { t("user-idp-bound") } else { t("user-idp-unbound") }).unwrap_or_default() }
-                                }
-                                Q { field: "created_by", label: t("user-field-created-by"), query: q, qbe,
-                                    TextField { id: "zxuser", label: t("user-field-created-by"), readonly: true, value: cur.as_ref().map(|u| u.created_by.clone()).unwrap_or_default() }
-                                }
-                                Q { field: "created_dept", label: t("user-field-created-dept"), query: q, qbe,
-                                    TextField { id: "zxgrup", label: t("user-field-created-dept"), readonly: true, value: cur.as_ref().map(|u| u.created_dept.clone()).unwrap_or_default() }
-                                }
-                                Q { field: "updated_by", label: t("user-field-updated-by"), query: q, qbe,
-                                    TextField { id: "zxmodu", label: t("user-field-updated-by"), readonly: true, value: cur.as_ref().and_then(|u| u.updated_by.clone()).unwrap_or_default() }
-                                }
-                                Q { field: "updated_on", label: t("user-field-updated-on"), hint: HINT_DATE, query: q, qbe,
-                                    TextField { id: "zxdate", label: t("user-field-updated-on"), readonly: true, value: cur.as_ref().and_then(|u| u.updated_on.map(|d| d.format("%Y/%m/%d").to_string())).unwrap_or_default() }
-                                }
+                            // p_zx.4fd info（Status）頁：zxacti、zxuser、zxgrup、zxmodu、zxdate（ADR 0012 §9）
+                            StatusForm { status: cur.as_ref().map(|u| u.status()), queryable: USER_QUERYABLE, query: q, qbe, prefix: "zx",
+                                TextField { id: "idp-bound", label: t("user-field-idp-bound"), readonly: true, value: cur.as_ref().map(|u| if u.idp_bound { t("user-idp-bound") } else { t("user-idp-unbound") }).unwrap_or_default() }
                             }
                         },
                         _ if q => rsx! {

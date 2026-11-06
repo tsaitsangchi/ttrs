@@ -13,9 +13,12 @@ use super::program_permission_maintenance::{
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Dialog, IconButton, Notification, NotificationKind,
-    Select, TextField, Tone, icons,
+    Select, Tabs, TextField, Tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
+use crate::components::status::{
+    self, HasStatus, StatusCells, StatusHeaders, TAB_DATA, TAB_STATUS,
+};
 use crate::i18n::{t, tf};
 
 /// 目前開啟的小視窗
@@ -75,6 +78,13 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
         }
     });
     let mut selected = use_signal(|| None::<i32>);
+    let col_tab = use_signal(|| 0usize);
+    let status_tab = col_tab() == 1;
+    let cols = if status_tab {
+        4 + status::NO_ACTIVE.len()
+    } else {
+        8
+    };
     let mut open = use_signal(|| None::<Open>);
     let mut dialog_error = use_signal(|| None::<String>);
     let mut add_form = use_signal(|| UserPermissionInput {
@@ -273,6 +283,8 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
 
             // ----- 特殊權限（p_zxw.4fd s_zxw） -----
             Card {
+                // 資料／狀態頁籤（ADR 0012 §9）
+                Tabs { tabs: vec![t(TAB_DATA), t(TAB_STATUS)], active: col_tab }
                 div { class: "table-header",
                     h3 { {t("uperm-list-title")} }
                     p { {tf("list-count-all", &[("total", rows.len().to_string().as_str())])} {t("list-hint-click")} }
@@ -280,15 +292,16 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                 div { class: "table-scroll",
                     table { class: "md-table",
                         thead { tr {
-                            for col in ["uperm-field-line", "uperm-field-kind", "uperm-field-target", "uperm-field-target-name", "perm-field-actions", "perm-field-other-user", "perm-field-other-dept", "perm-field-detail"] {
+                            for col in ["uperm-field-line", "uperm-field-kind", "uperm-field-target", "uperm-field-target-name", "perm-field-actions", "perm-field-other-user", "perm-field-other-dept", "perm-field-detail"].into_iter().take(if status_tab { 4 } else { 8 }) {
                                 th { key: "{col}", {t(col)} }
                             }
+                            if status_tab { StatusHeaders { fields: status::NO_ACTIVE } }
                         } }
                         tbody {
                             match &*rows_res.read() {
-                                None => rsx! { tr { td { colspan: 8, {t("common-msg-loading")} } } },
-                                Some(Err(e)) => rsx! { tr { td { colspan: 8, "{e}" } } },
-                                Some(Ok(_)) if rows.is_empty() => rsx! { tr { td { colspan: 8, class: "muted", {t("uperm-msg-none")} } } },
+                                None => rsx! { tr { td { colspan: "{cols}", {t("common-msg-loading")} } } },
+                                Some(Err(e)) => rsx! { tr { td { colspan: "{cols}", "{e}" } } },
+                                Some(Ok(_)) if rows.is_empty() => rsx! { tr { td { colspan: "{cols}", class: "muted", {t("uperm-msg-none")} } } },
                                 Some(Ok(_)) => rsx! {
                                     for r in rows.iter().cloned() {
                                         tr {
@@ -303,10 +316,14 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                                             td { {kind_label(r.kind)} }
                                             td { class: "mono", "{r.target}" }
                                             td { {r.target_name.clone().unwrap_or_default()} }
+                                            if status_tab {
+                                                StatusCells { status: r.status(), fields: status::NO_ACTIVE }
+                                            } else {
                                             td { {r.actions.iter().map(|a| action_label(a)).collect::<Vec<_>>().join(", ")} }
                                             td { {level_cell("user", &r.other_user_data)} }
                                             td { {level_cell("dept", &r.other_dept_data)} }
                                             td { {level_cell("detail", &r.detail_rows)} }
+                                            }
                                         }
                                     }
                                 },

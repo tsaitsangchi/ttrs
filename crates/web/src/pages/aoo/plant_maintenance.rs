@@ -9,13 +9,12 @@ use ttrs_shared::{PlantDto, PlantInput, plant_max_len as max_len};
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Chip, Notification, NotificationKind, Select, TextField, Tone,
-    active_field_class, active_tone, icons,
+    Button, ButtonVariant, Card, Chip, Notification, NotificationKind, Select, Tabs, TextField,
+    Tone, active_tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
-use crate::components::qbe::{
-    HINT_FLAG, ListPager, Q, RecordNav, conditions_of, use_query_records,
-};
+use crate::components::qbe::{ListPager, Q, RecordNav, conditions_of, use_query_records};
+use crate::components::status::{HasStatus, StatusField, StatusForm, TAB_STATUS};
 use crate::i18n::{t, tf};
 
 /// 時區下拉選項（IANA 名稱）；目前值不在清單時另外加入，轉入的舊資料不會被改掉
@@ -81,6 +80,7 @@ fn PlantMaintenancePage() -> Element {
     let mut rec = use_query_records(|req| async move { api::query_plants(&req).await });
     let mut form = use_signal(PlantInput::default);
     let mut copy_id = use_signal(String::new);
+    let tab = use_signal(|| 0usize);
 
     let cur: Option<PlantDto> = rec.current.read().clone();
     let (total, pages) = rec.totals();
@@ -322,7 +322,12 @@ fn PlantMaintenancePage() -> Element {
 
             // ----- 單筆表單（aooi901.4fd group01） -----
             Card {
+                Tabs { tabs: vec![t("common-tab-basic"), t(TAB_STATUS)], active: tab }
                 div { class: "card-body",
+                  if tab() == 1 {
+                    // 狀態頁（ADR 0012 §9）：查詢只開放資料有效（PQ1）
+                    StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|p| p.status()), queryable: &[StatusField::Active], query: q, qbe, prefix: "azp" }
+                  } else {
                     div { class: "form-grid",
                         Q { field: "plant_id", label: t("plant-field-id"), query: q, qbe,
                             TextField { id: "azp01", label: t("plant-field-id"), maxlength: max_len::ID, value: v.plant_id.clone(), readonly: m != Mode::New, oninput: move |x| form.write().plant_id = x }
@@ -346,20 +351,9 @@ fn PlantMaintenancePage() -> Element {
                         Q { field: "fax", label: t("plant-field-fax"), query: q, qbe,
                             TextField { id: "azp07", label: t("plant-field-fax"), maxlength: max_len::FAX, value: v.fax.clone().unwrap_or_default(), readonly: ro, oninput: move |x| form.write().fax = opt(x) }
                         }
-                        Q { field: "active", label: t("plant-field-active"), hint: HINT_FLAG, query: q, qbe,
-                            TextField { id: "active", label: t("plant-field-active"), readonly: true, class: active_field_class(cur.as_ref().filter(|_| m != Mode::New).map(|p| p.active)), value: cur.as_ref().filter(|_| m != Mode::New).map(|p| if p.active { t("plant-status-active") } else { t("plant-status-inactive") }).unwrap_or_default() }
-                        }
                     }
                     p { class: "muted", {t("plant-hint-time-zone")} }
-                    // 建立／修改資訊不在 aooi901 查詢欄位內（PQ1）
-                    if !q {
-                        div { class: "form-grid cols-4",
-                            TextField { id: "created-by", label: t("plant-field-created-by"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).map(|p| p.created_by.clone()).unwrap_or_default() }
-                            TextField { id: "created-on", label: t("plant-field-created-on"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).map(|p| p.created_on.format("%Y/%m/%d").to_string()).unwrap_or_default() }
-                            TextField { id: "updated-by", label: t("plant-field-updated-by"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).and_then(|p| p.updated_by.clone()).unwrap_or_default() }
-                            TextField { id: "updated-on", label: t("plant-field-updated-on"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).and_then(|p| p.updated_on.map(|d| d.format("%Y/%m/%d").to_string())).unwrap_or_default() }
-                        }
-                    }
+                  }
                 }
             }
 

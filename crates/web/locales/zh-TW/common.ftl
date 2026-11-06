@@ -86,3 +86,16 @@ forgot-action-back = 返回登入
 reset-title = 設定新密碼
 reset-hint = 請輸入新密碼。設定完成後，原本已登入的連線都會結束。
 reset-msg-done = 密碼已重設，請以新密碼登入。
+
+# 狀態頁籤（ADR 0012 §9；TipTop 4fd info／Status 頁）
+common-tab-status = 狀態
+common-tab-data = 資料
+common-field-active = 資料有效
+common-field-owner = 資料所有者
+common-field-owner-dept = 資料所有部門
+common-field-created-on = 建立日期
+common-field-updated-by = 最後修改者
+common-field-updated-on = 最後修改日期
+common-status-active = 有效
+common-status-inactive = 停用
+common-tab-basic = 基本資料

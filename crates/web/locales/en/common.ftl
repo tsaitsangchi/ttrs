@@ -86,3 +86,16 @@ forgot-action-back = Back to sign-in
 reset-title = Set a new password
 reset-hint = Enter a new password. When it is set, all signed-in sessions will end.
 reset-msg-done = Your password has been reset. Please sign in with the new password.
+
+# Status tab (ADR 0012 §9; TipTop 4fd info/Status page)
+common-tab-status = Status
+common-tab-data = Data
+common-field-active = Active
+common-field-owner = Owner
+common-field-owner-dept = Owner department
+common-field-created-on = Created on
+common-field-updated-by = Last modified by
+common-field-updated-on = Last modified on
+common-status-active = Active
+common-status-inactive = Inactive
+common-tab-basic = Basic data

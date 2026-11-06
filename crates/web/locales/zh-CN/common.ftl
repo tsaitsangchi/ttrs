@@ -86,3 +86,16 @@ forgot-action-back = 返回登录
 reset-title = 设置新密码
 reset-hint = 请输入新密码。设置完成后，原来已登录的连接都会结束。
 reset-msg-done = 密码已重设，请用新密码登录。
+
+# 状态页签（ADR 0012 §9；TipTop 4fd info／Status 页）
+common-tab-status = 状态
+common-tab-data = 资料
+common-field-active = 资料有效
+common-field-owner = 资料所有者
+common-field-owner-dept = 资料所有部门
+common-field-created-on = 建立日期
+common-field-updated-by = 最后修改者
+common-field-updated-on = 最后修改日期
+common-status-active = 有效
+common-status-inactive = 停用
+common-tab-basic = 基本资料

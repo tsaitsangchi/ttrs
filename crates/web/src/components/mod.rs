@@ -6,3 +6,4 @@ pub mod permission;
 pub mod plant;
 pub mod qbe;
 pub mod session;
+pub mod status;

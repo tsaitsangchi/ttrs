@@ -11,16 +11,19 @@ use ttrs_shared::{
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Chip, Dialog, Notification, NotificationKind, Select, TextField,
-    Tone, active_tone, icons,
+    Button, ButtonVariant, Card, Dialog, Notification, NotificationKind, Select, Tabs, TextField,
+    Tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::plant::PlantPicker;
 use crate::components::qbe::{HINT_FLAG, ListPager, PAGE_SIZE, Qbe, conditions_of};
+use crate::components::status::{
+    self, HasStatus, StatusCells, StatusField, StatusHeaders, StatusQbeCells, TAB_DATA, TAB_STATUS,
+};
 use crate::i18n::{t, tf};
 
 /// 表格欄位（aooi030.4fd s_gem 順序）：（標題翻譯 ID, 查詢欄位鍵值, 查詢提示翻譯 ID）
-const COLUMNS: [(&str, &str, &str); 8] = [
+const COLUMNS: [(&str, &str, &str); 7] = [
     ("dept-field-code", "dept_code", ""),
     ("dept-field-name", "name", ""),
     ("dept-field-full-name", "full_name", ""),
@@ -36,8 +39,10 @@ const COLUMNS: [(&str, &str, &str); 8] = [
         "dept-hint-qbe-control",
     ),
     ("dept-field-cost-center", "cost_center", ""),
-    ("dept-field-active", "active", HINT_FLAG),
 ];
+
+/// 「狀態」頁仍顯示的識別欄位（部門編號、簡稱）
+const KEY_COLUMNS: usize = 2;
 
 const EXPENSES: [(&str, &str); 4] = [
     ("M", "dept-opt-expense-m"),
@@ -117,6 +122,13 @@ fn DepartmentMaintenancePage() -> Element {
     let mut form = use_signal(DepartmentInput::default);
     let mut acct = use_signal(DepartmentAccountingInput::default);
     let mut dialog_error = use_signal(|| None::<String>);
+    let col_tab = use_signal(|| 0usize);
+    let status_tab = col_tab() == 1;
+    let cols = if status_tab {
+        KEY_COLUMNS + status::ALL.len()
+    } else {
+        COLUMNS.len()
+    };
 
     let page_data = depts.read().as_ref().and_then(|r| r.as_ref().ok()).cloned();
     let list: Vec<DepartmentDto> = page_data
@@ -368,6 +380,8 @@ fn DepartmentMaintenancePage() -> Element {
             }
 
             Card {
+                // 資料／狀態頁籤（ADR 0012 §9）：狀態頁顯示資料有效、所有者、所有部門、建立與修改資訊
+                Tabs { tabs: vec![t(TAB_DATA), t(TAB_STATUS)], active: col_tab }
                 div { class: "table-header",
                     h3 { {t("dept-list-title")} }
                     p { {tf(if filtered { "list-count-filtered" } else { "list-count-all" }, &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
@@ -376,13 +390,14 @@ fn DepartmentMaintenancePage() -> Element {
                     table { class: "md-table",
                         thead {
                             tr {
-                                for (id, _, _) in COLUMNS {
+                                for (id, _, _) in COLUMNS.iter().take(if status_tab { KEY_COLUMNS } else { COLUMNS.len() }) {
                                     th { key: "{id}", {t(id)} }
                                 }
+                                if status_tab { StatusHeaders {} }
                             }
                             if querying() {
                                 tr {
-                                    for (id, field, hint) in COLUMNS {
+                                    for &(id, field, hint) in COLUMNS.iter().take(if status_tab { KEY_COLUMNS } else { COLUMNS.len() }) {
                                         th { key: "{field}",
                                             TextField {
                                                 id: "q-{field}",
@@ -393,14 +408,15 @@ fn DepartmentMaintenancePage() -> Element {
                                             }
                                         }
                                     }
+                                    if status_tab { StatusQbeCells { queryable: &[StatusField::Active], qbe } }
                                 }
                             }
                         }
                         tbody {
                             match &*depts.read() {
-                                None => rsx! { tr { td { colspan: 8, {t("common-msg-loading")} } } },
-                                Some(Err(e)) => rsx! { tr { td { colspan: 8, "{e}" } } },
-                                Some(Ok(_)) if list.is_empty() => rsx! { tr { td { colspan: 8, class: "muted", {t("common-msg-no-data")} } } },
+                                None => rsx! { tr { td { colspan: "{cols}", {t("common-msg-loading")} } } },
+                                Some(Err(e)) => rsx! { tr { td { colspan: "{cols}", "{e}" } } },
+                                Some(Ok(_)) if list.is_empty() => rsx! { tr { td { colspan: "{cols}", class: "muted", {t("common-msg-no-data")} } } },
                                 Some(Ok(_)) => rsx! {
                                     for d in list.iter().cloned() {
                                         tr {
@@ -413,13 +429,14 @@ fn DepartmentMaintenancePage() -> Element {
                                             },
                                             td { class: "mono", "{d.dept_code}" }
                                             td { "{d.name}" }
+                                            if status_tab {
+                                                StatusCells { status: d.status() }
+                                            } else {
                                             td { {d.full_name.clone().unwrap_or_default()} }
                                             td { if d.accounting_dept { {t("dept-opt-yes")} } else { {t("dept-opt-no")} } }
                                             td { {d.expense_type.as_deref().map(|e| label(&EXPENSES, e)).unwrap_or_default()} }
                                             td { {label(&CONTROLS, &d.control_type)} }
                                             td { {d.cost_center.clone().map(|c| format!("{c} {}", d.cost_center_name.clone().unwrap_or_default())).unwrap_or_default()} }
-                                            td {
-                                                Chip { label: if d.active { t("dept-status-active") } else { t("dept-status-inactive") }, tone: active_tone(d.active) }
                                             }
                                         }
                                     }

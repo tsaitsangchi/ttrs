@@ -28,6 +28,7 @@ use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{
     HINT_DATE, HINT_FLAG, HINT_NUMBER, ListPager, PAGE_SIZE, Q, Qbe, RecordNav, conditions_of,
 };
+use crate::components::status::{self, HasStatus, StatusForm};
 use crate::i18n::{self, UiLang, t, tf};
 
 const LEDGER_MODULES: [&str; 4] = ["AGL", "CGL", "GGL", "CGGL"];
@@ -51,7 +52,7 @@ const WINDOW_STYLES: [&str; 13] = [
     "view", "lib",
 ];
 
-const UPPER_TABS: [&str; 2] = ["program-tab-basic", "program-tab-owner"];
+const UPPER_TABS: [&str; 2] = ["program-tab-basic", status::TAB_STATUS];
 const LOWER_TABS: [&str; 4] = [
     "program-tab-data",
     "program-tab-print",
@@ -467,20 +468,8 @@ fn ProgramMaintenancePage() -> Element {
                             }
                         }
                     } else {
-                        div { class: "form-grid cols-4",
-                            Q { field: "created_by", label: t("program-field-created-by"), query: q, qbe,
-                                TextField { id: "zzuser", label: t("program-field-created-by"), readonly: true, value: cur.as_ref().map(|p| p.created_by.clone()).unwrap_or_default() }
-                            }
-                            Q { field: "updated_by", label: t("program-field-updated-by"), query: q, qbe,
-                                TextField { id: "zzmodu", label: t("program-field-updated-by"), readonly: true, value: cur.as_ref().and_then(|p| p.updated_by.clone()).unwrap_or_default() }
-                            }
-                            Q { field: "created_dept", label: t("program-field-dept"), query: q, qbe,
-                                TextField { id: "zzgrup", label: t("program-field-dept"), readonly: true, value: cur.as_ref().map(|p| p.created_dept.clone()).unwrap_or_default() }
-                            }
-                            Q { field: "updated_on", label: t("program-field-updated-on"), hint: HINT_DATE, query: q, qbe,
-                                TextField { id: "zzdate", label: t("program-field-updated-on"), readonly: true, value: cur.as_ref().map(|p| p.updated_on.to_string()).unwrap_or_default() }
-                            }
-                        }
+                        // p_zz.4fd 資料擁有者頁：zzuser、zzgrup、zzmodu、zzdate（zz_file 無資料有效碼與建立日期；ADR 0012 §9）
+                        StatusForm { status: cur.as_ref().map(|p| p.status()), fields: status::PROGRAM, queryable: status::PROGRAM, query: q, qbe, prefix: "zz" }
                     }
                 }
             }

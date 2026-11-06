@@ -13,15 +13,18 @@ use ttrs_shared::{
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Chip, Dialog, Notification, NotificationKind, Select, TextField,
-    Tone, active_tone, icons,
+    Button, ButtonVariant, Card, Dialog, Notification, NotificationKind, Select, Tabs, TextField,
+    Tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
-use crate::components::qbe::{HINT_FLAG, HINT_NUMBER, ListPager, PAGE_SIZE, Qbe, conditions_of};
+use crate::components::qbe::{HINT_NUMBER, ListPager, PAGE_SIZE, Qbe, conditions_of};
+use crate::components::status::{
+    self, HasStatus, StatusCells, StatusField, StatusHeaders, StatusQbeCells, TAB_DATA, TAB_STATUS,
+};
 use crate::i18n::{t, tf};
 
 /// 表格欄位（p_zw.4fd s_zw 順序）：（標題翻譯 ID, 查詢欄位鍵值, 查詢提示翻譯 ID）
-const COLUMNS: [(&str, &str, &str); 7] = [
+const COLUMNS: [(&str, &str, &str); 6] = [
     ("class-field-code", "class_code", ""),
     ("class-field-name", "name", ""),
     ("class-field-menu", "default_menu", ""),
@@ -36,8 +39,10 @@ const COLUMNS: [(&str, &str, &str); 7] = [
         "class-hint-qbe-idle-action",
     ),
     ("class-field-idle-seconds", "idle_seconds", HINT_NUMBER),
-    ("class-field-active", "active", HINT_FLAG),
 ];
+
+/// 「狀態」頁仍顯示的識別欄位（代號、名稱）
+const KEY_COLUMNS: usize = 2;
 
 /// 編輯視窗：新增或修改某代號
 #[derive(Clone, PartialEq)]
@@ -133,6 +138,13 @@ fn PermissionClassMaintenancePage() -> Element {
     let mut editor = use_signal(|| None::<Editor>);
     let mut form = use_signal(PermissionClassInput::default);
     let mut dialog_error = use_signal(|| None::<String>);
+    let col_tab = use_signal(|| 0usize);
+    let status_tab = col_tab() == 1;
+    let cols = if status_tab {
+        KEY_COLUMNS + status::ALL.len()
+    } else {
+        COLUMNS.len()
+    };
     let mut confirm_menus = use_signal(|| false);
 
     let list: Vec<PermissionClassDto> = classes
@@ -359,6 +371,8 @@ fn PermissionClassMaintenancePage() -> Element {
 
             // ----- 權限類別表格（p_zw.4fd s_zw） -----
             Card {
+                // 資料／狀態頁籤（ADR 0012 §9）
+                Tabs { tabs: vec![t(TAB_DATA), t(TAB_STATUS)], active: col_tab }
                 div { class: "table-header",
                     h3 { {t("class-list-title")} }
                     p { {tf(if filtered { "list-count-filtered" } else { "list-count-all" }, &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
@@ -366,14 +380,15 @@ fn PermissionClassMaintenancePage() -> Element {
                 div { class: "table-scroll",
                     table { class: "md-table",
                         thead { tr {
-                            for (id, _, _) in COLUMNS {
+                            for (id, _, _) in COLUMNS.iter().take(if status_tab { KEY_COLUMNS } else { COLUMNS.len() }) {
                                 th { key: "{id}", {t(id)} }
                             }
+                            if status_tab { StatusHeaders {} }
                         }
                         // 查詢列（p_zw 在表格第一列輸入條件）
                         if querying() {
                             tr {
-                                for (id, field, hint) in COLUMNS {
+                                for &(id, field, hint) in COLUMNS.iter().take(if status_tab { KEY_COLUMNS } else { COLUMNS.len() }) {
                                     th { key: "{field}",
                                         TextField {
                                             id: "q-{field}",
@@ -384,14 +399,15 @@ fn PermissionClassMaintenancePage() -> Element {
                                         }
                                     }
                                 }
+                                if status_tab { StatusQbeCells { queryable: &[StatusField::Active], qbe } }
                             }
                         }
                         }
                         tbody {
                             match &*classes.read() {
-                                None => rsx! { tr { td { colspan: 7, {t("common-msg-loading")} } } },
-                                Some(Err(e)) => rsx! { tr { td { colspan: 7, "{e}" } } },
-                                Some(Ok(_)) if list.is_empty() => rsx! { tr { td { colspan: 7, class: "muted", {t("common-msg-no-data")} } } },
+                                None => rsx! { tr { td { colspan: "{cols}", {t("common-msg-loading")} } } },
+                                Some(Err(e)) => rsx! { tr { td { colspan: "{cols}", "{e}" } } },
+                                Some(Ok(_)) if list.is_empty() => rsx! { tr { td { colspan: "{cols}", class: "muted", {t("common-msg-no-data")} } } },
                                 Some(Ok(_)) => rsx! {
                                     for c in list.iter().cloned() {
                                         tr {
@@ -404,12 +420,13 @@ fn PermissionClassMaintenancePage() -> Element {
                                             },
                                             td { class: "mono", "{c.class_code}" }
                                             td { "{c.name}" }
+                                            if status_tab {
+                                                StatusCells { status: c.status() }
+                                            } else {
                                             td { class: "mono", {c.default_menu.clone().unwrap_or_default()} }
                                             td { {control_label(c.idle_control)} }
                                             td { {action_label(c.idle_action)} }
                                             td { {c.idle_seconds.map(|s| s.to_string()).unwrap_or_default()} }
-                                            td {
-                                                Chip { label: if c.active { t("class-status-active") } else { t("class-status-inactive") }, tone: active_tone(c.active) }
                                             }
                                         }
                                     }

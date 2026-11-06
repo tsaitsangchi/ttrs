@@ -9,11 +9,14 @@ use ttrs_shared::{
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Chip, Dialog, Notification, NotificationKind, Select, TextField,
-    Tone, active_tone, icons,
+    Button, ButtonVariant, Card, Dialog, Notification, NotificationKind, Select, Tabs, TextField,
+    Tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::plant::PlantPicker;
+use crate::components::status::{
+    self, HasStatus, StatusCells, StatusHeaders, TAB_DATA, TAB_STATUS,
+};
 use crate::i18n::{t, tf};
 
 /// 碼類別（CC2：料件用到的類別）：（代碼, 翻譯 ID）
@@ -78,7 +81,15 @@ fn ClassificationCodePage() -> Element {
         .or_else(|| list.first().cloned());
     let no_cur = cur.is_none();
     let cost = kind() == "G";
-    let cols = if cost { 6 } else { 3 };
+    let col_tab = use_signal(|| 0usize);
+    let status_tab = col_tab() == 1;
+    let cols = if status_tab {
+        2 + status::ALL.len()
+    } else if cost {
+        5
+    } else {
+        2
+    };
 
     let mut done = move |msg: String, code: Option<String>| {
         error.set(None);
@@ -221,6 +232,8 @@ fn ClassificationCodePage() -> Element {
             }
 
             Card {
+                // 資料／狀態頁籤（ADR 0012 §9）
+                Tabs { tabs: vec![t(TAB_DATA), t(TAB_STATUS)], active: col_tab }
                 div { class: "table-header",
                     h3 { {t("code-list-title")} }
                     p { {tf("list-count-all", &[("total", list.len().to_string().as_str())])} {t("list-hint-click")} }
@@ -231,12 +244,13 @@ fn ClassificationCodePage() -> Element {
                             tr {
                                 th { {t("code-field-code")} }
                                 th { {t("code-field-description")} }
-                                if cost {
+                                if status_tab {
+                                    StatusHeaders {}
+                                } else if cost {
                                     th { {t("code-field-variance-account")} }
                                     th { {t("code-field-variance-account2")} }
                                     th { {t("code-field-cost-nature")} }
                                 }
-                                th { {t("code-field-active")} }
                             }
                         }
                         tbody {
@@ -256,13 +270,12 @@ fn ClassificationCodePage() -> Element {
                                             },
                                             td { class: "mono", "{c.code}" }
                                             td { {c.description.clone().unwrap_or_default()} }
-                                            if cost {
+                                            if status_tab {
+                                                StatusCells { status: c.status() }
+                                            } else if cost {
                                                 td { class: "mono", {c.variance_account.clone().unwrap_or_default()} }
                                                 td { class: "mono", {c.variance_account2.clone().unwrap_or_default()} }
                                                 td { {c.cost_nature.map(|n| n.to_string()).unwrap_or_default()} }
-                                            }
-                                            td {
-                                                Chip { label: if c.active { t("code-status-active") } else { t("code-status-inactive") }, tone: active_tone(c.active) }
                                             }
                                         }
                                     }

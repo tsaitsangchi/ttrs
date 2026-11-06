@@ -10,24 +10,29 @@ use ttrs_shared::{
 
 use crate::api;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Chip, Dialog, Notification, NotificationKind, Select, TextField,
-    Tone, active_tone, icons,
+    Button, ButtonVariant, Card, Dialog, Notification, NotificationKind, Select, Tabs, TextField,
+    Tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::plant::PlantPicker;
-use crate::components::qbe::{HINT_FLAG, ListPager, PAGE_SIZE, Qbe, conditions_of};
+use crate::components::qbe::{ListPager, PAGE_SIZE, Qbe, conditions_of};
+use crate::components::status::{
+    self, HasStatus, StatusCells, StatusField, StatusHeaders, StatusQbeCells, TAB_DATA, TAB_STATUS,
+};
 use crate::i18n::{t, tf};
 
 /// 表格欄位（aooi040.4fd s_gen 順序）：（標題翻譯 ID, 查詢欄位鍵值, 查詢提示翻譯 ID）
-const COLUMNS: [(&str, &str, &str); 7] = [
+const COLUMNS: [(&str, &str, &str); 6] = [
     ("emp-field-id", "employee_id", ""),
     ("emp-field-name", "name", ""),
     ("emp-field-dept", "dept_code", ""),
     ("emp-field-title", "title", ""),
     ("emp-field-extension", "extension", ""),
     ("emp-field-email", "email", ""),
-    ("emp-field-active", "active", HINT_FLAG),
 ];
+
+/// 「狀態」頁仍顯示的識別欄位（代號、名稱）
+const KEY_COLUMNS: usize = 2;
 
 fn opt(v: String) -> Option<String> {
     Some(v).filter(|s| !s.trim().is_empty())
@@ -100,6 +105,13 @@ fn EmployeeMaintenancePage() -> Element {
     let mut editor = use_signal(|| None::<Editor>);
     let mut form = use_signal(EmployeeInput::default);
     let mut dialog_error = use_signal(|| None::<String>);
+    let col_tab = use_signal(|| 0usize);
+    let status_tab = col_tab() == 1;
+    let cols = if status_tab {
+        KEY_COLUMNS + status::ALL.len()
+    } else {
+        COLUMNS.len()
+    };
 
     let page_data = employees
         .read()
@@ -303,6 +315,8 @@ fn EmployeeMaintenancePage() -> Element {
             }
 
             Card {
+                // 資料／狀態頁籤（ADR 0012 §9）
+                Tabs { tabs: vec![t(TAB_DATA), t(TAB_STATUS)], active: col_tab }
                 div { class: "table-header",
                     h3 { {t("emp-list-title")} }
                     p { {tf(if filtered { "list-count-filtered" } else { "list-count-all" }, &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
@@ -311,13 +325,14 @@ fn EmployeeMaintenancePage() -> Element {
                     table { class: "md-table",
                         thead {
                             tr {
-                                for (id, _, _) in COLUMNS {
+                                for (id, _, _) in COLUMNS.iter().take(if status_tab { KEY_COLUMNS } else { COLUMNS.len() }) {
                                     th { key: "{id}", {t(id)} }
                                 }
+                                if status_tab { StatusHeaders {} }
                             }
                             if querying() {
                                 tr {
-                                    for (id, field, hint) in COLUMNS {
+                                    for &(id, field, hint) in COLUMNS.iter().take(if status_tab { KEY_COLUMNS } else { COLUMNS.len() }) {
                                         th { key: "{field}",
                                             TextField {
                                                 id: "q-{field}",
@@ -328,14 +343,15 @@ fn EmployeeMaintenancePage() -> Element {
                                             }
                                         }
                                     }
+                                    if status_tab { StatusQbeCells { queryable: &[StatusField::Active], qbe } }
                                 }
                             }
                         }
                         tbody {
                             match &*employees.read() {
-                                None => rsx! { tr { td { colspan: 7, {t("common-msg-loading")} } } },
-                                Some(Err(e)) => rsx! { tr { td { colspan: 7, "{e}" } } },
-                                Some(Ok(_)) if list.is_empty() => rsx! { tr { td { colspan: 7, class: "muted", {t("common-msg-no-data")} } } },
+                                None => rsx! { tr { td { colspan: "{cols}", {t("common-msg-loading")} } } },
+                                Some(Err(e)) => rsx! { tr { td { colspan: "{cols}", "{e}" } } },
+                                Some(Ok(_)) if list.is_empty() => rsx! { tr { td { colspan: "{cols}", class: "muted", {t("common-msg-no-data")} } } },
                                 Some(Ok(_)) => rsx! {
                                     for e in list.iter().cloned() {
                                         tr {
@@ -348,12 +364,13 @@ fn EmployeeMaintenancePage() -> Element {
                                             },
                                             td { class: "mono", "{e.employee_id}" }
                                             td { "{e.name}" }
+                                            if status_tab {
+                                                StatusCells { status: e.status() }
+                                            } else {
                                             td { {e.dept_code.clone().map(|d| format!("{d} {}", e.dept_name.clone().unwrap_or_default())).unwrap_or_default()} }
                                             td { {e.title.clone().unwrap_or_default()} }
                                             td { {e.extension.clone().unwrap_or_default()} }
                                             td { {e.email.clone().unwrap_or_default()} }
-                                            td {
-                                                Chip { label: if e.active { t("emp-status-active") } else { t("emp-status-inactive") }, tone: active_tone(e.active) }
                                             }
                                         }
                                     }

@@ -15,10 +15,13 @@ use ttrs_shared::{
 use crate::api;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Chip, Dialog, IconButton, Notification,
-    NotificationKind, Select, TextField, Tone, active_field_class, icons,
+    NotificationKind, Select, Tabs, TextField, Tone, active_field_class, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{Qbe, conditions_of};
+use crate::components::status::{
+    self, HasStatus, StatusCells, StatusHeaders, TAB_DATA, TAB_STATUS,
+};
 use crate::i18n::{self, t, tf};
 
 /// 查詢結果的權限類別一次取回（數量有限；每頁上限同後端 500 筆）
@@ -114,6 +117,13 @@ fn PermissionMain(initial: Option<String>) -> Element {
         }
     });
     let mut selected = use_signal(|| None::<String>);
+    let col_tab = use_signal(|| 0usize);
+    let status_tab = col_tab() == 1;
+    let cols = if status_tab {
+        2 + status::NO_ACTIVE.len()
+    } else {
+        6
+    };
     let mut open = use_signal(|| None::<Open>);
     let mut dialog_error = use_signal(|| None::<String>);
     let mut add_program = use_signal(String::new);
@@ -504,6 +514,8 @@ fn PermissionMain(initial: Option<String>) -> Element {
 
             // ----- 程式權限（p_zy.4fd s_zy） -----
             Card {
+                // 資料／狀態頁籤（ADR 0012 §9）
+                Tabs { tabs: vec![t(TAB_DATA), t(TAB_STATUS)], active: col_tab }
                 div { class: "table-header",
                     h3 { {t("perm-list-title")} }
                     p { {tf(if filtered { "list-count-filtered" } else { "list-count-all" }, &[("total", rows.len().to_string().as_str())])} {t("list-hint-click")} }
@@ -514,15 +526,16 @@ fn PermissionMain(initial: Option<String>) -> Element {
                 div { class: "table-scroll",
                     table { class: "md-table",
                         thead { tr {
-                            for id in ["perm-field-program", "perm-field-program-name", "perm-field-actions", "perm-field-other-user", "perm-field-other-dept", "perm-field-detail"] {
+                            for id in ["perm-field-program", "perm-field-program-name", "perm-field-actions", "perm-field-other-user", "perm-field-other-dept", "perm-field-detail"].into_iter().take(if status_tab { 2 } else { 6 }) {
                                 th { key: "{id}", {t(id)} }
                             }
+                            if status_tab { StatusHeaders { fields: status::NO_ACTIVE } }
                         } }
                         tbody {
                             match &*perms.read() {
-                                None => rsx! { tr { td { colspan: 6, {t("common-msg-loading")} } } },
-                                Some(Err(e)) => rsx! { tr { td { colspan: 6, "{e}" } } },
-                                Some(Ok(_)) if rows.is_empty() => rsx! { tr { td { colspan: 6, class: "muted", {t("common-msg-no-data")} } } },
+                                None => rsx! { tr { td { colspan: "{cols}", {t("common-msg-loading")} } } },
+                                Some(Err(e)) => rsx! { tr { td { colspan: "{cols}", "{e}" } } },
+                                Some(Ok(_)) if rows.is_empty() => rsx! { tr { td { colspan: "{cols}", class: "muted", {t("common-msg-no-data")} } } },
                                 Some(Ok(_)) => rsx! {
                                     for r in rows.iter().cloned() {
                                         tr {
@@ -535,10 +548,14 @@ fn PermissionMain(initial: Option<String>) -> Element {
                                             },
                                             td { class: "mono", "{r.program_no}" }
                                             td { {r.program_name.clone().unwrap_or_default()} }
+                                            if status_tab {
+                                                StatusCells { status: r.status(), fields: status::NO_ACTIVE }
+                                            } else {
                                             td { {r.actions.iter().map(|a| action_label(a)).collect::<Vec<_>>().join(", ")} }
                                             td { {format!("{}  {}", r.other_user_data, level_label("user", &r.other_user_data))} }
                                             td { {format!("{}  {}", r.other_dept_data, level_label("dept", &r.other_dept_data))} }
                                             td { {format!("{}  {}", r.detail_rows, level_label("detail", &r.detail_rows))} }
+                                            }
                                         }
                                     }
                                 },
