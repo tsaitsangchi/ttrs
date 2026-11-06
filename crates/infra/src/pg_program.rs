@@ -2,12 +2,13 @@
 //! 子表以 ON UPDATE / ON DELETE CASCADE 連動，改代號與刪除只需操作 program 表。
 
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::{FromRow, Postgres, QueryBuilder};
 use ttrs_app::{
     error::RepoError,
     ports::{AuditEntry, ProgramName, ProgramRepository},
 };
+use ttrs_domain::record::Stamp;
 use ttrs_domain::{
     lang::Lang,
     permission::ProgramPermission,
@@ -55,6 +56,9 @@ struct ProgramRow {
     created_dept: String,
     updated_by: Option<String>,
     updated_on: NaiveDate,
+    version: i32,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 fn bad(what: &str, v: &str) -> RepoError {
@@ -120,6 +124,11 @@ impl TryFrom<ProgramRow> for Program {
             created_dept: r.created_dept,
             updated_by: r.updated_by,
             updated_on: r.updated_on,
+            stamp: Stamp {
+                version: r.version,
+                created_at: Some(r.created_at),
+                updated_at: r.updated_at,
+            },
         })
     }
 }
@@ -133,7 +142,7 @@ impl ProgramRepository for PgStore {
                     current_print_count, report_width, run_command, window_style,
                     report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
                     sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
-                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on
+                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on, version, created_at, updated_at
              FROM program WHERE program_no = $1",
         )
         .bind(no.as_str())
@@ -164,7 +173,7 @@ impl ProgramRepository for PgStore {
                     current_print_count, report_width, run_command, window_style,
                     report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
                     sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
-                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on
+                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on, version, created_at, updated_at
              FROM program p WHERE TRUE",
         );
         push_filters(&mut rows, filters)?;
@@ -191,7 +200,7 @@ impl ProgramRepository for PgStore {
                     current_print_count, report_width, run_command, window_style,
                     report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
                     sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
-                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on
+                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on, version, created_at, updated_at
              FROM program ORDER BY program_no",
         )
         .fetch_all(&self.pool)
@@ -278,7 +287,7 @@ impl ProgramRepository for PgStore {
 
     async fn update(&self, p: &Program) -> Result<(), RepoError> {
         let r = &p.runtime;
-        sqlx::query(
+        let n = sqlx::query(
             "UPDATE program SET module_code = $2, program_type = $3, report_type = $4,
                     idle_control = $5, idle_seconds = $6, idle_action = $7, pass_book_no = $8,
                     deferred_print_count = $9, current_print_count = $10, report_width = $11,
@@ -288,7 +297,7 @@ impl ProgramRepository for PgStore {
                     default_actions = $21, print_conditions = $22, allow_key_update = $23,
                     remark = $24, designed_on = $25, updated_on = $26, tiptop_program_no = $27,
                     updated_at = now()
-             WHERE program_no = $1",
+             WHERE program_no = $1 AND version = $28",
         )
         .bind(p.program_no.as_str())
         .bind(p.module.as_str())
@@ -317,9 +326,15 @@ impl ProgramRepository for PgStore {
         .bind(p.designed_on)
         .bind(p.updated_on)
         .bind(&p.tiptop_program_no)
+        .bind(p.stamp.version)
         .execute(&self.pool)
         .await
-        .map_err(db_err)?;
+        .map_err(db_err)?
+        .rows_affected();
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        if n == 0 {
+            return Err(RepoError::Stale);
+        }
         Ok(())
     }
 
@@ -417,7 +432,7 @@ impl ProgramRepository for PgStore {
                     current_print_count, report_width, run_command, window_style,
                     report_ext_mode, program_group, fixed_print_method, fixed_print_condition,
                     sql_explain, log_errors, default_actions, print_conditions, allow_key_update,
-                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on
+                    remark, designed_on, tiptop_program_no, created_by, created_dept, updated_by, updated_on, version, created_at, updated_at
              FROM program p JOIN menu_item m ON m.program_no = p.program_no
              WHERE m.menu_no = $1 ORDER BY p.program_no COLLATE \"C\"",
         )
@@ -526,6 +541,8 @@ fn column(field: &str) -> Option<(&'static str, bool)> {
         "updated_by" => ("p.updated_by", true),
         "created_dept" => ("p.created_dept", true),
         "updated_on" => ("p.updated_on", false),
+        "created_on" => ("(p.created_at AT TIME ZONE 'UTC')::date", false),
+        "version" => ("p.version", false),
         _ => return None,
     })
 }

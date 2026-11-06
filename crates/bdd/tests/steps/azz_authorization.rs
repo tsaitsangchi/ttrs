@@ -69,6 +69,7 @@ pub(crate) async fn set_class_permission(
 ) {
     let _ = w.permissions.revoke(&w.actor, class, program).await;
     let input = ProgramPermissionInput {
+        version: None,
         program_no: program.to_owned(),
         actions,
         other_user_data: Some(levels[0].to_owned()),
@@ -152,7 +153,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             };
             w.programs.set_name(a, no, name).await
         }
-        ["刪除程式", no] => w.programs.delete(a, no).await,
+        ["刪除程式", no] => w.programs.delete(a, no, None).await,
         ["複製程式", no] => w.programs.copy(a, no, "item-lot").await.map(drop),
         ["授權程式", no, "給", class] => w.programs.grant(a, no, class).await,
         // p_zta 資料字典維護（含 TipTop 對照目錄）
@@ -164,7 +165,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .update(a, table, dict_input(table))
             .await
             .map(drop),
-        ["刪除資料字典", table] => w.dictionary.delete(a, table).await,
+        ["刪除資料字典", table] => w.dictionary.delete(a, table, None).await,
         ["設定資料表", table, "的說明"] => {
             let text = TableTextDto {
                 lang: "zh-TW".into(),
@@ -198,26 +199,26 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             req.name = Some("修改".into());
             w.users.update(a, id, req).await.map(drop)
         }
-        ["刪除使用者", id] => w.users.delete(a, id).await,
+        ["刪除使用者", id] => w.users.delete(a, id, None).await,
         ["複製使用者", id] => w.users.copy(a, id, "u101").await.map(drop),
-        ["停用使用者", id] => w.users.deactivate(a, id).await.map(drop),
+        ["停用使用者", id] => w.users.deactivate(a, id, None).await.map(drop),
         ["解除使用者", id, "的鎖定"] => w.users.unlock(a, id).await,
-        ["啟用使用者", id] => w.users.activate(a, id).await.map(drop),
+        ["啟用使用者", id] => w.users.activate(a, id, None).await.map(drop),
         // p_zw 權限類別維護
         ["查詢權限類別"] => w.classes.query(a, QueryRequest::default()).await.map(drop),
         ["查看權限類別", code] => w.classes.get(a, code).await.map(drop),
         ["新增權限類別", code] => w.classes.create(a, class_input(code)).await.map(drop),
         ["修改權限類別", code] => w.classes.update(a, code, class_input("")).await.map(drop),
-        ["停用權限類別", code] => w.classes.deactivate(a, code).await.map(drop),
-        ["刪除權限類別", code] => w.classes.delete(a, code).await,
+        ["停用權限類別", code] => w.classes.deactivate(a, code, None).await.map(drop),
+        ["刪除權限類別", code] => w.classes.delete(a, code, None).await,
         ["更新所有使用者選單"] => w.classes.update_user_menus(a).await.map(drop),
         // aooi901 營運中心維護
         ["查詢營運中心"] => w.plants.query(a, QueryRequest::default()).await.map(drop),
         ["查看營運中心", id] => w.plants.get(a, id).await.map(drop),
         ["新增營運中心", id] => w.plants.create(a, plant_input(id)).await.map(drop),
         ["修改營運中心", id] => w.plants.update(a, id, plant_input("")).await.map(drop),
-        ["停用營運中心", id] => w.plants.deactivate(a, id).await.map(drop),
-        ["刪除營運中心", id] => w.plants.delete(a, id).await,
+        ["停用營運中心", id] => w.plants.deactivate(a, id, None).await.map(drop),
+        ["刪除營運中心", id] => w.plants.delete(a, id, None).await,
         ["複製營運中心", id] => w.plants.copy(a, id, "TW08").await.map(drop),
         // p_zy 程式執行權限維護
         ["查詢程式執行權限"] => w
@@ -334,6 +335,11 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         }
         ["刪除部門", code] => w.departments.delete(a, "TW01", code, None).await,
         // 異動記錄（ADR 0012 §8，功能 history）
+        ["查詢作業", program, key, "的異動記錄"] => w
+            .shared_history
+            .history(a, program, key, None)
+            .await
+            .map(drop),
         ["查詢部門", code, "的異動記錄"] => {
             w.departments.history(a, "TW01", code, None).await.map(drop)
         }
@@ -407,6 +413,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
 
 fn dict_input(table: &str) -> TableDictionaryInput {
     TableDictionaryInput {
+        version: None,
         table_name: table.into(),
         module_code: "AIM".into(),
         table_type: None,
@@ -433,6 +440,7 @@ fn plant_input(id: &str) -> PlantInput {
 
 fn permission_input(no: &str) -> ProgramPermissionInput {
     ProgramPermissionInput {
+        version: None,
         program_no: no.into(),
         actions: None,
         other_user_data: None,
@@ -551,6 +559,7 @@ async fn special_program_permission(
     detail: String,
 ) {
     let input = UserPermissionInput {
+        version: None,
         kind: SpecialPermissionKindDto::Program,
         target: program,
         include_own_class: false,

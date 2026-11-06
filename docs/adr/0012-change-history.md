@@ -119,7 +119,7 @@
 
 ### 9. 畫面：「狀態」頁籤
 
-資料有效、資料所有者、資料所有部門、建立日期、最後修改者、最後修改日期（之後加版本與「異動記錄」功能，§8）統一放在各維護作業的
+資料有效、資料所有者、資料所有部門、建立時間、最後修改者、最後修改時間（到秒並帶時區，以瀏覽器時區顯示；舊資料沒有時間時顯示日期）、版本統一放在各維護作業的
 **「狀態」頁籤**，比照 TipTop 4fd 的 info／Status 頁（`tiptop/azz/4fd/p_zx.4fd`、`tiptop/aim/4fd/aimi100.4fd` 等 580 支畫面：
 xxxuser、xxxmodu、xxxgrup、xxxdate、xxxacti）。共用元件 `crates/web/src/components/status.rs`（Key User，2026-11-06）：
 
@@ -127,6 +127,9 @@ xxxuser、xxxmodu、xxxgrup、xxxdate、xxxacti）。共用元件 `crates/web/sr
 - **表格作業**（部門、員工、權限類別、分類碼；程式權限與使用者特殊權限的單身）：表格上方「資料／狀態」頁籤切換欄位，
   狀態頁保留識別欄位（代號、名稱）＋狀態欄位；資料有效不再放在資料頁。
 - 資料表沒有的欄位不顯示（例如 zz_file 無資料有效碼與建立日期、zy_file／zxw_file 無資料有效碼）。
+- **查詢**（Key User，2026-11-06）：每個作業的查詢都可用狀態頁籤的所有欄位下條件（資料有效、資料所有者、資料所有部門、
+  建立時間、最後修改者、最後修改時間、版本；時間以日期比對 `created_on`／`updated_on`，程式資料的建立時間取 `created_at` 的 UTC 日期）。
+  白名單在 `ttrs_app::query`（各作業）與 `program_query`，PostgreSQL 欄位對應在各 `pg_*.rs`。
 - 資料字典（p_zta）已有「狀態」頁，欄位為產生者 zta06、產生日期 zta05，維持原樣。
 - 新作業一律照此做；清單式的瀏覽表（單筆表單下方的清單）可保留資料有效欄方便挑選。
 
@@ -143,9 +146,19 @@ xxxuser、xxxmodu、xxxgrup、xxxdate、xxxacti）。共用元件 `crates/web/sr
     `GET …/{key}/history?lang=`。畫面：「異動記錄」按鈕與對話框（`components/history.rs`）。
   - AU2 先**新增** `created_at`／`updated_at`（timestamptz），原 `created_on`／`updated_on`（date）暫時保留；
     domain 改用時間戳後於第二階段移除。
-- **第二階段**：共用層的表（change_history.feature CH1 其餘各表、CH-7）：寫入改在交易內並設定操作情境、`public.change_log`、
-  其餘作業的 history 功能與畫面；移除 date 欄位（AU2）。
-
+- **第二階段（2026-11-06）**：共用層的表。
+  - `migrations/0025_change_log_shared.sql`：`public.change_log`（月份分割；共用 schema 由應用程式登入角色擁有，
+    改以觸發器 `ttrs_change_log_guard` 擋下修改與刪除，歸檔或測試清除時於交易內設定 `ttrs.allow_purge`）；
+    user_account、permission_class、plant、program、program_permission、user_permission、table_dictionary、account_policy
+    加版本與時間欄位與觸發器；user_plant、program_name、table_dictionary_text、column_dictionary_text 只記異動。user_account.email 遮蔽。
+  - 操作情境改在**取出資料庫連線時**設定（sqlx `before_acquire`／`after_connect`，連線層級的 `ttrs.*`），
+    共用層與工廠層的寫入都適用，不必逐一改寫 repository。
+  - 可使用營運中心改為只刪除移除的、新增增加的（不再整批刪除重建），`all_plants` 併入使用者的同一個 UPDATE。
+  - 查詢：`GET /api/history/{程式}/{鍵值}`（`ChangeHistoryService`），主檔與子表一併列出（CH2）；各作業加「異動記錄」按鈕。
+  - 版本必填：修改（body `version`）、刪除與停用／啟用（`?version=`）。例外：程式權限、使用者特殊權限的單列移除與整批作業
+    （依選單產生、刪除全部…）不帶版本。
+  - 記憶體後端記錄主檔與可使用營運中心；程式名稱、資料字典說明與連帶刪除的子表只在 PostgreSQL 記錄。
+- **尚未完成**：AU2 移除 `created_on`／`updated_on`（date）——各 domain 改用時間戳後再處理。
 ## 確認事項（皆採建議）
 
 | # | 問題 | 建議 |

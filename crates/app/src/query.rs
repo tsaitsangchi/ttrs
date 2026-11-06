@@ -128,6 +128,34 @@ fn date(v: Option<chrono::NaiveDate>) -> FieldValue {
     FieldValue::One(v.map(QbeValue::Date))
 }
 
+fn int(v: i32) -> FieldValue {
+    FieldValue::One(Some(QbeValue::Integer(i64::from(v))))
+}
+
+/// 狀態欄位的值（記憶體版比對）；不是狀態欄位時為 None
+#[allow(clippy::too_many_arguments)]
+fn status_value(
+    field: &str,
+    active: Option<bool>,
+    created_by: &str,
+    created_dept: &str,
+    created_on: Option<chrono::NaiveDate>,
+    updated_by: Option<&str>,
+    updated_on: Option<chrono::NaiveDate>,
+    version: i32,
+) -> Option<FieldValue> {
+    Some(match field {
+        "active" => FieldValue::One(active.map(QbeValue::Flag)),
+        "created_by" => text(created_by),
+        "created_dept" => text(created_dept),
+        "created_on" => date(created_on),
+        "updated_by" => opt_text(updated_by),
+        "updated_on" => date(updated_on),
+        "version" => int(version),
+        _ => return None,
+    })
+}
+
 /// 使用者維護（p_zx.4gl:118-121 CONSTRUCT；UQ1–UQ3）
 pub mod user {
     use ttrs_domain::{qbe::FieldType, user::User};
@@ -136,7 +164,7 @@ pub mod user {
     use super::*;
 
     /// CONSTRUCT 中有 TTRS 對應的 15 個欄位＋公司帳號（UQ1）
-    pub const FIELDS: [Field; 16] = [
+    pub const FIELDS: [Field; 18] = [
         field("user_id", FieldType::Text),
         field("name", FieldType::Text),
         cased("dept_code", Case::Upper),
@@ -153,6 +181,8 @@ pub mod user {
         field("created_dept", FieldType::Text),
         field("updated_by", FieldType::Text),
         field("updated_on", FieldType::Date),
+        field("created_on", FieldType::Date),
+        field("version", FieldType::Integer),
     ];
 
     pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
@@ -178,7 +208,18 @@ pub mod user {
             "created_dept" => text(&u.created_dept),
             "updated_by" => opt_text(u.updated_by.as_deref()),
             "updated_on" => date(u.updated_on),
-            _ => FieldValue::One(None),
+            // 狀態頁籤的欄位（ADR 0012 §9）
+            other => status_value(
+                other,
+                Some(u.active),
+                &u.created_by,
+                &u.created_dept,
+                Some(u.created_on),
+                u.updated_by.as_deref(),
+                u.updated_on,
+                u.stamp.version,
+            )
+            .unwrap_or(FieldValue::One(None)),
         }
     }
 }
@@ -191,7 +232,7 @@ pub mod plant {
     use super::*;
 
     /// CONSTRUCT 中有 TTRS 對應的 6 個欄位＋資料有效（PQ1）＋資料庫代碼（PQ5，存小寫）
-    pub const FIELDS: [Field; 8] = [
+    pub const FIELDS: [Field; 14] = [
         cased("plant_id", Case::Upper),
         cased("schema_name", Case::Lower),
         field("name", FieldType::Text),
@@ -200,6 +241,12 @@ pub mod plant {
         field("phone", FieldType::Text),
         field("fax", FieldType::Text),
         field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
     ];
 
     pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
@@ -217,7 +264,18 @@ pub mod plant {
             "phone" => opt_text(a.phone.as_deref()),
             "fax" => opt_text(a.fax.as_deref()),
             "active" => flag(p.active),
-            _ => FieldValue::One(None),
+            // 狀態頁籤的欄位（ADR 0012 §9）
+            other => status_value(
+                other,
+                Some(p.active),
+                &p.created_by,
+                &p.created_dept,
+                Some(p.created_on),
+                p.updated_by.as_deref(),
+                p.updated_on,
+                p.stamp.version,
+            )
+            .unwrap_or(FieldValue::One(None)),
         }
     }
 }
@@ -234,7 +292,7 @@ pub mod permission_class {
     use super::*;
 
     /// CONSTRUCT 的 7 個欄位（WQ1）
-    pub const FIELDS: [Field; 7] = [
+    pub const FIELDS: [Field; 13] = [
         field("class_code", FieldType::Text),
         field("name", FieldType::Text),
         field("default_menu", FieldType::Text),
@@ -242,6 +300,12 @@ pub mod permission_class {
         field("idle_action", FieldType::Text),
         field("idle_seconds", FieldType::Integer),
         field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
     ];
 
     const CONTROLS: [(ClassIdleControlDto, ClassIdleControl); 3] = [
@@ -287,7 +351,18 @@ pub mod permission_class {
                 FieldValue::One(a.idle_seconds.map(|s| QbeValue::Integer(i64::from(s))))
             }
             "active" => flag(c.active),
-            _ => FieldValue::One(None),
+            // 狀態頁籤的欄位（ADR 0012 §9）
+            other => status_value(
+                other,
+                Some(c.active),
+                &c.created_by,
+                &c.created_dept,
+                Some(c.created_on),
+                c.updated_by.as_deref(),
+                c.updated_on,
+                c.stamp.version,
+            )
+            .unwrap_or(FieldValue::One(None)),
         }
     }
 }
@@ -306,13 +381,19 @@ pub mod program_permission {
     pub const HEADER: &str = "class_code";
 
     /// CONSTRUCT 的 6 個欄位（YQ1）：單頭權限類別＋單身 5 個欄位
-    pub const FIELDS: [Field; 6] = [
+    pub const FIELDS: [Field; 12] = [
         field(HEADER, FieldType::Text),
         field("program_no", FieldType::Text),
         field("actions", FieldType::Text),
         field("other_user_data", FieldType::Text),
         field("other_dept_data", FieldType::Text),
         field("detail_rows", FieldType::Text),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
     ];
 
     /// 解析條件並分成（單頭, 單身）篩選
@@ -334,7 +415,18 @@ pub mod program_permission {
             "other_user_data" => text(a.other_user.code()),
             "other_dept_data" => text(a.other_dept.code()),
             "detail_rows" => text(a.detail.code()),
-            _ => FieldValue::One(None),
+            // 狀態頁籤的欄位（ADR 0012 §9）
+            other => status_value(
+                other,
+                None,
+                &p.created_by,
+                &p.created_dept,
+                Some(p.created_on),
+                p.updated_by.as_deref(),
+                p.updated_on,
+                p.stamp.version,
+            )
+            .unwrap_or(FieldValue::One(None)),
         }
     }
 }
@@ -390,7 +482,7 @@ pub mod department {
 
     use super::*;
 
-    pub const FIELDS: [Field; 8] = [
+    pub const FIELDS: [Field; 14] = [
         cased("dept_code", Case::Upper),
         field("name", FieldType::Text),
         field("full_name", FieldType::Text),
@@ -399,6 +491,12 @@ pub mod department {
         field("control_type", FieldType::Text),
         cased("cost_center", Case::Upper),
         field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
     ];
 
     pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
@@ -416,7 +514,18 @@ pub mod department {
             "control_type" => text(a.control_type.code()),
             "cost_center" => opt_text(a.cost_center.as_ref().map(|c| c.as_str())),
             "active" => flag(d.active),
-            _ => FieldValue::One(None),
+            // 狀態頁籤的欄位（ADR 0012 §9）
+            other => status_value(
+                other,
+                Some(d.active),
+                &d.created_by,
+                &d.created_dept,
+                Some(d.created_on),
+                d.updated_by.as_deref(),
+                d.updated_on,
+                d.stamp.version,
+            )
+            .unwrap_or(FieldValue::One(None)),
         }
     }
 }
@@ -428,7 +537,7 @@ pub mod employee {
 
     use super::*;
 
-    pub const FIELDS: [Field; 7] = [
+    pub const FIELDS: [Field; 13] = [
         cased("employee_id", Case::Upper),
         field("name", FieldType::Text),
         cased("dept_code", Case::Upper),
@@ -436,6 +545,12 @@ pub mod employee {
         field("extension", FieldType::Text),
         field("email", FieldType::Text),
         field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
     ];
 
     pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
@@ -452,7 +567,18 @@ pub mod employee {
             "extension" => opt_text(a.extension.as_deref()),
             "email" => opt_text(a.email.as_deref()),
             "active" => flag(e.active),
-            _ => FieldValue::One(None),
+            // 狀態頁籤的欄位（ADR 0012 §9）
+            other => status_value(
+                other,
+                Some(e.active),
+                &e.created_by,
+                &e.created_dept,
+                Some(e.created_on),
+                e.updated_by.as_deref(),
+                e.updated_on,
+                e.stamp.version,
+            )
+            .unwrap_or(FieldValue::One(None)),
         }
     }
 }

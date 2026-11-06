@@ -264,19 +264,19 @@ async fn change_email(w: &mut ErpWorld, id: String, email: String) {
 
 #[when(expr = "使用者停用使用者 {string}")]
 async fn deactivate(w: &mut ErpWorld, id: String) {
-    let result = w.users.deactivate(&w.actor, &id).await;
+    let result = w.users.deactivate(&w.actor, &id, None).await;
     w.last = Some(result.map(|_| ()));
 }
 
 #[when(expr = "使用者啟用使用者 {string}")]
 async fn activate(w: &mut ErpWorld, id: String) {
-    let result = w.users.activate(&w.actor, &id).await;
+    let result = w.users.activate(&w.actor, &id, None).await;
     w.last = Some(result.map(|_| ()));
 }
 
 #[when(expr = "使用者刪除使用者 {string}")]
 async fn delete(w: &mut ErpWorld, id: String) {
-    let result = w.users.delete(&w.actor, &id).await;
+    let result = w.users.delete(&w.actor, &id, None).await;
     w.last = Some(result);
 }
 

@@ -18,6 +18,7 @@
 # 確認事項（皆採草稿）：
 #   WQ1. 可查詢欄位：比照 CONSTRUCT 的 7 個欄位——權限類別、權限說明、使用目錄編號、閒置設定、閒置處理、
 #        閒置時間（秒）、有效。資料所有者、最後修改者／日期不在 TipTop CONSTRUCT 內（W10：TipTop 從未寫入），不提供。
+#        （2026-11-06 Key User 改為：狀態頁籤的欄位一律可查詢，見 change_history.feature CH-12、ADR 0012 §9）
 #   WQ2. 閒置設定、閒置處理可輸入畫面顯示文字或代碼（同程式維護的下拉欄位）：
 #        閒置設定 不控制=1、依權限類別=2、依系統=3；閒置處理 僅警告=1、警告後關閉=2、直接關閉=3。
 #   WQ3. 權限類別代碼區分大小寫（同 TipTop，zw01 沒有 UPSHIFT）。
@@ -99,7 +100,7 @@
       | 欄位           | 條件   | 錯誤代碼              |
       | 閒置時間（秒） | abc    | QBE_INVALID_NUMBER    |
       | 有效           | 1:2    | QBE_INVALID_SYNTAX    |
-      | 資料所有者     | tiptop | QBE_FIELD_NOT_ALLOWED |
+      | 選單名稱       | 主選單 | QBE_FIELD_NOT_ALLOWED |
 
   # QBE7 分頁
   場景: 查詢結果分頁

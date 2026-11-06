@@ -83,15 +83,16 @@ impl ChangeLogRepository for PgStore {
     async fn history(
         &self,
         plant: Option<&PlantId>,
-        table: &str,
+        tables: &[&str],
         key: &BTreeMap<String, String>,
     ) -> Result<Vec<ChangeRecord>, RepoError> {
-        // 共用層的表（plant 為 None）在第二階段加入 public.change_log
-        let Some(plant) = plant else {
-            return Ok(Vec::new());
-        };
-        let Some(mut tx) = self.plant_tx(plant).await? else {
-            return Ok(Vec::new());
+        // 共用層的表查 public.change_log；工廠層在該廠的 schema
+        let mut tx = match plant {
+            None => self.pool.begin().await.map_err(db_err)?,
+            Some(plant) => match self.plant_tx(plant).await? {
+                Some(tx) => tx,
+                None => return Ok(Vec::new()),
+            },
         };
         let key = serde_json::to_string(key).map_err(|e| RepoError::Other(e.to_string()))?;
         let rows: Vec<ChangeRow> = sqlx::query_as(
@@ -107,10 +108,10 @@ impl ChangeLogRepository for PgStore {
                     ARRAY(SELECT e.key FROM jsonb_each_text(after) e ORDER BY e.key) AS after_cols,
                     ARRAY(SELECT e.value FROM jsonb_each_text(after) e ORDER BY e.key) AS after_vals
                FROM change_log
-              WHERE table_name = $1 AND record_key = $2::jsonb
+              WHERE table_name = ANY($1) AND record_key @> $2::jsonb
               ORDER BY change_id",
         )
-        .bind(table)
+        .bind(tables)
         .bind(key)
         .fetch_all(&mut *tx)
         .await

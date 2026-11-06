@@ -12,6 +12,7 @@ use ttrs_shared::{
 };
 
 use crate::api;
+use crate::components::history::HistoryButton;
 use crate::components::material::{
     Button, ButtonVariant, Card, Dialog, Notification, NotificationKind, Select, Tabs, TextField,
     Tone, icons,
@@ -19,7 +20,7 @@ use crate::components::material::{
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{HINT_NUMBER, ListPager, PAGE_SIZE, Qbe, conditions_of};
 use crate::components::status::{
-    self, HasStatus, StatusCells, StatusField, StatusHeaders, StatusQbeCells, TAB_DATA, TAB_STATUS,
+    self, HasStatus, StatusCells, StatusHeaders, StatusQbeCells, TAB_DATA, TAB_STATUS,
 };
 use crate::i18n::{t, tf};
 
@@ -303,6 +304,10 @@ fn PermissionClassMaintenancePage() -> Element {
                         {t("common-action-edit")}
                     }
                 }
+                // 異動記錄（ADR 0012 §8，功能 history）
+                if perm.can("history") {
+                    HistoryButton { program: PROGRAM, record: cur.as_ref().map(|c| c.class_code.clone()) }
+                }
                 if perm.delete_row() {
                     Button {
                         icon: icons::DELETE, tone: Tone::Error,
@@ -311,7 +316,7 @@ fn PermissionClassMaintenancePage() -> Element {
                         onclick: move |_| {
                             let Some(c) = cur_delete.clone() else { return };
                             spawn(async move {
-                                match api::delete_class(&c.class_code).await {
+                                match api::delete_class(&c.class_code, c.version).await {
                                     Ok(()) => done(tf("class-msg-deleted", &[("code", c.class_code.as_str())]), None),
                                     Err(e) => error.set(Some(e)),
                                 }
@@ -329,7 +334,7 @@ fn PermissionClassMaintenancePage() -> Element {
                         onclick: move |_| {
                             let Some(c) = cur_toggle.clone() else { return };
                             spawn(async move {
-                                match api::set_class_active(&c.class_code, !c.active).await {
+                                match api::set_class_active(&c.class_code, !c.active, c.version).await {
                                     Ok(r) => {
                                         let id = if r.active { "class-msg-activated" } else { "class-msg-deactivated" };
                                         done(tf(id, &[("code", r.class_code.as_str())]), Some(r.class_code));
@@ -399,7 +404,7 @@ fn PermissionClassMaintenancePage() -> Element {
                                         }
                                     }
                                 }
-                                if status_tab { StatusQbeCells { queryable: &[StatusField::Active], qbe } }
+                                if status_tab { StatusQbeCells { queryable: status::ALL, qbe } }
                             }
                         }
                         }

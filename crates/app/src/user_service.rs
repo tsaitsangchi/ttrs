@@ -86,47 +86,53 @@ impl UserService {
 
     /// 新增（p_zx_a）：預設營運中心自動成為可使用營運中心（p_zx.4gl:490-501）
     pub async fn create(&self, actor: &Actor, input: UserInput) -> Result<UserDto, AppError> {
-        self.authorize(actor, "insert").await?;
-        let id = UserId::parse(&input.user_id)?;
-        let attrs = self.attrs(&input, None).await?;
-        self.check_dept(&attrs).await?;
-        let password = web_password(&input)?;
-        let chosen = match &input.allowed_plants {
-            Some(list) => self.parse_new_plants(list, &[]).await?,
-            None => vec![attrs.default_plant.clone()],
-        };
-        let all = input.all_plants.unwrap_or(false);
-        let plants = chosen_plants(&attrs.default_plant, attrs.multi_plant, &chosen, all)?;
-        let user = User::new(id, attrs, &actor.user_id, &actor.dept, today());
-        match self.users.insert(&user, &plants).await {
-            Ok(()) => {}
-            Err(RepoError::Conflict) => return Err(DomainError::UserAlreadyExists.into()),
-            Err(e) => return Err(infra(e)),
-        }
-        // 未輸入密碼時初始密碼＝使用者代號，須於下次登入改密碼（p_zx.4gl:447、:561，W1）
-        if let Some(p) = password {
-            self.set_password(&user.user_id, p).await?;
-        }
-        Ok(to_dto(&user, &plants))
+        crate::change_log::run(actor, PROGRAM, "insert", async {
+            self.authorize(actor, "insert").await?;
+            let id = UserId::parse(&input.user_id)?;
+            let attrs = self.attrs(&input, None).await?;
+            self.check_dept(&attrs).await?;
+            let password = web_password(&input)?;
+            let chosen = match &input.allowed_plants {
+                Some(list) => self.parse_new_plants(list, &[]).await?,
+                None => vec![attrs.default_plant.clone()],
+            };
+            let all = input.all_plants.unwrap_or(false);
+            let plants = chosen_plants(&attrs.default_plant, attrs.multi_plant, &chosen, all)?;
+            let user = User::new(id, attrs, &actor.user_id, &actor.dept, today());
+            match self.users.insert(&user, &plants).await {
+                Ok(()) => {}
+                Err(RepoError::Conflict) => return Err(DomainError::UserAlreadyExists.into()),
+                Err(e) => return Err(infra(e)),
+            }
+            // 未輸入密碼時初始密碼＝使用者代號，須於下次登入改密碼（p_zx.4gl:447、:561，W1）
+            if let Some(p) = password {
+                self.set_password(&user.user_id, p).await?;
+            }
+            Ok(to_dto(&user, &plants))
+        })
+        .await
     }
 
     /// 解除鎖定（p_zx user_unlock，p_zx.4gl:367-400）：試誤次數歸零
     pub async fn unlock(&self, actor: &Actor, user_id: &str) -> Result<(), AppError> {
-        self.authorize(actor, "user_unlock").await?;
-        let user = self.load(user_id).await?;
-        if let Some(mut cred) = self
-            .credentials
-            .credential(&user.user_id)
-            .await
-            .map_err(infra)?
-        {
-            cred.failed_count = 0;
-            self.credentials
-                .save_credential(&user.user_id, &cred)
+        crate::change_log::run(actor, PROGRAM, "user_unlock", async {
+            self.authorize(actor, "user_unlock").await?;
+            let user = self.load(user_id).await?;
+            if let Some(mut cred) = self
+                .credentials
+                .credential(&user.user_id)
                 .await
-                .map_err(infra)?;
-        }
-        Ok(())
+                .map_err(infra)?
+            {
+                cred.failed_count = 0;
+                self.credentials
+                    .save_credential(&user.user_id, &cred)
+                    .await
+                    .map_err(infra)?;
+            }
+            Ok(())
+        })
+        .await
     }
 
     /// 管理員設定 Web 密碼：一律須於下次登入改密碼（p_zx.4gl:640-650，W7）
@@ -145,63 +151,69 @@ impl UserService {
         user_id: &str,
         input: UserInput,
     ) -> Result<UserDto, AppError> {
-        let grant = self.authorize(actor, "modify").await?;
-        let mut user = self.load(user_id).await?;
-        grant.record(&user.created_by, &user.created_dept)?;
-        if !input.user_id.trim().is_empty() && input.user_id.trim() != user.user_id.as_str() {
-            return Err(DomainError::UserIdImmutable.into());
-        }
-        let attrs = self.attrs(&input, Some(&user.user_id)).await?;
-        // 部門或預設營運中心有變動才重新檢查部門，舊資料的其他欄位照常可改（UD4）
-        if attrs.dept_code != user.attrs.dept_code
-            || attrs.default_plant != user.attrs.default_plant
-        {
-            self.check_dept(&attrs).await?;
-        }
-        let password = web_password(&input)?;
-        let stored = self.users.plants(&user.user_id).await.map_err(infra)?;
-        let all = input
-            .all_plants
-            .unwrap_or_else(|| stored.iter().any(PlantId::is_all));
-        let current: Vec<PlantId> = stored.into_iter().filter(|p| !p.is_all()).collect();
-        let chosen = match &input.allowed_plants {
-            // 勾選清單取代原有清單（PZ1）
-            Some(list) => self.parse_new_plants(list, &current).await?,
-            None => {
-                // 非多營運中心使用者只能有一個營運中心（p_zx.4gl:621-628）
-                if !attrs.multi_plant && user.attrs.multi_plant && current.len() > 1 {
-                    return Err(DomainError::UserSinglePlant.into());
-                }
-                // 預設營運中心不在清單時加入（p_zx.4gl:1027-1060）
-                let keep = attrs.default_plant == user.attrs.default_plant && !current.is_empty();
-                plants_after_default_change(
-                    &current,
-                    &attrs.default_plant,
-                    keep || attrs.multi_plant,
-                )
+        crate::change_log::run(actor, PROGRAM, "modify", async {
+            let grant = self.authorize(actor, "modify").await?;
+            let mut user = self.load(user_id).await?;
+            user.stamp.version = input.version.unwrap_or(user.stamp.version);
+            grant.record(&user.created_by, &user.created_dept)?;
+            if !input.user_id.trim().is_empty() && input.user_id.trim() != user.user_id.as_str() {
+                return Err(DomainError::UserIdImmutable.into());
             }
-        };
-        let plants = chosen_plants(&attrs.default_plant, attrs.multi_plant, &chosen, all)?;
-        let old_class = user.attrs.permission_class.clone();
-        let new_class = attrs.permission_class.clone();
-        let before = user.clone();
-        user.update(attrs, &actor.user_id, today());
-        self.check_keeps_admin(&before, Some(&user)).await?;
-        self.users.update(&user, &plants).await.map_err(infra)?;
-        if let Some(p) = password {
-            self.set_password(&user.user_id, p).await?;
-        }
-        if old_class != new_class {
-            move_special_class(
-                self.special.as_ref(),
-                actor,
-                &user.user_id,
-                &old_class,
-                &new_class,
-            )
-            .await?;
-        }
-        Ok(to_dto(&user, &plants))
+            let attrs = self.attrs(&input, Some(&user.user_id)).await?;
+            // 部門或預設營運中心有變動才重新檢查部門，舊資料的其他欄位照常可改（UD4）
+            if attrs.dept_code != user.attrs.dept_code
+                || attrs.default_plant != user.attrs.default_plant
+            {
+                self.check_dept(&attrs).await?;
+            }
+            let password = web_password(&input)?;
+            let stored = self.users.plants(&user.user_id).await.map_err(infra)?;
+            let all = input
+                .all_plants
+                .unwrap_or_else(|| stored.iter().any(PlantId::is_all));
+            let current: Vec<PlantId> = stored.into_iter().filter(|p| !p.is_all()).collect();
+            let chosen = match &input.allowed_plants {
+                // 勾選清單取代原有清單（PZ1）
+                Some(list) => self.parse_new_plants(list, &current).await?,
+                None => {
+                    // 非多營運中心使用者只能有一個營運中心（p_zx.4gl:621-628）
+                    if !attrs.multi_plant && user.attrs.multi_plant && current.len() > 1 {
+                        return Err(DomainError::UserSinglePlant.into());
+                    }
+                    // 預設營運中心不在清單時加入（p_zx.4gl:1027-1060）
+                    let keep =
+                        attrs.default_plant == user.attrs.default_plant && !current.is_empty();
+                    plants_after_default_change(
+                        &current,
+                        &attrs.default_plant,
+                        keep || attrs.multi_plant,
+                    )
+                }
+            };
+            let plants = chosen_plants(&attrs.default_plant, attrs.multi_plant, &chosen, all)?;
+            let old_class = user.attrs.permission_class.clone();
+            let new_class = attrs.permission_class.clone();
+            let before = user.clone();
+            user.update(attrs, &actor.user_id, today());
+            self.check_keeps_admin(&before, Some(&user)).await?;
+            self.users.update(&user, &plants).await.map_err(infra)?;
+            user.stamp.version += 1;
+            if let Some(p) = password {
+                self.set_password(&user.user_id, p).await?;
+            }
+            if old_class != new_class {
+                move_special_class(
+                    self.special.as_ref(),
+                    actor,
+                    &user.user_id,
+                    &old_class,
+                    &new_class,
+                )
+                .await?;
+            }
+            Ok(to_dto(&user, &plants))
+        })
+        .await
     }
 
     /// 查看單筆：被資料權限過濾掉的使用者也不能直接查看（AQ6）
@@ -249,12 +261,21 @@ impl UserService {
     }
 
     /// 刪除（p_zx_r）：連同可使用營運中心（U9：維持 TipTop 直接刪除）
-    pub async fn delete(&self, actor: &Actor, user_id: &str) -> Result<(), AppError> {
-        let grant = self.authorize(actor, "delete").await?;
-        let user = self.load(user_id).await?;
-        grant.record(&user.created_by, &user.created_dept)?;
-        self.check_keeps_admin(&user, None).await?;
-        self.users.delete(&user.user_id).await.map_err(infra)
+    pub async fn delete(
+        &self,
+        actor: &Actor,
+        user_id: &str,
+        version: Option<i32>,
+    ) -> Result<(), AppError> {
+        crate::change_log::run(actor, PROGRAM, "delete", async {
+            let grant = self.authorize(actor, "delete").await?;
+            let user = self.load(user_id).await?;
+            user.stamp.check(version)?;
+            grant.record(&user.created_by, &user.created_dept)?;
+            self.check_keeps_admin(&user, None).await?;
+            self.users.delete(&user.user_id).await.map_err(infra)
+        })
+        .await
     }
 
     /// 複製（p_zx_copy）：可使用營運中心只帶預設營運中心（p_zx.4gl:1360-1379）
@@ -264,28 +285,41 @@ impl UserService {
         user_id: &str,
         new_id: &str,
     ) -> Result<UserDto, AppError> {
-        self.authorize(actor, "reproduce").await?;
-        let source = self.load(user_id).await?;
-        let new_id = UserId::parse(new_id)?;
-        let user = source.copy_as(new_id, &actor.user_id, &actor.dept, today());
-        self.check_dept(&user.attrs).await?;
-        // 連同可使用營運中心（含全部營運中心）一起複製（PZ6；TipTop p_zx 只帶預設營運中心）
-        let plants = self.users.plants(&source.user_id).await.map_err(infra)?;
-        match self.users.insert(&user, &plants).await {
-            Ok(()) => Ok(to_dto(&user, &plants)),
-            Err(RepoError::Conflict) => Err(DomainError::UserAlreadyExists.into()),
-            Err(e) => Err(infra(e)),
-        }
+        crate::change_log::run(actor, PROGRAM, "reproduce", async {
+            self.authorize(actor, "reproduce").await?;
+            let source = self.load(user_id).await?;
+            let new_id = UserId::parse(new_id)?;
+            let user = source.copy_as(new_id, &actor.user_id, &actor.dept, today());
+            self.check_dept(&user.attrs).await?;
+            // 連同可使用營運中心（含全部營運中心）一起複製（PZ6；TipTop p_zx 只帶預設營運中心）
+            let plants = self.users.plants(&source.user_id).await.map_err(infra)?;
+            match self.users.insert(&user, &plants).await {
+                Ok(()) => Ok(to_dto(&user, &plants)),
+                Err(RepoError::Conflict) => Err(DomainError::UserAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
     }
 
     /// 停用（p_zx_x，有效 → 無效）；功能 invalid，不檢查資料所有者（自訂動作對應未移植，AQ7）
-    pub async fn deactivate(&self, actor: &Actor, user_id: &str) -> Result<UserDto, AppError> {
-        self.set_active(actor, user_id, false).await
+    pub async fn deactivate(
+        &self,
+        actor: &Actor,
+        user_id: &str,
+        version: Option<i32>,
+    ) -> Result<UserDto, AppError> {
+        self.set_active(actor, user_id, false, version).await
     }
 
     /// 啟用（p_zx_x，無效 → 有效）
-    pub async fn activate(&self, actor: &Actor, user_id: &str) -> Result<UserDto, AppError> {
-        self.set_active(actor, user_id, true).await
+    pub async fn activate(
+        &self,
+        actor: &Actor,
+        user_id: &str,
+        version: Option<i32>,
+    ) -> Result<UserDto, AppError> {
+        self.set_active(actor, user_id, true, version).await
     }
 
     async fn set_active(
@@ -293,19 +327,26 @@ impl UserService {
         actor: &Actor,
         user_id: &str,
         active: bool,
+        version: Option<i32>,
     ) -> Result<UserDto, AppError> {
-        self.authorize(actor, "invalid").await?;
-        let mut user = self.load(user_id).await?;
-        let before = user.clone();
-        if active {
-            user.activate(&actor.user_id, today());
-        } else {
-            user.deactivate(&actor.user_id, today());
-        }
-        self.check_keeps_admin(&before, Some(&user)).await?;
-        let plants = self.users.plants(&user.user_id).await.map_err(infra)?;
-        self.users.update(&user, &plants).await.map_err(infra)?;
-        Ok(to_dto(&user, &plants))
+        crate::change_log::run(actor, PROGRAM, "invalid", async {
+            self.authorize(actor, "invalid").await?;
+            let mut user = self.load(user_id).await?;
+            user.stamp.version = version.unwrap_or(user.stamp.version);
+            crate::change_log::set_operation(if active { "activate" } else { "deactivate" });
+            let before = user.clone();
+            if active {
+                user.activate(&actor.user_id, today());
+            } else {
+                user.deactivate(&actor.user_id, today());
+            }
+            self.check_keeps_admin(&before, Some(&user)).await?;
+            let plants = self.users.plants(&user.user_id).await.map_err(infra)?;
+            self.users.update(&user, &plants).await.map_err(infra)?;
+            user.stamp.version += 1;
+            Ok(to_dto(&user, &plants))
+        })
+        .await
     }
 
     /// 有效、未過期，且有效權限含使用者維護的 modify（R14）
@@ -468,7 +509,11 @@ impl UserService {
 }
 
 fn infra(e: RepoError) -> AppError {
-    AppError::Infra(e.to_string())
+    match e {
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        RepoError::Stale => ttrs_domain::DomainError::RecordChanged.into(),
+        e => AppError::Infra(e.to_string()),
+    }
 }
 
 /// 系統日期（TipTop: g_today）
@@ -513,6 +558,9 @@ fn to_dto(u: &User, plants: &[PlantId]) -> UserDto {
         created_on: u.created_on,
         updated_by: u.updated_by.clone(),
         updated_on: u.updated_on,
+        version: u.stamp.version,
+        created_at: u.stamp.created_at,
+        updated_at: u.stamp.updated_at,
     }
 }
 

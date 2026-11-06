@@ -121,6 +121,8 @@ pub struct ProgramPermission {
     /// zymodu / zydate
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本與建立、修改時間（ADR 0012 §1）
+    pub stamp: crate::record::Stamp,
 }
 
 impl ProgramPermission {
@@ -133,6 +135,7 @@ impl ProgramPermission {
         today: NaiveDate,
     ) -> Self {
         Self {
+            stamp: crate::record::Stamp::default(),
             class,
             program,
             attrs,

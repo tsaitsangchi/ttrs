@@ -320,9 +320,9 @@ pub async fn update_program(no: &str, req: &ProgramInput) -> Result<ProgramDto, 
     into_result(res).await
 }
 
-pub async fn delete_program(no: &str) -> Result<(), String> {
+pub async fn delete_program(no: &str, version: i32) -> Result<(), String> {
     let res = reqwest::Client::new()
-        .delete(program_url(no, ""))
+        .delete(format!("{}?version={version}", program_url(no, "")))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -423,9 +423,9 @@ pub async fn update_dictionary(
     into_result(res).await
 }
 
-pub async fn delete_dictionary(table: &str) -> Result<(), String> {
+pub async fn delete_dictionary(table: &str, version: i32) -> Result<(), String> {
     let res = reqwest::Client::new()
-        .delete(dict_url(table, ""))
+        .delete(format!("{}?version={version}", dict_url(table, "")))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -518,9 +518,9 @@ pub async fn update_user(id: &str, req: &UserInput) -> Result<UserDto, String> {
     into_result(res).await
 }
 
-pub async fn delete_user(id: &str) -> Result<(), String> {
+pub async fn delete_user(id: &str, version: i32) -> Result<(), String> {
     let res = reqwest::Client::new()
-        .delete(user_url(id, ""))
+        .delete(format!("{}?version={version}", user_url(id, "")))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -540,10 +540,10 @@ pub async fn copy_user(id: &str, new_id: &str) -> Result<UserDto, String> {
 }
 
 /// 停用或啟用（TipTop p_zx 無效切換）
-pub async fn set_user_active(id: &str, active: bool) -> Result<UserDto, String> {
+pub async fn set_user_active(id: &str, active: bool, version: i32) -> Result<UserDto, String> {
     let suffix = if active { "/activate" } else { "/deactivate" };
     let res = reqwest::Client::new()
-        .post(user_url(id, suffix))
+        .post(format!("{}?version={version}", user_url(id, suffix)))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -605,9 +605,9 @@ pub async fn update_class(
     into_result(res).await
 }
 
-pub async fn delete_class(code: &str) -> Result<(), String> {
+pub async fn delete_class(code: &str, version: i32) -> Result<(), String> {
     let res = reqwest::Client::new()
-        .delete(class_url(code, ""))
+        .delete(format!("{}?version={version}", class_url(code, "")))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -615,10 +615,14 @@ pub async fn delete_class(code: &str) -> Result<(), String> {
 }
 
 /// 停用或啟用（TipTop p_zw 有效欄位）
-pub async fn set_class_active(code: &str, active: bool) -> Result<PermissionClassDto, String> {
+pub async fn set_class_active(
+    code: &str,
+    active: bool,
+    version: i32,
+) -> Result<PermissionClassDto, String> {
     let suffix = if active { "/activate" } else { "/deactivate" };
     let res = reqwest::Client::new()
-        .post(class_url(code, suffix))
+        .post(format!("{}?version={version}", class_url(code, suffix)))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -665,9 +669,9 @@ pub async fn update_plant(id: &str, req: &PlantInput) -> Result<PlantDto, String
     into_result(res).await
 }
 
-pub async fn delete_plant(id: &str) -> Result<(), String> {
+pub async fn delete_plant(id: &str, version: i32) -> Result<(), String> {
     let res = reqwest::Client::new()
-        .delete(plant_url(id, ""))
+        .delete(format!("{}?version={version}", plant_url(id, "")))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -687,10 +691,10 @@ pub async fn copy_plant(id: &str, new_id: &str) -> Result<PlantDto, String> {
 }
 
 /// 停用或啟用（P9）
-pub async fn set_plant_active(id: &str, active: bool) -> Result<PlantDto, String> {
+pub async fn set_plant_active(id: &str, active: bool, version: i32) -> Result<PlantDto, String> {
     let suffix = if active { "/activate" } else { "/deactivate" };
     let res = reqwest::Client::new()
-        .post(plant_url(id, suffix))
+        .post(format!("{}?version={version}", plant_url(id, suffix)))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -1294,6 +1298,15 @@ pub async fn history(
         plant_part_url(plant, part, key, "/history")
     ))
     .await
+}
+
+/// 共用層作業的異動記錄（程式代號＋鍵值，例如 user-maintenance／u001）
+pub async fn shared_history(
+    program: &str,
+    key: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(url(&format!("/api/history/{program}/{key}?lang={lang}"))).await
 }
 
 /// 分類碼的異動記錄

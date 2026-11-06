@@ -443,7 +443,7 @@ impl DepartmentService {
         self.history
             .read(
                 Some(&plant),
-                "department",
+                &["department"],
                 &[("dept_code", code.as_str())],
                 lang,
             )

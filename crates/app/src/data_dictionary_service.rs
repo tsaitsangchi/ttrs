@@ -63,19 +63,22 @@ impl DataDictionaryService {
         actor: &Actor,
         input: TableDictionaryInput,
     ) -> Result<TableDictionaryDto, AppError> {
-        self.authorize(actor, "insert").await?;
-        let name = TableDictionary::parse_name(&input.table_name)?;
-        let module = self.module(&input.module_code).await?;
-        let dict = TableDictionary::new(&name, module, attrs(&input), &actor.user_id, today())?;
-        self.schema_table(&dict.table_name).await?;
-        match self.repo.insert(&dict).await {
-            Ok(()) => {
-                self.prefill_from_catalog(&dict.table_name).await?;
-                self.to_dto(&dict, &Lang::default_lang()).await
+        crate::change_log::run(actor, PROGRAM, "insert", async {
+            self.authorize(actor, "insert").await?;
+            let name = TableDictionary::parse_name(&input.table_name)?;
+            let module = self.module(&input.module_code).await?;
+            let dict = TableDictionary::new(&name, module, attrs(&input), &actor.user_id, today())?;
+            self.schema_table(&dict.table_name).await?;
+            match self.repo.insert(&dict).await {
+                Ok(()) => {
+                    self.prefill_from_catalog(&dict.table_name).await?;
+                    self.to_dto(&dict, &Lang::default_lang()).await
+                }
+                Err(RepoError::Conflict) => Err(DomainError::DictAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
             }
-            Err(RepoError::Conflict) => Err(DomainError::DictAlreadyExists.into()),
-            Err(e) => Err(infra(e)),
-        }
+        })
+        .await
     }
 
     /// 修改表頭（p_zta_u）：模組、類型、上游/下游；資料表代碼不可改
@@ -85,12 +88,17 @@ impl DataDictionaryService {
         table: &str,
         input: TableDictionaryInput,
     ) -> Result<TableDictionaryDto, AppError> {
-        self.authorize(actor, "modify").await?;
-        let mut dict = self.load(table).await?;
-        let module = self.module(&input.module_code).await?;
-        dict.update(module, attrs(&input))?;
-        self.repo.update(&dict).await.map_err(infra)?;
-        self.to_dto(&dict, &Lang::default_lang()).await
+        crate::change_log::run(actor, PROGRAM, "modify", async {
+            self.authorize(actor, "modify").await?;
+            let mut dict = self.load(table).await?;
+            dict.stamp.version = input.version.unwrap_or(dict.stamp.version);
+            let module = self.module(&input.module_code).await?;
+            dict.update(module, attrs(&input))?;
+            self.repo.update(&dict).await.map_err(infra)?;
+            dict.stamp.version += 1;
+            self.to_dto(&dict, &Lang::default_lang()).await
+        })
+        .await
     }
 
     pub async fn get(&self, actor: &Actor, table: &str) -> Result<TableDictionaryDto, AppError> {
@@ -135,10 +143,19 @@ impl DataDictionaryService {
     }
 
     /// 刪除字典，連同表與欄位的多語言說明（D3）；實際資料表不受影響
-    pub async fn delete(&self, actor: &Actor, table: &str) -> Result<(), AppError> {
-        self.authorize(actor, "delete").await?;
-        let dict = self.load(table).await?;
-        self.repo.delete(&dict.table_name).await.map_err(infra)
+    pub async fn delete(
+        &self,
+        actor: &Actor,
+        table: &str,
+        version: Option<i32>,
+    ) -> Result<(), AppError> {
+        crate::change_log::run(actor, PROGRAM, "delete", async {
+            self.authorize(actor, "delete").await?;
+            let dict = self.load(table).await?;
+            dict.stamp.check(version)?;
+            self.repo.delete(&dict.table_name).await.map_err(infra)
+        })
+        .await
     }
 
     /// 維護某語系的表名稱、目的、備註（gat03/gat04/gat05）
@@ -148,13 +165,16 @@ impl DataDictionaryService {
         table: &str,
         text: TableTextDto,
     ) -> Result<(), AppError> {
-        self.authorize(actor, "maintain_table_description").await?;
-        let dict = self.load(table).await?;
-        let text = TableText::new(&text.lang, text.name, text.purpose, text.remark)?;
-        self.repo
-            .set_table_text(&dict.table_name, &text)
-            .await
-            .map_err(infra)
+        crate::change_log::run(actor, PROGRAM, "maintain_table_description", async {
+            self.authorize(actor, "maintain_table_description").await?;
+            let dict = self.load(table).await?;
+            let text = TableText::new(&text.lang, text.name, text.purpose, text.remark)?;
+            self.repo
+                .set_table_text(&dict.table_name, &text)
+                .await
+                .map_err(infra)
+        })
+        .await
     }
 
     pub async fn table_texts(
@@ -175,23 +195,26 @@ impl DataDictionaryService {
         table: &str,
         text: ColumnTextDto,
     ) -> Result<(), AppError> {
-        self.authorize(actor, "maintain_field_description").await?;
-        let dict = self.load(table).await?;
-        let text = ColumnText::new(
-            &text.column_name,
-            &text.lang,
-            text.name,
-            text.description,
-            text.extra,
-        )?;
-        let schema = self.schema_table(&dict.table_name).await?;
-        if !schema.columns.iter().any(|c| c.name == text.column_name) {
-            return Err(DomainError::DictColumnNotFound(text.column_name).into());
-        }
-        self.repo
-            .set_column_text(&dict.table_name, &text)
-            .await
-            .map_err(infra)
+        crate::change_log::run(actor, PROGRAM, "maintain_field_description", async {
+            self.authorize(actor, "maintain_field_description").await?;
+            let dict = self.load(table).await?;
+            let text = ColumnText::new(
+                &text.column_name,
+                &text.lang,
+                text.name,
+                text.description,
+                text.extra,
+            )?;
+            let schema = self.schema_table(&dict.table_name).await?;
+            if !schema.columns.iter().any(|c| c.name == text.column_name) {
+                return Err(DomainError::DictColumnNotFound(text.column_name).into());
+            }
+            self.repo
+                .set_column_text(&dict.table_name, &text)
+                .await
+                .map_err(infra)
+        })
+        .await
     }
 
     pub async fn column_texts(
@@ -351,6 +374,9 @@ impl DataDictionaryService {
             name: localized(&texts, lang, |t| t.name.clone()),
             purpose: localized(&texts, lang, |t| t.purpose.clone()),
             texts: texts.iter().map(table_text_dto).collect(),
+            version: d.stamp.version,
+            created_at: d.stamp.created_at,
+            updated_at: d.stamp.updated_at,
         })
     }
 
@@ -422,7 +448,11 @@ impl DataDictionaryService {
 }
 
 fn infra(e: RepoError) -> AppError {
-    AppError::Infra(e.to_string())
+    match e {
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        RepoError::Stale => ttrs_domain::DomainError::RecordChanged.into(),
+        e => AppError::Infra(e.to_string()),
+    }
 }
 
 fn today() -> NaiveDate {

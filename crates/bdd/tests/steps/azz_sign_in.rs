@@ -46,7 +46,7 @@ async fn make_multi_plant(w: &mut ErpWorld, id: &str, plants: &[&str]) {
 
 #[given(expr = "使用者 {string} 已停用")]
 async fn user_deactivated(w: &mut ErpWorld, id: String) {
-    w.users.deactivate(&w.actor, &id).await.unwrap();
+    w.users.deactivate(&w.actor, &id, None).await.unwrap();
 }
 
 /// 有效日期是先前設定的（資料有效仍為是）：使用者維護在存檔當天就把到期的帳號設為無效
@@ -72,7 +72,7 @@ pub(crate) async fn user_valid_until(w: &mut ErpWorld, id: String, day: String) 
 
 #[given(expr = "營運中心 {string} 已停用")]
 async fn plant_deactivated(w: &mut ErpWorld, plant: String) {
-    w.plants.deactivate(&w.actor, &plant).await.unwrap();
+    w.plants.deactivate(&w.actor, &plant, None).await.unwrap();
 }
 
 #[given(expr = "使用者 {string} 為多營運中心，可使用營運中心 {string}、{string}")]

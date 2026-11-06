@@ -206,7 +206,7 @@ impl ClassificationCodeService {
         self.history
             .read(
                 Some(&plant),
-                "classification_code",
+                &["classification_code"],
                 &[("kind", kind.code()), ("code", code.as_str())],
                 lang,
             )

@@ -134,28 +134,31 @@ impl ProgramPermissionService {
         class: &str,
         input: ProgramPermissionInput,
     ) -> Result<ProgramPermissionDto, AppError> {
-        // TipTop 在單身新增列：需 detail 與單身新增權限（AQ3、AQ8）
-        self.authorize(actor, "detail").await?.add_row()?;
-        let class = self.active_class(class).await?;
-        let program = self.program(&input.program_no).await?;
-        let offered = offered_actions(&program);
-        let attrs = attrs(&PermissionAttrs::defaults(&offered), &offered, &input)?;
-        let p = ProgramPermission::new(
-            class.code.clone(),
-            program.program_no,
-            attrs,
-            &actor.user_id,
-            &actor.dept,
-            today(),
-        );
-        match self.perms.insert(&p).await {
-            Ok(()) => {
-                self.find(class.code.as_str(), p.program.as_str(), DEFAULT_LANG)
-                    .await
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            // TipTop 在單身新增列：需 detail 與單身新增權限（AQ3、AQ8）
+            self.authorize(actor, "detail").await?.add_row()?;
+            let class = self.active_class(class).await?;
+            let program = self.program(&input.program_no).await?;
+            let offered = offered_actions(&program);
+            let attrs = attrs(&PermissionAttrs::defaults(&offered), &offered, &input)?;
+            let p = ProgramPermission::new(
+                class.code.clone(),
+                program.program_no,
+                attrs,
+                &actor.user_id,
+                &actor.dept,
+                today(),
+            );
+            match self.perms.insert(&p).await {
+                Ok(()) => {
+                    self.find(class.code.as_str(), p.program.as_str(), DEFAULT_LANG)
+                        .await
+                }
+                Err(RepoError::Conflict) => Err(DomainError::PermissionAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
             }
-            Err(RepoError::Conflict) => Err(DomainError::PermissionAlreadyExists.into()),
-            Err(e) => Err(infra(e)),
-        }
+        })
+        .await
     }
 
     /// 修改（p_zy.4gl:785-817）：未指定的值沿用原值；記錄修改者（Y12）
@@ -166,39 +169,46 @@ impl ProgramPermissionService {
         program: &str,
         input: ProgramPermissionInput,
     ) -> Result<ProgramPermissionDto, AppError> {
-        self.authorize(actor, "detail").await?;
-        let class = self.active_class(class).await?;
-        let program = self.program(program).await?;
-        let mut p = self
-            .perms
-            .get(&class.code, &program.program_no)
-            .await
-            .map_err(infra)?
-            .ok_or(DomainError::PermissionNotFound)?;
-        let offered = offered_actions(&program);
-        let attrs = attrs(&p.attrs, &offered, &input)?;
-        p.update(attrs, &actor.user_id, today());
-        self.perms.update(&p).await.map_err(infra)?;
-        self.find(class.code.as_str(), p.program.as_str(), DEFAULT_LANG)
-            .await
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?;
+            let class = self.active_class(class).await?;
+            let program = self.program(program).await?;
+            let mut p = self
+                .perms
+                .get(&class.code, &program.program_no)
+                .await
+                .map_err(infra)?
+                .ok_or(DomainError::PermissionNotFound)?;
+            p.stamp.version = input.version.unwrap_or(p.stamp.version);
+            let offered = offered_actions(&program);
+            let attrs = attrs(&p.attrs, &offered, &input)?;
+            p.update(attrs, &actor.user_id, today());
+            self.perms.update(&p).await.map_err(infra)?;
+            self.find(class.code.as_str(), p.program.as_str(), DEFAULT_LANG)
+                .await
+        })
+        .await
     }
 
     /// 移除單一程式權限（p_zy.4gl:743-763，Y7 不另外檢查）
     pub async fn revoke(&self, actor: &Actor, class: &str, program: &str) -> Result<(), AppError> {
-        // TipTop 在單身刪除列：需 detail 與單身刪除權限（AQ3、AQ8）
-        self.authorize(actor, "detail").await?.delete_row()?;
-        let class = self.class(class).await?;
-        let program = ProgramNo::parse(program)?;
-        if self
-            .perms
-            .delete(&class.code, &program)
-            .await
-            .map_err(infra)?
-        {
-            Ok(())
-        } else {
-            Err(DomainError::PermissionNotFound.into())
-        }
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            // TipTop 在單身刪除列：需 detail 與單身刪除權限（AQ3、AQ8）
+            self.authorize(actor, "detail").await?.delete_row()?;
+            let class = self.class(class).await?;
+            let program = ProgramNo::parse(program)?;
+            if self
+                .perms
+                .delete(&class.code, &program)
+                .await
+                .map_err(infra)?
+            {
+                Ok(())
+            } else {
+                Err(DomainError::PermissionNotFound.into())
+            }
+        })
+        .await
     }
 
     /// 刪除權限類別的全部權限（p_zy.4gl:561-593）：仍有使用者時拒絕（azz-217，Y7）
@@ -207,16 +217,19 @@ impl ProgramPermissionService {
         actor: &Actor,
         class: &str,
     ) -> Result<PermissionBatchResultDto, AppError> {
-        self.authorize(actor, "delete").await?;
-        let class = self.class(class).await?;
-        if self.classes.user_count(&class.code).await.map_err(infra)? > 0 {
-            return Err(DomainError::PermissionClassInUse.into());
-        }
-        let removed = self.perms.delete_all(&class.code).await.map_err(infra)?;
-        Ok(PermissionBatchResultDto {
-            removed,
-            ..Default::default()
+        crate::change_log::run(actor, PROGRAM, "delete", async {
+            self.authorize(actor, "delete").await?;
+            let class = self.class(class).await?;
+            if self.classes.user_count(&class.code).await.map_err(infra)? > 0 {
+                return Err(DomainError::PermissionClassInUse.into());
+            }
+            let removed = self.perms.delete_all(&class.code).await.map_err(infra)?;
+            Ok(PermissionBatchResultDto {
+                removed,
+                ..Default::default()
+            })
         })
+        .await
     }
 
     /// 複製到另一個權限類別（p_zy.4gl:1164-1255）：目標須有效且尚無權限（Y8）
@@ -226,30 +239,33 @@ impl ProgramPermissionService {
         from: &str,
         to: &str,
     ) -> Result<PermissionBatchResultDto, AppError> {
-        self.authorize(actor, "reproduce").await?;
-        let from = self.class(from).await?;
-        let to = self.active_class(to).await?;
-        if self
-            .classes
-            .permission_count(&to.code)
-            .await
-            .map_err(infra)?
-            > 0
-        {
-            return Err(DomainError::PermissionClassHasPermissions.into());
-        }
-        let mut added = 0;
-        for item in self.perms.list(&from.code).await.map_err(infra)? {
-            let p = item
-                .permission
-                .copy_to(to.code.clone(), &actor.user_id, &actor.dept, today());
-            self.perms.insert(&p).await.map_err(infra)?;
-            added += 1;
-        }
-        Ok(PermissionBatchResultDto {
-            added,
-            ..Default::default()
+        crate::change_log::run(actor, PROGRAM, "reproduce", async {
+            self.authorize(actor, "reproduce").await?;
+            let from = self.class(from).await?;
+            let to = self.active_class(to).await?;
+            if self
+                .classes
+                .permission_count(&to.code)
+                .await
+                .map_err(infra)?
+                > 0
+            {
+                return Err(DomainError::PermissionClassHasPermissions.into());
+            }
+            let mut added = 0;
+            for item in self.perms.list(&from.code).await.map_err(infra)? {
+                let p =
+                    item.permission
+                        .copy_to(to.code.clone(), &actor.user_id, &actor.dept, today());
+                self.perms.insert(&p).await.map_err(infra)?;
+                added += 1;
+            }
+            Ok(PermissionBatchResultDto {
+                added,
+                ..Default::default()
+            })
         })
+        .await
     }
 
     /// 依程式整批產生（p_zy.4gl:1257-1488）：已有的程式略過（Y9）
@@ -259,13 +275,16 @@ impl ProgramPermissionService {
         class: &str,
         program_nos: &[String],
     ) -> Result<PermissionBatchResultDto, AppError> {
-        self.authorize(actor, "batch_gen_by_prog").await?;
-        let class = self.active_class(class).await?;
-        let mut programs = Vec::with_capacity(program_nos.len());
-        for no in program_nos {
-            programs.push(self.program(no).await?);
-        }
-        self.add_defaults(actor, &class, &programs, false).await
+        crate::change_log::run(actor, PROGRAM, "batch_gen_by_prog", async {
+            self.authorize(actor, "batch_gen_by_prog").await?;
+            let class = self.active_class(class).await?;
+            let mut programs = Vec::with_capacity(program_nos.len());
+            for no in program_nos {
+                programs.push(self.program(no).await?);
+            }
+            self.add_defaults(actor, &class, &programs, false).await
+        })
+        .await
     }
 
     /// 依選單整批產生（p_zy.4gl:1490-1694）：含子選單內的程式，選單本身不設定（Y6）；
@@ -277,11 +296,14 @@ impl ProgramPermissionService {
         menu: &str,
         reset_existing: bool,
     ) -> Result<PermissionBatchResultDto, AppError> {
-        self.authorize(actor, "batch_gen_by_menu").await?;
-        let class = self.active_class(class).await?;
-        let programs = self.menu_programs(menu).await?;
-        self.add_defaults(actor, &class, &programs, reset_existing)
-            .await
+        crate::change_log::run(actor, PROGRAM, "batch_gen_by_menu", async {
+            self.authorize(actor, "batch_gen_by_menu").await?;
+            let class = self.active_class(class).await?;
+            let programs = self.menu_programs(menu).await?;
+            self.add_defaults(actor, &class, &programs, reset_existing)
+                .await
+        })
+        .await
     }
 
     /// 依選單整批刪除（p_zy.4gl:1696-1857，Y11）
@@ -291,23 +313,26 @@ impl ProgramPermissionService {
         class: &str,
         menu: &str,
     ) -> Result<PermissionBatchResultDto, AppError> {
-        self.authorize(actor, "batch_del_by_menu").await?;
-        let class = self.class(class).await?;
-        let mut removed = 0;
-        for p in self.menu_programs(menu).await? {
-            if self
-                .perms
-                .delete(&class.code, &p.program_no)
-                .await
-                .map_err(infra)?
-            {
-                removed += 1;
+        crate::change_log::run(actor, PROGRAM, "batch_del_by_menu", async {
+            self.authorize(actor, "batch_del_by_menu").await?;
+            let class = self.class(class).await?;
+            let mut removed = 0;
+            for p in self.menu_programs(menu).await? {
+                if self
+                    .perms
+                    .delete(&class.code, &p.program_no)
+                    .await
+                    .map_err(infra)?
+                {
+                    removed += 1;
+                }
             }
-        }
-        Ok(PermissionBatchResultDto {
-            removed,
-            ..Default::default()
+            Ok(PermissionBatchResultDto {
+                removed,
+                ..Default::default()
+            })
         })
+        .await
     }
 
     async fn add_defaults(
@@ -475,7 +500,11 @@ fn attrs(
 }
 
 fn infra(e: RepoError) -> AppError {
-    AppError::Infra(e.to_string())
+    match e {
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        RepoError::Stale => ttrs_domain::DomainError::RecordChanged.into(),
+        e => AppError::Infra(e.to_string()),
+    }
 }
 
 /// 系統日期（TipTop: g_today）
@@ -500,5 +529,8 @@ fn to_dto(item: &PermissionListItem, lang: &Lang) -> ProgramPermissionDto {
         created_on: p.created_on,
         updated_by: p.updated_by.clone(),
         updated_on: p.updated_on,
+        version: p.stamp.version,
+        created_at: p.stamp.created_at,
+        updated_at: p.stamp.updated_at,
     }
 }

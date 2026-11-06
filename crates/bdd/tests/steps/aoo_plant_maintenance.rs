@@ -37,7 +37,7 @@ async fn modify(w: &mut ErpWorld, id: &str, change: impl FnOnce(&mut PlantInput)
 
 #[given(expr = "使用者停用營運中心 {string}")]
 async fn plant_deactivated(w: &mut ErpWorld, id: String) {
-    w.plants.deactivate(&w.actor, &id).await.unwrap();
+    w.plants.deactivate(&w.actor, &id, None).await.unwrap();
 }
 
 #[given(expr = "使用者將營運中心 {string} 的地址改為 {string}，電話改為 {string}")]
@@ -119,19 +119,19 @@ async fn change_contact(w: &mut ErpWorld, id: String, address: String, phone: St
 
 #[when(expr = "使用者停用營運中心 {string}")]
 async fn deactivate(w: &mut ErpWorld, id: String) {
-    let result = w.plants.deactivate(&w.actor, &id).await;
+    let result = w.plants.deactivate(&w.actor, &id, None).await;
     w.last = Some(result.map(|_| ()));
 }
 
 #[when(expr = "使用者啟用營運中心 {string}")]
 async fn activate(w: &mut ErpWorld, id: String) {
-    let result = w.plants.activate(&w.actor, &id).await;
+    let result = w.plants.activate(&w.actor, &id, None).await;
     w.last = Some(result.map(|_| ()));
 }
 
 #[when(expr = "使用者刪除營運中心 {string}")]
 async fn delete(w: &mut ErpWorld, id: String) {
-    let result = w.plants.delete(&w.actor, &id).await;
+    let result = w.plants.delete(&w.actor, &id, None).await;
     w.last = Some(result);
 }
 

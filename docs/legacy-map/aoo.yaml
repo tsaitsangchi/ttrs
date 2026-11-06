@@ -15,6 +15,7 @@ tables:
     note: "TipTop 一個營運中心一個資料庫 schema；新系統同樣一廠一個 PostgreSQL schema（ds01…），營運中心本身登錄在共用 schema 的 plant（ADR 0007）"
     migration: "各營運中心的 Oracle schema 轉入 azp03 對應的工廠 schema（ADR 0007 §11）；azp03 由 TipTop 使用者維護成 ds 加兩位數字（Q16）"
     columns:
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護；異動記錄寫入 public.change_log（ADR 0012 第二階段，migration 0025）" }
       - { legacy: azp01,  type: varchar2(10) NOT NULL, target: plant_id, sch: 營運中心代碼, note: "轉大寫（P3）、建立後不可修改（P4）" }
       - { legacy: azp03,  type: varchar2(20), target: schema_name, sch: 資料庫代碼, note: "工廠 schema 名稱：ds 加兩位數字、小寫、不可重複、建立後不可修改；新增時自動給下一號（P13）。新增營運中心時建立 schema 與角色（P14），刪除時移除（P15）" }
       - { legacy: azp02,  type: varchar2(80), target: name, sch: 營運中心名稱, note: "新系統必填、不做多語言（P5）" }
@@ -121,7 +122,7 @@ tables:
     scope: plant
     program: 各維護作業（176 支程式自行 INSERT，例如 aimi100.4gl:4399-4405、:7154-7160）
     spec: specs/features/azz/change_history.feature
-    note: "系統重要資料修改記錄檔；TTRS 改為觸發器自動記錄每次新增、修改、刪除的改前改後（ADR 0012）。工廠層表在各工廠 schema 的 change_log；共用層表於第二階段加入 public.change_log。舊記錄只有一句說明，不轉入"
+    note: "系統重要資料修改記錄檔；TTRS 改為觸發器自動記錄每次新增、修改、刪除的改前改後（ADR 0012）。工廠層表在各工廠 schema 的 change_log；共用層表在 public.change_log（第二階段，migration 0025）。舊記錄只有一句說明，不轉入"
     columns:
       - { legacy: azo01, type: varchar2(20), target: program, sch: 程式編號 }
       - { legacy: azo02, type: varchar2(10), target: user_id, sch: 異動人員 }

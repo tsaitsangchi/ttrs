@@ -56,6 +56,8 @@ pub struct AppState {
     pub sign_in: SignInService,
     /// 忘記密碼（ADR 0010 §A）；緊急重設（EmergencyService）只給 ttrs-admin，不放在 API（R11）
     pub password_reset: PasswordResetService,
+    /// 共用層作業的異動記錄（ADR 0012 §8）
+    pub history: ttrs_app::ChangeHistoryService,
     /// 權限檢查（ADR 0006 §4）：各 use case 已在 app 層檢查，這裡只供查詢有效權限
     pub authorizer: Arc<dyn Authorizer>,
     /// 操作者：固定身分時為 `actor_from_env`；開發用登入時由 [`Ctx`] 換成連線的使用者
@@ -115,6 +117,7 @@ impl AppState {
             sign_in,
             password_reset,
             emergency: _,
+            history,
             authorizer,
         } = services;
         Self {
@@ -132,6 +135,7 @@ impl AppState {
             classification,
             sign_in,
             password_reset,
+            history,
             authorizer,
             actor,
             auth: AuthMode::Fixed,
@@ -267,6 +271,8 @@ pub fn router(state: AppState) -> Router {
             "/api/users/{id}/copy-permissions",
             post(copy_user_permissions),
         )
+        // 共用層作業的異動記錄（ADR 0012 §8；功能 history）
+        .route("/api/history/{program}/{key}", get(shared_history))
         // Department Maintenance 部門維護（TipTop aooi030；工廠層）
         // Classification Code 分類碼維護（TipTop aooi300）：工廠層，依類別
         .route(
@@ -500,11 +506,18 @@ async fn update_user(
     Path(id): Path<String>,
     Json(req): Json<UserInput>,
 ) -> ApiResult<Json<UserDto>> {
+    require_version(req.version)?;
     Ok(Json(s.users.update(&s.actor, &id, req).await?))
 }
 
-async fn delete_user(Ctx(s): Ctx, Path(id): Path<String>) -> ApiResult<StatusCode> {
-    s.users.delete(&s.actor, &id).await?;
+async fn delete_user(
+    Ctx(s): Ctx,
+    Path(id): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    s.users
+        .delete(&s.actor, &id, Some(require_version(v.version)?))
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -519,8 +532,16 @@ async fn copy_user(
     ))
 }
 
-async fn deactivate_user(Ctx(s): Ctx, Path(id): Path<String>) -> ApiResult<Json<UserDto>> {
-    Ok(Json(s.users.deactivate(&s.actor, &id).await?))
+async fn deactivate_user(
+    Ctx(s): Ctx,
+    Path(id): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<UserDto>> {
+    Ok(Json(
+        s.users
+            .deactivate(&s.actor, &id, Some(require_version(v.version)?))
+            .await?,
+    ))
 }
 
 /// 解除鎖定（p_zx user_unlock）
@@ -529,8 +550,16 @@ async fn unlock_user(Ctx(s): Ctx, Path(id): Path<String>) -> ApiResult<StatusCod
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn activate_user(Ctx(s): Ctx, Path(id): Path<String>) -> ApiResult<Json<UserDto>> {
-    Ok(Json(s.users.activate(&s.actor, &id).await?))
+async fn activate_user(
+    Ctx(s): Ctx,
+    Path(id): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<UserDto>> {
+    Ok(Json(
+        s.users
+            .activate(&s.actor, &id, Some(require_version(v.version)?))
+            .await?,
+    ))
 }
 
 // ----- Plant Maintenance 營運中心維護（TipTop aooi901） -----
@@ -566,11 +595,18 @@ async fn update_plant(
     Path(id): Path<String>,
     Json(req): Json<PlantInput>,
 ) -> ApiResult<Json<PlantDto>> {
+    require_version(req.version)?;
     Ok(Json(s.plants.update(&s.actor, &id, req).await?))
 }
 
-async fn delete_plant(Ctx(s): Ctx, Path(id): Path<String>) -> ApiResult<StatusCode> {
-    s.plants.delete(&s.actor, &id).await?;
+async fn delete_plant(
+    Ctx(s): Ctx,
+    Path(id): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    s.plants
+        .delete(&s.actor, &id, Some(require_version(v.version)?))
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -585,12 +621,28 @@ async fn copy_plant(
     ))
 }
 
-async fn deactivate_plant(Ctx(s): Ctx, Path(id): Path<String>) -> ApiResult<Json<PlantDto>> {
-    Ok(Json(s.plants.deactivate(&s.actor, &id).await?))
+async fn deactivate_plant(
+    Ctx(s): Ctx,
+    Path(id): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<PlantDto>> {
+    Ok(Json(
+        s.plants
+            .deactivate(&s.actor, &id, Some(require_version(v.version)?))
+            .await?,
+    ))
 }
 
-async fn activate_plant(Ctx(s): Ctx, Path(id): Path<String>) -> ApiResult<Json<PlantDto>> {
-    Ok(Json(s.plants.activate(&s.actor, &id).await?))
+async fn activate_plant(
+    Ctx(s): Ctx,
+    Path(id): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<PlantDto>> {
+    Ok(Json(
+        s.plants
+            .activate(&s.actor, &id, Some(require_version(v.version)?))
+            .await?,
+    ))
 }
 
 // ----- Permission Class Maintenance 權限類別維護（TipTop p_zw） -----
@@ -626,26 +678,43 @@ async fn update_class(
     Path(code): Path<String>,
     Json(req): Json<PermissionClassInput>,
 ) -> ApiResult<Json<PermissionClassDto>> {
+    require_version(req.version)?;
     Ok(Json(s.classes.update(&s.actor, &code, req).await?))
 }
 
-async fn delete_class(Ctx(s): Ctx, Path(code): Path<String>) -> ApiResult<StatusCode> {
-    s.classes.delete(&s.actor, &code).await?;
+async fn delete_class(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    s.classes
+        .delete(&s.actor, &code, Some(require_version(v.version)?))
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn deactivate_class(
     Ctx(s): Ctx,
     Path(code): Path<String>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<Json<PermissionClassDto>> {
-    Ok(Json(s.classes.deactivate(&s.actor, &code).await?))
+    Ok(Json(
+        s.classes
+            .deactivate(&s.actor, &code, Some(require_version(v.version)?))
+            .await?,
+    ))
 }
 
 async fn activate_class(
     Ctx(s): Ctx,
     Path(code): Path<String>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<Json<PermissionClassDto>> {
-    Ok(Json(s.classes.activate(&s.actor, &code).await?))
+    Ok(Json(
+        s.classes
+            .activate(&s.actor, &code, Some(require_version(v.version)?))
+            .await?,
+    ))
 }
 
 async fn update_user_menus(Ctx(s): Ctx) -> ApiResult<Json<UpdatedCountDto>> {
@@ -697,6 +766,7 @@ async fn update_class_permission(
     Path((code, program)): Path<(String, String)>,
     Json(req): Json<ProgramPermissionInput>,
 ) -> ApiResult<Json<ProgramPermissionDto>> {
+    require_version(req.version)?;
     Ok(Json(
         s.permissions.update(&s.actor, &code, &program, req).await?,
     ))
@@ -792,6 +862,7 @@ async fn update_user_program_permission(
     Path((id, program)): Path<(String, String)>,
     Json(req): Json<UserPermissionInput>,
 ) -> ApiResult<Json<UserPermissionDto>> {
+    require_version(req.version)?;
     Ok(Json(
         s.special
             .update_program(&s.actor, &id, &program, req)
@@ -1132,11 +1203,18 @@ async fn update_program(
     Path(no): Path<String>,
     Json(req): Json<ProgramInput>,
 ) -> ApiResult<Json<ProgramDto>> {
+    require_version(req.version)?;
     Ok(Json(s.programs.update(&s.actor, &no, req).await?))
 }
 
-async fn delete_program(Ctx(s): Ctx, Path(no): Path<String>) -> ApiResult<StatusCode> {
-    s.programs.delete(&s.actor, &no).await?;
+async fn delete_program(
+    Ctx(s): Ctx,
+    Path(no): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    s.programs
+        .delete(&s.actor, &no, Some(require_version(v.version)?))
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1205,11 +1283,18 @@ async fn update_dictionary(
     Path(table): Path<String>,
     Json(req): Json<TableDictionaryInput>,
 ) -> ApiResult<Json<TableDictionaryDto>> {
+    require_version(req.version)?;
     Ok(Json(s.dictionary.update(&s.actor, &table, req).await?))
 }
 
-async fn delete_dictionary(Ctx(s): Ctx, Path(table): Path<String>) -> ApiResult<StatusCode> {
-    s.dictionary.delete(&s.actor, &table).await?;
+async fn delete_dictionary(
+    Ctx(s): Ctx,
+    Path(table): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    s.dictionary
+        .delete(&s.actor, &table, Some(require_version(v.version)?))
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -1613,6 +1698,18 @@ struct VersionQuery {
 /// 請求一律要帶版本號（CH4）；沒帶回 400
 fn require_version(v: Option<i32>) -> Result<i32, HttpError> {
     v.ok_or_else(|| AppError::from(ttrs_domain::DomainError::VersionRequired).into())
+}
+
+async fn shared_history(
+    Ctx(s): Ctx,
+    Path((program, key)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.history
+            .history(&s.actor, &program, &key, q.lang.as_deref())
+            .await?,
+    ))
 }
 
 async fn department_history(

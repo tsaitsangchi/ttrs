@@ -17,6 +17,7 @@ use ttrs_shared::{
 use ttrs_shared::program_max_len as max_len;
 
 use crate::api;
+use crate::components::history::HistoryButton;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Notification, NotificationKind, RadioGroup, Select,
     Tabs, TextArea, TextField, Tone, icons,
@@ -223,7 +224,7 @@ fn ProgramMaintenancePage() -> Element {
     let delete = move |_| {
         let Some(p) = current() else { return };
         spawn(async move {
-            match api::delete_program(&p.program_no).await {
+            match api::delete_program(&p.program_no, p.version).await {
                 Ok(()) => {
                     pos.set(None);
                     done(
@@ -368,6 +369,10 @@ fn ProgramMaintenancePage() -> Element {
                                 onclick: move |_| mode.set(Mode::Edit),
                                 {t("common-action-edit")}
                             }
+                        }
+                        // 異動記錄（ADR 0012 §8，功能 history）
+                        if perm.can("history") {
+                            HistoryButton { program: PROGRAM, record: cur.as_ref().map(|p| p.program_no.clone()) }
                         }
                         if perm.can("delete") {
                             Button {

@@ -4,12 +4,13 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::{FromRow, Postgres, postgres::PgArguments, query::Query};
 use ttrs_app::{
     error::RepoError,
     ports::{PermissionListItem, ProgramName, ProgramPermissionRepository},
 };
+use ttrs_domain::record::Stamp;
 use ttrs_domain::{
     lang::Lang,
     permission::{DetailRows, OtherDeptData, OtherUserData, PermissionAttrs, ProgramPermission},
@@ -28,6 +29,12 @@ pub(crate) fn permission_column(field: &str) -> Option<Column> {
         "other_user_data" => Column::Scalar("pp.other_user_data", true),
         "other_dept_data" => Column::Scalar("pp.other_dept_data", true),
         "detail_rows" => Column::Scalar("pp.detail_rows", true),
+        "created_by" => Column::Scalar("pp.created_by", true),
+        "created_dept" => Column::Scalar("pp.created_dept", true),
+        "created_on" => Column::Scalar("pp.created_on", false),
+        "updated_by" => Column::Scalar("pp.updated_by", true),
+        "updated_on" => Column::Scalar("pp.updated_on", false),
+        "version" => Column::Scalar("pp.version", false),
         _ => return None,
     })
 }
@@ -45,6 +52,9 @@ struct PermissionRow {
     created_on: NaiveDate,
     updated_by: Option<String>,
     updated_on: Option<NaiveDate>,
+    version: i32,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(FromRow)]
@@ -59,7 +69,7 @@ macro_rules! select_permission {
     ($rest:literal) => {
         concat!(
             "SELECT pp.class_code, pp.program_no, pp.actions, pp.other_user_data, pp.other_dept_data, ",
-            "pp.detail_rows, pp.created_by, pp.created_dept, pp.created_on, pp.updated_by, pp.updated_on ",
+            "pp.detail_rows, pp.created_by, pp.created_dept, pp.created_on, pp.updated_by, pp.updated_on, pp.version, pp.created_at, pp.updated_at ",
             $rest
         )
     };
@@ -91,6 +101,11 @@ impl TryFrom<PermissionRow> for ProgramPermission {
             created_on: r.created_on,
             updated_by: r.updated_by,
             updated_on: r.updated_on,
+            stamp: Stamp {
+                version: r.version,
+                created_at: Some(r.created_at),
+                updated_at: r.updated_at,
+            },
         })
     }
 }
@@ -207,10 +222,10 @@ impl ProgramPermissionRepository for PgStore {
 
     async fn update(&self, p: &ProgramPermission) -> Result<(), RepoError> {
         let a = &p.attrs;
-        sqlx::query(
+        let n = sqlx::query(
             "UPDATE program_permission SET actions = $3, other_user_data = $4, other_dept_data = $5,
                  detail_rows = $6, updated_by = $7, updated_on = $8
-             WHERE class_code = $1 AND program_no = $2",
+             WHERE class_code = $1 AND program_no = $2 AND version = $9",
         )
         .bind(p.class.as_str())
         .bind(p.program.as_str())
@@ -220,9 +235,15 @@ impl ProgramPermissionRepository for PgStore {
         .bind(a.detail.code())
         .bind(&p.updated_by)
         .bind(p.updated_on)
+        .bind(p.stamp.version)
         .execute(&self.pool)
         .await
-        .map_err(db_err)?;
+        .map_err(db_err)?
+        .rows_affected();
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        if n == 0 {
+            return Err(RepoError::Stale);
+        }
         Ok(())
     }
 

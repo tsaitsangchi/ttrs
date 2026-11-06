@@ -65,7 +65,7 @@ async fn existing_users(w: &mut ErpWorld, step: &Step) {
         };
         seed_user(w, &w.actor, req).await;
         if r[9] == "否" {
-            w.users.deactivate(&w.actor, &r[0]).await.unwrap();
+            w.users.deactivate(&w.actor, &r[0], None).await.unwrap();
         }
     }
 }

@@ -105,7 +105,7 @@ async fn add_with_own_class_update_and_remove() {
         .oneshot(request(
             "PUT",
             "/api/users/u001/permissions/programs/item-price",
-            Some(serde_json::json!({ "actions": ["query"], "detail_rows": "3" })),
+            Some(serde_json::json!({ "actions": ["query"], "detail_rows": "3", "version": 1 })),
         ))
         .await
         .unwrap();

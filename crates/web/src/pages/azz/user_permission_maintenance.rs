@@ -11,6 +11,7 @@ use super::program_permission_maintenance::{
     DEPT_LEVELS, DETAIL_LEVELS, USER_LEVELS, action_label, level_label, level_options,
 };
 use crate::api;
+use crate::components::history::HistoryButton;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Dialog, IconButton, Notification, NotificationKind,
     Select, Tabs, TextField, Tone, icons,
@@ -237,6 +238,10 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                         {t("perm-action-remove")}
                     }
                 }
+                // 異動記錄（ADR 0012 §8，功能 history）
+                if perm.can("history") {
+                    HistoryButton { program: PROGRAM, record: cur_user.as_ref().map(|u| u.user_id.clone()) }
+                }
                 if perm.can("delete") {
                     Button { icon: icons::DELETE_SWEEP, tone: Tone::Error, variant: ButtonVariant::Outlined, disabled: no_user, onclick: move |_| { message.set(None); open.set(Some(Open::DeleteAll)); }, {t("perm-action-delete-all")} }
                 }
@@ -393,7 +398,7 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                                     let r = r.clone();
                                     move |_| {
                                         let r = r.clone();
-                                        let req = form();
+                                        let req = ttrs_shared::UserPermissionInput { version: Some(r.version), ..form() };
                                         spawn(async move {
                                             match api::update_user_program_permission(&r.user_id, &r.target, &req).await {
                                                 Ok(_) => done(tf("perm-msg-saved", &[("program", r.target.as_str())])),

@@ -306,3 +306,4 @@ a.md-button { text-decoration: none; }
 .history-entry__fields { width: 100%; }
 .history-before { color: var(--md-sys-color-on-surface-variant); text-decoration: line-through; }
 .history-after { color: var(--md-sys-color-primary); }
+.history-error { color: var(--md-sys-color-error); font-size: 0.8125rem; align-self: center; }

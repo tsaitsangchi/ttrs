@@ -58,6 +58,8 @@ pub struct UserPermission {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本與建立、修改時間（ADR 0012 §1）
+    pub stamp: crate::record::Stamp,
 }
 
 impl UserPermission {
@@ -70,6 +72,7 @@ impl UserPermission {
         today: NaiveDate,
     ) -> Self {
         Self {
+            stamp: crate::record::Stamp::default(),
             user_id,
             line_no,
             target,

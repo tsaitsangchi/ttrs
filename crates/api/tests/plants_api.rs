@@ -67,13 +67,17 @@ async fn create_duplicate_copy_deactivate_and_delete() {
 
     let res = app
         .clone()
-        .oneshot(request("POST", "/api/plants/CN01/deactivate", None))
+        .oneshot(request(
+            "POST",
+            "/api/plants/CN01/deactivate?version=1",
+            None,
+        ))
         .await
         .unwrap();
     assert!(!body::<PlantDto>(res).await.active);
 
     let res = app
-        .oneshot(request("DELETE", "/api/plants/CN01", None))
+        .oneshot(request("DELETE", "/api/plants/CN01?version=2", None))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::NO_CONTENT);
@@ -110,7 +114,7 @@ async fn invalid_time_zone_422_and_plant_in_use_409() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::CREATED);
     let res = app
-        .oneshot(request("DELETE", "/api/plants/TW01", None))
+        .oneshot(request("DELETE", "/api/plants/TW01?version=1", None))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::CONFLICT);

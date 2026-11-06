@@ -10,6 +10,20 @@ pub fn rows(step: &Step) -> Vec<Vec<String>> {
     table.rows.iter().skip(1).cloned().collect()
 }
 
+/// 「狀態」頁籤的欄位（ADR 0012 §9）：每個作業的查詢都可用
+fn status_key(label: &str) -> Option<&'static str> {
+    Some(match label {
+        "資料有效" => "active",
+        "資料所有者" => "created_by",
+        "資料所有部門" => "created_dept",
+        "建立時間" => "created_on",
+        "最後修改者" => "updated_by",
+        "最後修改時間" => "updated_on",
+        "版本" => "version",
+        _ => return None,
+    })
+}
+
 /// QBE 查詢步驟的「欄位／條件」表格 → 查詢請求；`key` 把畫面欄位名稱轉成查詢欄位鍵值，
 /// `paging` 為（每頁筆數, 頁次）
 pub fn query_request(
@@ -21,7 +35,7 @@ pub fn query_request(
         conditions: rows(step)
             .iter()
             .map(|r| QbeCondition {
-                field: key(&r[0]).to_owned(),
+                field: status_key(&r[0]).unwrap_or_else(|| key(&r[0])).to_owned(),
                 expr: r[1].clone(),
             })
             .collect(),

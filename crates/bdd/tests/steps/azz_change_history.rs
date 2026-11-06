@@ -332,3 +332,22 @@ fn db_denied(w: &mut ErpWorld) {
         "應用程式的資料庫角色不可修改或刪除異動記錄"
     );
 }
+
+#[then(expr = "使用者 {string} 最近一次存檔的異動記錄應包含 {string} 與 {string}，且請求代號相同")]
+async fn same_request(w: &mut ErpWorld, user: String, main: String, child: String) {
+    let h = w
+        .shared_history
+        .history(&w.actor, "user-maintenance", &user, None)
+        .await
+        .expect("查詢異動記錄");
+    let last = last(&h).request_id.clone().expect("應有請求代號");
+    let tables: Vec<&str> = h
+        .iter()
+        .filter(|c| c.request_id.as_deref() == Some(last.as_str()))
+        .map(|c| c.table_name.as_str())
+        .collect();
+    assert!(
+        tables.contains(&main.as_str()) && tables.contains(&child.as_str()),
+        "同一請求應同時有 {main} 與 {child}：{tables:?}"
+    );
+}

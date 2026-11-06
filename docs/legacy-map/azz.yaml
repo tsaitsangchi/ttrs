@@ -31,6 +31,7 @@ tables:
     note: "程式資料檔（.sch：檔案名稱「程式資料檔」）；主鍵 zz01"
     query: "Q.查詢 CONSTRUCT 27 欄位（p_zz.4gl :286-290，zz04 除外）→ ttrs_app::program_query；QBE 語法 → ttrs_domain::qbe；排序 zz01 位元組順序（COLLATE \"C\"）"
     columns:
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護；異動記錄寫入 public.change_log（ADR 0012 第二階段，migration 0025）" }
       - { legacy: zz01,   type: varchar2(20) NOT NULL, target: program_no, sch: 程式代號, note: "程式代號（鍵值，不可重複）；上限 20 字（PROGRAM_NO_TOO_LONG）" }
       - { legacy: zz011,  type: varchar2(10), target: module_code, sch: 模組代碼, note: "所屬模組；選項來自 gao_file，排除 SUB/CSUB/LIB/CLIB/QRY/CQRY，另加 MENU" }
       - { legacy: zz03,   type: varchar2(1), target: program_type, sch: "程式類別 M目錄 F建檔 T異動 P處理 R報表（.sch 說明較舊）", note: "4fd 選項 I輸入 M選單 O其他 P批次 Q查詢 R報表 S參數 T交易 U更新；a 開頭 7 碼代號取第 4 碼" }
@@ -98,6 +99,7 @@ tables:
       zy05 5–8 修改刪除也要求部門在相關部門內，p_zyw 移植前相關部門只有自己的部門（AQ6）；zy07 用在 p_zw、p_zy、p_zxw 的單身新增列／刪除列
       （cl_detail_input_auth，AQ8）。拒絕回 PERMISSION_DENIED（403）。起始資料：migrations/0015 登錄已移植作業並給 ADMIN 全部功能（AQ11）"
     columns:
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護；異動記錄寫入 public.change_log（ADR 0012 第二階段，migration 0025）" }
       - { legacy: zy01,   type: varchar2(10) NOT NULL, target: class_code, sch: 權限類別 }
       - { legacy: zy02,   type: varchar2(20) NOT NULL, target: program_no, sch: 程式代號, note: "選單程式不設定（Y6）" }
       - { legacy: zy03,   type: varchar2(3000), target: actions, sch: "允許執行功能（Ex:AURQCOB）", note: "Genero 版實存逗號分隔的 action id；轉為 text[]，去空白、轉小寫、去重複，只能取自 zz04（Y1）" }
@@ -121,6 +123,7 @@ tables:
     query: "Q.查詢 CONSTRUCT zw01–zw06、zwacti（p_zw.4gl:192）→ ttrs_app::query::permission_class；specs/features/azz/permission_class_maintenance_query.feature（WQ1–WQ4）。zw04/zw05 可輸入代碼或顯示文字"
     note: "權限類別；新增時不自動加入 TipTop 基本程式權限（W8）"
     columns:
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護；異動記錄寫入 public.change_log（ADR 0012 第二階段，migration 0025）" }
       - { legacy: zw01,   type: varchar2(10) NOT NULL, target: class_code, sch: 權限類別, note: "建立後不可修改（W1）" }
       - { legacy: zw02,   type: varchar2(80), target: name, sch: 權限說明, note: "新系統必填（W2）、不做多語言（W3）" }
       - { legacy: zw03,   type: varchar2(10), target: default_menu, sch: 使用目錄編號, note: "模組 MENU 的程式（W4）；使用者選單空白時帶入" }
@@ -144,6 +147,7 @@ tables:
     query: "Q.查詢 CONSTRUCT 19 欄位（p_zx.4gl:118-121）中有對應的 15 欄＋公司帳號 → ttrs_app::query::user；specs/features/azz/user_maintenance_query.feature（UQ1–UQ5）。zx11/zx12/zx15/zx19 不移植不可查；zx03、zx08 條件轉大寫、公司帳號轉小寫；資料權限條件（p_zx.4gl:194-204）待 Authorizer（UQ4）"
     note: "部門使用者檔；以使用者代號＋Web 密碼登入（ADR 0009，取代 ADR 0006 的公司 SSO）；忘記密碼的重設連結寄到 zx09（ADR 0010）"
     columns:
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護；異動記錄寫入 public.change_log（ADR 0012 第二階段，migration 0025）" }
       - { legacy: zx01,   type: varchar2(10) NOT NULL, target: user_id, sch: 使用者代號, note: "各表 created_by 存此值；建立後不可修改（U1）" }
       - { legacy: zx02,   type: varchar2(80), target: name, sch: 使用者名稱, note: "不做多語言（U5）" }
       - { legacy: zx03,   type: varchar2(10), target: dept_code, sch: 部門代號, note: "須為預設營運中心（zx08）存在且有效的部門 department.dept_code（user_maintenance_department.feature UD1–UD2；TipTop 只警告，FUN-830081）" }
@@ -184,6 +188,7 @@ tables:
     authorization: "執行時依項次合併類別列（取該類別的 zy_file 程式列）與程式列（zxw05–zxw08）：功能取聯集；他人資料、單身取聯集；
       他部門資料取聯集，5–8 照 MOD-7B0137 對照表、沒有剛好的代碼時取較寬的（cl_setup.4gl:569-853，X8／AQ1）→ ttrs_domain::authorization::EffectivePermission::merge"
     columns:
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護；異動記錄寫入 public.change_log（ADR 0012 第二階段，migration 0025）" }
       - { legacy: zxw01, type: varchar2(10) NOT NULL, target: user_id, sch: 使用者代號 }
       - { legacy: zxw02, type: number(5) NOT NULL, target: line_no, sch: 項次, note: "自動給號，只決定順序（X3）" }
       - { legacy: zxw03, type: varchar2(1), target: kind, sch: "權限分類 1:權限類別 2:程式編號" }
@@ -224,6 +229,7 @@ tables:
     scope: system
     note: "系統帳號稽核原則（p_passpriv 維護，尚未移植）；起始值依 ADR 0009 W5，規則見 specs/features/azz/web_password.feature"
     columns:
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護；異動記錄寫入 public.change_log（ADR 0012 第二階段，migration 0025）" }
       - { legacy: gbt00,   type: varchar2(1) NOT NULL, target: policy_key, sch: key value(0) }
       - { legacy: gbt01,   type: number(5), target: expiry_basis, sch: 密碼要求變更依據, note: "1 依天數、2 依次數，其他 → 0 不要求" }
       - { legacy: gbt02,   type: number(5), target: cycle_days, sch: 密碼更新週期 (天) }
@@ -282,6 +288,7 @@ tables:
     new_program: Data Dictionary Maintenance
     note: "檔案名稱檔；主鍵 (zta01, zta02)。新系統單一資料庫，鍵值只剩資料表名稱（D1：須已存在於資料庫）"
     columns:
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護；異動記錄寫入 public.change_log（ADR 0012 第二階段，migration 0025）" }
       - { legacy: zta01, type: varchar2(15) NOT NULL, target: table_name, sch: 檔案代碼, note: "改用 PostgreSQL 識別字上限 63（D8）" }
       - { legacy: zta02, type: varchar2(20) NOT NULL, sch: 檔案名稱, note: "實際為資料庫名稱（p_zta_i 帶 g_dbs）；新系統單一 schema，不搬" }
       - { legacy: zta05, type: date, target: created_on, sch: 產生日期, note: 新增時預設今天（:1272） }

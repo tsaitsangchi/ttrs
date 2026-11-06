@@ -12,7 +12,7 @@ use ttrs_shared::{IdleActionDto, IdleControlDto, QbeCondition, ReportExtModeDto,
 use crate::ports::ProgramName;
 
 /// (鍵值, 型別)
-const FIELDS: [(&str, FieldType); 28] = [
+const FIELDS: [(&str, FieldType); 30] = [
     ("program_no", FieldType::Text),
     ("tiptop_program_no", FieldType::Text),
     ("module_code", FieldType::Text),
@@ -41,6 +41,9 @@ const FIELDS: [(&str, FieldType); 28] = [
     ("updated_by", FieldType::Text),
     ("created_dept", FieldType::Text),
     ("updated_on", FieldType::Date),
+    // 狀態頁籤（ADR 0012 §9）：建立日期取建立時間的日期（UTC，與 PostgreSQL 一致）、版本
+    ("created_on", FieldType::Date),
+    ("version", FieldType::Integer),
 ];
 
 /// 把畫面條件轉成已解析的篩選；欄位不在白名單時回傳 `QbeFieldNotAllowed`
@@ -180,6 +183,8 @@ pub fn values(p: &Program, names: &[ProgramName], field: &str) -> Vec<Option<Qbe
         "updated_by" => text(&p.updated_by),
         "created_dept" => code(&p.created_dept),
         "updated_on" => Some(QbeValue::Date(p.updated_on)),
+        "created_on" => p.stamp.created_at.map(|t| QbeValue::Date(t.date_naive())),
+        "version" => Some(QbeValue::Integer(i64::from(p.stamp.version))),
         _ => None,
     };
     vec![one]

@@ -34,6 +34,7 @@ async fn run(w: &mut ErpWorld, req: QueryRequest) {
 async fn existing_permissions(w: &mut ErpWorld, step: &Step) {
     for r in rows(step) {
         let req = ProgramPermissionInput {
+            version: None,
             program_no: r[1].clone(),
             actions: Some(
                 r[2].split(',')

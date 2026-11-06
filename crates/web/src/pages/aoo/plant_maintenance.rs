@@ -8,13 +8,14 @@ use dioxus::prelude::*;
 use ttrs_shared::{PlantDto, PlantInput, plant_max_len as max_len};
 
 use crate::api;
+use crate::components::history::HistoryButton;
 use crate::components::material::{
     Button, ButtonVariant, Card, Chip, Notification, NotificationKind, Select, Tabs, TextField,
     Tone, active_tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{ListPager, Q, RecordNav, conditions_of, use_query_records};
-use crate::components::status::{HasStatus, StatusField, StatusForm, TAB_STATUS};
+use crate::components::status::{HasStatus, StatusForm, TAB_STATUS};
 use crate::i18n::{t, tf};
 
 /// 時區下拉選項（IANA 名稱）；目前值不在清單時另外加入，轉入的舊資料不會被改掉
@@ -240,6 +241,10 @@ fn PlantMaintenancePage() -> Element {
                         if perm.can("modify") {
                             Button { icon: icons::EDIT, tone: Tone::Tertiary, variant: ButtonVariant::Tonal, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), {t("common-action-edit")} }
                         }
+                        // 異動記錄（ADR 0012 §8，功能 history）
+                        if perm.can("history") {
+                            HistoryButton { program: PROGRAM, record: cur.as_ref().map(|p| p.plant_id.clone()) }
+                        }
                         if perm.can("delete") {
                             Button {
                                 icon: icons::DELETE, tone: Tone::Error,
@@ -248,7 +253,7 @@ fn PlantMaintenancePage() -> Element {
                                 onclick: move |_| {
                                     let Some(p) = cur_delete.clone() else { return };
                                     spawn(async move {
-                                        match api::delete_plant(&p.plant_id).await {
+                                        match api::delete_plant(&p.plant_id, p.version).await {
                                             Ok(()) => done(tf("plant-msg-deleted", &[("id", p.plant_id.as_str())]), None),
                                             Err(e) => error.set(Some(e)),
                                         }
@@ -266,7 +271,7 @@ fn PlantMaintenancePage() -> Element {
                                 onclick: move |_| {
                                     let Some(p) = cur_toggle.clone() else { return };
                                     spawn(async move {
-                                        match api::set_plant_active(&p.plant_id, !p.active).await {
+                                        match api::set_plant_active(&p.plant_id, !p.active, p.version).await {
                                             Ok(r) => {
                                                 let id = if r.active { "plant-msg-activated" } else { "plant-msg-deactivated" };
                                                 done(tf(id, &[("id", r.plant_id.as_str())]), Some(r));
@@ -326,7 +331,7 @@ fn PlantMaintenancePage() -> Element {
                 div { class: "card-body",
                   if tab() == 1 {
                     // 狀態頁（ADR 0012 §9）：查詢只開放資料有效（PQ1）
-                    StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|p| p.status()), queryable: &[StatusField::Active], query: q, qbe, prefix: "azp" }
+                    StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|p| p.status()), queryable: crate::components::status::ALL, query: q, qbe, prefix: "azp" }
                   } else {
                     div { class: "form-grid",
                         Q { field: "plant_id", label: t("plant-field-id"), query: q, qbe,

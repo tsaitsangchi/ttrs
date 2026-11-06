@@ -8,7 +8,7 @@ use crate::components::material::{Button, ButtonVariant, Chip, Dialog, Tone, ico
 use crate::i18n::{t, tf};
 
 /// 交易時間以瀏覽器的時區顯示（到秒）
-fn local_time(at: DateTime<Utc>) -> String {
+pub(crate) fn local_time(at: DateTime<Utc>) -> String {
     #[cfg(target_arch = "wasm32")]
     {
         #[allow(clippy::cast_precision_loss)]
@@ -111,6 +111,46 @@ pub fn HistoryDialog(
                     }
                 }
             }
+        }
+    }
+}
+
+/// 共用層作業的「異動記錄」按鈕：點按時查詢並開啟對話框（功能 history，由呼叫端依權限決定是否顯示）
+#[component]
+pub fn HistoryButton(
+    /// 程式代號，例如 user-maintenance
+    program: &'static str,
+    /// 目前資料的鍵值；None 時按鈕停用
+    record: Option<String>,
+) -> Element {
+    let mut open = use_signal(|| None::<(String, Vec<ChangeDto>)>);
+    let mut error = use_signal(|| None::<String>);
+    let key = record.clone();
+    rsx! {
+        Button {
+            icon: icons::HISTORY,
+            tone: Tone::Primary,
+            variant: ButtonVariant::Outlined,
+            disabled: record.is_none(),
+            onclick: move |_| {
+                let Some(k) = key.clone() else { return };
+                spawn(async move {
+                    match crate::api::shared_history(program, &k).await {
+                        Ok(h) => {
+                            error.set(None);
+                            open.set(Some((k, h)));
+                        }
+                        Err(e) => error.set(Some(e)),
+                    }
+                });
+            },
+            {t("common-action-history")}
+        }
+        if let Some(msg) = error() {
+            span { class: "history-error", "{msg}" }
+        }
+        if let Some((k, changes)) = open() {
+            HistoryDialog { record: k, changes, onclose: move |_| open.set(None) }
         }
     }
 }

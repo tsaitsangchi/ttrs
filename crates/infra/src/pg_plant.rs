@@ -2,9 +2,10 @@
 //! 表結構見 migrations/0001_init.sql、0012_plant.sql、0016_plant_schema.sql（一廠一個 schema，ADR 0007）
 
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::FromRow;
 use ttrs_app::{error::RepoError, ports::PlantRepository};
+use ttrs_domain::record::Stamp;
 use ttrs_domain::{
     plant::{Plant, PlantAttrs, PlantId, PlantSchema},
     qbe::QbeFilter,
@@ -28,6 +29,12 @@ fn plant_column(field: &str) -> Option<Column> {
         "fax" => Column::Scalar("p.fax", true),
         "active" => Column::Scalar("p.active", false),
         "schema_name" => Column::Scalar("p.schema_name", true),
+        "created_by" => Column::Scalar("p.created_by", true),
+        "created_dept" => Column::Scalar("p.created_dept", true),
+        "created_on" => Column::Scalar("p.created_on", false),
+        "updated_by" => Column::Scalar("p.updated_by", true),
+        "updated_on" => Column::Scalar("p.updated_on", false),
+        "version" => Column::Scalar("p.version", false),
         _ => return None,
     })
 }
@@ -47,6 +54,9 @@ struct PlantRow {
     created_on: NaiveDate,
     updated_by: Option<String>,
     updated_on: Option<NaiveDate>,
+    version: i32,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 /// SELECT 字面值（concat! 於編譯期組字串，仍為 SQL 字面值）
@@ -54,7 +64,7 @@ macro_rules! select_plant {
     ($rest:literal) => {
         concat!(
             "SELECT plant_id, schema_name, name, time_zone, address, phone, fax, active, ",
-            "created_by, created_dept, created_on, updated_by, updated_on FROM plant ",
+            "created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at FROM plant ",
             $rest
         )
     };
@@ -84,6 +94,11 @@ impl TryFrom<PlantRow> for Plant {
             created_on: r.created_on,
             updated_by: r.updated_by,
             updated_on: r.updated_on,
+            stamp: Stamp {
+                version: r.version,
+                created_at: Some(r.created_at),
+                updated_at: r.updated_at,
+            },
         })
     }
 }
@@ -180,10 +195,10 @@ impl PlantRepository for PgStore {
 
     async fn update(&self, p: &Plant) -> Result<(), RepoError> {
         let a = &p.attrs;
-        sqlx::query(
+        let n = sqlx::query(
             "UPDATE plant SET name = $2, time_zone = $3, address = $4, phone = $5, fax = $6,
                  active = $7, updated_by = $8, updated_on = $9
-             WHERE plant_id = $1",
+             WHERE plant_id = $1 AND version = $10",
         )
         .bind(p.id.as_str())
         .bind(&a.name)
@@ -194,9 +209,15 @@ impl PlantRepository for PgStore {
         .bind(p.active)
         .bind(&p.updated_by)
         .bind(p.updated_on)
+        .bind(p.stamp.version)
         .execute(&self.pool)
         .await
-        .map_err(db_err)?;
+        .map_err(db_err)?
+        .rows_affected();
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        if n == 0 {
+            return Err(RepoError::Stale);
+        }
         Ok(())
     }
 

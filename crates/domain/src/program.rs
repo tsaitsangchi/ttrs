@@ -209,6 +209,8 @@ pub struct Program {
     pub updated_by: Option<String>,
     /// 最後建立/修改日期（zzdate）
     pub updated_on: NaiveDate,
+    /// 版本與建立、修改時間（ADR 0012 §1）
+    pub stamp: crate::record::Stamp,
 }
 
 impl Program {
@@ -222,6 +224,7 @@ impl Program {
         today: NaiveDate,
     ) -> Result<Self, DomainError> {
         let mut p = Self {
+            stamp: crate::record::Stamp::default(),
             program_no,
             module,
             program_type: None,

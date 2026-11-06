@@ -47,36 +47,39 @@ impl ProgramService {
 
     /// 新增程式，並自動授權給建立者的權限類別（p_zz.4gl:851 p_zz_gen）
     pub async fn create(&self, actor: &Actor, input: ProgramInput) -> Result<ProgramDto, AppError> {
-        self.authorize(actor, "insert").await?;
-        let no = ProgramNo::parse(&input.program_no)?;
-        let module = self.module(&input.module_code).await?;
-        let program = Program::new(
-            no,
-            module,
-            attrs(&input),
-            &actor.user_id,
-            &actor.dept,
-            today(),
-        )?;
-        self.check_query_definition(&program, None).await?;
+        crate::change_log::run(actor, PROGRAM, "insert", async {
+            self.authorize(actor, "insert").await?;
+            let no = ProgramNo::parse(&input.program_no)?;
+            let module = self.module(&input.module_code).await?;
+            let program = Program::new(
+                no,
+                module,
+                attrs(&input),
+                &actor.user_id,
+                &actor.dept,
+                today(),
+            )?;
+            self.check_query_definition(&program, None).await?;
 
-        let names: Vec<ProgramName> = input_names(&input)?
-            .into_iter()
-            .filter(|n| !n.is_blank())
-            .collect();
-        // 選單不是可執行程式，不授權
-        let grant_to = match ClassCode::parse(&actor.permission_class) {
-            Ok(class) if !program.module.is_menu() => {
-                Some(default_permission(actor, class, &program))
+            let names: Vec<ProgramName> = input_names(&input)?
+                .into_iter()
+                .filter(|n| !n.is_blank())
+                .collect();
+            // 選單不是可執行程式，不授權
+            let grant_to = match ClassCode::parse(&actor.permission_class) {
+                Ok(class) if !program.module.is_menu() => {
+                    Some(default_permission(actor, class, &program))
+                }
+                _ => None,
+            };
+
+            match self.repo.insert(&program, &names, grant_to.as_ref()).await {
+                Ok(()) => self.to_dto(&program).await,
+                Err(RepoError::Conflict) => Err(DomainError::ProgramAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
             }
-            _ => None,
-        };
-
-        match self.repo.insert(&program, &names, grant_to.as_ref()).await {
-            Ok(()) => self.to_dto(&program).await,
-            Err(RepoError::Conflict) => Err(DomainError::ProgramAlreadyExists.into()),
-            Err(e) => Err(infra(e)),
-        }
+        })
+        .await
     }
 
     pub async fn get(&self, actor: &Actor, no: &str) -> Result<ProgramDto, AppError> {
@@ -134,69 +137,89 @@ impl ProgramService {
         no: &str,
         input: ProgramInput,
     ) -> Result<ProgramDto, AppError> {
-        let grant = self.authorize(actor, "modify").await?;
-        let old = ProgramNo::parse(no)?;
-        let mut program = self.load(&old).await?;
-        grant.record(&program.created_by, &program.created_dept)?;
-        let new = if input.program_no.trim().is_empty() {
-            old.clone()
-        } else {
-            ProgramNo::parse(&input.program_no)?
-        };
-        // 先套用新代號再檢核，程式類別推導與 p_query 查詢定義都以新代號為準
-        program.program_no = new.clone();
-        let module = self.module(&input.module_code).await?;
-        program.update(module, attrs(&input), &actor.user_id, today())?;
-        let names = input_names(&input)?;
-        self.check_query_definition(&program, Some(&old)).await?;
+        crate::change_log::run(actor, PROGRAM, "modify", async {
+            let grant = self.authorize(actor, "modify").await?;
+            let old = ProgramNo::parse(no)?;
+            let mut program = self.load(&old).await?;
+            // 改代號會先更新一次（版本加 1），所以先比對版本再動手
+            program.stamp.check(input.version)?;
+            grant.record(&program.created_by, &program.created_dept)?;
+            let new = if input.program_no.trim().is_empty() {
+                old.clone()
+            } else {
+                ProgramNo::parse(&input.program_no)?
+            };
+            // 先套用新代號再檢核，程式類別推導與 p_query 查詢定義都以新代號為準
+            program.program_no = new.clone();
+            let module = self.module(&input.module_code).await?;
+            program.update(module, attrs(&input), &actor.user_id, today())?;
+            let names = input_names(&input)?;
+            self.check_query_definition(&program, Some(&old)).await?;
 
-        if new != old {
-            match self.repo.change_no(&old, &new).await {
-                Ok(()) => {}
-                Err(RepoError::Conflict) => return Err(DomainError::ProgramAlreadyExists.into()),
-                Err(e) => return Err(infra(e)),
+            if new != old {
+                match self.repo.change_no(&old, &new).await {
+                    Ok(()) => program.stamp.version += 1,
+                    Err(RepoError::Conflict) => {
+                        return Err(DomainError::ProgramAlreadyExists.into());
+                    }
+                    Err(e) => return Err(infra(e)),
+                }
             }
-        }
-        self.repo.update(&program).await.map_err(infra)?;
-        // 名稱與報表抬頭（TipTop 另以 modify_program_name / modify_report_title 更新 gaz_file）
-        for name in &names {
-            self.repo
-                .set_name(&program.program_no, name)
-                .await
-                .map_err(infra)?;
-        }
-        self.to_dto(&program).await
+            self.repo.update(&program).await.map_err(infra)?;
+            program.stamp.version += 1;
+            // 名稱與報表抬頭（TipTop 另以 modify_program_name / modify_report_title 更新 gaz_file）
+            for name in &names {
+                self.repo
+                    .set_name(&program.program_no, name)
+                    .await
+                    .map_err(infra)?;
+            }
+            self.to_dto(&program).await
+        })
+        .await
     }
 
     /// 刪除程式，連帶刪除名稱、權限、選單並寫異動紀錄（Q3：一律連帶刪除）
-    pub async fn delete(&self, actor: &Actor, no: &str) -> Result<(), AppError> {
-        let grant = self.authorize(actor, "delete").await?;
-        let no = ProgramNo::parse(no)?;
-        let program = self.load(&no).await?;
-        grant.record(&program.created_by, &program.created_dept)?;
-        let audit = AuditEntry {
-            program: AUDIT_PROGRAM.to_owned(),
-            user_id: actor.user_id.clone(),
-            key: no.as_str().to_owned(),
-            action: "delete".to_owned(),
-            detail: None,
-        };
-        self.repo.delete(&no, &audit).await.map_err(infra)
+    pub async fn delete(
+        &self,
+        actor: &Actor,
+        no: &str,
+        version: Option<i32>,
+    ) -> Result<(), AppError> {
+        crate::change_log::run(actor, PROGRAM, "delete", async {
+            let grant = self.authorize(actor, "delete").await?;
+            let no = ProgramNo::parse(no)?;
+            let program = self.load(&no).await?;
+            program.stamp.check(version)?;
+            grant.record(&program.created_by, &program.created_dept)?;
+            let audit = AuditEntry {
+                program: AUDIT_PROGRAM.to_owned(),
+                user_id: actor.user_id.clone(),
+                key: no.as_str().to_owned(),
+                action: "delete".to_owned(),
+                detail: None,
+            };
+            self.repo.delete(&no, &audit).await.map_err(infra)
+        })
+        .await
     }
 
     /// 複製程式與名稱（p_zz.4gl:1973-2101）
     pub async fn copy(&self, actor: &Actor, from: &str, to: &str) -> Result<ProgramDto, AppError> {
-        self.authorize(actor, "reproduce").await?;
-        let from = ProgramNo::parse(from)?;
-        let to = ProgramNo::parse(to)?;
-        let source = self.load(&from).await?;
-        let names = self.repo.names(&from).await.map_err(infra)?;
-        let program = source.copy_as(to, &actor.user_id, &actor.dept, today());
-        match self.repo.insert(&program, &names, None).await {
-            Ok(()) => self.to_dto(&program).await,
-            Err(RepoError::Conflict) => Err(DomainError::ProgramAlreadyExists.into()),
-            Err(e) => Err(infra(e)),
-        }
+        crate::change_log::run(actor, PROGRAM, "reproduce", async {
+            self.authorize(actor, "reproduce").await?;
+            let from = ProgramNo::parse(from)?;
+            let to = ProgramNo::parse(to)?;
+            let source = self.load(&from).await?;
+            let names = self.repo.names(&from).await.map_err(infra)?;
+            let program = source.copy_as(to, &actor.user_id, &actor.dept, today());
+            match self.repo.insert(&program, &names, None).await {
+                Ok(()) => self.to_dto(&program).await,
+                Err(RepoError::Conflict) => Err(DomainError::ProgramAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
     }
 
     /// 為權限類別設定程式權限（p_zz.4gl:1589-1603、p_zz_gen :1843-1891）：
@@ -207,25 +230,29 @@ impl ProgramService {
         no: &str,
         permission_class: &str,
     ) -> Result<(), AppError> {
-        self.authorize(actor, "authorization").await?;
-        let program = self.load(&ProgramNo::parse(no)?).await?;
-        if program.module.is_menu() {
-            return Err(DomainError::MenuHasNoPermission.into());
-        }
-        let class = permission_class.trim();
-        if !self
-            .repo
-            .permission_class_exists(class)
-            .await
-            .map_err(infra)?
-        {
-            return Err(DomainError::PermissionClassNotFound.into());
-        }
-        let class = ClassCode::parse(class).map_err(|_| DomainError::PermissionClassNotFound)?;
-        self.repo
-            .grant(&default_permission(actor, class, &program))
-            .await
-            .map_err(infra)
+        crate::change_log::run(actor, PROGRAM, "authorization", async {
+            self.authorize(actor, "authorization").await?;
+            let program = self.load(&ProgramNo::parse(no)?).await?;
+            if program.module.is_menu() {
+                return Err(DomainError::MenuHasNoPermission.into());
+            }
+            let class = permission_class.trim();
+            if !self
+                .repo
+                .permission_class_exists(class)
+                .await
+                .map_err(infra)?
+            {
+                return Err(DomainError::PermissionClassNotFound.into());
+            }
+            let class =
+                ClassCode::parse(class).map_err(|_| DomainError::PermissionClassNotFound)?;
+            self.repo
+                .grant(&default_permission(actor, class, &program))
+                .await
+                .map_err(infra)
+        })
+        .await
     }
 
     pub async fn permission_classes(
@@ -251,14 +278,17 @@ impl ProgramService {
         no: &str,
         name: ProgramNameDto,
     ) -> Result<(), AppError> {
-        let grant = self.authorize(actor, "modify").await?;
-        let program = self.load(&ProgramNo::parse(no)?).await?;
-        grant.record(&program.created_by, &program.created_dept)?;
-        let entry = ProgramName::new(&name.lang, Some(name.name), name.report_title)?;
-        self.repo
-            .set_name(&program.program_no, &entry)
-            .await
-            .map_err(infra)
+        crate::change_log::run(actor, PROGRAM, "modify", async {
+            let grant = self.authorize(actor, "modify").await?;
+            let program = self.load(&ProgramNo::parse(no)?).await?;
+            grant.record(&program.created_by, &program.created_dept)?;
+            let entry = ProgramName::new(&name.lang, Some(name.name), name.report_title)?;
+            self.repo
+                .set_name(&program.program_no, &entry)
+                .await
+                .map_err(infra)
+        })
+        .await
     }
 
     /// 以使用者語系取得程式；該語系無名稱時退回繁中（L2）
@@ -390,12 +420,19 @@ impl ProgramService {
             created_dept: p.created_dept.clone(),
             updated_by: p.updated_by.clone(),
             updated_on: p.updated_on,
+            version: p.stamp.version,
+            created_at: p.stamp.created_at,
+            updated_at: p.stamp.updated_at,
         })
     }
 }
 
 fn infra(e: RepoError) -> AppError {
-    AppError::Infra(e.to_string())
+    match e {
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        RepoError::Stale => ttrs_domain::DomainError::RecordChanged.into(),
+        e => AppError::Infra(e.to_string()),
+    }
 }
 
 fn attrs(i: &ProgramInput) -> ProgramAttrs {

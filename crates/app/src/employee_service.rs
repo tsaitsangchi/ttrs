@@ -251,7 +251,7 @@ impl EmployeeService {
         self.history
             .read(
                 Some(&plant),
-                "employee",
+                &["employee"],
                 &[("employee_id", id.as_str())],
                 lang,
             )

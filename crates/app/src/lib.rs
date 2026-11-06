@@ -1,6 +1,7 @@
 //! 應用層：協調 domain 與 repository，不含 SQL、不含 HTTP。
 
 pub mod authorization;
+pub mod change_history_service;
 pub mod change_log;
 pub mod classification_code_service;
 pub mod data_dictionary_service;
@@ -29,6 +30,7 @@ pub mod user_permission_service;
 pub mod user_service;
 
 pub use authorization::{Actor, ActorKind, Authorizer, PermissionAuthorizer};
+pub use change_history_service::ChangeHistoryService;
 pub use classification_code_service::ClassificationCodeService;
 pub use data_dictionary_service::DataDictionaryService;
 pub use department_service::DepartmentService;

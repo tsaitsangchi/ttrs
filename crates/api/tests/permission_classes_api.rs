@@ -79,7 +79,7 @@ async fn create_duplicate_deactivate_and_delete() {
         .clone()
         .oneshot(request(
             "POST",
-            "/api/permission-classes/SALES/deactivate",
+            "/api/permission-classes/SALES/deactivate?version=1",
             None,
         ))
         .await
@@ -88,7 +88,11 @@ async fn create_duplicate_deactivate_and_delete() {
 
     let res = app
         .clone()
-        .oneshot(request("DELETE", "/api/permission-classes/SALES", None))
+        .oneshot(request(
+            "DELETE",
+            "/api/permission-classes/SALES?version=2",
+            None,
+        ))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::NO_CONTENT);
@@ -102,7 +106,7 @@ async fn class_in_use_returns_409_and_menus_update() {
         .oneshot(request(
             "PUT",
             "/api/permission-classes/ADMIN",
-            Some(serde_json::json!({ "name": "系統管理員", "default_menu": "menu-sales" })),
+            Some(serde_json::json!({ "name": "系統管理員", "default_menu": "menu-sales", "version": 1 })),
         ))
         .await
         .unwrap();
@@ -119,7 +123,11 @@ async fn class_in_use_returns_409_and_menus_update() {
 
     let res = app
         .clone()
-        .oneshot(request("DELETE", "/api/permission-classes/ADMIN", None))
+        .oneshot(request(
+            "DELETE",
+            "/api/permission-classes/ADMIN?version=2",
+            None,
+        ))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::CONFLICT);

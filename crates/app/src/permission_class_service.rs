@@ -55,15 +55,18 @@ impl PermissionClassService {
         actor: &Actor,
         input: PermissionClassInput,
     ) -> Result<PermissionClassDto, AppError> {
-        self.authorize(actor, "detail").await?.add_row()?;
-        let code = ClassCode::parse(&input.class_code)?;
-        let attrs = self.attrs(&input).await?;
-        let class = PermissionClass::new(code, attrs, &actor.user_id, &actor.dept, today());
-        match self.classes.insert(&class).await {
-            Ok(()) => Ok(to_dto(&class)),
-            Err(RepoError::Conflict) => Err(DomainError::PermissionClassAlreadyExists.into()),
-            Err(e) => Err(infra(e)),
-        }
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?.add_row()?;
+            let code = ClassCode::parse(&input.class_code)?;
+            let attrs = self.attrs(&input).await?;
+            let class = PermissionClass::new(code, attrs, &actor.user_id, &actor.dept, today());
+            match self.classes.insert(&class).await {
+                Ok(()) => Ok(to_dto(&class)),
+                Err(RepoError::Conflict) => Err(DomainError::PermissionClassAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
     }
 
     /// 修改：代號不可變（W1）
@@ -73,16 +76,21 @@ impl PermissionClassService {
         code: &str,
         input: PermissionClassInput,
     ) -> Result<PermissionClassDto, AppError> {
-        self.authorize(actor, "detail").await?;
-        let mut class = self.load(code).await?;
-        let requested = input.class_code.trim();
-        if !requested.is_empty() && requested != class.code.as_str() {
-            return Err(DomainError::PermissionClassCodeImmutable.into());
-        }
-        let attrs = self.attrs(&input).await?;
-        class.update(attrs, &actor.user_id, today());
-        self.classes.update(&class).await.map_err(infra)?;
-        Ok(to_dto(&class))
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?;
+            let mut class = self.load(code).await?;
+            class.stamp.version = input.version.unwrap_or(class.stamp.version);
+            let requested = input.class_code.trim();
+            if !requested.is_empty() && requested != class.code.as_str() {
+                return Err(DomainError::PermissionClassCodeImmutable.into());
+            }
+            let attrs = self.attrs(&input).await?;
+            class.update(attrs, &actor.user_id, today());
+            self.classes.update(&class).await.map_err(infra)?;
+            class.stamp.version += 1;
+            Ok(to_dto(&class))
+        })
+        .await
     }
 
     pub async fn get(&self, actor: &Actor, code: &str) -> Result<PermissionClassDto, AppError> {
@@ -121,20 +129,29 @@ impl PermissionClassService {
 
     /// 刪除：仍有使用者（azz-217）或程式權限（azz-005）時拒絕，不做連帶刪除（W7，p_zw.4gl:537-582）。
     /// TipTop 在單身刪除列，需 detail 與單身刪除權限（AQ3、AQ8）
-    pub async fn delete(&self, actor: &Actor, code: &str) -> Result<(), AppError> {
-        self.authorize(actor, "detail").await?.delete_row()?;
-        let class = self.load(code).await?;
-        self.ensure_unused(&class.code).await?;
-        if self
-            .classes
-            .permission_count(&class.code)
-            .await
-            .map_err(infra)?
-            > 0
-        {
-            return Err(DomainError::PermissionClassHasPermissions.into());
-        }
-        self.classes.delete(&class.code).await.map_err(infra)
+    pub async fn delete(
+        &self,
+        actor: &Actor,
+        code: &str,
+        version: Option<i32>,
+    ) -> Result<(), AppError> {
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?.delete_row()?;
+            let class = self.load(code).await?;
+            class.stamp.check(version)?;
+            self.ensure_unused(&class.code).await?;
+            if self
+                .classes
+                .permission_count(&class.code)
+                .await
+                .map_err(infra)?
+                > 0
+            {
+                return Err(DomainError::PermissionClassHasPermissions.into());
+            }
+            self.classes.delete(&class.code).await.map_err(infra)
+        })
+        .await
     }
 
     /// 停用：仍有使用者時拒絕（W6，p_zw.4gl:511-535）
@@ -142,54 +159,71 @@ impl PermissionClassService {
         &self,
         actor: &Actor,
         code: &str,
+        version: Option<i32>,
     ) -> Result<PermissionClassDto, AppError> {
-        self.authorize(actor, "detail").await?;
-        let mut class = self.load(code).await?;
-        self.ensure_unused(&class.code).await?;
-        class.set_active(false, &actor.user_id, today());
-        self.classes.update(&class).await.map_err(infra)?;
-        Ok(to_dto(&class))
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?;
+            let mut class = self.load(code).await?;
+            class.stamp.version = version.unwrap_or(class.stamp.version);
+            crate::change_log::set_operation("deactivate");
+            self.ensure_unused(&class.code).await?;
+            class.set_active(false, &actor.user_id, today());
+            self.classes.update(&class).await.map_err(infra)?;
+            class.stamp.version += 1;
+            Ok(to_dto(&class))
+        })
+        .await
     }
 
     pub async fn activate(
         &self,
         actor: &Actor,
         code: &str,
+        version: Option<i32>,
     ) -> Result<PermissionClassDto, AppError> {
-        self.authorize(actor, "detail").await?;
-        let mut class = self.load(code).await?;
-        class.set_active(true, &actor.user_id, today());
-        self.classes.update(&class).await.map_err(infra)?;
-        Ok(to_dto(&class))
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?;
+            let mut class = self.load(code).await?;
+            class.stamp.version = version.unwrap_or(class.stamp.version);
+            crate::change_log::set_operation("activate");
+            class.set_active(true, &actor.user_id, today());
+            self.classes.update(&class).await.map_err(infra)?;
+            class.stamp.version += 1;
+            Ok(to_dto(&class))
+        })
+        .await
     }
 
     /// 更新所有使用者目錄編號（p_zw.4gl:761-776）：有預設選單的權限類別，其使用者的選單改為預設選單；
     /// 只更新選單不同的使用者並記錄修改者（W9）。回傳更新的使用者數。
     /// TipTop 是單身內的動作 update_all_user_menu（p_zw.4gl:682-683），需 detail（AQ3）
     pub async fn update_user_menus(&self, actor: &Actor) -> Result<u64, AppError> {
-        self.authorize(actor, "detail").await?;
-        let menus: HashMap<String, String> = self
-            .classes
-            .list()
-            .await
-            .map_err(infra)?
-            .into_iter()
-            .filter_map(|c| Some((c.code.as_str().to_owned(), c.attrs.default_menu?)))
-            .collect();
-        let mut updated = 0;
-        for mut user in self.users.list().await.map_err(infra)? {
-            let Some(menu) = menus.get(&user.attrs.permission_class) else {
-                continue;
-            };
-            if &user.attrs.menu == menu {
-                continue;
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?;
+            let menus: HashMap<String, String> = self
+                .classes
+                .list()
+                .await
+                .map_err(infra)?
+                .into_iter()
+                .filter_map(|c| Some((c.code.as_str().to_owned(), c.attrs.default_menu?)))
+                .collect();
+            let mut updated = 0;
+            for mut user in self.users.list().await.map_err(infra)? {
+                let Some(menu) = menus.get(&user.attrs.permission_class) else {
+                    continue;
+                };
+                if &user.attrs.menu == menu {
+                    continue;
+                }
+                user.set_menu(menu, &actor.user_id, today());
+                let plants = self.users.plants(&user.user_id).await.map_err(infra)?;
+                self.users.update(&user, &plants).await.map_err(infra)?;
+                updated += 1;
             }
-            user.set_menu(menu, &actor.user_id, today());
-            let plants = self.users.plants(&user.user_id).await.map_err(infra)?;
-            self.users.update(&user, &plants).await.map_err(infra)?;
-            updated += 1;
-        }
-        Ok(updated)
+            Ok(updated)
+        })
+        .await
     }
 
     async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
@@ -241,7 +275,11 @@ impl PermissionClassService {
 }
 
 fn infra(e: RepoError) -> AppError {
-    AppError::Infra(e.to_string())
+    match e {
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        RepoError::Stale => ttrs_domain::DomainError::RecordChanged.into(),
+        e => AppError::Infra(e.to_string()),
+    }
 }
 
 /// 系統日期（TipTop: g_today）
@@ -296,6 +334,9 @@ pub(crate) fn to_dto(c: &PermissionClass) -> PermissionClassDto {
         created_on: c.created_on,
         updated_by: c.updated_by.clone(),
         updated_on: c.updated_on,
+        version: c.stamp.version,
+        created_at: c.stamp.created_at,
+        updated_at: c.stamp.updated_at,
     }
 }
 

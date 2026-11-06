@@ -85,25 +85,28 @@ impl UserPermissionService {
         user: &str,
         input: UserPermissionInput,
     ) -> Result<Vec<UserPermissionDto>, AppError> {
-        // TipTop 在單身新增列：需 detail 與單身新增權限（AQ3、AQ8）
-        self.authorize(actor, "detail").await?.add_row()?;
-        let user = self.user(user).await?;
-        let target = self.target(&input).await?;
-        let existing = self.existing(&user.user_id).await?;
-        let mut line_no = next_line_no(&existing);
-        if existing.is_empty()
-            && input.include_own_class
-            && let Ok(own) = ClassCode::parse(&user.attrs.permission_class)
-            && target.class() != Some(&own)
-        {
-            let row = self.row(actor, &user.user_id, line_no, SpecialTarget::Class(own));
-            self.insert(&row).await?;
-            line_no += 1;
-        }
-        self.insert(&self.row(actor, &user.user_id, line_no, target))
-            .await?;
-        self.list_in(user.user_id.as_str(), ttrs_domain::lang::DEFAULT_LANG)
-            .await
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            // TipTop 在單身新增列：需 detail 與單身新增權限（AQ3、AQ8）
+            self.authorize(actor, "detail").await?.add_row()?;
+            let user = self.user(user).await?;
+            let target = self.target(&input).await?;
+            let existing = self.existing(&user.user_id).await?;
+            let mut line_no = next_line_no(&existing);
+            if existing.is_empty()
+                && input.include_own_class
+                && let Ok(own) = ClassCode::parse(&user.attrs.permission_class)
+                && target.class() != Some(&own)
+            {
+                let row = self.row(actor, &user.user_id, line_no, SpecialTarget::Class(own));
+                self.insert(&row).await?;
+                line_no += 1;
+            }
+            self.insert(&self.row(actor, &user.user_id, line_no, target))
+                .await?;
+            self.list_in(user.user_id.as_str(), ttrs_domain::lang::DEFAULT_LANG)
+                .await
+        })
+        .await
     }
 
     /// 修改程式列的功能與資料權限（p_zxw.4gl:820-850）；未指定的值沿用原值
@@ -114,48 +117,55 @@ impl UserPermissionService {
         program: &str,
         input: UserPermissionInput,
     ) -> Result<UserPermissionDto, AppError> {
-        self.authorize(actor, "detail").await?;
-        let user = self.user(user).await?;
-        let program = self.program(program).await?;
-        let mut row = self
-            .existing(&user.user_id)
-            .await?
-            .into_iter()
-            .find(|r| r.target.program() == Some(&program.program_no))
-            .ok_or(DomainError::PermissionNotFound)?;
-        let SpecialTarget::Program { attrs: base, .. } = &row.target else {
-            return Err(DomainError::PermissionNotFound.into());
-        };
-        let offered = parse_actions(program.other.default_actions.as_deref());
-        let attrs = program_attrs(base, &offered, &input)?;
-        row.update_program(attrs, &actor.user_id, today());
-        self.perms.update(&row).await.map_err(infra)?;
-        let lang = Lang::default_lang();
-        self.perms
-            .list(&user.user_id)
-            .await
-            .map_err(infra)?
-            .iter()
-            .find(|i| i.permission.line_no == row.line_no)
-            .map(|i| to_dto(i, &lang))
-            .ok_or_else(|| DomainError::PermissionNotFound.into())
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            self.authorize(actor, "detail").await?;
+            let user = self.user(user).await?;
+            let program = self.program(program).await?;
+            let mut row = self
+                .existing(&user.user_id)
+                .await?
+                .into_iter()
+                .find(|r| r.target.program() == Some(&program.program_no))
+                .ok_or(DomainError::PermissionNotFound)?;
+            row.stamp.version = input.version.unwrap_or(row.stamp.version);
+            let SpecialTarget::Program { attrs: base, .. } = &row.target else {
+                return Err(DomainError::PermissionNotFound.into());
+            };
+            let offered = parse_actions(program.other.default_actions.as_deref());
+            let attrs = program_attrs(base, &offered, &input)?;
+            row.update_program(attrs, &actor.user_id, today());
+            self.perms.update(&row).await.map_err(infra)?;
+            let lang = Lang::default_lang();
+            self.perms
+                .list(&user.user_id)
+                .await
+                .map_err(infra)?
+                .iter()
+                .find(|i| i.permission.line_no == row.line_no)
+                .map(|i| to_dto(i, &lang))
+                .ok_or_else(|| DomainError::PermissionNotFound.into())
+        })
+        .await
     }
 
     /// 移除一列（p_zxw.4gl:797-818，X4）
     pub async fn remove(&self, actor: &Actor, user: &str, line_no: i32) -> Result<(), AppError> {
-        // TipTop 在單身刪除列：需 detail 與單身刪除權限（AQ3、AQ8）
-        self.authorize(actor, "detail").await?.delete_row()?;
-        let user = self.user(user).await?;
-        if self
-            .perms
-            .delete(&user.user_id, line_no)
-            .await
-            .map_err(infra)?
-        {
-            Ok(())
-        } else {
-            Err(DomainError::PermissionNotFound.into())
-        }
+        crate::change_log::run(actor, PROGRAM, "detail", async {
+            // TipTop 在單身刪除列：需 detail 與單身刪除權限（AQ3、AQ8）
+            self.authorize(actor, "detail").await?.delete_row()?;
+            let user = self.user(user).await?;
+            if self
+                .perms
+                .delete(&user.user_id, line_no)
+                .await
+                .map_err(infra)?
+            {
+                Ok(())
+            } else {
+                Err(DomainError::PermissionNotFound.into())
+            }
+        })
+        .await
     }
 
     /// 刪除使用者的全部特殊權限（p_zxw.4gl:494-530，X4）：之後回到使用者維護的權限類別
@@ -164,13 +174,16 @@ impl UserPermissionService {
         actor: &Actor,
         user: &str,
     ) -> Result<PermissionBatchResultDto, AppError> {
-        self.authorize(actor, "delete").await?;
-        let user = self.user(user).await?;
-        let removed = self.perms.delete_all(&user.user_id).await.map_err(infra)?;
-        Ok(PermissionBatchResultDto {
-            removed,
-            ..Default::default()
+        crate::change_log::run(actor, PROGRAM, "delete", async {
+            self.authorize(actor, "delete").await?;
+            let user = self.user(user).await?;
+            let removed = self.perms.delete_all(&user.user_id).await.map_err(infra)?;
+            Ok(PermissionBatchResultDto {
+                removed,
+                ..Default::default()
+            })
         })
+        .await
     }
 
     /// 複製到另一個使用者（p_zxw.4gl:1167-1237）：目標須存在且尚無特殊權限（X5）
@@ -180,22 +193,25 @@ impl UserPermissionService {
         from: &str,
         to: &str,
     ) -> Result<PermissionBatchResultDto, AppError> {
-        self.authorize(actor, "reproduce").await?;
-        let from = self.user(from).await?;
-        let to = self.user(to).await?;
-        if !self.existing(&to.user_id).await?.is_empty() {
-            return Err(DomainError::UserHasSpecialPermissions.into());
-        }
-        let mut added = 0;
-        for row in self.existing(&from.user_id).await? {
-            let copy = row.copy_to(to.user_id.clone(), &actor.user_id, &actor.dept, today());
-            self.insert(&copy).await?;
-            added += 1;
-        }
-        Ok(PermissionBatchResultDto {
-            added,
-            ..Default::default()
+        crate::change_log::run(actor, PROGRAM, "reproduce", async {
+            self.authorize(actor, "reproduce").await?;
+            let from = self.user(from).await?;
+            let to = self.user(to).await?;
+            if !self.existing(&to.user_id).await?.is_empty() {
+                return Err(DomainError::UserHasSpecialPermissions.into());
+            }
+            let mut added = 0;
+            for row in self.existing(&from.user_id).await? {
+                let copy = row.copy_to(to.user_id.clone(), &actor.user_id, &actor.dept, today());
+                self.insert(&copy).await?;
+                added += 1;
+            }
+            Ok(PermissionBatchResultDto {
+                added,
+                ..Default::default()
+            })
         })
+        .await
     }
 
     async fn existing(&self, user: &UserId) -> Result<Vec<UserPermission>, AppError> {
@@ -342,7 +358,11 @@ fn program_attrs(
 }
 
 fn infra(e: RepoError) -> AppError {
-    AppError::Infra(e.to_string())
+    match e {
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        RepoError::Stale => ttrs_domain::DomainError::RecordChanged.into(),
+        e => AppError::Infra(e.to_string()),
+    }
 }
 
 /// 系統日期（TipTop: g_today）
@@ -384,5 +404,8 @@ fn to_dto(item: &UserPermissionItem, lang: &Lang) -> UserPermissionDto {
         created_on: p.created_on,
         updated_by: p.updated_by.clone(),
         updated_on: p.updated_on,
+        version: p.stamp.version,
+        created_at: p.stamp.created_at,
+        updated_at: p.stamp.updated_at,
     }
 }

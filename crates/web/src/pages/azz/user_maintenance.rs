@@ -11,6 +11,7 @@ use dioxus::prelude::*;
 use ttrs_shared::{UserDto, UserInput, user_max_len as max_len};
 
 use crate::api;
+use crate::components::history::HistoryButton;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Chip, Dialog, Notification, NotificationKind, Radio,
     Select, Tabs, TextField, Tone, active_tone, icons,
@@ -19,17 +20,8 @@ use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{
     HINT_DATE, HINT_FLAG, ListPager, Q, RecordNav, conditions_of, use_query_records,
 };
-use crate::components::status::{HasStatus, StatusField, StatusForm, TAB_STATUS};
+use crate::components::status::{HasStatus, StatusForm, TAB_STATUS};
 use crate::i18n::{self, UiLang, t, tf};
-
-/// 狀態頁可查詢的欄位（query.rs 使用者查詢欄位）
-const USER_QUERYABLE: &[StatusField] = &[
-    StatusField::Active,
-    StatusField::Owner,
-    StatusField::OwnerDept,
-    StatusField::UpdatedBy,
-    StatusField::UpdatedOn,
-];
 
 const TABS: [&str; 4] = [
     "user-tab-basic",
@@ -319,6 +311,10 @@ fn UserMaintenancePage() -> Element {
                         if perm.can("modify") {
                             Button { icon: icons::EDIT, tone: Tone::Tertiary, variant: ButtonVariant::Tonal, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), {t("common-action-edit")} }
                         }
+                        // 異動記錄（ADR 0012 §8，功能 history）
+                        if perm.can("history") {
+                            HistoryButton { program: PROGRAM, record: cur.as_ref().map(|u| u.user_id.clone()) }
+                        }
                         if perm.can("delete") {
                             Button {
                                 icon: icons::DELETE, tone: Tone::Error,
@@ -327,7 +323,7 @@ fn UserMaintenancePage() -> Element {
                                 onclick: move |_| {
                                     let Some(u) = cur_delete.clone() else { return };
                                     spawn(async move {
-                                        match api::delete_user(&u.user_id).await {
+                                        match api::delete_user(&u.user_id, u.version).await {
                                             Ok(()) => done(tf("user-msg-deleted", &[("id", u.user_id.as_str())]), None),
                                             Err(e) => error.set(Some(e)),
                                         }
@@ -345,7 +341,7 @@ fn UserMaintenancePage() -> Element {
                                 onclick: move |_| {
                                     let Some(u) = cur_toggle.clone() else { return };
                                     spawn(async move {
-                                        match api::set_user_active(&u.user_id, !u.active).await {
+                                        match api::set_user_active(&u.user_id, !u.active, u.version).await {
                                             Ok(r) => {
                                                 let id = if r.active { "user-msg-activated" } else { "user-msg-deactivated" };
                                                 done(tf(id, &[("id", r.user_id.as_str())]), Some(r));
@@ -507,7 +503,7 @@ fn UserMaintenancePage() -> Element {
                         },
                         2 => rsx! {
                             // p_zx.4fd info（Status）頁：zxacti、zxuser、zxgrup、zxmodu、zxdate（ADR 0012 §9）
-                            StatusForm { status: cur.as_ref().map(|u| u.status()), queryable: USER_QUERYABLE, query: q, qbe, prefix: "zx",
+                            StatusForm { status: cur.as_ref().map(|u| u.status()), queryable: crate::components::status::ALL, query: q, qbe, prefix: "zx",
                                 TextField { id: "idp-bound", label: t("user-field-idp-bound"), readonly: true, value: cur.as_ref().map(|u| if u.idp_bound { t("user-idp-bound") } else { t("user-idp-unbound") }).unwrap_or_default() }
                             }
                         },

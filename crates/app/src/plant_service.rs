@@ -34,12 +34,15 @@ impl PlantService {
 
     /// 新增（aooi901.4gl:296-388）
     pub async fn create(&self, actor: &Actor, input: PlantInput) -> Result<PlantDto, AppError> {
-        self.authorize(actor, "insert").await?;
-        let id = PlantId::parse(&input.plant_id)?;
-        let attrs = attrs(&input)?;
-        let schema = self.new_schema(input.schema_name.as_deref()).await?;
-        let plant = Plant::new(id, schema, attrs, &actor.user_id, &actor.dept, today());
-        self.insert(plant).await
+        crate::change_log::run(actor, PROGRAM, "insert", async {
+            self.authorize(actor, "insert").await?;
+            let id = PlantId::parse(&input.plant_id)?;
+            let attrs = attrs(&input)?;
+            let schema = self.new_schema(input.schema_name.as_deref()).await?;
+            let plant = Plant::new(id, schema, attrs, &actor.user_id, &actor.dept, today());
+            self.insert(plant).await
+        })
+        .await
     }
 
     /// 修改（aooi901.4gl:753-911）：代號不可變（P4）
@@ -49,21 +52,26 @@ impl PlantService {
         id: &str,
         input: PlantInput,
     ) -> Result<PlantDto, AppError> {
-        self.authorize(actor, "modify").await?;
-        let mut plant = self.load(id).await?;
-        if !input.plant_id.trim().is_empty() && PlantId::parse(&input.plant_id)? != plant.id {
-            return Err(DomainError::PlantIdImmutable.into());
-        }
-        // 資料庫代碼建立後不可修改（P13 d）
-        if let Some(schema) = input.schema_name.as_deref().map(str::trim)
-            && !schema.is_empty()
-            && !schema.eq_ignore_ascii_case(plant.schema.as_str())
-        {
-            return Err(DomainError::PlantSchemaImmutable.into());
-        }
-        plant.update(attrs(&input)?, &actor.user_id, today());
-        self.plants.update(&plant).await.map_err(infra)?;
-        Ok(to_dto(&plant))
+        crate::change_log::run(actor, PROGRAM, "modify", async {
+            self.authorize(actor, "modify").await?;
+            let mut plant = self.load(id).await?;
+            plant.stamp.version = input.version.unwrap_or(plant.stamp.version);
+            if !input.plant_id.trim().is_empty() && PlantId::parse(&input.plant_id)? != plant.id {
+                return Err(DomainError::PlantIdImmutable.into());
+            }
+            // 資料庫代碼建立後不可修改（P13 d）
+            if let Some(schema) = input.schema_name.as_deref().map(str::trim)
+                && !schema.is_empty()
+                && !schema.eq_ignore_ascii_case(plant.schema.as_str())
+            {
+                return Err(DomainError::PlantSchemaImmutable.into());
+            }
+            plant.update(attrs(&input)?, &actor.user_id, today());
+            self.plants.update(&plant).await.map_err(infra)?;
+            plant.stamp.version += 1;
+            Ok(to_dto(&plant))
+        })
+        .await
     }
 
     pub async fn get(&self, actor: &Actor, id: &str) -> Result<PlantDto, AppError> {
@@ -101,40 +109,62 @@ impl PlantService {
     }
 
     /// 刪除：仍有使用者或業務資料時拒絕，不做連帶刪除（aooi901.4gl:944-953 aoo-088，P10）
-    pub async fn delete(&self, actor: &Actor, id: &str) -> Result<(), AppError> {
-        self.authorize(actor, "delete").await?;
-        let plant = self.load(id).await?;
-        // 使用中（P10）優先；沒有使用的最後一個有效營運中心也不可刪除（P17）
-        if self.plants.in_use(&plant.id).await.map_err(infra)? {
-            return Err(DomainError::PlantInUse.into());
-        }
-        self.check_keeps_active(&plant).await?;
-        match self.plants.delete(&plant.id).await {
-            Ok(()) => Ok(()),
-            Err(RepoError::InUse) => Err(DomainError::PlantInUse.into()),
-            Err(e) => Err(infra(e)),
-        }
+    pub async fn delete(
+        &self,
+        actor: &Actor,
+        id: &str,
+        version: Option<i32>,
+    ) -> Result<(), AppError> {
+        crate::change_log::run(actor, PROGRAM, "delete", async {
+            self.authorize(actor, "delete").await?;
+            let plant = self.load(id).await?;
+            plant.stamp.check(version)?;
+            // 使用中（P10）優先；沒有使用的最後一個有效營運中心也不可刪除（P17）
+            if self.plants.in_use(&plant.id).await.map_err(infra)? {
+                return Err(DomainError::PlantInUse.into());
+            }
+            self.check_keeps_active(&plant).await?;
+            match self.plants.delete(&plant.id).await {
+                Ok(()) => Ok(()),
+                Err(RepoError::InUse) => Err(DomainError::PlantInUse.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
     }
 
     /// 停用（P9）：既有資料不受影響；之後不可再指定給使用者或新的業務資料。
     /// 最後一個有效的營運中心不可停用（P16）
     /// azp_file 沒有有效碼，停用／啟用用 modify（AQ3）
-    pub async fn deactivate(&self, actor: &Actor, id: &str) -> Result<PlantDto, AppError> {
-        self.set_active(actor, id, false).await
+    pub async fn deactivate(
+        &self,
+        actor: &Actor,
+        id: &str,
+        version: Option<i32>,
+    ) -> Result<PlantDto, AppError> {
+        self.set_active(actor, id, false, version).await
     }
 
-    pub async fn activate(&self, actor: &Actor, id: &str) -> Result<PlantDto, AppError> {
-        self.set_active(actor, id, true).await
+    pub async fn activate(
+        &self,
+        actor: &Actor,
+        id: &str,
+        version: Option<i32>,
+    ) -> Result<PlantDto, AppError> {
+        self.set_active(actor, id, true, version).await
     }
 
     /// 複製（aooi901.4gl:994-1046，P11）
     pub async fn copy(&self, actor: &Actor, id: &str, new_id: &str) -> Result<PlantDto, AppError> {
-        self.authorize(actor, "reproduce").await?;
-        let source = self.load(id).await?;
-        let new_id = PlantId::parse(new_id)?;
-        let schema = self.new_schema(None).await?;
-        self.insert(source.copy_as(new_id, schema, &actor.user_id, &actor.dept, today()))
-            .await
+        crate::change_log::run(actor, PROGRAM, "reproduce", async {
+            self.authorize(actor, "reproduce").await?;
+            let source = self.load(id).await?;
+            let new_id = PlantId::parse(new_id)?;
+            let schema = self.new_schema(None).await?;
+            self.insert(source.copy_as(new_id, schema, &actor.user_id, &actor.dept, today()))
+                .await
+        })
+        .await
     }
 
     /// 新營運中心的資料庫代碼：有輸入就檢核，空白給下一個未使用的號碼；不可與其他營運中心重複（P13 a–c）
@@ -165,15 +195,22 @@ impl PlantService {
         actor: &Actor,
         id: &str,
         active: bool,
+        version: Option<i32>,
     ) -> Result<PlantDto, AppError> {
-        self.authorize(actor, "modify").await?;
-        let mut plant = self.load(id).await?;
-        if !active {
-            self.check_keeps_active(&plant).await?;
-        }
-        plant.set_active(active, &actor.user_id, today());
-        self.plants.update(&plant).await.map_err(infra)?;
-        Ok(to_dto(&plant))
+        crate::change_log::run(actor, PROGRAM, "modify", async {
+            self.authorize(actor, "modify").await?;
+            let mut plant = self.load(id).await?;
+            plant.stamp.version = version.unwrap_or(plant.stamp.version);
+            crate::change_log::set_operation(if active { "activate" } else { "deactivate" });
+            if !active {
+                self.check_keeps_active(&plant).await?;
+            }
+            plant.set_active(active, &actor.user_id, today());
+            self.plants.update(&plant).await.map_err(infra)?;
+            plant.stamp.version += 1;
+            Ok(to_dto(&plant))
+        })
+        .await
     }
 
     /// 停用或刪除前：系統內須還有其他有效的營運中心（P16、P17）
@@ -214,7 +251,11 @@ fn attrs(i: &PlantInput) -> Result<PlantAttrs, AppError> {
 }
 
 fn infra(e: RepoError) -> AppError {
-    AppError::Infra(e.to_string())
+    match e {
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        RepoError::Stale => ttrs_domain::DomainError::RecordChanged.into(),
+        e => AppError::Infra(e.to_string()),
+    }
 }
 
 /// 系統日期（TipTop: g_today）
@@ -238,6 +279,9 @@ fn to_dto(p: &Plant) -> PlantDto {
         created_on: p.created_on,
         updated_by: p.updated_by.clone(),
         updated_on: p.updated_on,
+        version: p.stamp.version,
+        created_at: p.stamp.created_at,
+        updated_at: p.stamp.updated_at,
     }
 }
 

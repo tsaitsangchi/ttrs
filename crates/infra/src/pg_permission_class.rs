@@ -2,9 +2,10 @@
 //! 表結構見 migrations/0003_program_registry.sql、0011_permission_class.sql
 
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::FromRow;
 use ttrs_app::{error::RepoError, ports::PermissionClassRepository};
+use ttrs_domain::record::Stamp;
 use ttrs_domain::{
     permission_class::{ClassCode, ClassIdleControl, PermissionClass, PermissionClassAttrs},
     program::IdleAction,
@@ -28,6 +29,12 @@ fn class_column(field: &str) -> Option<Column> {
         "idle_action" => Column::Scalar("c.idle_action", true),
         "idle_seconds" => Column::Scalar("c.idle_seconds", false),
         "active" => Column::Scalar("c.active", false),
+        "created_by" => Column::Scalar("c.created_by", true),
+        "created_dept" => Column::Scalar("c.created_dept", true),
+        "created_on" => Column::Scalar("c.created_on", false),
+        "updated_by" => Column::Scalar("c.updated_by", true),
+        "updated_on" => Column::Scalar("c.updated_on", false),
+        "version" => Column::Scalar("c.version", false),
         _ => return None,
     })
 }
@@ -46,6 +53,9 @@ struct ClassRow {
     created_on: NaiveDate,
     updated_by: Option<String>,
     updated_on: Option<NaiveDate>,
+    version: i32,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 /// SELECT 字面值（concat! 於編譯期組字串，仍為 SQL 字面值）
@@ -53,7 +63,7 @@ macro_rules! select_class {
     ($rest:literal) => {
         concat!(
             "SELECT class_code, name, default_menu, idle_control, idle_action, idle_seconds, active, ",
-            "created_by, created_dept, created_on, updated_by, updated_on FROM permission_class ",
+            "created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at FROM permission_class ",
             $rest
         )
     };
@@ -87,6 +97,11 @@ impl TryFrom<ClassRow> for PermissionClass {
             created_on: r.created_on,
             updated_by: r.updated_by,
             updated_on: r.updated_on,
+            stamp: Stamp {
+                version: r.version,
+                created_at: Some(r.created_at),
+                updated_at: r.updated_at,
+            },
         })
     }
 }
@@ -158,10 +173,10 @@ impl PermissionClassRepository for PgStore {
 
     async fn update(&self, c: &PermissionClass) -> Result<(), RepoError> {
         let a = &c.attrs;
-        sqlx::query(
+        let n = sqlx::query(
             "UPDATE permission_class SET name = $2, default_menu = $3, idle_control = $4,
                  idle_action = $5, idle_seconds = $6, active = $7, updated_by = $8, updated_on = $9
-             WHERE class_code = $1",
+             WHERE class_code = $1 AND version = $10",
         )
         .bind(c.code.as_str())
         .bind(&a.name)
@@ -172,9 +187,15 @@ impl PermissionClassRepository for PgStore {
         .bind(c.active)
         .bind(&c.updated_by)
         .bind(c.updated_on)
+        .bind(c.stamp.version)
         .execute(&self.pool)
         .await
-        .map_err(db_err)?;
+        .map_err(db_err)?
+        .rows_affected();
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        if n == 0 {
+            return Err(RepoError::Stale);
+        }
         Ok(())
     }
 

@@ -2,7 +2,7 @@
 //! 資料表結構由系統目錄（pg_catalog）唯讀取得，只看目前 schema（current_schema()）。
 
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::FromRow;
 use ttrs_app::{
     error::RepoError,
@@ -11,6 +11,7 @@ use ttrs_app::{
         MigrationSource, SchemaCatalog, TableSchema,
     },
 };
+use ttrs_domain::record::Stamp;
 use ttrs_domain::{
     dictionary::{ColumnText, Lang, TableDictionary, TableText, TableType},
     program::ModuleCode,
@@ -203,6 +204,9 @@ struct DictRow {
     downstream: Option<String>,
     created_by: String,
     created_on: NaiveDate,
+    version: i32,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 impl TryFrom<DictRow> for TableDictionary {
@@ -221,6 +225,11 @@ impl TryFrom<DictRow> for TableDictionary {
             downstream: r.downstream,
             created_by: r.created_by,
             created_on: r.created_on,
+            stamp: Stamp {
+                version: r.version,
+                created_at: Some(r.created_at),
+                updated_at: r.updated_at,
+            },
         })
     }
 }
@@ -233,7 +242,7 @@ fn lang(v: &str) -> Result<Lang, RepoError> {
 impl DictionaryRepository for PgStore {
     async fn get(&self, table: &str) -> Result<Option<TableDictionary>, RepoError> {
         sqlx::query_as::<_, DictRow>(
-            "SELECT table_name, module_code, table_type, upstream, downstream, created_by, created_on
+            "SELECT table_name, module_code, table_type, upstream, downstream, created_by, created_on, version, created_at, updated_at
              FROM table_dictionary WHERE table_name = $1",
         )
         .bind(table)
@@ -246,7 +255,7 @@ impl DictionaryRepository for PgStore {
 
     async fn list(&self) -> Result<Vec<TableDictionary>, RepoError> {
         sqlx::query_as::<_, DictRow>(
-            "SELECT table_name, module_code, table_type, upstream, downstream, created_by, created_on
+            "SELECT table_name, module_code, table_type, upstream, downstream, created_by, created_on, version, created_at, updated_at
              FROM table_dictionary ORDER BY table_name",
         )
         .fetch_all(&self.pool)
@@ -277,19 +286,25 @@ impl DictionaryRepository for PgStore {
     }
 
     async fn update(&self, d: &TableDictionary) -> Result<(), RepoError> {
-        sqlx::query(
+        let n = sqlx::query(
             "UPDATE table_dictionary SET module_code = $2, table_type = $3, upstream = $4,
                     downstream = $5, updated_at = now()
-             WHERE table_name = $1",
+             WHERE table_name = $1 AND version = $6",
         )
         .bind(&d.table_name)
         .bind(d.module.as_str())
         .bind(d.table_type.map(TableType::code))
         .bind(&d.upstream)
         .bind(&d.downstream)
+        .bind(d.stamp.version)
         .execute(&self.pool)
         .await
-        .map_err(db_err)?;
+        .map_err(db_err)?
+        .rows_affected();
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        if n == 0 {
+            return Err(RepoError::Stale);
+        }
         Ok(())
     }
 

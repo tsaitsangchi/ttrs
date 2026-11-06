@@ -81,14 +81,18 @@ async fn create_get_duplicate_and_delete() {
 
     let res = app
         .clone()
-        .oneshot(request("POST", "/api/users/u001/deactivate", None))
+        .oneshot(request(
+            "POST",
+            "/api/users/u001/deactivate?version=1",
+            None,
+        ))
         .await
         .unwrap();
     assert!(!body::<UserDto>(res).await.active);
 
     let res = app
         .clone()
-        .oneshot(request("DELETE", "/api/users/u001", None))
+        .oneshot(request("DELETE", "/api/users/u001?version=2", None))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::NO_CONTENT);
@@ -124,7 +128,7 @@ async fn last_user_admin_returns_409() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::CREATED);
     let res = app
-        .oneshot(request("DELETE", "/api/users/u001", None))
+        .oneshot(request("DELETE", "/api/users/u001?version=1", None))
         .await
         .unwrap();
     assert_eq!(res.status(), StatusCode::CONFLICT);

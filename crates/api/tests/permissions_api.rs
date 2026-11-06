@@ -84,7 +84,7 @@ async fn grant_list_update_and_revoke() {
         .oneshot(request(
             "PUT",
             "/api/permission-classes/SALES/permissions/item-price",
-            Some(serde_json::json!({ "actions": ["query"], "other_dept_data": "7" })),
+            Some(serde_json::json!({ "actions": ["query"], "other_dept_data": "7", "version": 1 })),
         ))
         .await
         .unwrap();

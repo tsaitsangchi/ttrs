@@ -19,7 +19,7 @@ use crate::components::permission::{Perm, ProgramGate};
 use crate::components::plant::PlantPicker;
 use crate::components::qbe::{HINT_FLAG, ListPager, PAGE_SIZE, Qbe, conditions_of};
 use crate::components::status::{
-    self, HasStatus, StatusCells, StatusField, StatusHeaders, StatusQbeCells, TAB_DATA, TAB_STATUS,
+    self, HasStatus, StatusCells, StatusHeaders, StatusQbeCells, TAB_DATA, TAB_STATUS,
 };
 use crate::i18n::{t, tf};
 
@@ -430,7 +430,7 @@ fn DepartmentMaintenancePage() -> Element {
                                             }
                                         }
                                     }
-                                    if status_tab { StatusQbeCells { queryable: &[StatusField::Active], qbe } }
+                                    if status_tab { StatusQbeCells { queryable: status::ALL, qbe } }
                                 }
                             }
                         }

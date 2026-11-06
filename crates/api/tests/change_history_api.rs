@@ -120,3 +120,38 @@ async fn version_is_required_and_checked() {
     assert_eq!(last.fields.len(), 1);
     assert_eq!(last.fields[0].column, "name");
 }
+
+#[tokio::test]
+async fn shared_history_lists_master_and_child_tables() {
+    let app = app();
+    let (s, _) = call(
+        &app,
+        Method::POST,
+        "/api/permission-classes",
+        Some(r#"{"class_code":"SALES","name":"業務"}"#),
+    )
+    .await;
+    assert_eq!(s, StatusCode::CREATED);
+    // 停用（版本 1）→ 記為 deactivate；未知作業 → 404
+    let (s, _) = call(
+        &app,
+        Method::POST,
+        "/api/permission-classes/SALES/deactivate?version=1",
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, body) = call(
+        &app,
+        Method::GET,
+        "/api/history/permission-class-maintenance/SALES",
+        None,
+    )
+    .await;
+    assert_eq!(s, StatusCode::OK);
+    let h: Vec<ChangeDto> = serde_json::from_slice(&body).unwrap();
+    let ops: Vec<&str> = h.iter().map(|c| c.operation.as_str()).collect();
+    assert_eq!(ops, ["insert", "deactivate"]);
+    let (s, _) = call(&app, Method::GET, "/api/history/no-such-program/X", None).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+}

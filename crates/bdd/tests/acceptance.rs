@@ -94,6 +94,8 @@ pub struct ErpWorld {
     pub report: Option<ttrs_app::report::ReportData>,
     /// 最近一次查詢的異動記錄（change_history.feature）
     pub history: Option<Vec<ttrs_shared::ChangeDto>>,
+    /// 共用層作業的異動記錄（ADR 0012 §8）
+    pub shared_history: ttrs_app::ChangeHistoryService,
     /// 以應用程式的資料庫角色修改異動記錄是否被拒（CH-9）
     pub db_denied: Option<bool>,
     /// 最近一次 ttrs-admin 指令的結果
@@ -118,7 +120,7 @@ impl ErpWorld {
                 ttrs_infra::drop_all_plant_schemas(&pool)
                     .await
                     .expect("drop plant schemas");
-                sqlx::query("TRUNCATE user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
+                sqlx::query("TRUNCATE change_log, user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, unit, plant \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
@@ -164,6 +166,7 @@ impl ErpWorld {
             sign_in,
             password_reset,
             emergency,
+            history: shared_history,
             authorizer: _,
         } = services;
         Self {
@@ -207,6 +210,7 @@ impl ErpWorld {
             command: None,
             report: None,
             history: None,
+            shared_history,
             db_denied: None,
         }
     }

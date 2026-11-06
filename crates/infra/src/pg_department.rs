@@ -39,6 +39,12 @@ fn dept_column(field: &str) -> Option<Column> {
         "control_type" => Column::Scalar("d.control_type", true),
         "cost_center" => Column::Scalar("d.cost_center", true),
         "active" => Column::Scalar("d.active", false),
+        "created_by" => Column::Scalar("d.created_by", true),
+        "created_dept" => Column::Scalar("d.created_dept", true),
+        "created_on" => Column::Scalar("d.created_on", false),
+        "updated_by" => Column::Scalar("d.updated_by", true),
+        "updated_on" => Column::Scalar("d.updated_on", false),
+        "version" => Column::Scalar("d.version", false),
         _ => return None,
     })
 }
@@ -237,6 +243,12 @@ fn employee_column(field: &str) -> Option<Column> {
         "extension" => Column::Scalar("e.extension", true),
         "email" => Column::Scalar("e.email", true),
         "active" => Column::Scalar("e.active", false),
+        "created_by" => Column::Scalar("e.created_by", true),
+        "created_dept" => Column::Scalar("e.created_dept", true),
+        "created_on" => Column::Scalar("e.created_on", false),
+        "updated_by" => Column::Scalar("e.updated_by", true),
+        "updated_on" => Column::Scalar("e.updated_on", false),
+        "version" => Column::Scalar("e.version", false),
         _ => return None,
     })
 }

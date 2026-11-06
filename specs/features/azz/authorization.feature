@@ -272,6 +272,7 @@
       | program-maintenance    | delete                     | 刪除程式 item-master           |
       | program-maintenance    | reproduce                  | 複製程式 item-master           |
       | program-maintenance    | authorization              | 授權程式 item-master 給 MGR    |
+      | program-maintenance | history | 查詢作業 program-maintenance u001 的異動記錄 |
       | data-dictionary   | query                      | 查詢資料字典               |
       | data-dictionary   | query                      | 查看資料表 item 的欄位     |
       | data-dictionary   | insert                     | 新增資料字典 item          |
@@ -282,6 +283,7 @@
       | data-dictionary   | exporttoexcel              | 匯出資料字典 item          |
       | data-dictionary   | query                      | 查詢 TipTop 對照目錄       |
       | data-dictionary   | zta_import                 | 匯入 TipTop 對照目錄       |
+      | data-dictionary | history | 查詢作業 data-dictionary item 的異動記錄 |
       | user-maintenance    | query                      | 查詢使用者                 |
       | user-maintenance    | query                      | 查看使用者 u001            |
       | user-maintenance    | insert                     | 新增使用者 u100            |
@@ -291,6 +293,7 @@
       | user-maintenance    | invalid                    | 停用使用者 u001            |
       | user-maintenance    | invalid                    | 啟用使用者 u001            |
       | user-maintenance    | user_unlock                | 解除使用者 u001 的鎖定     |
+      | user-maintenance | history | 查詢作業 user-maintenance u001 的異動記錄 |
       | permission-class-maintenance    | query                      | 查詢權限類別               |
       | permission-class-maintenance    | query                      | 查看權限類別 MGR           |
       | permission-class-maintenance    | detail                     | 新增權限類別 NEW           |
@@ -298,6 +301,7 @@
       | permission-class-maintenance    | detail                     | 停用權限類別 MGR           |
       | permission-class-maintenance    | detail                     | 刪除權限類別 MGR           |
       | permission-class-maintenance    | detail                     | 更新所有使用者選單         |
+      | permission-class-maintenance | history | 查詢作業 permission-class-maintenance MGR 的異動記錄 |
       | plant-maintenance | query                      | 查詢營運中心               |
       | plant-maintenance | query                      | 查看營運中心 TW01          |
       | plant-maintenance | insert                     | 新增營運中心 TW09          |
@@ -305,6 +309,7 @@
       | plant-maintenance | modify                     | 停用營運中心 TW01          |
       | plant-maintenance | delete                     | 刪除營運中心 TW01          |
       | plant-maintenance | reproduce                  | 複製營運中心 TW01          |
+      | plant-maintenance | history | 查詢作業 plant-maintenance TW01 的異動記錄 |
       | program-permission-maintenance    | query                      | 查詢程式執行權限           |
       | program-permission-maintenance    | query                      | 查看權限類別 MGR 的權限    |
       | program-permission-maintenance    | detail                     | 新增 MGR 的程式列 item-maintenance  |
@@ -315,12 +320,14 @@
       | program-permission-maintenance    | batch_gen_by_prog          | 依程式產生 MGR 的權限      |
       | program-permission-maintenance    | batch_gen_by_menu          | 依選單產生 MGR 的權限      |
       | program-permission-maintenance    | batch_del_by_menu          | 依選單刪除 MGR 的權限      |
+      | program-permission-maintenance | history | 查詢作業 program-permission-maintenance MGR 的異動記錄 |
       | user-permission-maintenance   | query                      | 查看使用者 u001 的特殊權限 |
       | user-permission-maintenance   | detail                     | 新增 u001 的特殊權限列     |
       | user-permission-maintenance   | detail                     | 修改 u001 的特殊權限程式列 |
       | user-permission-maintenance   | detail                     | 移除 u001 的特殊權限列     |
       | user-permission-maintenance   | delete                     | 刪除 u001 的全部特殊權限   |
       | user-permission-maintenance   | reproduce                  | 複製 u001 的特殊權限       |
+      | user-permission-maintenance | history | 查詢作業 user-permission-maintenance u001 的異動記錄 |
       | item-maintenance | query                      | 查詢料件                   |
       | item-maintenance | insert                     | 新增料件 A001              |
       | item-maintenance | delete                     | 刪除料件 A001              |

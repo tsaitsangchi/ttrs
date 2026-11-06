@@ -163,6 +163,7 @@ impl InMemoryStore {
         let schema = PlantSchema::next_free(&used).expect("資料庫代碼");
         s.plant_schemas.insert(schema.as_str().to_owned());
         let p = Plant {
+            stamp: Stamp::default(),
             schema,
             attrs: PlantAttrs {
                 name: id.as_str().to_owned(),
@@ -255,6 +256,7 @@ impl InMemoryStore {
     pub fn add_permission_class(&self, class: &str) {
         let code = ClassCode::parse(class).expect("權限類別代號");
         let pc = PermissionClass {
+            stamp: Stamp::default(),
             attrs: PermissionClassAttrs {
                 name: class.to_string(),
                 default_menu: None,
@@ -433,8 +435,17 @@ impl ProgramRepository for InMemoryStore {
             return Err(RepoError::Conflict);
         }
         let no = program.program_no.as_str().to_owned();
-        s.programs
-            .insert(program.program_no.clone(), program.clone());
+        let mut program = program.clone();
+        program.stamp = new_stamp();
+        s.log_change(
+            None,
+            "program",
+            program_key(&program),
+            None,
+            Some(program_row(&program)),
+            &[],
+        );
+        s.programs.insert(program.program_no.clone(), program);
         for n in names {
             s.names.insert(
                 (no.clone(), n.lang.clone()),
@@ -448,9 +459,21 @@ impl ProgramRepository for InMemoryStore {
     }
 
     async fn update(&self, program: &Program) -> Result<(), RepoError> {
-        self.lock()
-            .programs
-            .insert(program.program_no.clone(), program.clone());
+        let mut s = self.lock();
+        let Some(old) = s.programs.get(&program.program_no).cloned() else {
+            return Ok(());
+        };
+        let mut p = program.clone();
+        p.stamp = bumped(&old.stamp, &program.stamp)?;
+        s.log_change(
+            None,
+            "program",
+            program_key(&p),
+            Some(program_row(&old)),
+            Some(program_row(&p)),
+            &[],
+        );
+        s.programs.insert(p.program_no.clone(), p);
         Ok(())
     }
 
@@ -462,7 +485,17 @@ impl ProgramRepository for InMemoryStore {
         let Some(mut p) = s.programs.remove(old) else {
             return Ok(());
         };
+        let before = program_row(&p);
         p.program_no = new.clone();
+        p.stamp = bumped(&p.stamp, &p.stamp)?;
+        s.log_change(
+            None,
+            "program",
+            program_key(&p),
+            Some(before),
+            Some(program_row(&p)),
+            &[],
+        );
         s.programs.insert(new.clone(), p);
         let (old, new) = (old.as_str(), new.as_str());
         s.names = std::mem::take(&mut s.names)
@@ -496,7 +529,16 @@ impl ProgramRepository for InMemoryStore {
 
     async fn delete(&self, no: &ProgramNo, audit: &AuditEntry) -> Result<(), RepoError> {
         let mut s = self.lock();
-        s.programs.remove(no);
+        if let Some(old) = s.programs.remove(no) {
+            s.log_change(
+                None,
+                "program",
+                program_key(&old),
+                Some(program_row(&old)),
+                None,
+                &[],
+            );
+        }
         let no = no.as_str();
         s.names.retain(|(n, _), _| n != no);
         s.permissions.retain(|(_, n), _| n != no);
@@ -646,20 +688,51 @@ impl DictionaryRepository for InMemoryStore {
         if s.dictionaries.contains_key(&dict.table_name) {
             return Err(RepoError::Conflict);
         }
-        s.dictionaries.insert(dict.table_name.clone(), dict.clone());
+        let mut d = dict.clone();
+        d.stamp = new_stamp();
+        s.log_change(
+            None,
+            "table_dictionary",
+            dict_key(&d),
+            None,
+            Some(dict_row(&d)),
+            &[],
+        );
+        s.dictionaries.insert(d.table_name.clone(), d);
         Ok(())
     }
 
     async fn update(&self, dict: &TableDictionary) -> Result<(), RepoError> {
-        self.lock()
-            .dictionaries
-            .insert(dict.table_name.clone(), dict.clone());
+        let mut s = self.lock();
+        let Some(old) = s.dictionaries.get(&dict.table_name).cloned() else {
+            return Ok(());
+        };
+        let mut d = dict.clone();
+        d.stamp = bumped(&old.stamp, &dict.stamp)?;
+        s.log_change(
+            None,
+            "table_dictionary",
+            dict_key(&d),
+            Some(dict_row(&old)),
+            Some(dict_row(&d)),
+            &[],
+        );
+        s.dictionaries.insert(d.table_name.clone(), d);
         Ok(())
     }
 
     async fn delete(&self, table: &str) -> Result<(), RepoError> {
         let mut s = self.lock();
-        s.dictionaries.remove(table);
+        if let Some(old) = s.dictionaries.remove(table) {
+            s.log_change(
+                None,
+                "table_dictionary",
+                dict_key(&old),
+                Some(dict_row(&old)),
+                None,
+                &[],
+            );
+        }
         s.table_texts.retain(|(t, _), _| t != table);
         s.column_texts.retain(|(t, _, _), _| t != table);
         Ok(())
@@ -784,21 +857,59 @@ impl UserRepository for InMemoryStore {
         if s.users.contains_key(&user.user_id) {
             return Err(RepoError::Conflict);
         }
-        s.users.insert(user.user_id.clone(), user.clone());
-        s.user_plants.insert(user.user_id.clone(), plants.to_vec());
+        let mut u = user.clone();
+        u.stamp = new_stamp();
+        s.log_change(
+            None,
+            "user_account",
+            user_key(&u),
+            None,
+            Some(user_row(&u, plants)),
+            USER_MASKED,
+        );
+        s.users.insert(u.user_id.clone(), u);
+        s.replace_user_plants(&user.user_id, plants);
         Ok(())
     }
 
     async fn update(&self, user: &User, plants: &[PlantId]) -> Result<(), RepoError> {
         let mut s = self.lock();
-        s.users.insert(user.user_id.clone(), user.clone());
-        s.user_plants.insert(user.user_id.clone(), plants.to_vec());
+        let Some(old) = s.users.get(&user.user_id).cloned() else {
+            return Ok(());
+        };
+        let old_plants = s
+            .user_plants
+            .get(&user.user_id)
+            .cloned()
+            .unwrap_or_default();
+        let mut u = user.clone();
+        u.stamp = bumped(&old.stamp, &user.stamp)?;
+        s.log_change(
+            None,
+            "user_account",
+            user_key(&u),
+            Some(user_row(&old, &old_plants)),
+            Some(user_row(&u, plants)),
+            USER_MASKED,
+        );
+        s.users.insert(u.user_id.clone(), u);
+        s.replace_user_plants(&user.user_id, plants);
         Ok(())
     }
 
     async fn delete(&self, id: &UserId) -> Result<(), RepoError> {
         let mut s = self.lock();
-        s.users.remove(id);
+        s.replace_user_plants(id, &[]);
+        if let Some(old) = s.users.remove(id) {
+            s.log_change(
+                None,
+                "user_account",
+                user_key(&old),
+                Some(user_row(&old, &[])),
+                None,
+                USER_MASKED,
+            );
+        }
         s.user_plants.remove(id);
         s.credentials.remove(id);
         s.session_versions.remove(id);
@@ -838,16 +949,14 @@ impl UserRepository for InMemoryStore {
     }
 
     async fn bind_idp_subject(&self, id: &UserId, subject: &str) -> Result<(), RepoError> {
-        if let Some(u) = self.lock().users.get_mut(id) {
-            u.idp_subject = Some(subject.to_owned());
-        }
+        self.lock()
+            .touch_user(id, |u| u.idp_subject = Some(subject.to_owned()));
         Ok(())
     }
 
     async fn set_default_plant(&self, id: &UserId, plant: &PlantId) -> Result<(), RepoError> {
-        if let Some(u) = self.lock().users.get_mut(id) {
-            u.attrs.default_plant = plant.clone();
-        }
+        self.lock()
+            .touch_user(id, |u| u.attrs.default_plant = plant.clone());
         Ok(())
     }
 }
@@ -884,20 +993,51 @@ impl PermissionClassRepository for InMemoryStore {
         if s.permission_classes.contains_key(&class.code) {
             return Err(RepoError::Conflict);
         }
-        s.permission_classes
-            .insert(class.code.clone(), class.clone());
+        let mut c = class.clone();
+        c.stamp = new_stamp();
+        s.log_change(
+            None,
+            "permission_class",
+            class_code_key(&c),
+            None,
+            Some(permission_class_row(&c)),
+            &[],
+        );
+        s.permission_classes.insert(c.code.clone(), c);
         Ok(())
     }
 
     async fn update(&self, class: &PermissionClass) -> Result<(), RepoError> {
-        if let Some(c) = self.lock().permission_classes.get_mut(&class.code) {
-            *c = class.clone();
-        }
+        let mut s = self.lock();
+        let Some(old) = s.permission_classes.get(&class.code).cloned() else {
+            return Ok(());
+        };
+        let mut c = class.clone();
+        c.stamp = bumped(&old.stamp, &class.stamp)?;
+        s.log_change(
+            None,
+            "permission_class",
+            class_code_key(&c),
+            Some(permission_class_row(&old)),
+            Some(permission_class_row(&c)),
+            &[],
+        );
+        s.permission_classes.insert(c.code.clone(), c);
         Ok(())
     }
 
     async fn delete(&self, code: &ClassCode) -> Result<(), RepoError> {
-        self.lock().permission_classes.remove(code);
+        let mut s = self.lock();
+        if let Some(old) = s.permission_classes.remove(code) {
+            s.log_change(
+                None,
+                "permission_class",
+                class_code_key(&old),
+                Some(permission_class_row(&old)),
+                None,
+                &[],
+            );
+        }
         Ok(())
     }
 
@@ -964,14 +1104,29 @@ impl PlantRepository for InMemoryStore {
             return Err(RepoError::Conflict);
         }
         s.plant_schemas.insert(plant.schema.as_str().to_owned());
-        s.plants.insert(plant.id.clone(), plant.clone());
+        let mut p = plant.clone();
+        p.stamp = new_stamp();
+        s.log_change(None, "plant", plant_key(&p), None, Some(plant_row(&p)), &[]);
+        s.plants.insert(p.id.clone(), p);
         Ok(())
     }
 
     async fn update(&self, plant: &Plant) -> Result<(), RepoError> {
-        if let Some(p) = self.lock().plants.get_mut(&plant.id) {
-            *p = plant.clone();
-        }
+        let mut s = self.lock();
+        let Some(old) = s.plants.get(&plant.id).cloned() else {
+            return Ok(());
+        };
+        let mut p = plant.clone();
+        p.stamp = bumped(&old.stamp, &plant.stamp)?;
+        s.log_change(
+            None,
+            "plant",
+            plant_key(&p),
+            Some(plant_row(&old)),
+            Some(plant_row(&p)),
+            &[],
+        );
+        s.plants.insert(p.id.clone(), p);
         Ok(())
     }
 
@@ -982,6 +1137,7 @@ impl PlantRepository for InMemoryStore {
         let mut s = self.lock();
         if let Some(p) = s.plants.remove(id) {
             s.plant_schemas.remove(p.schema.as_str());
+            s.log_change(None, "plant", plant_key(&p), Some(plant_row(&p)), None, &[]);
         }
         Ok(())
     }
@@ -1066,27 +1222,77 @@ impl ProgramPermissionRepository for InMemoryStore {
         if s.permissions.contains_key(&key) {
             return Err(RepoError::Conflict);
         }
-        s.permissions.insert(key, permission.clone());
+        let mut p = permission.clone();
+        p.stamp = new_stamp();
+        s.log_change(
+            None,
+            "program_permission",
+            perm_change_key(&p),
+            None,
+            Some(perm_row(&p)),
+            &[],
+        );
+        s.permissions.insert(key, p);
         Ok(())
     }
 
     async fn update(&self, permission: &ProgramPermission) -> Result<(), RepoError> {
-        if let Some(p) = self.lock().permissions.get_mut(&perm_key(permission)) {
-            *p = permission.clone();
-        }
+        let mut s = self.lock();
+        let key = perm_key(permission);
+        let Some(old) = s.permissions.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut p = permission.clone();
+        p.stamp = bumped(&old.stamp, &permission.stamp)?;
+        s.log_change(
+            None,
+            "program_permission",
+            perm_change_key(&p),
+            Some(perm_row(&old)),
+            Some(perm_row(&p)),
+            &[],
+        );
+        s.permissions.insert(key, p);
         Ok(())
     }
 
     async fn delete(&self, class: &ClassCode, program: &ProgramNo) -> Result<bool, RepoError> {
         let key = (class.as_str().to_owned(), program.as_str().to_owned());
-        Ok(self.lock().permissions.remove(&key).is_some())
+        let mut s = self.lock();
+        let Some(old) = s.permissions.remove(&key) else {
+            return Ok(false);
+        };
+        s.log_change(
+            None,
+            "program_permission",
+            perm_change_key(&old),
+            Some(perm_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
     }
 
     async fn delete_all(&self, class: &ClassCode) -> Result<u64, RepoError> {
         let mut s = self.lock();
-        let before = s.permissions.len();
+        let removed: Vec<ProgramPermission> = s
+            .permissions
+            .iter()
+            .filter(|((c, _), _)| c == class.as_str())
+            .map(|(_, p)| p.clone())
+            .collect();
         s.permissions.retain(|(c, _), _| c != class.as_str());
-        Ok((before - s.permissions.len()) as u64)
+        for old in &removed {
+            s.log_change(
+                None,
+                "program_permission",
+                perm_change_key(old),
+                Some(perm_row(old)),
+                None,
+                &[],
+            );
+        }
+        Ok(removed.len() as u64)
     }
 }
 
@@ -1143,31 +1349,76 @@ impl UserPermissionRepository for InMemoryStore {
         if s.user_permissions.contains_key(&key) || same_target {
             return Err(RepoError::Conflict);
         }
-        s.user_permissions.insert(key, permission.clone());
+        let mut p = permission.clone();
+        p.stamp = new_stamp();
+        s.log_change(
+            None,
+            "user_permission",
+            uperm_key(&p),
+            None,
+            Some(uperm_row(&p)),
+            &[],
+        );
+        s.user_permissions.insert(key, p);
         Ok(())
     }
 
     async fn update(&self, permission: &UserPermission) -> Result<(), RepoError> {
         let key = (permission.user_id.clone(), permission.line_no);
-        if let Some(up) = self.lock().user_permissions.get_mut(&key) {
-            *up = permission.clone();
-        }
+        let mut s = self.lock();
+        let Some(old) = s.user_permissions.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut p = permission.clone();
+        p.stamp = bumped(&old.stamp, &permission.stamp)?;
+        s.log_change(
+            None,
+            "user_permission",
+            uperm_key(&p),
+            Some(uperm_row(&old)),
+            Some(uperm_row(&p)),
+            &[],
+        );
+        s.user_permissions.insert(key, p);
         Ok(())
     }
 
     async fn delete(&self, user: &UserId, line_no: i32) -> Result<bool, RepoError> {
-        Ok(self
-            .lock()
-            .user_permissions
-            .remove(&(user.clone(), line_no))
-            .is_some())
+        let mut s = self.lock();
+        let Some(old) = s.user_permissions.remove(&(user.clone(), line_no)) else {
+            return Ok(false);
+        };
+        s.log_change(
+            None,
+            "user_permission",
+            uperm_key(&old),
+            Some(uperm_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
     }
 
     async fn delete_all(&self, user: &UserId) -> Result<u64, RepoError> {
         let mut s = self.lock();
-        let before = s.user_permissions.len();
+        let removed: Vec<UserPermission> = s
+            .user_permissions
+            .iter()
+            .filter(|((u, _), _)| u == user)
+            .map(|(_, p)| p.clone())
+            .collect();
         s.user_permissions.retain(|(u, _), _| u != user);
-        Ok((before - s.user_permissions.len()) as u64)
+        for old in &removed {
+            s.log_change(
+                None,
+                "user_permission",
+                uperm_key(old),
+                Some(uperm_row(old)),
+                None,
+                &[],
+            );
+        }
+        Ok(removed.len() as u64)
     }
 }
 
@@ -1216,7 +1467,7 @@ impl ClassificationCodeRepository for InMemoryStore {
         let mut c = c.clone();
         c.stamp = new_stamp();
         s.log_change(
-            plant,
+            Some(plant),
             "classification_code",
             class_key(&c),
             None,
@@ -1236,7 +1487,7 @@ impl ClassificationCodeRepository for InMemoryStore {
         let mut new = c.clone();
         new.stamp = bumped(&old.stamp, &c.stamp)?;
         s.log_change(
-            plant,
+            Some(plant),
             "classification_code",
             class_key(&new),
             Some(class_row(&old)),
@@ -1258,7 +1509,7 @@ impl ClassificationCodeRepository for InMemoryStore {
             return Ok(false);
         };
         s.log_change(
-            plant,
+            Some(plant),
             "classification_code",
             class_key(&old),
             Some(class_row(&old)),
@@ -1321,7 +1572,7 @@ impl DepartmentRepository for InMemoryStore {
         let mut d = dept.clone();
         d.stamp = new_stamp();
         s.log_change(
-            plant,
+            Some(plant),
             "department",
             dept_key(&d),
             None,
@@ -1341,7 +1592,7 @@ impl DepartmentRepository for InMemoryStore {
         let mut d = dept.clone();
         d.stamp = bumped(&old.stamp, &dept.stamp)?;
         s.log_change(
-            plant,
+            Some(plant),
             "department",
             dept_key(&d),
             Some(dept_row(&old)),
@@ -1365,7 +1616,7 @@ impl DepartmentRepository for InMemoryStore {
             return Ok(false);
         };
         s.log_change(
-            plant,
+            Some(plant),
             "department",
             dept_key(&old),
             Some(dept_row(&old)),
@@ -1420,7 +1671,7 @@ impl EmployeeRepository for InMemoryStore {
         let mut e = employee.clone();
         e.stamp = new_stamp();
         s.log_change(
-            plant,
+            Some(plant),
             "employee",
             employee_key(&e),
             None,
@@ -1440,7 +1691,7 @@ impl EmployeeRepository for InMemoryStore {
         let mut e = employee.clone();
         e.stamp = bumped(&old.stamp, &employee.stamp)?;
         s.log_change(
-            plant,
+            Some(plant),
             "employee",
             employee_key(&e),
             Some(employee_row(&old)),
@@ -1457,7 +1708,7 @@ impl EmployeeRepository for InMemoryStore {
             return Ok(false);
         };
         s.log_change(
-            plant,
+            Some(plant),
             "employee",
             employee_key(&old),
             Some(employee_row(&old)),
@@ -1731,7 +1982,7 @@ impl State {
     /// 寫一筆異動記錄；操作情境取自 change_log::current()，沒有時記為 db（直接修改資料）
     fn log_change(
         &mut self,
-        plant: &PlantId,
+        plant: Option<&PlantId>,
         table: &str,
         key: Vec<(&str, String)>,
         before: Option<Row>,
@@ -1783,7 +2034,7 @@ impl State {
             user_agent: ctx.as_ref().and_then(|c| c.request.user_agent.clone()),
             reason: ctx.as_ref().and_then(|c| c.reason.clone()),
         };
-        self.changes.push((Some(plant.clone()), record));
+        self.changes.push((plant.cloned(), record));
     }
 }
 
@@ -1792,15 +2043,309 @@ impl ChangeLogRepository for InMemoryStore {
     async fn history(
         &self,
         plant: Option<&PlantId>,
-        table: &str,
+        tables: &[&str],
         key: &BTreeMap<String, String>,
     ) -> Result<Vec<ChangeRecord>, RepoError> {
         Ok(self
             .lock()
             .changes
             .iter()
-            .filter(|(p, r)| p.as_ref() == plant && r.table_name == table && &r.record_key == key)
+            .filter(|(p, r)| {
+                p.as_ref() == plant
+                    && tables.contains(&r.table_name.as_str())
+                    && key.iter().all(|(k, v)| r.record_key.get(k) == Some(v))
+            })
             .map(|(_, r)| r.clone())
             .collect())
+    }
+}
+
+// ----- 第二階段：共用層的表（與 migrations/0025 的觸發器一致）。
+// 記憶體後端記錄主檔與可使用營運中心；程式名稱、資料字典說明與連帶刪除的子表只在 PostgreSQL 記錄。
+
+/// 使用者的個資欄位：只記「有修改」（CH6）
+const USER_MASKED: &[&str] = &["email"];
+
+/// text[] 欄位的文字表示（與 PostgreSQL jsonb_each_text 相同：JSON 陣列）
+fn text_array(items: &[String]) -> Option<String> {
+    let quoted: Vec<String> = items
+        .iter()
+        .map(|i| format!("\"{}\"", i.replace('\\', "\\\\").replace('"', "\\\"")))
+        .collect();
+    Some(format!("[{}]", quoted.join(", ")))
+}
+
+fn stamp_cols(
+    created_by: &str,
+    created_dept: &str,
+    created_on: NaiveDate,
+    updated_by: Option<&str>,
+    updated_on: Option<NaiveDate>,
+    stamp: &Stamp,
+) -> Vec<(&'static str, Option<String>)> {
+    vec![
+        ("created_by", text::s(created_by)),
+        ("created_dept", text::s(created_dept)),
+        ("created_on", text::date(created_on)),
+        ("updated_by", text::opt(updated_by)),
+        ("updated_on", text::opt_date(updated_on)),
+        ("version", text::int(i64::from(stamp.version))),
+    ]
+}
+
+fn program_key(p: &Program) -> Vec<(&'static str, String)> {
+    vec![("program_no", p.program_no.as_str().to_owned())]
+}
+
+/// 程式資料：主要欄位（其餘執行設定欄位只在 PostgreSQL 的記錄中）
+fn program_row(p: &Program) -> Row {
+    row(vec![
+        ("program_no", text::s(p.program_no.as_str())),
+        ("module_code", text::s(p.module.as_str())),
+        ("program_type", text::opt(p.program_type.as_deref())),
+        (
+            "default_actions",
+            text::opt(p.other.default_actions.as_deref()),
+        ),
+        ("print_conditions", text::b(p.other.print_conditions)),
+        (
+            "tiptop_program_no",
+            text::opt(p.tiptop_program_no.as_deref()),
+        ),
+        ("created_by", text::s(&p.created_by)),
+        ("created_dept", text::s(&p.created_dept)),
+        ("updated_by", text::opt(p.updated_by.as_deref())),
+        ("updated_on", text::date(p.updated_on)),
+        ("version", text::int(i64::from(p.stamp.version))),
+    ])
+}
+
+fn dict_key(d: &TableDictionary) -> Vec<(&'static str, String)> {
+    vec![("table_name", d.table_name.clone())]
+}
+
+fn dict_row(d: &TableDictionary) -> Row {
+    row(vec![
+        ("table_name", text::s(&d.table_name)),
+        ("module_code", text::s(d.module.as_str())),
+        ("table_type", d.table_type.map(|t| t.code().to_owned())),
+        ("upstream", text::opt(d.upstream.as_deref())),
+        ("downstream", text::opt(d.downstream.as_deref())),
+        ("created_by", text::s(&d.created_by)),
+        ("created_on", text::date(d.created_on)),
+        ("version", text::int(i64::from(d.stamp.version))),
+    ])
+}
+
+fn user_key(u: &User) -> Vec<(&'static str, String)> {
+    vec![("user_id", u.user_id.as_str().to_owned())]
+}
+
+fn user_row(u: &User, plants: &[PlantId]) -> Row {
+    let a = &u.attrs;
+    let mut cols = vec![
+        ("user_id", text::s(u.user_id.as_str())),
+        ("name", text::opt(a.name.as_deref())),
+        ("dept_code", text::opt(a.dept_code.as_deref())),
+        ("class_code", text::s(&a.permission_class)),
+        ("menu_program", text::s(&a.menu)),
+        ("multi_plant", text::b(a.multi_plant)),
+        ("default_plant", text::s(a.default_plant.as_str())),
+        ("email", text::opt(a.email.as_deref())),
+        ("idp_username", text::opt(a.idp_username.as_deref())),
+        ("idp_subject", text::opt(u.idp_subject.as_deref())),
+        ("lang", text::s(a.lang.as_str())),
+        ("valid_until", text::opt_date(a.valid_until)),
+        ("active", text::b(u.active)),
+        ("all_plants", text::b(plants.iter().any(PlantId::is_all))),
+    ];
+    cols.extend(stamp_cols(
+        &u.created_by,
+        &u.created_dept,
+        u.created_on,
+        u.updated_by.as_deref(),
+        u.updated_on,
+        &u.stamp,
+    ));
+    row(cols)
+}
+
+fn class_code_key(c: &PermissionClass) -> Vec<(&'static str, String)> {
+    vec![("class_code", c.code.as_str().to_owned())]
+}
+
+fn permission_class_row(c: &PermissionClass) -> Row {
+    let a = &c.attrs;
+    let mut cols = vec![
+        ("class_code", text::s(c.code.as_str())),
+        ("name", text::s(&a.name)),
+        ("default_menu", text::opt(a.default_menu.as_deref())),
+        ("idle_control", text::s(a.idle_control.code())),
+        ("idle_action", a.idle_action.map(|x| x.code().to_owned())),
+        ("idle_seconds", a.idle_seconds.map(|n| n.to_string())),
+        ("active", text::b(c.active)),
+    ];
+    cols.extend(stamp_cols(
+        &c.created_by,
+        &c.created_dept,
+        c.created_on,
+        c.updated_by.as_deref(),
+        c.updated_on,
+        &c.stamp,
+    ));
+    row(cols)
+}
+
+fn plant_key(p: &Plant) -> Vec<(&'static str, String)> {
+    vec![("plant_id", p.id.as_str().to_owned())]
+}
+
+fn plant_row(p: &Plant) -> Row {
+    let a = &p.attrs;
+    let mut cols = vec![
+        ("plant_id", text::s(p.id.as_str())),
+        ("name", text::s(&a.name)),
+        ("schema_name", text::s(p.schema.as_str())),
+        ("time_zone", text::s(&a.time_zone)),
+        ("address", text::opt(a.address.as_deref())),
+        ("phone", text::opt(a.phone.as_deref())),
+        ("fax", text::opt(a.fax.as_deref())),
+        ("active", text::b(p.active)),
+    ];
+    cols.extend(stamp_cols(
+        &p.created_by,
+        &p.created_dept,
+        p.created_on,
+        p.updated_by.as_deref(),
+        p.updated_on,
+        &p.stamp,
+    ));
+    row(cols)
+}
+
+fn perm_change_key(p: &ProgramPermission) -> Vec<(&'static str, String)> {
+    vec![
+        ("class_code", p.class.as_str().to_owned()),
+        ("program_no", p.program.as_str().to_owned()),
+    ]
+}
+
+fn perm_row(p: &ProgramPermission) -> Row {
+    let a = &p.attrs;
+    let mut cols = vec![
+        ("class_code", text::s(p.class.as_str())),
+        ("program_no", text::s(p.program.as_str())),
+        ("actions", text_array(&a.actions)),
+        ("other_user_data", text::s(a.other_user.code())),
+        ("other_dept_data", text::s(a.other_dept.code())),
+        ("detail_rows", text::s(a.detail.code())),
+    ];
+    cols.extend(stamp_cols(
+        &p.created_by,
+        &p.created_dept,
+        p.created_on,
+        p.updated_by.as_deref(),
+        p.updated_on,
+        &p.stamp,
+    ));
+    row(cols)
+}
+
+fn uperm_key(p: &UserPermission) -> Vec<(&'static str, String)> {
+    vec![
+        ("line_no", p.line_no.to_string()),
+        ("user_id", p.user_id.as_str().to_owned()),
+    ]
+}
+
+fn uperm_row(p: &UserPermission) -> Row {
+    let program = match &p.target {
+        SpecialTarget::Program { attrs, .. } => Some(attrs),
+        SpecialTarget::Class(_) => None,
+    };
+    let mut cols = vec![
+        ("user_id", text::s(p.user_id.as_str())),
+        ("line_no", text::int(i64::from(p.line_no))),
+        ("kind", text::s(p.target.kind_code())),
+        (
+            "class_code",
+            p.target.class().map(|c| c.as_str().to_owned()),
+        ),
+        (
+            "program_no",
+            p.target.program().map(|n| n.as_str().to_owned()),
+        ),
+        ("actions", program.and_then(|a| text_array(&a.actions))),
+        (
+            "other_user_data",
+            program.map(|a| a.other_user.code().to_owned()),
+        ),
+        (
+            "other_dept_data",
+            program.map(|a| a.other_dept.code().to_owned()),
+        ),
+        ("detail_rows", program.map(|a| a.detail.code().to_owned())),
+    ];
+    cols.extend(stamp_cols(
+        &p.created_by,
+        &p.created_dept,
+        p.created_on,
+        p.updated_by.as_deref(),
+        p.updated_on,
+        &p.stamp,
+    ));
+    row(cols)
+}
+
+impl State {
+    /// 可使用營運中心（user_plant）：只刪除移除的、新增增加的（與 PostgreSQL 一致）；ALL 記在 user_account.all_plants
+    fn replace_user_plants(&mut self, user: &UserId, plants: &[PlantId]) {
+        let old = self.user_plants.get(user).cloned().unwrap_or_default();
+        let real = |p: &&PlantId| !p.is_all();
+        for p in old.iter().filter(real).filter(|p| !plants.contains(p)) {
+            let r = row(vec![
+                ("user_id", text::s(user.as_str())),
+                ("plant_id", text::s(p.as_str())),
+            ]);
+            let key = vec![
+                ("plant_id", p.as_str().to_owned()),
+                ("user_id", user.as_str().to_owned()),
+            ];
+            self.log_change(None, "user_plant", key, Some(r), None, &[]);
+        }
+        for p in plants.iter().filter(real).filter(|p| !old.contains(p)) {
+            let r = row(vec![
+                ("user_id", text::s(user.as_str())),
+                ("plant_id", text::s(p.as_str())),
+            ]);
+            let key = vec![
+                ("plant_id", p.as_str().to_owned()),
+                ("user_id", user.as_str().to_owned()),
+            ];
+            self.log_change(None, "user_plant", key, None, Some(r), &[]);
+        }
+        self.user_plants.insert(user.clone(), plants.to_vec());
+    }
+
+    /// 單一欄位的使用者更新（綁定公司帳號、預設營運中心）：版本加 1 並記錄
+    fn touch_user(&mut self, id: &UserId, change: impl FnOnce(&mut User)) {
+        let Some(old) = self.users.get(id).cloned() else {
+            return;
+        };
+        let plants = self.user_plants.get(id).cloned().unwrap_or_default();
+        let mut u = old.clone();
+        change(&mut u);
+        if let Ok(stamp) = bumped(&old.stamp, &old.stamp) {
+            u.stamp = stamp;
+        }
+        self.log_change(
+            None,
+            "user_account",
+            user_key(&u),
+            Some(user_row(&old, &plants)),
+            Some(user_row(&u, &plants)),
+            USER_MASKED,
+        );
+        self.users.insert(id.clone(), u);
     }
 }

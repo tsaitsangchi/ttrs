@@ -77,7 +77,7 @@ async fn change_no_via_update_then_old_no_returns_404() {
         .oneshot(json(
             "PUT",
             "/api/programs/item-price",
-            serde_json::json!({ "program_no": "item-master", "module_code": "AIM", "program_type": "I" }),
+            serde_json::json!({ "program_no": "item-master", "module_code": "AIM", "program_type": "I", "version": 1 }),
         ))
         .await
         .unwrap();
@@ -111,7 +111,7 @@ async fn delete_returns_204() {
     app.clone().oneshot(create("item-price")).await.unwrap();
     let res = app
         .oneshot(
-            Request::delete("/api/programs/item-price")
+            Request::delete("/api/programs/item-price?version=1")
                 .body(Body::empty())
                 .unwrap(),
         )

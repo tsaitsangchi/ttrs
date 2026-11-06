@@ -13,6 +13,7 @@ use ttrs_shared::{
 };
 
 use crate::api;
+use crate::components::history::HistoryButton;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Chip, Dialog, IconButton, Notification,
     NotificationKind, Select, Tabs, TextField, Tone, active_field_class, icons,
@@ -20,7 +21,7 @@ use crate::components::material::{
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{Qbe, conditions_of};
 use crate::components::status::{
-    self, HasStatus, StatusCells, StatusHeaders, TAB_DATA, TAB_STATUS,
+    self, HasStatus, StatusCells, StatusForm, StatusHeaders, TAB_DATA, TAB_STATUS,
 };
 use crate::i18n::{self, t, tf};
 
@@ -346,6 +347,8 @@ fn PermissionMain(initial: Option<String>) -> Element {
                                 }
                             }
                         }
+                        // 單身的狀態欄位（ADR 0012 §9）
+                        StatusForm { status: None, fields: status::NO_ACTIVE, queryable: status::NO_ACTIVE, query: true, qbe: Some(qbe), prefix: "zy" }
                         p { class: "muted", {level_legend("user", "perm-field-other-user", &USER_LEVELS)} }
                         p { class: "muted", {level_legend("dept", "perm-field-other-dept", &DEPT_LEVELS)} }
                         p { class: "muted", {level_legend("detail", "perm-field-detail", &DETAIL_LEVELS)} }
@@ -423,6 +426,10 @@ fn PermissionMain(initial: Option<String>) -> Element {
                         },
                         {t("perm-action-remove")}
                     }
+                }
+                // 異動記錄（ADR 0012 §8，功能 history）
+                if perm.can("history") {
+                    HistoryButton { program: PROGRAM, record: cur_class.as_ref().map(|c| c.class_code.clone()) }
                 }
                 if perm.can("delete") {
                     Button { icon: icons::DELETE_SWEEP, tone: Tone::Error, variant: ButtonVariant::Outlined, disabled: no_class, onclick: move |_| { message.set(None); open.set(Some(Open::DeleteAll)); }, {t("perm-action-delete-all")} }
@@ -612,7 +619,7 @@ fn PermissionMain(initial: Option<String>) -> Element {
                                     let r = r.clone();
                                     move |_| {
                                         let r = r.clone();
-                                        let req = form();
+                                        let req = ttrs_shared::ProgramPermissionInput { version: Some(r.version), ..form() };
                                         spawn(async move {
                                             match api::update_class_permission(&r.class_code, &r.program_no, &req).await {
                                                 Ok(_) => done(tf("perm-msg-saved", &[("program", r.program_no.as_str())])),

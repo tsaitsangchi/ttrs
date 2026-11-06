@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use crate::ChangeHistoryService;
 use crate::change_log::HistoryReader;
 use crate::{
     Authorizer, ClassificationCodeService, DataDictionaryService, DepartmentService,
@@ -87,6 +88,8 @@ pub struct Services {
     pub password_reset: PasswordResetService,
     /// 伺服器端緊急重設（ttrs-admin，ADR 0010 §B）；不提供給 HTTP API
     pub emergency: EmergencyService,
+    /// 共用層作業的異動記錄（ADR 0012 §8）
+    pub history: ChangeHistoryService,
     pub authorizer: Arc<dyn Authorizer>,
 }
 
@@ -167,8 +170,9 @@ impl Services {
                 a.clone(),
                 store.clone(),
                 store.clone(),
-                history,
+                history.clone(),
             ),
+            history: ChangeHistoryService::new(a.clone(), history),
             special: UserPermissionService::new(
                 a,
                 store.clone(),

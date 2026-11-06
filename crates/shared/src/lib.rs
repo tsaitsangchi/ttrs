@@ -191,6 +191,8 @@ pub struct ProgramInput {
     /// 各語系的名稱與報表抬頭，一次儲存（ADR 0005，畫面的 MultilingualField）；
     /// 有給時取代 `lang`、`name`、`report_title`。修改時名稱空白代表清除該語系
     pub names: Vec<ProgramNameDto>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；API 要求必填，沒帶時回 400（CH4）
+    pub version: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -230,6 +232,14 @@ pub struct ProgramDto {
     pub updated_by: Option<String>,
     /// 最後建立/修改日期（zzdate）
     pub updated_on: NaiveDate,
+    /// 版本號（樂觀鎖，ADR 0012 §4）：修改、刪除、啟用／停用時帶回
+    #[serde(default)]
+    pub version: i32,
+    /// 建立、最後修改時間（到秒，ADR 0012 §1）
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 impl ProgramDto {
@@ -266,6 +276,7 @@ impl ProgramDto {
             tiptop_program_no: self.tiptop_program_no.clone(),
             // 只沿用預設語系的 name/report_title；各語系一次儲存時由呼叫端填 names
             names: Vec::new(),
+            version: Some(self.version),
         }
     }
 }
@@ -404,6 +415,8 @@ pub struct TableDictionaryInput {
     pub table_type: Option<TableTypeDto>,
     pub upstream: Option<String>,
     pub downstream: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；API 要求必填，沒帶時回 400（CH4）
+    pub version: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -424,6 +437,14 @@ pub struct TableDictionaryDto {
     /// 所有語系的說明
     #[serde(default)]
     pub texts: Vec<TableTextDto>,
+    /// 版本號（樂觀鎖，ADR 0012 §4）：修改、刪除、啟用／停用時帶回
+    #[serde(default)]
+    pub version: i32,
+    /// 建立、最後修改時間（到秒，ADR 0012 §1）
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 /// 表名稱、目的、備註（某一語系；gat03/gat04/gat05）
@@ -591,6 +612,8 @@ pub struct UserInput {
     /// zxy03＝ALL 可使用全部營運中心；未給時不變（PZ3）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub all_plants: Option<bool>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；API 要求必填，沒帶時回 400（CH4）
+    pub version: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -620,6 +643,14 @@ pub struct UserDto {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本號（樂觀鎖，ADR 0012 §4）：修改、刪除、啟用／停用時帶回
+    #[serde(default)]
+    pub version: i32,
+    /// 建立、最後修改時間（到秒，ADR 0012 §1）
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 impl UserDto {
@@ -640,6 +671,7 @@ impl UserDto {
             web_password: None,
             allowed_plants: None,
             all_plants: None,
+            version: Some(self.version),
         }
     }
 }
@@ -693,6 +725,8 @@ pub struct PermissionClassInput {
     pub idle_control: Option<ClassIdleControlDto>,
     pub idle_action: Option<IdleActionDto>,
     pub idle_seconds: Option<i32>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；API 要求必填，沒帶時回 400（CH4）
+    pub version: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -709,6 +743,14 @@ pub struct PermissionClassDto {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本號（樂觀鎖，ADR 0012 §4）：修改、刪除、啟用／停用時帶回
+    #[serde(default)]
+    pub version: i32,
+    /// 建立、最後修改時間（到秒，ADR 0012 §1）
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 impl PermissionClassDto {
@@ -720,6 +762,7 @@ impl PermissionClassDto {
             idle_control: Some(self.idle_control),
             idle_action: self.idle_action,
             idle_seconds: self.idle_seconds,
+            version: Some(self.version),
         }
     }
 }
@@ -756,6 +799,8 @@ pub struct PlantInput {
     pub fax: Option<String>,
     /// 資料庫代碼（azp03，工廠 schema 名稱，P13）：新增時空白為下一個未使用的號碼；建立後不可修改
     pub schema_name: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；API 要求必填，沒帶時回 400（CH4）
+    pub version: Option<i32>,
 }
 
 /// 登入後的連線資訊（sign_in.feature SQ9）
@@ -860,6 +905,14 @@ pub struct PlantDto {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本號（樂觀鎖，ADR 0012 §4）：修改、刪除、啟用／停用時帶回
+    #[serde(default)]
+    pub version: i32,
+    /// 建立、最後修改時間（到秒，ADR 0012 §1）
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 impl PlantDto {
@@ -872,6 +925,7 @@ impl PlantDto {
             phone: self.phone.clone(),
             fax: self.fax.clone(),
             schema_name: Some(self.schema_name.clone()),
+            version: Some(self.version),
         }
     }
 }
@@ -899,6 +953,8 @@ pub struct ProgramPermissionInput {
     pub other_dept_data: Option<String>,
     /// 單身權限 zy07（'0'–'3'）
     pub detail_rows: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；API 要求必填，沒帶時回 400（CH4）
+    pub version: Option<i32>,
 }
 
 /// 目前使用者在某作業的有效權限（authorization.feature AQ13）：畫面據以隱藏沒有權限的按鈕
@@ -937,6 +993,14 @@ pub struct ProgramPermissionDto {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本號（樂觀鎖，ADR 0012 §4）：修改、刪除、啟用／停用時帶回
+    #[serde(default)]
+    pub version: i32,
+    /// 建立、最後修改時間（到秒，ADR 0012 §1）
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 impl ProgramPermissionDto {
@@ -947,6 +1011,7 @@ impl ProgramPermissionDto {
             other_user_data: Some(self.other_user_data.clone()),
             other_dept_data: Some(self.other_dept_data.clone()),
             detail_rows: Some(self.detail_rows.clone()),
+            version: Some(self.version),
         }
     }
 }
@@ -1006,6 +1071,8 @@ pub struct UserPermissionInput {
     pub other_user_data: Option<String>,
     pub other_dept_data: Option<String>,
     pub detail_rows: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；API 要求必填，沒帶時回 400（CH4）
+    pub version: Option<i32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1027,6 +1094,14 @@ pub struct UserPermissionDto {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本號（樂觀鎖，ADR 0012 §4）：修改、刪除、啟用／停用時帶回
+    #[serde(default)]
+    pub version: i32,
+    /// 建立、最後修改時間（到秒，ADR 0012 §1）
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 impl UserPermissionDto {
@@ -1039,6 +1114,7 @@ impl UserPermissionDto {
             other_user_data: self.other_user_data.clone(),
             other_dept_data: self.other_dept_data.clone(),
             detail_rows: self.detail_rows.clone(),
+            version: Some(self.version),
         }
     }
 }

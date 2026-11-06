@@ -141,6 +141,8 @@ pub struct Plant {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本與建立、修改時間（ADR 0012 §1）
+    pub stamp: crate::record::Stamp,
 }
 
 /// 至少保留一個有效的營運中心（plant_maintenance.feature P16、P17）：停用或刪除 `target` 前，
@@ -163,6 +165,7 @@ impl Plant {
         today: NaiveDate,
     ) -> Self {
         Self {
+            stamp: crate::record::Stamp::default(),
             id,
             schema,
             attrs,

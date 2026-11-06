@@ -104,7 +104,7 @@ async fn run_command_as(w: &mut ErpWorld, operator: String, command: String) {
 
 #[when(expr = "使用者將使用者 {string} 停用")]
 async fn deactivate(w: &mut ErpWorld, id: String) {
-    w.last = Some(w.users.deactivate(&w.actor, &id).await.map(drop));
+    w.last = Some(w.users.deactivate(&w.actor, &id, None).await.map(drop));
 }
 
 #[when(expr = "使用者將使用者 {string} 的權限類別改為無權限")]

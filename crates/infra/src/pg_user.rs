@@ -1,9 +1,10 @@
 //! 使用者維護（user_maintenance.feature）的 PostgreSQL 實作；表結構見 migrations/0010_user_account.sql
 
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::FromRow;
 use ttrs_app::{error::RepoError, ports::UserRepository};
+use ttrs_domain::record::Stamp;
 use ttrs_domain::{
     authorization::DataScope,
     lang::Lang,
@@ -37,6 +38,8 @@ fn user_column(field: &str) -> Option<Column> {
         "created_dept" => Column::Scalar("u.created_dept", true),
         "updated_by" => Column::Scalar("u.updated_by", true),
         "updated_on" => Column::Scalar("u.updated_on", false),
+        "created_on" => Column::Scalar("u.created_on", false),
+        "version" => Column::Scalar("u.version", false),
         _ => return None,
     })
 }
@@ -61,6 +64,9 @@ struct UserRow {
     created_on: NaiveDate,
     updated_by: Option<String>,
     updated_on: Option<NaiveDate>,
+    version: i32,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 /// SELECT 字面值（concat! 於編譯期組字串，仍為 SQL 字面值）
@@ -69,7 +75,7 @@ macro_rules! select_user {
         concat!(
             "SELECT user_id, name, dept_code, class_code, menu_program, multi_plant, default_plant, ",
             "email, idp_username, idp_subject, lang, valid_until, active, created_by, created_dept, ",
-            "created_on, updated_by, updated_on FROM user_account ",
+            "created_on, updated_by, updated_on, version, created_at, updated_at FROM user_account ",
             $rest
         )
     };
@@ -105,6 +111,11 @@ impl TryFrom<UserRow> for User {
             created_on: r.created_on,
             updated_by: r.updated_by,
             updated_on: r.updated_on,
+            stamp: Stamp {
+                version: r.version,
+                created_at: Some(r.created_at),
+                updated_at: r.updated_at,
+            },
         })
     }
 }
@@ -114,25 +125,36 @@ async fn replace_plants(
     user: &UserId,
     plants: &[PlantId],
 ) -> Result<(), RepoError> {
-    sqlx::query("DELETE FROM user_plant WHERE user_id = $1")
+    // 只刪除移除的、新增增加的營運中心，異動記錄才不會每次存檔都整批刪除再新增（ADR 0012）
+    let codes: Vec<String> = plants
+        .iter()
+        .filter(|p| !p.is_all())
+        .map(|p| p.as_str().to_owned())
+        .collect();
+    sqlx::query("DELETE FROM user_plant WHERE user_id = $1 AND plant_id <> ALL($2)")
         .bind(user.as_str())
+        .bind(&codes)
         .execute(&mut **tx)
         .await
         .map_err(db_err)?;
-    // zxy03＝ALL 記在 user_account.all_plants（migration 0019）
-    sqlx::query("UPDATE user_account SET all_plants = $2 WHERE user_id = $1")
+    // zxy03＝ALL 記在 user_account.all_plants（migration 0019）；值相同時不更新（不另增版本）
+    sqlx::query(
+        "UPDATE user_account SET all_plants = $2 WHERE user_id = $1 AND all_plants IS DISTINCT FROM $2",
+    )
+    .bind(user.as_str())
+    .bind(plants.iter().any(PlantId::is_all))
+    .execute(&mut **tx)
+    .await
+    .map_err(db_err)?;
+    for p in &codes {
+        sqlx::query(
+            "INSERT INTO user_plant (user_id, plant_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        )
         .bind(user.as_str())
-        .bind(plants.iter().any(PlantId::is_all))
+        .bind(p)
         .execute(&mut **tx)
         .await
         .map_err(db_err)?;
-    for p in plants.iter().filter(|p| !p.is_all()) {
-        sqlx::query("INSERT INTO user_plant (user_id, plant_id) VALUES ($1, $2)")
-            .bind(user.as_str())
-            .bind(p.as_str())
-            .execute(&mut **tx)
-            .await
-            .map_err(db_err)?;
     }
     Ok(())
 }
@@ -192,8 +214,8 @@ impl UserRepository for PgStore {
         sqlx::query(
             "INSERT INTO user_account (user_id, name, dept_code, class_code, menu_program, multi_plant,
                  default_plant, email, idp_username, idp_subject, lang, valid_until, active,
-                 created_by, created_dept, created_on, updated_by, updated_on)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
+                 created_by, created_dept, created_on, updated_by, updated_on, all_plants)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)",
         )
         .bind(user.user_id.as_str())
         .bind(&a.name)
@@ -213,6 +235,7 @@ impl UserRepository for PgStore {
         .bind(user.created_on)
         .bind(&user.updated_by)
         .bind(user.updated_on)
+        .bind(plants.iter().any(PlantId::is_all))
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
@@ -223,11 +246,12 @@ impl UserRepository for PgStore {
     async fn update(&self, user: &User, plants: &[PlantId]) -> Result<(), RepoError> {
         let mut tx = self.pool.begin().await.map_err(db_err)?;
         let a = &user.attrs;
-        sqlx::query(
+        let n = sqlx::query(
             "UPDATE user_account SET name = $2, dept_code = $3, class_code = $4, menu_program = $5,
                  multi_plant = $6, default_plant = $7, email = $8, idp_username = $9, idp_subject = $10,
-                 lang = $11, valid_until = $12, active = $13, updated_by = $14, updated_on = $15
-             WHERE user_id = $1",
+                 lang = $11, valid_until = $12, active = $13, updated_by = $14, updated_on = $15,
+                 all_plants = $17
+             WHERE user_id = $1 AND version = $16",
         )
         .bind(user.user_id.as_str())
         .bind(&a.name)
@@ -244,9 +268,16 @@ impl UserRepository for PgStore {
         .bind(user.active)
         .bind(&user.updated_by)
         .bind(user.updated_on)
+        .bind(user.stamp.version)
+        .bind(plants.iter().any(PlantId::is_all))
         .execute(&mut *tx)
         .await
-        .map_err(db_err)?;
+        .map_err(db_err)?
+        .rows_affected();
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        if n == 0 {
+            return Err(RepoError::Stale);
+        }
         replace_plants(&mut tx, &user.user_id, plants).await?;
         tx.commit().await.map_err(db_err)
     }

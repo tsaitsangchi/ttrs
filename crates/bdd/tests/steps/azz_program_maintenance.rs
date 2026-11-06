@@ -305,7 +305,7 @@ async fn change_module(w: &mut ErpWorld, no: String, module: String) {
 
 #[when(expr = "使用者刪除程式 {string}")]
 async fn delete_program(w: &mut ErpWorld, no: String) {
-    w.last = Some(w.programs.delete(&w.actor, &no).await);
+    w.last = Some(w.programs.delete(&w.actor, &no, None).await);
 }
 
 #[when(expr = "使用者將程式 {string} 複製為 {string}")]

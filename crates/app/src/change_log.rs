@@ -248,7 +248,7 @@ impl HistoryReader {
     pub async fn read(
         &self,
         plant: Option<&ttrs_domain::plant::PlantId>,
-        table: &str,
+        tables: &[&str],
         key: &[(&str, &str)],
         lang: Option<&str>,
     ) -> Result<Vec<ttrs_shared::ChangeDto>, crate::AppError> {
@@ -263,16 +263,21 @@ impl HistoryReader {
             .collect();
         let records = self
             .changes
-            .history(plant, table, &key)
+            .history(plant, tables, &key)
             .await
             .map_err(infra)?;
-        let texts = self.dictionary.column_texts(table).await.map_err(infra)?;
-        let label = |col: &str| {
+        let mut texts = Vec::new();
+        for t in tables {
+            for c in self.dictionary.column_texts(t).await.map_err(infra)? {
+                texts.push(((*t).to_owned(), c));
+            }
+        }
+        let label = |table: &str, col: &str| {
             let pick = |l: &str| {
                 texts
                     .iter()
-                    .find(|t| t.column_name == col && t.lang.as_str() == l)
-                    .and_then(|t| t.name.clone())
+                    .find(|(tb, t)| tb == table && t.column_name == col && t.lang.as_str() == l)
+                    .and_then(|(_, t)| t.name.clone())
                     .filter(|n| !n.trim().is_empty())
             };
             pick(lang.as_str())
@@ -317,7 +322,7 @@ impl HistoryReader {
                         .iter()
                         .map(|c| ttrs_shared::ChangeFieldDto {
                             column: c.clone(),
-                            label: label(c),
+                            label: label(&r.table_name, c),
                             before: value(&r.before, c),
                             after: value(&r.after, c),
                         })

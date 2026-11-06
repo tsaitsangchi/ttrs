@@ -81,6 +81,8 @@ pub struct TableDictionary {
     pub downstream: Option<String>,
     pub created_by: String,
     pub created_on: NaiveDate,
+    /// 版本與建立、修改時間（ADR 0012 §1）
+    pub stamp: crate::record::Stamp,
 }
 
 /// 可修改的表頭欄位
@@ -101,6 +103,7 @@ impl TableDictionary {
         today: NaiveDate,
     ) -> Result<Self, DomainError> {
         let mut d = Self {
+            stamp: crate::record::Stamp::default(),
             table_name: Self::parse_name(table_name)?,
             module,
             table_type: None,

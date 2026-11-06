@@ -4,12 +4,13 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use sqlx::FromRow;
 use ttrs_app::{
     error::RepoError,
     ports::{ProgramName, UserPermissionItem, UserPermissionRepository},
 };
+use ttrs_domain::record::Stamp;
 use ttrs_domain::{
     lang::Lang,
     permission::{DetailRows, OtherDeptData, OtherUserData, PermissionAttrs},
@@ -39,6 +40,9 @@ struct Row {
     updated_on: Option<NaiveDate>,
     class_name: Option<String>,
     default_actions: Option<String>,
+    version: i32,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
 }
 
 fn bad(what: &str, v: &str) -> RepoError {
@@ -90,6 +94,11 @@ impl TryFrom<&mut Row> for UserPermission {
             created_on: r.created_on,
             updated_by: r.updated_by.take(),
             updated_on: r.updated_on,
+            stamp: Stamp {
+                version: r.version,
+                created_at: Some(r.created_at),
+                updated_at: r.updated_at,
+            },
         })
     }
 }
@@ -121,7 +130,7 @@ impl UserPermissionRepository for PgStore {
         let rows = sqlx::query_as::<_, Row>(
             "SELECT up.user_id, up.line_no, up.kind, up.class_code, up.program_no, up.actions,
                     up.other_user_data, up.other_dept_data, up.detail_rows, up.created_by,
-                    up.created_dept, up.created_on, up.updated_by, up.updated_on,
+                    up.created_dept, up.created_on, up.updated_by, up.updated_on, up.version, up.created_at, up.updated_at,
                     c.name AS class_name, p.default_actions
              FROM user_permission up
              LEFT JOIN permission_class c ON c.class_code = up.class_code
@@ -199,11 +208,11 @@ impl UserPermissionRepository for PgStore {
 
     async fn update(&self, p: &UserPermission) -> Result<(), RepoError> {
         let (actions, user_data, dept_data, detail) = program_values(p);
-        sqlx::query(
+        let n = sqlx::query(
             "UPDATE user_permission SET kind = $3, class_code = $4, program_no = $5, actions = $6,
                  other_user_data = $7, other_dept_data = $8, detail_rows = $9, updated_by = $10,
                  updated_on = $11
-             WHERE user_id = $1 AND line_no = $2",
+             WHERE user_id = $1 AND line_no = $2 AND version = $12",
         )
         .bind(p.user_id.as_str())
         .bind(p.line_no)
@@ -216,9 +225,15 @@ impl UserPermissionRepository for PgStore {
         .bind(detail)
         .bind(&p.updated_by)
         .bind(p.updated_on)
+        .bind(p.stamp.version)
         .execute(&self.pool)
         .await
-        .map_err(db_err)?;
+        .map_err(db_err)?
+        .rows_affected();
+        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+        if n == 0 {
+            return Err(RepoError::Stale);
+        }
         Ok(())
     }
 

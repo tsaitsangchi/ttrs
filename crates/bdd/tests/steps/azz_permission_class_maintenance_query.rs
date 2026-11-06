@@ -22,6 +22,8 @@ fn field_key(label: &str) -> &'static str {
         "閒置時間（秒）" => "idle_seconds",
         "有效" => "active",
         "資料所有者" => "created_by",
+        // 不可查詢的欄位（WQ1）
+        "選單名稱" => "default_menu_name",
         other => panic!("未知欄位：{other}"),
     }
 }
@@ -36,6 +38,7 @@ async fn run(w: &mut ErpWorld, req: QueryRequest) {
 async fn existing_classes(w: &mut ErpWorld, step: &Step) {
     for r in rows(step) {
         let req = PermissionClassInput {
+            version: None,
             class_code: r[0].clone(),
             name: Some(r[1].clone()),
             default_menu: (!r[2].is_empty()).then(|| r[2].clone()),
@@ -45,7 +48,7 @@ async fn existing_classes(w: &mut ErpWorld, step: &Step) {
         };
         w.classes.create(&w.actor, req).await.unwrap();
         if r[6] == "否" {
-            w.classes.deactivate(&w.actor, &r[0]).await.unwrap();
+            w.classes.deactivate(&w.actor, &r[0], None).await.unwrap();
         }
     }
 }

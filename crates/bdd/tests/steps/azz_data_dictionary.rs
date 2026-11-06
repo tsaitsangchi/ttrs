@@ -116,6 +116,7 @@ async fn update_dictionary(
     downstream: String,
 ) {
     let input = TableDictionaryInput {
+        version: None,
         table_name: table.clone(),
         module_code: module,
         table_type: Some(table_type(&kind)),
@@ -209,7 +210,7 @@ async fn view_constraints(w: &mut ErpWorld, table: String) {
 
 #[when(expr = "使用者刪除資料表 {string} 的字典")]
 async fn delete_dictionary(w: &mut ErpWorld, table: String) {
-    w.last = Some(w.dictionary.delete(&w.actor, &table).await);
+    w.last = Some(w.dictionary.delete(&w.actor, &table, None).await);
 }
 
 #[when(expr = "使用者查看資料表 {string} 的變更紀錄")]

@@ -15,6 +15,7 @@ use ttrs_shared::{
 };
 
 use crate::api;
+use crate::components::history::HistoryButton;
 use crate::components::material::{
     Button, ButtonVariant, Card, Dialog, IconButton, Notification, NotificationKind, Select, Tabs,
     TextArea, TextField, Tone, icons,
@@ -60,6 +61,8 @@ struct Header {
     kind: String,
     upstream: String,
     downstream: String,
+    /// 版本號（ADR 0012 §4）；新增時為 0
+    version: i32,
 }
 
 impl Header {
@@ -70,6 +73,7 @@ impl Header {
             kind: type_value(d.table_type),
             upstream: d.upstream.clone().unwrap_or_default(),
             downstream: d.downstream.clone().unwrap_or_default(),
+            version: d.version,
         }
     }
 
@@ -80,6 +84,7 @@ impl Header {
             table_type: parse_type(&self.kind),
             upstream: opt(&self.upstream),
             downstream: opt(&self.downstream),
+            version: Some(self.version),
         }
     }
 }
@@ -241,8 +246,9 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
 
     let delete = move |_| {
         let table = header.read().table.clone();
+        let version = header.read().version;
         spawn(async move {
-            match api::delete_dictionary(&table).await {
+            match api::delete_dictionary(&table, version).await {
                 Ok(()) => done(
                     tf("dictionary-msg-deleted", &[("table", table.as_str())]),
                     None,
@@ -357,6 +363,10 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                                 onclick: move |_| mode.set(Mode::Edit),
                                 {i18n::t("common-action-edit")}
                             }
+                        }
+                        // 異動記錄（ADR 0012 §8，功能 history）
+                        if perm.can("history") {
+                            HistoryButton { program: PROGRAM, record: cur.as_ref().map(|d| d.table_name.clone()) }
                         }
                         if perm.can("delete") {
                             Button {

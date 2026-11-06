@@ -67,7 +67,7 @@ async fn class_can_run(w: &mut ErpWorld, code: String, program: String) {
 
 #[given(expr = "使用者停用權限類別 {string}")]
 async fn class_deactivated(w: &mut ErpWorld, code: String) {
-    w.classes.deactivate(&w.actor, &code).await.unwrap();
+    w.classes.deactivate(&w.actor, &code, None).await.unwrap();
 }
 
 // ----- 當 -----
@@ -104,19 +104,19 @@ async fn set_idle(w: &mut ErpWorld, code: String, control: String, action: Strin
 
 #[when(expr = "使用者停用權限類別 {string}")]
 async fn deactivate(w: &mut ErpWorld, code: String) {
-    let result = w.classes.deactivate(&w.actor, &code).await;
+    let result = w.classes.deactivate(&w.actor, &code, None).await;
     w.last = Some(result.map(|_| ()));
 }
 
 #[when(expr = "使用者啟用權限類別 {string}")]
 async fn activate(w: &mut ErpWorld, code: String) {
-    let result = w.classes.activate(&w.actor, &code).await;
+    let result = w.classes.activate(&w.actor, &code, None).await;
     w.last = Some(result.map(|_| ()));
 }
 
 #[when(expr = "使用者刪除權限類別 {string}")]
 async fn delete(w: &mut ErpWorld, code: String) {
-    let result = w.classes.delete(&w.actor, &code).await;
+    let result = w.classes.delete(&w.actor, &code, None).await;
     w.last = Some(result);
 }
 

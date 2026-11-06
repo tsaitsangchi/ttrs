@@ -132,6 +132,8 @@ pub struct User {
     pub created_on: NaiveDate,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 版本與建立、修改時間（ADR 0012 §1）
+    pub stamp: crate::record::Stamp,
 }
 
 /// 依失效日期決定是否有效：失效日期已到（含今天）即無效（p_zx.4gl:977-981）
@@ -150,6 +152,7 @@ impl User {
     ) -> Self {
         let active = active_on(attrs.valid_until, today);
         Self {
+            stamp: crate::record::Stamp::default(),
             user_id,
             attrs,
             idp_subject: None,

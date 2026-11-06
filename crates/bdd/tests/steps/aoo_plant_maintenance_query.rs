@@ -39,6 +39,7 @@ async fn run(w: &mut ErpWorld, req: QueryRequest) {
 async fn existing_plants(w: &mut ErpWorld, step: &Step) {
     for r in rows(step) {
         let req = PlantInput {
+            version: None,
             plant_id: r[0].clone(),
             name: text(&r[1]),
             time_zone: text(&r[2]),
@@ -49,7 +50,7 @@ async fn existing_plants(w: &mut ErpWorld, step: &Step) {
         };
         w.plants.create(&w.actor, req).await.unwrap();
         if r[6] == "否" {
-            w.plants.deactivate(&w.actor, &r[0]).await.unwrap();
+            w.plants.deactivate(&w.actor, &r[0], None).await.unwrap();
         }
     }
 }

@@ -6,10 +6,12 @@
 //! - 表格（多筆）：表格上方 `Tabs`（資料／狀態）切換欄位，狀態頁用 `StatusHeaders`、`StatusQbeCells`、`StatusCells`。
 
 use dioxus::prelude::*;
-use ttrs_shared::NaiveDate;
+use ttrs_shared::{DateTime, NaiveDate, Utc};
+
+use crate::components::history::local_time;
 
 use crate::components::material::{Chip, TextField, active_field_class, active_tone};
-use crate::components::qbe::{HINT_DATE, HINT_FLAG, Q, Qbe};
+use crate::components::qbe::{HINT_DATE, HINT_FLAG, HINT_NUMBER, Q, Qbe};
 use crate::i18n::t;
 
 /// 頁籤名稱的翻譯 ID
@@ -32,6 +34,8 @@ pub enum StatusField {
     UpdatedBy,
     /// 最後修改日期（xxxdate）
     UpdatedOn,
+    /// 版本號（ADR 0012 §4）
+    Version,
 }
 
 /// 共同欄位齊全的表
@@ -42,6 +46,7 @@ pub const ALL: &[StatusField] = &[
     StatusField::CreatedOn,
     StatusField::UpdatedBy,
     StatusField::UpdatedOn,
+    StatusField::Version,
 ];
 
 impl StatusField {
@@ -50,9 +55,10 @@ impl StatusField {
             Self::Active => "common-field-active",
             Self::Owner => "common-field-owner",
             Self::OwnerDept => "common-field-owner-dept",
-            Self::CreatedOn => "common-field-created-on",
+            Self::CreatedOn => "common-field-created-at",
             Self::UpdatedBy => "common-field-updated-by",
-            Self::UpdatedOn => "common-field-updated-on",
+            Self::UpdatedOn => "common-field-updated-at",
+            Self::Version => "common-field-version",
         }
     }
 
@@ -65,6 +71,7 @@ impl StatusField {
             Self::CreatedOn => "created_on",
             Self::UpdatedBy => "updated_by",
             Self::UpdatedOn => "updated_on",
+            Self::Version => "version",
         }
     }
 
@@ -72,6 +79,7 @@ impl StatusField {
         match self {
             Self::Active => HINT_FLAG,
             Self::CreatedOn | Self::UpdatedOn => HINT_DATE,
+            Self::Version => HINT_NUMBER,
             _ => "",
         }
     }
@@ -85,6 +93,7 @@ impl StatusField {
             Self::CreatedOn => "crat",
             Self::UpdatedBy => "modu",
             Self::UpdatedOn => "date",
+            Self::Version => "ver",
         }
     }
 }
@@ -98,6 +107,10 @@ pub struct RecordStatus {
     pub created_on: Option<NaiveDate>,
     pub updated_by: Option<String>,
     pub updated_on: Option<NaiveDate>,
+    /// 建立、最後修改時間（到秒，ADR 0012 §1）；以瀏覽器時區顯示
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
+    pub version: Option<i32>,
 }
 
 impl RecordStatus {
@@ -111,9 +124,19 @@ impl RecordStatus {
             }),
             StatusField::Owner => self.created_by.clone(),
             StatusField::OwnerDept => self.created_dept.clone(),
-            StatusField::CreatedOn => date(self.created_on).unwrap_or_default(),
+            // 建立時間、最後修改時間到秒；舊資料沒有時間時顯示日期
+            StatusField::CreatedOn => self
+                .created_at
+                .map(local_time)
+                .or_else(|| date(self.created_on))
+                .unwrap_or_default(),
             StatusField::UpdatedBy => self.updated_by.clone().unwrap_or_default(),
-            StatusField::UpdatedOn => date(self.updated_on).unwrap_or_default(),
+            StatusField::UpdatedOn => self
+                .updated_at
+                .map(local_time)
+                .or_else(|| date(self.updated_on))
+                .unwrap_or_default(),
+            StatusField::Version => self.version.map(|v| v.to_string()).unwrap_or_default(),
         }
     }
 }
@@ -134,6 +157,9 @@ macro_rules! has_status {
                     created_on: Some(self.created_on),
                     updated_by: self.updated_by.clone(),
                     updated_on: self.updated_on,
+                    created_at: self.created_at,
+                    updated_at: self.updated_at,
+                    version: Some(self.version),
                 }
             }
         }
@@ -160,6 +186,9 @@ macro_rules! has_status_no_active {
                     created_on: Some(self.created_on),
                     updated_by: self.updated_by.clone(),
                     updated_on: self.updated_on,
+                    created_at: self.created_at,
+                    updated_at: self.updated_at,
+                    version: Some(self.version),
                 }
             }
         }
@@ -182,6 +211,9 @@ impl HasStatus for ttrs_shared::ProgramDto {
             created_on: None,
             updated_by: self.updated_by.clone(),
             updated_on: Some(self.updated_on),
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+            version: Some(self.version),
         }
     }
 }
@@ -193,14 +225,17 @@ pub const NO_ACTIVE: &[StatusField] = &[
     StatusField::CreatedOn,
     StatusField::UpdatedBy,
     StatusField::UpdatedOn,
+    StatusField::Version,
 ];
 
-/// 程式資料的欄位（zzuser、zzgrup、zzmodu、zzdate）
+/// 程式資料的欄位（zzuser、zzgrup、zzmodu、zzdate；建立時間與版本為 TTRS 新增）
 pub const PROGRAM: &[StatusField] = &[
     StatusField::Owner,
     StatusField::OwnerDept,
+    StatusField::CreatedOn,
     StatusField::UpdatedBy,
     StatusField::UpdatedOn,
+    StatusField::Version,
 ];
 
 /// 單筆表單的「狀態」頁籤內容。`queryable` 是後端可查詢的欄位，查詢模式只顯示這些欄位；

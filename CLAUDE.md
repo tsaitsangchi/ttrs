@@ -20,7 +20,7 @@ bdd：驗收測試，執行 specs/features/**/*.feature
 - `crates/web`：Dioxus 0.7。畫面依 TipTop 模組分資料夾 `pages/<模組>/`。
   設計系統採 Material 3（ADR 0004）：畫面只用 `components/material.rs` 的元件，版面比照該作業的 4fd，
   顏色只用 `--md-sys-color-*` token，不寫死色碼；色彩 token 由 `scripts/m3-colors.mjs` 產生，不手改。
-  資料有效、資料所有者、所有部門、建立／最後修改者與日期一律放「狀態」頁籤（`components/status.rs`，ADR 0012 §9）。
+  資料有效、資料所有者、所有部門、建立時間、最後修改者與時間、版本一律放「狀態」頁籤（`components/status.rs`，ADR 0012 §9）。
 
 ## TipTop 原始碼（legacy/，唯讀，不進版控）
 
