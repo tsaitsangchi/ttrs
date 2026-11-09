@@ -22,7 +22,7 @@ use crate::i18n::{t, tf};
 /// 權限檢查用的程式代號
 const PROGRAM: &str = "item-group-maintenance";
 
-/// 來源碼 imz08（mfg1001，aimi110.per:267）
+/// 來源碼 imz08（mfg1001，aimi110.per:267；名稱見 ima_file.sch ima08）
 const SOURCES: [&str; 13] = [
     "C", "T", "D", "A", "M", "P", "X", "K", "U", "V", "R", "Z", "S",
 ];

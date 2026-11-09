@@ -1,5 +1,5 @@
 # 料件分群維護（TipTop aimi110；specs/features/aim/item_group.feature）
-# 來源碼、補貨策略、保稅型態的中文名稱依 aimi110.per 的英文選項翻譯，待 Key User 確認 TipTop 正式譯名
+# 來源碼、補貨策略、保稅型態的名稱取自 tiptop/aim/sch/ima_file.sch（ima08、ima37）與 imz_file.sch（imz106）的欄位說明
 igroup-breadcrumb = 庫存管理 / Item Group Maintenance
 igroup-title = 料件分群維護
 igroup-list-title = 料件分群
@@ -48,25 +48,25 @@ igroup-field-bonded-class = 保稅進出口分類
 igroup-field-tariff-no = 保稅稅則編號
 igroup-field-bonded-type = 保稅料件型態
 igroup-field-new-code = 新分群碼
-igroup-source-c = 組態料件
-igroup-source-t = 最終組合料件
+igroup-source-c = 規格組件
+igroup-source-t = 最後規格料件
 igroup-source-d = 特性料件
 igroup-source-a = 族群料件
 igroup-source-m = 自製料件
 igroup-source-p = 採購料件
 igroup-source-x = 虛擬料件
-igroup-source-k = 套件
-igroup-source-u = 大宗自製料件
-igroup-source-v = 大宗採購料件
-igroup-source-r = 途程料件
+igroup-source-k = 配件虛擬料件
+igroup-source-u = 自製大宗料件
+igroup-source-v = 採購大宗料件
+igroup-source-r = 在製途料件
 igroup-source-z = 雜項料件
-igroup-source-s = 委外加工料件
+igroup-source-s = 廠外加工料件
 igroup-replenish-0 = 再訂購點
 igroup-replenish-1 = MPS
 igroup-replenish-2 = MRP
 igroup-replenish-3 = FAS
-igroup-replenish-4 = 訂單生產
-igroup-replenish-5 = 定期採購
+igroup-replenish-4 = 訂單式生產
+igroup-replenish-5 = 期間採購
 igroup-bonded-type-1 = 原料
 igroup-bonded-type-2 = 半成品
 igroup-bonded-type-3 = 成品

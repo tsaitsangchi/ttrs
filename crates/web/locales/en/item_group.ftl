@@ -1,5 +1,5 @@
 # 料件分群維護（TipTop aimi110；specs/features/aim/item_group.feature）
-# 來源碼、補貨策略、保稅型態的中文名稱依 aimi110.per 的英文選項翻譯，待 Key User 確認 TipTop 正式譯名
+# 來源碼、補貨策略、保稅型態的名稱取自 tiptop/aim/sch/ima_file.sch（ima08、ima37）與 imz_file.sch（imz106）的欄位說明
 igroup-breadcrumb = Inventory / Item Group Maintenance
 igroup-title = Item Group Maintenance
 igroup-list-title = Item groups
@@ -65,8 +65,8 @@ igroup-replenish-0 = Reorder point
 igroup-replenish-1 = MPS
 igroup-replenish-2 = MRP
 igroup-replenish-3 = FAS
-igroup-replenish-4 = Production by Order
-igroup-replenish-5 = Purchase of Period
+igroup-replenish-4 = On-order Production
+igroup-replenish-5 = Fixed Interval Purchase
 igroup-bonded-type-1 = Material
 igroup-bonded-type-2 = Semi-Product
 igroup-bonded-type-3 = Product
