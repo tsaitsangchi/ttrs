@@ -190,6 +190,10 @@ fn SideMenu() -> Element {
         api::menu_tree()
     });
     let mut last = use_signal(Vec::<ttrs_shared::MenuNodeDto>::new);
+    // 收合的目錄（記在瀏覽器）
+    use_context_provider(|| {
+        components::menu::Collapsed(Signal::new(components::menu::load_collapsed()))
+    });
     let mut error = use_signal(|| None::<String>);
     use_effect(move || match &*tree.read() {
         Some(Ok(nodes)) => {
@@ -207,16 +211,51 @@ fn SideMenu() -> Element {
     }
 }
 
+/// 目錄底下（含下層）是否有目前所在的作業
+fn contains_route(node: &ttrs_shared::MenuNodeDto, current: &Route) -> bool {
+    node.children.iter().any(|c| {
+        if c.is_menu() {
+            contains_route(c, current)
+        } else {
+            screen(&c.program_no).is_some_and(|(r, ..)| &r == current)
+        }
+    })
+}
+
+/// 樹狀節點：目錄可點選展開／收合（記在瀏覽器）；目前所在的作業所屬目錄一律展開
 #[component]
 fn MenuNodes(nodes: Vec<ttrs_shared::MenuNodeDto>, level: u8) -> Element {
+    let mut collapsed = use_context::<components::menu::Collapsed>().0;
+    let current = use_route::<Route>();
     rsx! {
         for n in nodes {
             if n.is_menu() {
                 {
                     let (path, tone) = group_icon(&n);
+                    let open = !collapsed.read().contains(&n.program_no) || contains_route(&n, &current);
+                    let no = n.program_no.clone();
                     rsx! {
-                        p { key: "{n.program_no}", class: "group nav-level-{level}", NavIcon { path, tone } span { "{n.name}" } }
-                        MenuNodes { nodes: n.children.clone(), level: level.saturating_add(1) }
+                        button {
+                            key: "{n.program_no}",
+                            r#type: "button",
+                            class: "group group-toggle nav-level-{level}",
+                            aria_expanded: open,
+                            onclick: move |_| {
+                                let mut set = collapsed.write();
+                                if !set.remove(&no) {
+                                    set.insert(no.clone());
+                                }
+                                components::menu::save_collapsed(&set);
+                            },
+                            NavIcon { path, tone }
+                            span { "{n.name}" }
+                            svg { class: if open { "chevron chevron--open" } else { "chevron" }, view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true",
+                                path { d: icons::CHEVRON_RIGHT }
+                            }
+                        }
+                        if open {
+                            MenuNodes { nodes: n.children.clone(), level: level.saturating_add(1) }
+                        }
                     }
                 }
             } else if let Some((to, path, tone)) = screen(&n.program_no) {

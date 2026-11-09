@@ -16,3 +16,41 @@ pub fn refresh_menu(v: MenuVersion) {
     let mut s = v.0;
     *s.write() += 1;
 }
+
+/// 側欄收合的目錄（目錄代號）：記在這個瀏覽器（localStorage），讀寫失敗時就不記，畫面照常顯示（預設全部展開）
+#[derive(Clone, Copy)]
+pub struct Collapsed(pub Signal<std::collections::BTreeSet<String>>);
+
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+const COLLAPSED_KEY: &str = "ttrs.menu.collapsed";
+
+/// 讀取上次收合的目錄
+pub fn load_collapsed() -> std::collections::BTreeSet<String> {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let saved = web_sys::window()
+            .and_then(|w| w.local_storage().ok().flatten())
+            .and_then(|s| s.get_item(COLLAPSED_KEY).ok().flatten())
+            .unwrap_or_default();
+        saved
+            .split(',')
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+            .collect()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::collections::BTreeSet::new()
+    }
+}
+
+/// 記住收合的目錄
+pub fn save_collapsed(set: &std::collections::BTreeSet<String>) {
+    #[cfg(target_arch = "wasm32")]
+    if let Some(s) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
+        let v: Vec<&str> = set.iter().map(String::as_str).collect();
+        let _ = s.set_item(COLLAPSED_KEY, &v.join(","));
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = set;
+}

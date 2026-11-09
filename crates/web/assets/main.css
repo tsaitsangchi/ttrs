@@ -313,3 +313,21 @@ a.md-button { text-decoration: none; }
 .sidebar .nav-level-2 { padding-left: 44px; }
 .sidebar .nav-level-3 { padding-left: 60px; }
 .sidebar .nav-level-4 { padding-left: 76px; }
+
+/* 側欄目錄展開／收合 */
+.sidebar button.group-toggle {
+  width: calc(100% - 16px);
+  margin: 12px 8px 4px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+.sidebar button.group-toggle:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
+.sidebar button.group-toggle:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: -2px; }
+.sidebar .group-toggle .chevron { width: 18px; height: 18px; margin-left: auto; transition: transform 0.15s; }
+.sidebar .group-toggle .chevron--open { transform: rotate(90deg); }
+.sidebar button.group-toggle.nav-level-1 { padding-left: 28px; }
+.sidebar button.group-toggle.nav-level-2 { padding-left: 44px; }
