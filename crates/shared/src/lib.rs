@@ -1597,7 +1597,9 @@ pub struct ItemGroupInput {
     pub bonded_class: Option<String>,
     pub tariff_no: Option<String>,
     pub bonded_type: Option<String>,
-    /// 修改時帶回的版本號（ADR 0012 §4）
+    /// 修改時帶回的版本號（ADR 0012 §4）。ItemGroupDto 攤平此結構時不輸出（版本號在外層 `version`），
+    /// 否則 JSON 會有兩個 version，前端解析失敗
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<i32>,
 }
 
@@ -1628,5 +1630,38 @@ impl ItemGroupDto {
             version: Some(self.version),
             ..self.fields.clone()
         }
+    }
+}
+
+#[cfg(test)]
+mod item_group_dto_tests {
+    use super::*;
+
+    /// 攤平的欄位與外層都有 version 時 JSON 會重複、前端解析失敗（瀏覽器驗收 2026-11-09）
+    #[test]
+    fn item_group_dto_round_trips_with_one_version() {
+        let dto = ItemGroupDto {
+            fields: ItemGroupInput {
+                group_code: "RM".into(),
+                safety_stock: Some(rust_decimal::Decimal::new(1005, 1)),
+                ..Default::default()
+            },
+            stock_keeper_name: None,
+            active: true,
+            created_by: "tiptop".into(),
+            created_dept: "MIS".into(),
+            created_on: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),
+            updated_by: None,
+            updated_on: None,
+            version: 3,
+            created_at: None,
+            updated_at: None,
+        };
+        let json = serde_json::to_string(&dto).unwrap();
+        assert_eq!(json.matches("\"version\"").count(), 1, "{json}");
+        let back: ItemGroupDto = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.version, 3);
+        assert_eq!(back.to_input().version, Some(3));
+        assert_eq!(back, dto);
     }
 }

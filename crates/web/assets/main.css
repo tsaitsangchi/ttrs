@@ -101,6 +101,7 @@ body { margin: 0; }
 .form-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .form-grid .span-2 { grid-column: span 2; }
 .form-grid .span-all { grid-column: 1 / -1; }
+.form-grid + .form-grid { margin-top: 24px; }
 
 /* 4fd 的 Group：左右分欄 */
 .group-columns {

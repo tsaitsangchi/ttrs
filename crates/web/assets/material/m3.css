@@ -418,6 +418,7 @@ textarea.md-field__input:focus { padding: 9px 15px; }
 .md-dialog__headline { margin: 0 0 16px; font: 400 1.5rem/2rem var(--md-font); }
 .md-dialog__content { overflow: auto; padding-top: 8px; }
 .md-dialog__content .md-multilingual { border: none; padding: 0; }
+.md-dialog__content > .md-banner { margin-bottom: 16px; }
 .md-dialog__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
 
 /* MultilingualDialogField：介面語系的輸入框＋翻譯圖示（開啟各語言視窗） */

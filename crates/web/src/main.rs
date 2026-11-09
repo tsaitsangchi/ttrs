@@ -159,10 +159,10 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
             icons::LABEL,
             Tone::Success,
         ),
-        "unit-maintenance" => (Route::UnitMaintenance {}, icons::LABEL, Tone::Success),
+        "unit-maintenance" => (Route::UnitMaintenance {}, icons::STRAIGHTEN, Tone::Success),
         "product-classification-maintenance" => (
             Route::ProductClassificationMaintenance {},
-            icons::CATEGORY,
+            icons::LOCAL_OFFER,
             Tone::Success,
         ),
         "program-maintenance" => (Route::ProgramMaintenance {}, icons::APPS, Tone::Primary),

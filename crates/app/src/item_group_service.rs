@@ -405,7 +405,7 @@ impl ItemGroupService {
                 bonded_class: a.bonded_class.clone(),
                 tariff_no: a.tariff_no.clone(),
                 bonded_type: a.bonded_type.clone(),
-                version: Some(g.stamp.version),
+                version: None,
             },
             stock_keeper_name,
             active: g.active,
