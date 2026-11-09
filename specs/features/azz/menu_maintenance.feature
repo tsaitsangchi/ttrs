@@ -11,7 +11,7 @@
 #           gaz03，客製名稱 gaz05＝Y 優先）；tiptop/azz/sch/zm_file.sch；無 topcust 覆寫。
 #           TTRS 現況：migrations/0003 menu_item（無序號）、user_account.menu_program（zx05）、permission_class.default_menu
 #           （zw03）；側欄寫死在 crates/web/src/main.rs。
-# 狀態：MN1–MN16 依建議確認（Key User，2026-11-09），進入 Red
+# 狀態：MN1–MN16 依建議確認（Key User，2026-11-09）；MN17 追加，進入 Red
 #
 # TipTop 的做法（萃取）：
 #   - zm_file 主鍵 (zm01 目錄代號, zm03 序號)，zm04 為子項程式代號；子項本身若在 zm_file 有單身，就是下一層目錄。
@@ -41,6 +41,8 @@
 #  MN14. 起始資料：新 migration 建立 menu-main（首頁之下：庫存管理 aim、整體管理 aoo、系統管理 azz）與目前側欄相同的目錄，
 #        既有使用者 zx05 空白者不改（依 MN9 退回 menu-main）。TOPTEST 憑證可用後，另案轉入正式區的 zm_file。可以嗎？
 #  MN15. 首頁固定顯示在側欄最上方（TTRS 新增，不在目錄內）。目錄異動後，使用者重新整理頁面即看到新選單（取代 redomenu 重建 .4sm）。
+#  MN17. （Key User 2026-11-09 追加）子項是目錄且該目錄還有單身時，不可從上層目錄移除（MENU_NOT_EMPTY），
+#        避免整組作業從側欄消失；TipTop p_zm 不檢查。須先移除子目錄的單身。
 #  MN16. 不移植的項目：
 #        | 項目 | 原因 |
 #        | 重建選單 redomenu、zx05 重建 .4sm（p_zm_redo_menu、p_zm_zx05_prepare） | 選單由 API 即時組成，不產生檔案 |
@@ -117,6 +119,21 @@
     而且 使用者將目錄 "menu-aoo" 重新編號
     那麼 目錄 "menu-aoo" 的單身應為 "plant-maintenance,employee-maintenance,department-maintenance"
     而且 目錄 "menu-aoo" 的序號應為 "10,20,30"
+
+  # MN17 子目錄還有單身時不可移除
+  場景: MN-14 已掛程式的子目錄不可從上層目錄移除
+    假設 目錄 "menu-main" 已有 "menu-aoo"（序號 10）
+    而且 目錄 "menu-aoo" 已有 "plant-maintenance"（序號 10）
+    當 使用者從目錄 "menu-main" 移除 "menu-aoo"
+    那麼 應出現錯誤 "MENU_NOT_EMPTY"
+    而且 目錄 "menu-main" 的單身應為 "menu-aoo"
+
+  場景: MN-15 沒有單身的子目錄與一般作業可以移除
+    假設 目錄 "menu-main" 已有 "menu-aoo"（序號 10）
+    而且 目錄 "menu-main" 已有 "plant-maintenance"（序號 20）
+    當 使用者從目錄 "menu-main" 移除 "menu-aoo"
+    而且 使用者從目錄 "menu-main" 移除 "plant-maintenance"
+    那麼 目錄 "menu-main" 的單身應為 ""
 
   # p_zm.4gl:1290-1345 複製（MN7）
   場景: MN-8 複製目錄

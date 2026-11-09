@@ -950,7 +950,8 @@ impl IntoResponse for HttpError {
             "MENU_SEQ_DUPLICATE"
             | "MENU_ITEM_DUPLICATE"
             | "MENU_IN_USE"
-            | "MENU_ALREADY_HAS_ITEMS" => StatusCode::CONFLICT,
+            | "MENU_ALREADY_HAS_ITEMS"
+            | "MENU_NOT_EMPTY" => StatusCode::CONFLICT,
             "VERSION_REQUIRED" => StatusCode::BAD_REQUEST,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"

@@ -85,6 +85,7 @@ error-MENU_ITEM_DUPLICATE = 此目录已有这支程序。
 error-MENU_CYCLE = 不可把目录本身或上层目录加入单身。
 error-MENU_IN_USE = 目录仍被用户、权限类别或其他目录使用，不可删除。
 error-MENU_ALREADY_HAS_ITEMS = 新目录已有单身。
+error-MENU_NOT_EMPTY = 此目录还有单身，请先移除它的单身。
 error-REPORT_TOO_LARGE = 资料过多，请缩小条件后再打印。
 error-PLANT_SCHEMA_INVALID = 数据库代码须为 ds 加两位数字（例如 ds01）
 error-PLANT_SCHEMA_DUPLICATE = 数据库代码已被其他营运中心使用

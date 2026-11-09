@@ -85,6 +85,7 @@ error-MENU_ITEM_DUPLICATE = This program is already in the menu.
 error-MENU_CYCLE = A menu cannot contain itself or a menu above it.
 error-MENU_IN_USE = This menu is still used by a user, a permission class or another menu.
 error-MENU_ALREADY_HAS_ITEMS = The new menu already has items.
+error-MENU_NOT_EMPTY = This menu still has items. Remove its items first.
 error-REPORT_TOO_LARGE = Too many records to print. Please narrow the conditions.
 error-PLANT_SCHEMA_INVALID = The database code must be ds followed by two digits (for example ds01).
 error-PLANT_SCHEMA_DUPLICATE = The database code is already used by another plant.

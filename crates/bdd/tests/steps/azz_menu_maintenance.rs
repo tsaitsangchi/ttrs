@@ -143,6 +143,12 @@ async fn add_with_seq(w: &mut ErpWorld, menu: String, seq: i32, program: String)
     add(w, &menu, &program, Some(seq)).await;
 }
 
+#[when(expr = "使用者從目錄 {string} 移除 {string}")]
+async fn remove(w: &mut ErpWorld, menu: String, program: String) {
+    let r = w.menus.remove(&w.actor, &menu, &program).await;
+    w.last = Some(r);
+}
+
 #[when(expr = "使用者將目錄 {string} 的 {string} 上移")]
 async fn move_up(w: &mut ErpWorld, menu: String, program: String) {
     let r = w.menus.shift(&w.actor, &menu, &program, true).await;

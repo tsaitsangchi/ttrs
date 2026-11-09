@@ -182,6 +182,8 @@ pub enum DomainError {
     MenuInUse,
     #[error("新目錄已有單身")]
     MenuAlreadyHasItems,
+    #[error("此目錄還有單身，請先移除它的單身")]
+    MenuNotEmpty,
     #[error("此公司帳號尚未在 TTRS 註冊，請洽系統管理員")]
     UserNotRegistered,
     #[error("使用者已停用")]
@@ -401,6 +403,7 @@ impl DomainError {
             Self::MenuCycle => "MENU_CYCLE",
             Self::MenuInUse => "MENU_IN_USE",
             Self::MenuAlreadyHasItems => "MENU_ALREADY_HAS_ITEMS",
+            Self::MenuNotEmpty => "MENU_NOT_EMPTY",
             Self::UserNotRegistered => "USER_NOT_REGISTERED",
             Self::UserInactive => "USER_INACTIVE",
             Self::UserExpired => "USER_EXPIRED",

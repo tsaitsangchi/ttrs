@@ -128,11 +128,20 @@ impl MenuService {
         .await
     }
 
-    /// 移除單身（單身刪除列）
+    /// 移除單身（單身刪除列）：子項是還有單身的目錄時拒絕（MN17，避免整組作業從側欄消失）
     pub async fn remove(&self, actor: &Actor, menu: &str, program: &str) -> Result<(), AppError> {
         crate::change_log::run(actor, PROGRAM, "detail", async {
             self.authorize(actor, "detail").await?.delete_row()?;
             let menu = self.menu(menu).await?;
+            if !self
+                .menus
+                .menu_items(program.trim())
+                .await
+                .map_err(infra)?
+                .is_empty()
+            {
+                return Err(DomainError::MenuNotEmpty.into());
+            }
             if self
                 .menus
                 .remove_menu_item(menu.program_no.as_str(), program.trim())

@@ -85,6 +85,7 @@ error-MENU_ITEM_DUPLICATE = （使用伺服器訊息）
 error-MENU_CYCLE = （使用伺服器訊息）
 error-MENU_IN_USE = （使用伺服器訊息）
 error-MENU_ALREADY_HAS_ITEMS = （使用伺服器訊息）
+error-MENU_NOT_EMPTY = （使用伺服器訊息）
 error-REPORT_TOO_LARGE = （使用伺服器訊息）
 error-PLANT_SCHEMA_INVALID = （使用伺服器訊息）
 error-PLANT_SCHEMA_DUPLICATE = （使用伺服器訊息）
