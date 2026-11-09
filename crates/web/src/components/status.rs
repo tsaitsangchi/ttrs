@@ -115,7 +115,8 @@ pub struct RecordStatus {
 
 impl RecordStatus {
     fn text(&self, f: StatusField) -> String {
-        let date = |d: Option<NaiveDate>| d.map(|d| d.format("%Y/%m/%d").to_string());
+        // 一律顯示到時:分:秒；只記了日期的舊資料（ADR 0012 之前修改）顯示當日 00:00:00
+        let date = |d: Option<NaiveDate>| d.map(|d| d.format("%Y/%m/%d 00:00:00").to_string());
         match f {
             StatusField::Active => t(if self.active {
                 "common-status-active"
@@ -173,6 +174,9 @@ has_status!(
     ttrs_shared::DepartmentDto,
     ttrs_shared::EmployeeDto,
     ttrs_shared::ClassificationCodeDto,
+    ttrs_shared::UnitDto,
+    ttrs_shared::ProductClassDto,
+    ttrs_shared::ItemGroupDto,
 );
 
 macro_rules! has_status_no_active {

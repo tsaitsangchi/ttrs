@@ -13,15 +13,18 @@ use ttrs_domain::{
     dictionary::{ColumnText, TableDictionary, TableText},
     employee::{Employee, EmployeeId},
     item::{Item, ItemNo},
+    item_group::{ItemGroup, ItemGroupCode},
     lang::Lang,
     legacy_catalog::LegacyTable,
     menu::MenuItem,
     permission::{PermissionAttrs, ProgramPermission, parse_actions},
     permission_class::{ClassCode, ClassIdleControl, PermissionClass, PermissionClassAttrs},
     plant::{DEFAULT_TIME_ZONE, Plant, PlantAttrs, PlantId, PlantSchema},
+    product_class::{ProductClass, ProductClassCode},
     program::{ModuleCode, OtherSettings, Program, ProgramAttrs, ProgramNo},
     qbe::QbeFilter,
     record::Stamp,
+    unit::{Unit, UnitAttrs, UnitCode},
     user::{User, UserId},
     user_permission::{SpecialTarget, UserPermission},
 };
@@ -32,10 +35,11 @@ use crate::{
     ports::{
         AccountPolicy, AccountPolicyRepository, AuditEntry, ChangeLogRepository, Credential,
         CredentialRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
-        ItemRepository, LegacyCatalogRepository, LegacyTableSummary, MasterDataRepository,
-        MenuRepository, MigrationSource, PermissionClassRepository, PermissionListItem,
-        PlantRepository, ProgramName, ProgramPermissionRepository, ProgramRepository,
-        SchemaCatalog, TableSchema, UserPermissionItem, UserPermissionRepository, UserRepository,
+        ItemGroupRepository, ItemRepository, LegacyCatalogRepository, LegacyTableSummary,
+        MasterDataRepository, MenuRepository, MigrationSource, PermissionClassRepository,
+        PermissionListItem, PlantRepository, ProductClassRepository, ProgramName,
+        ProgramPermissionRepository, ProgramRepository, SchemaCatalog, TableSchema, UnitRepository,
+        UserPermissionItem, UserPermissionRepository, UserRepository,
     },
     query,
 };
@@ -70,9 +74,14 @@ struct State {
     /// (營運中心, 碼類別, 代號) → 分類碼（azf_file，工廠層）
     classification_codes: BTreeMap<(PlantId, String, String), ClassificationCode>,
     employees: BTreeMap<(PlantId, EmployeeId), Employee>,
+    /// (營運中心, 分類碼) → 產品分類（oba_file，工廠層）
+    product_classes: BTreeMap<(PlantId, String), ProductClass>,
+    /// (營運中心, 分群碼) → 料件分群（imz_file，工廠層）
+    item_groups: BTreeMap<(PlantId, String), ItemGroup>,
     /// 資料異動記錄（change_log，ADR 0012）：營運中心（共用層為 None）＋記錄
     changes: Vec<(Option<PlantId>, ChangeRecord)>,
-    units: HashSet<String>,
+    /// 單位（gfe_file，共用）
+    units: BTreeMap<String, Unit>,
     items: BTreeMap<(PlantId, ItemNo), Item>,
     transactions: HashSet<(PlantId, ItemNo)>,
     // Program Maintenance
@@ -136,7 +145,7 @@ impl InMemoryStore {
             (
                 "menu-aim",
                 ["庫存管理", "Inventory", "库存管理"],
-                vec!["item-maintenance"],
+                vec!["item-group-maintenance", "item-maintenance"],
             ),
             (
                 "menu-aoo",
@@ -146,6 +155,8 @@ impl InMemoryStore {
                     "department-maintenance",
                     "employee-maintenance",
                     "classification-code-maintenance",
+                    "unit-maintenance",
+                    "product-classification-maintenance",
                 ],
             ),
             (
@@ -191,7 +202,16 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 12] = [
+        let names: [(&str, [&str; 3]); 15] = [
+            ("unit-maintenance", ["單位維護", "Units", "单位维护"]),
+            (
+                "product-classification-maintenance",
+                ["產品分類維護", "Product Classifications", "产品分类维护"],
+            ),
+            (
+                "item-group-maintenance",
+                ["料件分群維護", "Item Groups", "料件分群维护"],
+            ),
             (
                 "menu-maintenance",
                 ["選單維護", "Menu Maintenance", "选单维护"],
@@ -373,8 +393,16 @@ impl InMemoryStore {
         }
     }
 
+    /// 測試資料：單位（代碼轉大寫、說明同代碼，同早期種子資料）
     pub fn add_unit(&self, unit: &str) {
-        self.lock().units.insert(unit.to_uppercase());
+        let code = UnitCode::parse(&unit.to_uppercase()).expect("單位");
+        let attrs = UnitAttrs::new(Some(code.as_str().to_owned()), None).expect("單位");
+        let today = chrono::Local::now().date_naive();
+        let u = Unit::new(code.clone(), attrs, "tiptop", "", today);
+        self.lock()
+            .units
+            .entry(code.as_str().to_owned())
+            .or_insert(u);
     }
 
     pub fn add_transaction(&self, plant: &PlantId, no: &ItemNo) {
@@ -522,7 +550,8 @@ impl MasterDataRepository for InMemoryStore {
     }
 
     async fn unit_exists(&self, unit: &str) -> Result<bool, RepoError> {
-        Ok(self.lock().units.contains(&unit.to_uppercase()))
+        // 早期料件以大寫比對（同 PostgreSQL 版）
+        Ok(self.lock().units.contains_key(&unit.to_uppercase()))
     }
 }
 
@@ -2558,4 +2587,355 @@ impl MenuRepository for InMemoryStore {
         self.lock().menu_items.retain(|i| i.menu != menu);
         Ok(())
     }
+}
+
+// ----- 單位（gfe_file；unit_maintenance.feature） -----
+
+#[async_trait]
+impl UnitRepository for InMemoryStore {
+    async fn list_units(&self) -> Result<Vec<Unit>, RepoError> {
+        Ok(self.lock().units.values().cloned().collect())
+    }
+
+    async fn get_unit(&self, code: &UnitCode) -> Result<Option<Unit>, RepoError> {
+        Ok(self.lock().units.get(code.as_str()).cloned())
+    }
+
+    async fn insert_unit(&self, unit: &Unit) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.units.contains_key(unit.code.as_str()) {
+            return Err(RepoError::Conflict);
+        }
+        let mut u = unit.clone();
+        u.stamp = new_stamp();
+        s.log_change(None, "unit", unit_key(&u), None, Some(unit_row(&u)), &[]);
+        s.units.insert(u.code.as_str().to_owned(), u);
+        Ok(())
+    }
+
+    async fn update_unit(&self, unit: &Unit) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.units.get(unit.code.as_str()).cloned() else {
+            return Ok(());
+        };
+        let mut u = unit.clone();
+        u.stamp = bumped(&old.stamp, &unit.stamp)?;
+        s.log_change(
+            None,
+            "unit",
+            unit_key(&u),
+            Some(unit_row(&old)),
+            Some(unit_row(&u)),
+            &[],
+        );
+        s.units.insert(u.code.as_str().to_owned(), u);
+        Ok(())
+    }
+
+    async fn delete_unit(&self, code: &UnitCode) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        // 與 PostgreSQL 的外鍵一致：料件、料件分群引用時不可刪除（UN5）
+        let used = s.items.values().any(|i| i.stock_unit == code.as_str())
+            || s.item_groups
+                .values()
+                .any(|g| g.attrs.units().any(|u| u == code.as_str()));
+        if used {
+            return Err(RepoError::InUse);
+        }
+        let Some(old) = s.units.remove(code.as_str()) else {
+            return Ok(false);
+        };
+        s.log_change(
+            None,
+            "unit",
+            unit_key(&old),
+            Some(unit_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+fn unit_key(u: &Unit) -> Vec<(&'static str, String)> {
+    vec![("unit_code", u.code.as_str().to_owned())]
+}
+
+fn unit_row(u: &Unit) -> Row {
+    let mut cols = vec![
+        ("unit_code", text::s(u.code.as_str())),
+        ("name", text::opt(u.attrs.name.as_deref())),
+        ("decimals", text::int(i64::from(u.attrs.decimals))),
+    ];
+    cols.extend(audit_cols(
+        u.active,
+        &u.created_by,
+        &u.created_dept,
+        u.created_on,
+        u.updated_by.as_deref(),
+        u.updated_on,
+        &u.stamp,
+    ));
+    row(cols)
+}
+
+// ----- 產品分類（oba_file；product_classification.feature） -----
+
+#[async_trait]
+impl ProductClassRepository for InMemoryStore {
+    async fn list_product_classes(&self, plant: &PlantId) -> Result<Vec<ProductClass>, RepoError> {
+        Ok(self
+            .lock()
+            .product_classes
+            .iter()
+            .filter(|((p, _), _)| p == plant)
+            .map(|(_, c)| c.clone())
+            .collect())
+    }
+
+    async fn get_product_class(
+        &self,
+        plant: &PlantId,
+        code: &ProductClassCode,
+    ) -> Result<Option<ProductClass>, RepoError> {
+        Ok(self
+            .lock()
+            .product_classes
+            .get(&(plant.clone(), code.as_str().to_owned()))
+            .cloned())
+    }
+
+    async fn insert_product_class(
+        &self,
+        plant: &PlantId,
+        c: &ProductClass,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.plants.contains_key(plant) {
+            return Err(RepoError::Other(format!(
+                "營運中心不存在：{}",
+                plant.as_str()
+            )));
+        }
+        let key = (plant.clone(), c.code.as_str().to_owned());
+        if s.product_classes.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut c = c.clone();
+        c.stamp = new_stamp();
+        s.log_change(
+            Some(plant),
+            "product_class",
+            pclass_key(&c),
+            None,
+            Some(pclass_row(&c)),
+            &[],
+        );
+        s.product_classes.insert(key, c);
+        Ok(())
+    }
+
+    async fn update_product_class(
+        &self,
+        plant: &PlantId,
+        c: &ProductClass,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (plant.clone(), c.code.as_str().to_owned());
+        let Some(old) = s.product_classes.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut new = c.clone();
+        new.stamp = bumped(&old.stamp, &c.stamp)?;
+        s.log_change(
+            Some(plant),
+            "product_class",
+            pclass_key(&new),
+            Some(pclass_row(&old)),
+            Some(pclass_row(&new)),
+            &[],
+        );
+        s.product_classes.insert(key, new);
+        Ok(())
+    }
+
+    async fn delete_product_class(
+        &self,
+        plant: &PlantId,
+        code: &ProductClassCode,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        // 料件的產品分類（ima131）移植後在此檢查引用（PC8）
+        let Some(old) = s
+            .product_classes
+            .remove(&(plant.clone(), code.as_str().to_owned()))
+        else {
+            return Ok(false);
+        };
+        s.log_change(
+            Some(plant),
+            "product_class",
+            pclass_key(&old),
+            Some(pclass_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+fn pclass_key(c: &ProductClass) -> Vec<(&'static str, String)> {
+    vec![("class_code", c.code.as_str().to_owned())]
+}
+
+fn pclass_row(c: &ProductClass) -> Row {
+    let a = &c.attrs;
+    let mut cols = vec![
+        ("class_code", text::s(c.code.as_str())),
+        ("name", text::opt(a.name.as_deref())),
+        ("period_format", text::opt(a.period_format.as_deref())),
+        ("periods", a.periods.map(|p| p.to_string())),
+        (
+            "cost_center",
+            a.cost_center.as_ref().map(|d| d.as_str().to_owned()),
+        ),
+        ("revenue_account", text::opt(a.revenue_account.as_deref())),
+        ("revenue_account2", text::opt(a.revenue_account2.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        c.active,
+        &c.created_by,
+        &c.created_dept,
+        c.created_on,
+        c.updated_by.as_deref(),
+        c.updated_on,
+        &c.stamp,
+    ));
+    row(cols)
+}
+
+// ----- 料件分群（imz_file；item_group.feature） -----
+
+#[async_trait]
+impl ItemGroupRepository for InMemoryStore {
+    async fn list_item_groups(&self, plant: &PlantId) -> Result<Vec<ItemGroup>, RepoError> {
+        Ok(self
+            .lock()
+            .item_groups
+            .iter()
+            .filter(|((p, _), _)| p == plant)
+            .map(|(_, g)| g.clone())
+            .collect())
+    }
+
+    async fn get_item_group(
+        &self,
+        plant: &PlantId,
+        code: &ItemGroupCode,
+    ) -> Result<Option<ItemGroup>, RepoError> {
+        Ok(self
+            .lock()
+            .item_groups
+            .get(&(plant.clone(), code.as_str().to_owned()))
+            .cloned())
+    }
+
+    async fn insert_item_group(&self, plant: &PlantId, g: &ItemGroup) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.plants.contains_key(plant) {
+            return Err(RepoError::Other(format!(
+                "營運中心不存在：{}",
+                plant.as_str()
+            )));
+        }
+        let key = (plant.clone(), g.code.as_str().to_owned());
+        if s.item_groups.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut g = g.clone();
+        g.stamp = new_stamp();
+        s.log_change(
+            Some(plant),
+            "item_group",
+            group_key(&g),
+            None,
+            Some(group_row(&g)),
+            &[],
+        );
+        s.item_groups.insert(key, g);
+        Ok(())
+    }
+
+    async fn update_item_group(&self, plant: &PlantId, g: &ItemGroup) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (plant.clone(), g.code.as_str().to_owned());
+        let Some(old) = s.item_groups.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut new = g.clone();
+        new.stamp = bumped(&old.stamp, &g.stamp)?;
+        s.log_change(
+            Some(plant),
+            "item_group",
+            group_key(&new),
+            Some(group_row(&old)),
+            Some(group_row(&new)),
+            &[],
+        );
+        s.item_groups.insert(key, new);
+        Ok(())
+    }
+
+    async fn delete_item_group(
+        &self,
+        plant: &PlantId,
+        code: &ItemGroupCode,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        // 料件的分群碼（ima06）移植後在此檢查引用（IG7）
+        let Some(old) = s
+            .item_groups
+            .remove(&(plant.clone(), code.as_str().to_owned()))
+        else {
+            return Ok(false);
+        };
+        s.log_change(
+            Some(plant),
+            "item_group",
+            group_key(&old),
+            Some(group_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+fn group_key(g: &ItemGroup) -> Vec<(&'static str, String)> {
+    vec![("group_code", g.code.as_str().to_owned())]
+}
+
+/// 料件分群的主要欄位（其餘欄位只在 PostgreSQL 的異動記錄中）
+fn group_row(g: &ItemGroup) -> Row {
+    let a = &g.attrs;
+    let mut cols = vec![
+        ("group_code", text::s(g.code.as_str())),
+        ("description", text::opt(a.description.as_deref())),
+        ("source_code", text::opt(a.source_code.as_deref())),
+        ("stock_unit", text::opt(a.stock_unit.as_deref())),
+        ("abc_code", text::opt(a.abc_code.as_deref())),
+        ("replenish_policy", text::opt(a.replenish_policy.as_deref())),
+        ("safety_stock", a.safety_stock.map(|d| d.to_string())),
+        ("stock_keeper", text::opt(a.stock_keeper.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        g.active,
+        &g.created_by,
+        &g.created_dept,
+        g.created_on,
+        g.updated_by.as_deref(),
+        g.updated_on,
+        &g.stamp,
+    ));
+    row(cols)
 }

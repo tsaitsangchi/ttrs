@@ -184,6 +184,52 @@ pub enum DomainError {
     MenuAlreadyHasItems,
     #[error("此目錄還有單身，請先移除它的單身")]
     MenuNotEmpty,
+
+    // 單位（aooi101 / gfe_file；unit_maintenance.feature）
+    #[error("單位不可空白")]
+    UnitCodeEmpty,
+    #[error("單位長度不可超過 {max} 碼")]
+    UnitCodeTooLong { max: usize },
+    #[error("小數位數須在 0 到 {max} 之間")]
+    UnitDecimalsInvalid { max: i16 },
+    #[error("單位已存在")]
+    UnitAlreadyExists,
+    #[error("單位已被使用，不可刪除；請改為停用")]
+    UnitInUse,
+
+    // 產品分類（axmi110 / oba_file；product_classification.feature）
+    #[error("產品分類碼須為 1 到 {max} 碼")]
+    ProductClassCodeInvalid { max: usize },
+    #[error("產品分類已存在")]
+    ProductClassAlreadyExists,
+    #[error("產品分類不存在")]
+    ProductClassNotFound,
+    #[error("成本中心須為有效、管理類別為成本中心或利潤中心的部門")]
+    ProductClassCostCenterInvalid,
+    #[error("期數不可小於 0")]
+    ProductClassPeriodsInvalid,
+    #[error("產品分類已被使用，不可刪除；請改為停用")]
+    ProductClassInUse,
+
+    // 料件分群（aimi110 / imz_file；item_group.feature）
+    #[error("料件分群碼須為 1 到 {max} 碼")]
+    ItemGroupCodeInvalid { max: usize },
+    #[error("料件分群已存在")]
+    ItemGroupAlreadyExists,
+    #[error("料件分群不存在")]
+    ItemGroupNotFound,
+    #[error("來源碼不正確：{0}")]
+    ItemGroupSourceInvalid(String),
+    #[error("ABC 碼須為 A、B 或 C：{0}")]
+    ItemGroupAbcInvalid(String),
+    #[error("補貨策略碼須為 0 到 5：{0}")]
+    ItemGroupReplenishInvalid(String),
+    #[error("數量與天數不可小於 0")]
+    ItemGroupQuantityInvalid,
+    #[error("倉管員須為本營運中心有效的員工")]
+    ItemGroupStockKeeperInvalid,
+    #[error("料件分群已被料件使用，不可刪除；請改為停用")]
+    ItemGroupInUse,
     #[error("此公司帳號尚未在 TTRS 註冊，請洽系統管理員")]
     UserNotRegistered,
     #[error("使用者已停用")]
@@ -404,6 +450,26 @@ impl DomainError {
             Self::MenuInUse => "MENU_IN_USE",
             Self::MenuAlreadyHasItems => "MENU_ALREADY_HAS_ITEMS",
             Self::MenuNotEmpty => "MENU_NOT_EMPTY",
+            Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",
+            Self::UnitCodeTooLong { .. } => "UNIT_CODE_TOO_LONG",
+            Self::UnitDecimalsInvalid { .. } => "UNIT_DECIMALS_INVALID",
+            Self::UnitAlreadyExists => "UNIT_ALREADY_EXISTS",
+            Self::UnitInUse => "UNIT_IN_USE",
+            Self::ProductClassCodeInvalid { .. } => "PRODUCT_CLASS_CODE_INVALID",
+            Self::ProductClassAlreadyExists => "PRODUCT_CLASS_ALREADY_EXISTS",
+            Self::ProductClassNotFound => "PRODUCT_CLASS_NOT_FOUND",
+            Self::ProductClassCostCenterInvalid => "PRODUCT_CLASS_COST_CENTER_INVALID",
+            Self::ProductClassPeriodsInvalid => "PRODUCT_CLASS_PERIODS_INVALID",
+            Self::ProductClassInUse => "PRODUCT_CLASS_IN_USE",
+            Self::ItemGroupCodeInvalid { .. } => "ITEM_GROUP_CODE_INVALID",
+            Self::ItemGroupAlreadyExists => "ITEM_GROUP_ALREADY_EXISTS",
+            Self::ItemGroupNotFound => "ITEM_GROUP_NOT_FOUND",
+            Self::ItemGroupSourceInvalid(_) => "ITEM_GROUP_SOURCE_INVALID",
+            Self::ItemGroupAbcInvalid(_) => "ITEM_GROUP_ABC_INVALID",
+            Self::ItemGroupReplenishInvalid(_) => "ITEM_GROUP_REPLENISH_INVALID",
+            Self::ItemGroupQuantityInvalid => "ITEM_GROUP_QUANTITY_INVALID",
+            Self::ItemGroupStockKeeperInvalid => "ITEM_GROUP_STOCK_KEEPER_INVALID",
+            Self::ItemGroupInUse => "ITEM_GROUP_IN_USE",
             Self::UserNotRegistered => "USER_NOT_REGISTERED",
             Self::UserInactive => "USER_INACTIVE",
             Self::UserExpired => "USER_EXPIRED",

@@ -70,6 +70,9 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-TW/program_permission.ftl"),
         include_str!("../locales/zh-TW/user_permission.ftl"),
         include_str!("../locales/zh-TW/menu.ftl"),
+        include_str!("../locales/zh-TW/unit.ftl"),
+        include_str!("../locales/zh-TW/product_class.ftl"),
+        include_str!("../locales/zh-TW/item_group.ftl"),
     ],
     &[
         include_str!("../locales/en/common.ftl"),
@@ -86,6 +89,9 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/en/program_permission.ftl"),
         include_str!("../locales/en/user_permission.ftl"),
         include_str!("../locales/en/menu.ftl"),
+        include_str!("../locales/en/unit.ftl"),
+        include_str!("../locales/en/product_class.ftl"),
+        include_str!("../locales/en/item_group.ftl"),
     ],
     &[
         include_str!("../locales/zh-CN/common.ftl"),
@@ -102,6 +108,9 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-CN/program_permission.ftl"),
         include_str!("../locales/zh-CN/user_permission.ftl"),
         include_str!("../locales/zh-CN/menu.ftl"),
+        include_str!("../locales/zh-CN/unit.ftl"),
+        include_str!("../locales/zh-CN/product_class.ftl"),
+        include_str!("../locales/zh-CN/item_group.ftl"),
     ],
 ];
 
@@ -294,7 +303,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 21] = [
+        const TRANSLATED: [(&str, &str); 24] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/session.rs",
@@ -320,6 +329,18 @@ mod tests {
             (
                 "pages/aoo/classification_code_maintenance.rs",
                 include_str!("pages/aoo/classification_code_maintenance.rs"),
+            ),
+            (
+                "pages/aim/item_group_maintenance.rs",
+                include_str!("pages/aim/item_group_maintenance.rs"),
+            ),
+            (
+                "pages/aoo/unit_maintenance.rs",
+                include_str!("pages/aoo/unit_maintenance.rs"),
+            ),
+            (
+                "pages/axm/product_classification_maintenance.rs",
+                include_str!("pages/axm/product_classification_maintenance.rs"),
             ),
             ("components/plant.rs", include_str!("components/plant.rs")),
             (

@@ -60,6 +60,12 @@ pub struct AppState {
     pub history: ttrs_app::ChangeHistoryService,
     /// 選單維護與側欄（p_zm；menu_maintenance.feature）
     pub menus: ttrs_app::MenuService,
+    /// 單位維護（aooi101；unit_maintenance.feature）
+    pub units: ttrs_app::UnitService,
+    /// 產品分類維護（axmi110；工廠層）
+    pub product_classes: ttrs_app::ProductClassService,
+    /// 料件分群維護（aimi110；工廠層）
+    pub item_groups: ttrs_app::ItemGroupService,
     /// 權限檢查（ADR 0006 §4）：各 use case 已在 app 層檢查，這裡只供查詢有效權限
     pub authorizer: Arc<dyn Authorizer>,
     /// 操作者：固定身分時為 `actor_from_env`；開發用登入時由 [`Ctx`] 換成連線的使用者
@@ -121,6 +127,9 @@ impl AppState {
             emergency: _,
             history,
             menus,
+            units,
+            product_classes,
+            item_groups,
             authorizer,
         } = services;
         Self {
@@ -140,6 +149,9 @@ impl AppState {
             password_reset,
             history,
             menus,
+            units,
+            product_classes,
+            item_groups,
             authorizer,
             actor,
             auth: AuthMode::Fixed,
@@ -275,6 +287,55 @@ pub fn router(state: AppState) -> Router {
             "/api/users/{id}/copy-permissions",
             post(copy_user_permissions),
         )
+        // Item Group 料件分群維護（TipTop aimi110；工廠層）
+        .route(
+            "/api/plants/{plant}/item-groups",
+            get(list_item_groups).post(create_item_group),
+        )
+        .route(
+            "/api/plants/{plant}/item-groups/{code}",
+            get(get_item_group)
+                .put(update_item_group)
+                .delete(delete_item_group),
+        )
+        .route(
+            "/api/plants/{plant}/item-groups/{code}/history",
+            get(item_group_history),
+        )
+        .route(
+            "/api/plants/{plant}/item-groups/{code}/copy",
+            post(copy_item_group),
+        )
+        .route(
+            "/api/plants/{plant}/item-groups/{code}/{state}",
+            post(set_item_group_active),
+        )
+        // Product Classification 產品分類維護（TipTop axmi110；工廠層）
+        .route(
+            "/api/plants/{plant}/product-classes",
+            get(list_product_classes).post(create_product_class),
+        )
+        .route(
+            "/api/plants/{plant}/product-classes/{code}",
+            get(get_product_class)
+                .put(update_product_class)
+                .delete(delete_product_class),
+        )
+        .route(
+            "/api/plants/{plant}/product-classes/{code}/history",
+            get(product_class_history),
+        )
+        .route(
+            "/api/plants/{plant}/product-classes/{code}/{state}",
+            post(set_product_class_active),
+        )
+        // Unit Maintenance 單位維護（TipTop aooi101；共用）
+        .route("/api/units", get(list_units).post(create_unit))
+        .route(
+            "/api/units/{code}",
+            get(get_unit).put(update_unit).delete(delete_unit),
+        )
+        .route("/api/units/{code}/{state}", post(set_unit_active))
         // Menu Maintenance 選單維護（TipTop p_zm）與側欄樹狀選單（cl_create_4sm）
         .route("/api/menus", get(list_menus))
         .route("/api/menus/tree", get(menu_tree))
@@ -934,7 +995,10 @@ impl IntoResponse for HttpError {
             | "PERMISSION_NOT_FOUND"
             | "DEPARTMENT_NOT_FOUND"
             | "EMPLOYEE_NOT_FOUND"
-            | "CODE_NOT_FOUND" => StatusCode::NOT_FOUND,
+            | "CODE_NOT_FOUND"
+            | "UNIT_NOT_FOUND"
+            | "PRODUCT_CLASS_NOT_FOUND"
+            | "ITEM_GROUP_NOT_FOUND" => StatusCode::NOT_FOUND,
             "PASSWORD_RESET_UNAVAILABLE" => StatusCode::SERVICE_UNAVAILABLE,
             "NOT_SIGNED_IN"
             | "SIGN_IN_FAILED"
@@ -951,7 +1015,13 @@ impl IntoResponse for HttpError {
             | "MENU_ITEM_DUPLICATE"
             | "MENU_IN_USE"
             | "MENU_ALREADY_HAS_ITEMS"
-            | "MENU_NOT_EMPTY" => StatusCode::CONFLICT,
+            | "MENU_NOT_EMPTY"
+            | "UNIT_ALREADY_EXISTS"
+            | "UNIT_IN_USE"
+            | "PRODUCT_CLASS_ALREADY_EXISTS"
+            | "PRODUCT_CLASS_IN_USE"
+            | "ITEM_GROUP_ALREADY_EXISTS"
+            | "ITEM_GROUP_IN_USE" => StatusCode::CONFLICT,
             "VERSION_REQUIRED" => StatusCode::BAD_REQUEST,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
@@ -1726,6 +1796,244 @@ struct VersionQuery {
 /// 請求一律要帶版本號（CH4）；沒帶回 400
 fn require_version(v: Option<i32>) -> Result<i32, HttpError> {
     v.ok_or_else(|| AppError::from(ttrs_domain::DomainError::VersionRequired).into())
+}
+
+// ----- Item Group 料件分群維護（aimi110；工廠層） -----
+
+async fn list_item_groups(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+) -> ApiResult<Json<Vec<ttrs_shared::ItemGroupDto>>> {
+    Ok(Json(s.item_groups.list(&s.actor, &plant).await?))
+}
+
+async fn get_item_group(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+) -> ApiResult<Json<ttrs_shared::ItemGroupDto>> {
+    Ok(Json(s.item_groups.get(&s.actor, &plant, &code).await?))
+}
+
+async fn create_item_group(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<ttrs_shared::ItemGroupInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::ItemGroupDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.item_groups.create(&s.actor, &plant, req).await?),
+    ))
+}
+
+async fn update_item_group(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::ItemGroupInput>,
+) -> ApiResult<Json<ttrs_shared::ItemGroupDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.item_groups.update(&s.actor, &plant, &code, req).await?,
+    ))
+}
+
+#[derive(Deserialize)]
+struct CopyItemGroup {
+    new_code: String,
+}
+
+async fn copy_item_group(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<CopyItemGroup>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::ItemGroupDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(
+            s.item_groups
+                .copy(&s.actor, &plant, &code, &req.new_code)
+                .await?,
+        ),
+    ))
+}
+
+async fn set_item_group_active(
+    Ctx(s): Ctx,
+    Path((plant, code, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let active = match state.as_str() {
+        "activate" => true,
+        "deactivate" => false,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.item_groups
+            .set_active(&s.actor, &plant, &code, active, version)
+            .await?,
+    )
+    .into_response())
+}
+
+async fn delete_item_group(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.item_groups
+        .delete(&s.actor, &plant, &code, version)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn item_group_history(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.item_groups
+            .history(&s.actor, &plant, &code, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+// ----- Product Classification 產品分類維護（axmi110；工廠層） -----
+
+async fn list_product_classes(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+) -> ApiResult<Json<Vec<ttrs_shared::ProductClassDto>>> {
+    Ok(Json(s.product_classes.list(&s.actor, &plant).await?))
+}
+
+async fn get_product_class(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+) -> ApiResult<Json<ttrs_shared::ProductClassDto>> {
+    Ok(Json(s.product_classes.get(&s.actor, &plant, &code).await?))
+}
+
+async fn create_product_class(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<ttrs_shared::ProductClassInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::ProductClassDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.product_classes.create(&s.actor, &plant, req).await?),
+    ))
+}
+
+async fn update_product_class(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::ProductClassInput>,
+) -> ApiResult<Json<ttrs_shared::ProductClassDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.product_classes
+            .update(&s.actor, &plant, &code, req)
+            .await?,
+    ))
+}
+
+async fn set_product_class_active(
+    Ctx(s): Ctx,
+    Path((plant, code, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let active = match state.as_str() {
+        "activate" => true,
+        "deactivate" => false,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.product_classes
+            .set_active(&s.actor, &plant, &code, active, version)
+            .await?,
+    )
+    .into_response())
+}
+
+async fn delete_product_class(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.product_classes
+        .delete(&s.actor, &plant, &code, version)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn product_class_history(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.product_classes
+            .history(&s.actor, &plant, &code, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+// ----- Unit Maintenance 單位維護（aooi101） -----
+
+async fn list_units(Ctx(s): Ctx) -> ApiResult<Json<Vec<ttrs_shared::UnitDto>>> {
+    Ok(Json(s.units.list(&s.actor).await?))
+}
+
+async fn get_unit(Ctx(s): Ctx, Path(code): Path<String>) -> ApiResult<Json<ttrs_shared::UnitDto>> {
+    Ok(Json(s.units.get(&s.actor, &code).await?))
+}
+
+async fn create_unit(
+    Ctx(s): Ctx,
+    Json(req): Json<ttrs_shared::UnitInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::UnitDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.units.create(&s.actor, req).await?),
+    ))
+}
+
+async fn update_unit(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<ttrs_shared::UnitInput>,
+) -> ApiResult<Json<ttrs_shared::UnitDto>> {
+    require_version(req.version)?;
+    Ok(Json(s.units.update(&s.actor, &code, req).await?))
+}
+
+/// 停用（deactivate）、啟用（activate）
+async fn set_unit_active(
+    Ctx(s): Ctx,
+    Path((code, state)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let active = match state.as_str() {
+        "activate" => true,
+        "deactivate" => false,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    let version = Some(require_version(v.version)?);
+    Ok(Json(s.units.set_active(&s.actor, &code, active, version).await?).into_response())
+}
+
+async fn delete_unit(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.units.delete(&s.actor, &code, version).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 // ----- Menu Maintenance 選單維護（p_zm）與側欄 -----

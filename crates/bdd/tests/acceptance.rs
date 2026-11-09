@@ -98,6 +98,12 @@ pub struct ErpWorld {
     pub shared_history: ttrs_app::ChangeHistoryService,
     /// 選單維護與側欄（menu_maintenance.feature）
     pub menus: ttrs_app::MenuService,
+    /// 單位維護（unit_maintenance.feature）
+    pub units: ttrs_app::UnitService,
+    /// 產品分類維護（product_classification.feature）
+    pub product_classes: ttrs_app::ProductClassService,
+    /// 料件分群維護（item_group.feature）
+    pub item_groups: ttrs_app::ItemGroupService,
     pub menu_tree: Option<Vec<ttrs_shared::MenuNodeDto>>,
     /// 以應用程式的資料庫角色修改異動記錄是否被拒（CH-9）
     pub db_denied: Option<bool>,
@@ -171,6 +177,9 @@ impl ErpWorld {
             emergency,
             history: shared_history,
             menus,
+            units,
+            product_classes,
+            item_groups,
             authorizer: _,
         } = services;
         Self {
@@ -216,6 +225,9 @@ impl ErpWorld {
             history: None,
             shared_history,
             menus,
+            units,
+            product_classes,
+            item_groups,
             menu_tree: None,
             db_denied: None,
         }

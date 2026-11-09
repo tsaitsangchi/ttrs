@@ -423,6 +423,86 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["刪除分類碼", kind, code] => {
             w.classification.delete(a, "TW01", kind, code, None).await
         }
+        // aooi101 單位維護（共用層）
+        ["查詢單位"] => w.units.list(a).await.map(drop),
+        ["新增單位", code] => {
+            let req = ttrs_shared::UnitInput {
+                unit_code: (*code).into(),
+                name: Some("單位".into()),
+                ..Default::default()
+            };
+            w.units.create(a, req).await.map(drop)
+        }
+        ["修改單位", code] => {
+            let req = ttrs_shared::UnitInput {
+                unit_code: (*code).into(),
+                name: Some("單位".into()),
+                ..Default::default()
+            };
+            w.units.update(a, code, req).await.map(drop)
+        }
+        ["停用單位", code] => w.units.set_active(a, code, false, None).await.map(drop),
+        ["刪除單位", code] => w.units.delete(a, code, None).await,
+        // axmi110 產品分類維護（工廠層，營運中心 TW01）
+        ["查詢產品分類"] => w.product_classes.list(a, "TW01").await.map(drop),
+        ["新增產品分類", code] => {
+            let req = ttrs_shared::ProductClassInput {
+                class_code: (*code).into(),
+                name: Some("分類".into()),
+                ..Default::default()
+            };
+            w.product_classes.create(a, "TW01", req).await.map(drop)
+        }
+        ["修改產品分類", code] => {
+            let req = ttrs_shared::ProductClassInput {
+                class_code: (*code).into(),
+                name: Some("分類".into()),
+                ..Default::default()
+            };
+            w.product_classes
+                .update(a, "TW01", code, req)
+                .await
+                .map(drop)
+        }
+        ["停用產品分類", code] => w
+            .product_classes
+            .set_active(a, "TW01", code, false, None)
+            .await
+            .map(drop),
+        ["刪除產品分類", code] => w.product_classes.delete(a, "TW01", code, None).await,
+        ["查詢產品分類", code, "的異動記錄"] => w
+            .product_classes
+            .history(a, "TW01", code, None)
+            .await
+            .map(drop),
+        // aimi110 料件分群維護（工廠層，營運中心 TW01）
+        ["查詢料件分群"] => w.item_groups.list(a, "TW01").await.map(drop),
+        ["新增料件分群", code] => {
+            let req = ttrs_shared::ItemGroupInput {
+                group_code: (*code).into(),
+                ..Default::default()
+            };
+            w.item_groups.create(a, "TW01", req).await.map(drop)
+        }
+        ["修改料件分群", code] => {
+            let req = ttrs_shared::ItemGroupInput {
+                group_code: (*code).into(),
+                ..Default::default()
+            };
+            w.item_groups.update(a, "TW01", code, req).await.map(drop)
+        }
+        ["停用料件分群", code] => w
+            .item_groups
+            .set_active(a, "TW01", code, false, None)
+            .await
+            .map(drop),
+        ["複製料件分群", from, "為", to] => {
+            w.item_groups.copy(a, "TW01", from, to).await.map(drop)
+        }
+        ["刪除料件分群", code] => w.item_groups.delete(a, "TW01", code, None).await,
+        ["查詢料件分群", code, "的異動記錄"] => {
+            w.item_groups.history(a, "TW01", code, None).await.map(drop)
+        }
         _ => panic!("未定義的操作：{op}（{}）", arg(0)),
     }
 }
@@ -477,6 +557,11 @@ async fn run(w: &mut ErpWorld, op: &str) {
 
 #[given("已登錄 TTRS 已移植的作業")]
 async fn ported_programs(w: &mut ErpWorld) {
+    // 已移植作業的模組（AXM 等）不一定在情境背景中建立，先補齊
+    for (_, _, module, _) in PORTED_PROGRAMS {
+        let sql = "INSERT INTO module (module_code, name) VALUES ($1, $1) ON CONFLICT DO NOTHING";
+        seed(w, |s| s.add_module(module), sql, &[module]).await;
+    }
     for (no, tiptop, module, actions) in PORTED_PROGRAMS {
         let req = ProgramInput {
             program_type: Some("I".into()),

@@ -481,6 +481,8 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                         div { class: "form-grid cols-4",
                             TextField { id: "zta06", label: i18n::t("dictionary-field-created-by"), readonly: true, value: cur.as_ref().map(|d| d.created_by.clone()).unwrap_or_default() }
                             TextField { id: "zta05", label: i18n::t("dictionary-field-created-on"), readonly: true, value: cur.as_ref().map(|d| d.created_on.format("%Y/%m/%d").to_string()).unwrap_or_default() }
+                            // 最後修改時間（到秒，ADR 0012 §9）
+                            TextField { id: "zta-updated-at", label: i18n::t("common-field-updated-at"), readonly: true, value: cur.as_ref().and_then(|d| d.updated_at).map(crate::components::history::local_time).unwrap_or_default() }
                         }
                     }
                 }

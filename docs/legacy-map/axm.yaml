@@ -1,0 +1,28 @@
+# TipTop → TTRS 資料對照：訂單管理 (axm)
+# 來源：tiptop/axm/4gl/axmi110.4gl、tiptop/axm/4fd/axmi110.4fd、tiptop/axm/sch/oba_file.sch
+# 新表：migrations/plant/0005_product_class.sql
+# type：TipTop（Oracle）型別，取自 .sch；sch：.sch 的欄位說明（原文）
+# verify: true 表示意義仍需確認；not_ported 列出不移植的欄位或功能與原因
+
+tables:
+  - legacy: oba_file
+    target: product_class
+    scope: plant
+    program: axmi110（Product Classification Maintenance 產品分類維護）
+    spec: specs/features/axm/product_classification.feature
+    note: "產品分類檔；工廠層（PC2）"
+    columns:
+      - { legacy: oba01,  type: varchar2(10) PK NOT NULL, target: class_code, sch: 產品分類碼, note: "區分大小寫、建立後不可修改（PC3）" }
+      - { legacy: oba02,  type: varchar2(80), target: name, sch: 分類名稱 }
+      - { legacy: oba08,  type: varchar2(1), target: period_format, sch: 計劃期別格式, note: "代碼意義請 Key User 說明（PC6）", verify: true }
+      - { legacy: oba09,  type: number(5), target: periods, sch: 期數, note: "不可小於 0（axm-096）" }
+      - { legacy: oba10,  type: varchar2(10), target: cost_center, sch: 成本中心, note: "有效、管理類別 1／2 的部門（PC4）" }
+      - { legacy: oba11,  type: varchar2(24), target: revenue_account, sch: 銷貨收入科目, note: "會計科目未移植，暫不檢查（PC5）", verify: true }
+      - { legacy: oba111, type: varchar2(24), target: revenue_account2, sch: 銷貨收入科目二, note: "第二本帳參數 aza63 未移植，一律顯示（PC5）", verify: true }
+      - { legacy: "(無)", target: "active / created_by / created_dept / created_on / updated_by / updated_on / version / created_at / updated_at", note: "TTRS 新增標準欄位（PC7、ADR 0012）；轉入時一律有效、所有者為轉檔帳號" }
+    not_ported:
+      - { legacy: oba03, type: varchar2(1), sch: No Use, reason: ".sch 註記 No Use；請 Key User 確認正式區沒有使用", verify: true }
+      - { legacy: oba04, type: varchar2(1), sch: No Use, reason: ".sch 註記 No Use；請 Key User 確認正式區沒有使用", verify: true }
+      - { legacy: oba05, type: varchar2(1), sch: No Use, reason: ".sch 註記 No Use；請 Key User 確認正式區沒有使用", verify: true }
+      - { legacy: oba06, type: varchar2(1), sch: No Use, reason: ".sch 註記 No Use；請 Key User 確認正式區沒有使用", verify: true }
+      - { legacy: oba07, type: "number(9,3)", sch: 轉撥計價加計百分比, reason: "本程式未維護（轉撥計價另有作業）" }

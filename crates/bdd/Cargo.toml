@@ -12,6 +12,7 @@ publish.workspace = true
 [dev-dependencies]
 async-trait.workspace = true
 calamine = "0.38"
+rust_decimal.workspace = true
 chrono.workspace = true
 ttrs-app = { workspace = true, features = ["memory"] }
 ttrs-api = { path = "../api" }

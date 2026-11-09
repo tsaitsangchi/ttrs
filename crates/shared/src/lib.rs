@@ -1431,3 +1431,202 @@ impl MenuNodeDto {
         self.module_code == "MENU"
     }
 }
+
+// ---------------------------------------------------------------------------
+// Unit Maintenance 單位維護（TipTop aooi101 / gfe_file；unit_maintenance.feature）
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UnitDto {
+    pub unit_code: String,
+    pub name: Option<String>,
+    pub decimals: i16,
+    pub active: bool,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UnitInput {
+    pub unit_code: String,
+    pub name: Option<String>,
+    /// 小數位數；空白為 0（UN4）
+    pub decimals: Option<i16>,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+impl UnitDto {
+    pub fn to_input(&self) -> UnitInput {
+        UnitInput {
+            unit_code: self.unit_code.clone(),
+            name: self.name.clone(),
+            decimals: Some(self.decimals),
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::unit 一致）
+pub mod unit_max_len {
+    pub const CODE: usize = 4;
+    pub const NAME: usize = 80;
+}
+
+// ---------------------------------------------------------------------------
+// Product Classification 產品分類維護（TipTop axmi110 / oba_file；product_classification.feature）
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProductClassDto {
+    pub class_code: String,
+    pub name: Option<String>,
+    pub period_format: Option<String>,
+    pub periods: Option<i32>,
+    pub cost_center: Option<String>,
+    /// 成本中心的部門簡稱
+    pub cost_center_name: Option<String>,
+    pub revenue_account: Option<String>,
+    pub revenue_account2: Option<String>,
+    pub active: bool,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ProductClassInput {
+    pub class_code: String,
+    pub name: Option<String>,
+    pub period_format: Option<String>,
+    pub periods: Option<i32>,
+    pub cost_center: Option<String>,
+    pub revenue_account: Option<String>,
+    pub revenue_account2: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+impl ProductClassDto {
+    pub fn to_input(&self) -> ProductClassInput {
+        ProductClassInput {
+            class_code: self.class_code.clone(),
+            name: self.name.clone(),
+            period_format: self.period_format.clone(),
+            periods: self.periods,
+            cost_center: self.cost_center.clone(),
+            revenue_account: self.revenue_account.clone(),
+            revenue_account2: self.revenue_account2.clone(),
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::product_class::max_len 一致）
+pub mod product_class_max_len {
+    pub const CODE: usize = 10;
+    pub const NAME: usize = 80;
+    pub const PERIOD_FORMAT: usize = 1;
+    pub const ACCOUNT: usize = 24;
+}
+
+// ---------------------------------------------------------------------------
+// Item Group 料件分群維護（TipTop aimi110 / imz_file；item_group.feature）
+// ---------------------------------------------------------------------------
+
+/// 料件分群的欄位（第一階段 41 欄，IG3）；新增、修改共用
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ItemGroupInput {
+    pub group_code: String,
+    pub description: Option<String>,
+    pub source_code: Option<String>,
+    pub stock_unit: Option<String>,
+    pub catalog_ref: Option<String>,
+    pub supplier_control: Option<String>,
+    pub drawing_no: Option<String>,
+    pub software: bool,
+    pub engineering: bool,
+    pub insert_qpa_check: bool,
+    pub insert_position: bool,
+    pub material_category: Option<String>,
+    pub coproduct: bool,
+    pub inspection: bool,
+    pub repetitive: bool,
+    pub abc_code: Option<String>,
+    pub consumable: bool,
+    pub replenish_policy: Option<String>,
+    pub reorder_point: Option<rust_decimal::Decimal>,
+    pub reorder_qty: Option<rust_decimal::Decimal>,
+    pub safety_stock: Option<rust_decimal::Decimal>,
+    pub safety_period: Option<rust_decimal::Decimal>,
+    pub shelf_life_days: Option<i32>,
+    pub mrp_bucket_days: Option<i32>,
+    pub warehouse: Option<String>,
+    pub location: Option<String>,
+    pub stock_keeper: Option<String>,
+    pub sales_stat_unit: Option<String>,
+    pub second_unit: Option<String>,
+    pub pricing_unit: Option<String>,
+    pub other_group1: Option<String>,
+    pub other_group2: Option<String>,
+    pub other_group3: Option<String>,
+    pub other_group4: Option<String>,
+    pub account: Option<String>,
+    pub account2: Option<String>,
+    pub bonded: bool,
+    pub bonded_class: Option<String>,
+    pub tariff_no: Option<String>,
+    pub bonded_type: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemGroupDto {
+    /// 欄位（version 為目前版本）
+    #[serde(flatten)]
+    pub fields: ItemGroupInput,
+    /// 倉管員姓名
+    pub stock_keeper_name: Option<String>,
+    pub active: bool,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl ItemGroupDto {
+    pub fn to_input(&self) -> ItemGroupInput {
+        ItemGroupInput {
+            version: Some(self.version),
+            ..self.fields.clone()
+        }
+    }
+}

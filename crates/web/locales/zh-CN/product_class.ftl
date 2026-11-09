@@ -1,0 +1,21 @@
+# 產品分類維護（TipTop axmi110；specs/features/axm/product_classification.feature）
+pclass-breadcrumb = 订单管理 / Product Classification Maintenance
+pclass-title = 产品分类维护
+pclass-list-title = 产品分类
+pclass-field-code = 产品分类码
+pclass-field-name = 分类名称
+pclass-field-period-format = 计划期别格式
+pclass-field-periods = 期数
+pclass-field-cost-center = 成本中心
+pclass-field-revenue-account = 销货收入科目
+pclass-field-revenue-account2 = 销货收入科目二
+pclass-action-activate = 启用
+pclass-action-deactivate = 停用
+pclass-dialog-new = 新增产品分类
+pclass-dialog-edit = 修改产品分类 { $code }
+pclass-msg-saved = 产品分类 { $code } 已保存
+pclass-msg-deleted = 产品分类 { $code } 已删除
+pclass-msg-activated = 产品分类 { $code } 已启用
+pclass-msg-deactivated = 产品分类 { $code } 已停用
+pclass-hint-cost-center = 成本中心须为有效、管理类别为成本中心或利润中心的部门。
+pclass-hint-account = 会计科目尚未移植，销货收入科目暂不检查是否存在。

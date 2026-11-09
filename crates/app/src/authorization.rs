@@ -100,6 +100,24 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AZZ",
         "insert, query, delete, detail, reproduce, history",
     ),
+    (
+        "unit-maintenance",
+        "aooi101",
+        "AOO",
+        "query, detail, history",
+    ),
+    (
+        "product-classification-maintenance",
+        "axmi110",
+        "AXM",
+        "query, detail, history",
+    ),
+    (
+        "item-group-maintenance",
+        "aimi110",
+        "AIM",
+        "insert, query, modify, delete, reproduce, invalid, history",
+    ),
 ];
 
 /// 身分種類（ADR 0006 §6）

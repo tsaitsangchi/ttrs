@@ -7936,6 +7936,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "getrandom 0.3.4",
+ "rust_decimal",
  "sha2 0.10.9",
  "thiserror 2.0.21",
  "tokio",
@@ -7953,6 +7954,7 @@ dependencies = [
  "calamine",
  "chrono",
  "cucumber",
+ "rust_decimal",
  "sqlx",
  "tokio",
  "tower",
@@ -7969,6 +7971,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "chrono-tz",
+ "rust_decimal",
  "thiserror 2.0.21",
 ]
 
@@ -7979,6 +7982,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "lettre",
+ "rust_decimal",
  "rust_xlsxwriter",
  "serde_json",
  "sqlx",
@@ -7995,6 +7999,7 @@ name = "ttrs-shared"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "rust_decimal",
  "serde",
 ]
 
@@ -8006,6 +8011,7 @@ dependencies = [
  "fluent-bundle",
  "js-sys",
  "reqwest 0.13.5",
+ "rust_decimal",
  "serde",
  "serde_json",
  "ttrs-shared",
@@ -8812,6 +8818,7 @@ dependencies = [
  "cfg-if",
  "once_cell",
  "rustversion",
+ "serde",
  "wasm-bindgen-macro",
  "wasm-bindgen-shared",
 ]

@@ -843,7 +843,7 @@ fn ProgramMaintenancePage() -> Element {
                                                 td { {p.program_type.clone().unwrap_or_default()} }
                                                 td { {t(report_type_id(p.report_type))} }
                                                 td { class: "mono", {p.run_command.clone().unwrap_or_default()} }
-                                                td { "{p.updated_on}" }
+                                                td { class: "mono", {p.updated_at.map(crate::components::history::local_time).unwrap_or_else(|| p.updated_on.format("%Y/%m/%d 00:00:00").to_string())} }
                                             }
                                         }
                                     }

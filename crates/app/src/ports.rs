@@ -520,3 +520,86 @@ pub trait MenuRepository: Send + Sync {
     /// 刪除目錄的全部單身（p_zm.4gl:604-636）
     async fn clear_menu(&self, menu: &str) -> Result<(), RepoError>;
 }
+
+/// 單位（gfe_file，aooi101）；共用 schema（UN2）
+#[async_trait]
+pub trait UnitRepository: Send + Sync {
+    /// 全部單位，依代碼排序
+    async fn list_units(&self) -> Result<Vec<ttrs_domain::unit::Unit>, RepoError>;
+    async fn get_unit(
+        &self,
+        code: &ttrs_domain::unit::UnitCode,
+    ) -> Result<Option<ttrs_domain::unit::Unit>, RepoError>;
+    /// 代碼重複回 `Conflict`
+    async fn insert_unit(&self, unit: &ttrs_domain::unit::Unit) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`
+    async fn update_unit(&self, unit: &ttrs_domain::unit::Unit) -> Result<(), RepoError>;
+    /// 已被料件等資料引用時回 `InUse`（UN5）；回傳是否有刪到
+    async fn delete_unit(&self, code: &ttrs_domain::unit::UnitCode) -> Result<bool, RepoError>;
+}
+
+/// 產品分類（oba_file，axmi110）；工廠層（PC2）
+#[async_trait]
+pub trait ProductClassRepository: Send + Sync {
+    /// 全部產品分類，依分類碼排序
+    async fn list_product_classes(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Vec<ttrs_domain::product_class::ProductClass>, RepoError>;
+    async fn get_product_class(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::product_class::ProductClassCode,
+    ) -> Result<Option<ttrs_domain::product_class::ProductClass>, RepoError>;
+    /// 分類碼重複回 `Conflict`
+    async fn insert_product_class(
+        &self,
+        plant: &PlantId,
+        c: &ttrs_domain::product_class::ProductClass,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`
+    async fn update_product_class(
+        &self,
+        plant: &PlantId,
+        c: &ttrs_domain::product_class::ProductClass,
+    ) -> Result<(), RepoError>;
+    /// 被料件引用時回 `InUse`（PC8）；回傳是否有刪到
+    async fn delete_product_class(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::product_class::ProductClassCode,
+    ) -> Result<bool, RepoError>;
+}
+
+/// 料件分群（imz_file，aimi110）；工廠層（IG2）
+#[async_trait]
+pub trait ItemGroupRepository: Send + Sync {
+    /// 全部料件分群，依分群碼排序
+    async fn list_item_groups(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Vec<ttrs_domain::item_group::ItemGroup>, RepoError>;
+    async fn get_item_group(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::item_group::ItemGroupCode,
+    ) -> Result<Option<ttrs_domain::item_group::ItemGroup>, RepoError>;
+    /// 分群碼重複回 `Conflict`
+    async fn insert_item_group(
+        &self,
+        plant: &PlantId,
+        g: &ttrs_domain::item_group::ItemGroup,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`
+    async fn update_item_group(
+        &self,
+        plant: &PlantId,
+        g: &ttrs_domain::item_group::ItemGroup,
+    ) -> Result<(), RepoError>;
+    /// 被料件引用時回 `InUse`（IG7，mfg9045）；回傳是否有刪到
+    async fn delete_item_group(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::item_group::ItemGroupCode,
+    ) -> Result<bool, RepoError>;
+}

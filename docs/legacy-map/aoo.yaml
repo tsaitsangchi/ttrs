@@ -131,3 +131,21 @@ tables:
       - { legacy: azo05, type: varchar2(80), target: record_key, sch: 異動資料的 KEY VALUE, note: "改為 jsonb（主鍵欄位與值）" }
       - { legacy: azo06, type: varchar2(80), target: operation, sch: 異動說明, note: "改為動作代號（insert／update／delete／activate…）＋改前改後整筆內容（before／after）" }
 
+  - legacy: gfe_file
+    target: unit
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（UN2），轉入以總公司資料為準，差異請 Key User 確認"
+    verify: true
+    program: aooi101（Unit Maintenance 單位維護）
+    spec: specs/features/aoo/unit_maintenance.feature
+    note: "單位檔；沿用 migrations/0001 的 unit 表，0027 擴充"
+    columns:
+      - { legacy: gfe01,   type: varchar2(4) PK NOT NULL, target: unit_code, sch: 單位, note: "區分大小寫、建立後不可修改（UN3）" }
+      - { legacy: gfe02,   type: varchar2(80), target: name, sch: 說明 }
+      - { legacy: gfe03,   type: number(5), target: decimals, sch: 小數位數, note: "0–6，預設 0（UN4）" }
+      - { legacy: gfeacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean" }
+      - { legacy: gfeuser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: gfegrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
+      - { legacy: gfemodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
+      - { legacy: gfedate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }

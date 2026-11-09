@@ -12,10 +12,12 @@ use components::session::{
 use dioxus::prelude::*;
 use i18n::{UiLang, t};
 use pages::{
-    aim::ItemList,
+    aim::{ItemGroupMaintenance, ItemList},
     aoo::{
-        ClassificationCodeMaintenance, DepartmentMaintenance, EmployeeMaintenance, PlantMaintenance,
+        ClassificationCodeMaintenance, DepartmentMaintenance, EmployeeMaintenance,
+        PlantMaintenance, UnitMaintenance,
     },
+    axm::ProductClassificationMaintenance,
     azz::{
         DataDictionary, MenuMaintenance, PermissionClassMaintenance, ProgramMaintenance,
         ProgramPermissions, ProgramPermissionsFor, UserMaintenance, UserPermissions,
@@ -42,6 +44,9 @@ enum Route {
         /// aimi100 料件基本資料
         #[route("/aim/item-maintenance")]
         ItemList {},
+        /// Item Group Maintenance 料件分群維護（TipTop aimi110）
+        #[route("/aim/item-group-maintenance")]
+        ItemGroupMaintenance {},
         /// Plant Maintenance 營運中心維護（TipTop aooi901）
         #[route("/aoo/plant-maintenance")]
         PlantMaintenance {},
@@ -52,6 +57,12 @@ enum Route {
         /// Classification Code Maintenance 分類碼維護（TipTop aooi300）
         #[route("/aoo/classification-code-maintenance")]
         ClassificationCodeMaintenance {},
+        /// Unit Maintenance 單位維護（TipTop aooi101）
+        #[route("/aoo/unit-maintenance")]
+        UnitMaintenance {},
+        /// Product Classification Maintenance 產品分類維護（TipTop axmi110）
+        #[route("/axm/product-classification-maintenance")]
+        ProductClassificationMaintenance {},
         /// Program Maintenance 程式維護（TipTop p_zz）
         #[route("/azz/program-maintenance")]
         ProgramMaintenance {},
@@ -127,6 +138,11 @@ fn NavIcon(path: &'static str, tone: Tone) -> Element {
 fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
     Some(match program {
         "item-maintenance" => (Route::ItemList {}, icons::CATEGORY, Tone::Tertiary),
+        "item-group-maintenance" => (
+            Route::ItemGroupMaintenance {},
+            icons::INVENTORY,
+            Tone::Tertiary,
+        ),
         "plant-maintenance" => (Route::PlantMaintenance {}, icons::FACTORY, Tone::Success),
         "department-maintenance" => (
             Route::DepartmentMaintenance {},
@@ -141,6 +157,12 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
         "classification-code-maintenance" => (
             Route::ClassificationCodeMaintenance {},
             icons::LABEL,
+            Tone::Success,
+        ),
+        "unit-maintenance" => (Route::UnitMaintenance {}, icons::LABEL, Tone::Success),
+        "product-classification-maintenance" => (
+            Route::ProductClassificationMaintenance {},
+            icons::CATEGORY,
             Tone::Success,
         ),
         "program-maintenance" => (Route::ProgramMaintenance {}, icons::APPS, Tone::Primary),

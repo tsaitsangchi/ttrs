@@ -358,6 +358,25 @@
       | menu-maintenance | reproduce                  | 複製目錄 menu-a 為 menu-b  |
       | menu-maintenance | delete                     | 刪除目錄 menu-a            |
       | menu-maintenance | history                    | 查詢作業 menu-maintenance menu-a 的異動記錄 |
+      | unit-maintenance | query                      | 查詢單位                   |
+      | unit-maintenance | detail                     | 新增單位 KG                |
+      | unit-maintenance | detail                     | 修改單位 KG                |
+      | unit-maintenance | detail                     | 停用單位 KG                |
+      | unit-maintenance | detail                     | 刪除單位 KG                |
+      | unit-maintenance | history                    | 查詢作業 unit-maintenance KG 的異動記錄 |
+      | product-classification-maintenance | query    | 查詢產品分類               |
+      | product-classification-maintenance | detail   | 新增產品分類 P01           |
+      | product-classification-maintenance | detail   | 修改產品分類 P01           |
+      | product-classification-maintenance | detail   | 停用產品分類 P01           |
+      | product-classification-maintenance | detail   | 刪除產品分類 P01           |
+      | product-classification-maintenance | history  | 查詢產品分類 P01 的異動記錄 |
+      | item-group-maintenance | query                | 查詢料件分群               |
+      | item-group-maintenance | insert               | 新增料件分群 G01           |
+      | item-group-maintenance | modify               | 修改料件分群 G01           |
+      | item-group-maintenance | invalid              | 停用料件分群 G01           |
+      | item-group-maintenance | reproduce            | 複製料件分群 G01 為 G02    |
+      | item-group-maintenance | delete               | 刪除料件分群 G01           |
+      | item-group-maintenance | history              | 查詢料件分群 G01 的異動記錄 |
 
   # AQ2 權限檢查在輸入檢查之前
   場景: 沒有權限時先回權限錯誤

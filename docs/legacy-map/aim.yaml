@@ -24,12 +24,164 @@ tables:
     verify: true
     columns: []   # 待匯入 tlf_file 結構後補齊
 
-  - legacy: gfe_file
-    target: unit
-    scope: plant
-    scope_note: 單位目前暫放共用 schema（public）；移植單位維護時移入工廠 schema
-    pending: "早期骨架；移植單位維護時逐欄萃取"
-    verify: true
-    columns: []
+  # gfe_file（單位）已移至 docs/legacy-map/aoo.yaml（aooi101）
 
   # azp_file（營運中心）已移至 docs/legacy-map/aoo.yaml（aooi901）
+
+  - legacy: imz_file
+    target: item_group
+    scope: plant
+    program: aimi110（Item Group Maintenance 料件分群維護）
+    spec: specs/features/aim/item_group.feature
+    note: "料件分群碼與料件預設值；工廠層（IG2）。第一階段 41 欄（IG3）"
+    columns:
+      - { legacy: imz01, type: varchar2(10) PK NOT NULL, target: group_code, sch: "料件分群碼" }
+      - { legacy: imz02, type: varchar2(80), target: description, sch: "說明" }
+      - { legacy: imz03, type: varchar2(20), target: catalog_ref, sch: "目錄參考號碼" }
+      - { legacy: imz04, type: varchar2(20), target: drawing_no, sch: "工程圖號" }
+      - { legacy: imz07, type: varchar2(1), target: abc_code, sch: "ABC碼" }
+      - { legacy: imz08, type: varchar2(1), target: source_code, sch: "來源碼" }
+      - { legacy: imz09, type: varchar2(10), target: other_group1, sch: "其他分群碼 一" }
+      - { legacy: imz10, type: varchar2(10), target: other_group2, sch: "其他分群碼 二" }
+      - { legacy: imz11, type: varchar2(10), target: other_group3, sch: "其他分群碼 三" }
+      - { legacy: imz12, type: varchar2(10), target: other_group4, sch: "其他分群碼 四" }
+      - { legacy: imz14, type: varchar2(1), target: engineering, sch: "是否為工程料件" }
+      - { legacy: imz15, type: varchar2(1), target: bonded, sch: "保稅與否" }
+      - { legacy: imz17, type: varchar2(4), target: sales_stat_unit, sch: "銷售統計單位" }
+      - { legacy: imz19, type: varchar2(4), target: bonded_class, sch: "保稅料件進出口分類統計用類", note: "尚未移植對應主檔，先存代碼不檢查（IG4）", verify: true }
+      - { legacy: imz21, type: varchar2(4), target: tariff_no, sch: "保稅料件稅則編號", note: "尚未移植對應主檔，先存代碼不檢查（IG4）", verify: true }
+      - { legacy: imz23, type: varchar2(10), target: stock_keeper, sch: "倉管員" }
+      - { legacy: imz24, type: varchar2(1), target: inspection, sch: "檢驗否" }
+      - { legacy: imz25, type: varchar2(4), target: stock_unit, sch: "庫存單位" }
+      - { legacy: imz27, type: number(15,3), target: safety_stock, sch: "安全庫存量" }
+      - { legacy: imz28, type: number(15,3), target: safety_period, sch: "安全庫存期間" }
+      - { legacy: imz35, type: varchar2(10), target: warehouse, sch: "主要倉庫別", note: "尚未移植對應主檔，先存代碼不檢查（IG4）", verify: true }
+      - { legacy: imz36, type: varchar2(10), target: location, sch: "主要儲位別", note: "尚未移植對應主檔，先存代碼不檢查（IG4）", verify: true }
+      - { legacy: imz37, type: varchar2(1), target: replenish_policy, sch: "補貨策略碼" }
+      - { legacy: imz38, type: number(15,3), target: reorder_point, sch: "再補貨點" }
+      - { legacy: imz39, type: varchar2(24), target: account, sch: "料件所屬會計科目", note: "尚未移植對應主檔，先存代碼不檢查（IG4）", verify: true }
+      - { legacy: imz70, type: varchar2(1), target: consumable, sch: "消秏料件" }
+      - { legacy: imz71, type: number(5), target: shelf_life_days, sch: "儲存有效天數" }
+      - { legacy: imz99, type: number(15,3), target: reorder_qty, sch: "再補貨量" }
+      - { legacy: imz105, type: varchar2(1), target: software, sch: "是否為軟體物件" }
+      - { legacy: imz106, type: varchar2(1), target: bonded_type, sch: "保稅料件型態" }
+      - { legacy: imz107, type: varchar2(1), target: insert_position, sch: "插件位置" }
+      - { legacy: imz109, type: varchar2(10), target: material_category, sch: "材料類別" }
+      - { legacy: imz147, type: varchar2(1), target: insert_qpa_check, sch: "插件位置與QPA是否要勾稽" }
+      - { legacy: imz903, type: varchar2(1), target: coproduct, sch: "可否做聯產品入庫" }
+      - { legacy: imzacti, type: varchar2(1), target: active, sch: "資料有效碼" }
+      - { legacy: imzuser, type: varchar2(10), target: created_by, sch: "資料所有者" }
+      - { legacy: imzgrup, type: varchar2(10), target: created_dept, sch: "資料所有群" }
+      - { legacy: imzmodu, type: varchar2(10), target: updated_by, sch: "資料更改者" }
+      - { legacy: imzdate, type: date, target: "created_on / updated_on", sch: "最近修改日", note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: imz907, type: varchar2(4), target: second_unit, sch: "第二單位(母單位/參考單位)" }
+      - { legacy: imz908, type: varchar2(4), target: pricing_unit, sch: "計價單位" }
+      - { legacy: imz909, type: number(5), target: mrp_bucket_days, sch: "MRP匯總時距(天)(預留欄位)" }
+      - { legacy: imz911, type: varchar2(1), target: repetitive, sch: "是否為重覆性生產料件 (Y/N)" }
+      - { legacy: imz391, type: varchar2(24), target: account2, sch: "會計科目二", note: "尚未移植對應主檔，先存代碼不檢查（IG4）", verify: true }
+      - { legacy: imz72, type: varchar2(1) NOT NULL, target: supplier_control, sch: "是否需做供應商的管制", note: "代碼意義待 Key User 確認", verify: true }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）；轉入時 version＝1、created_at＝轉檔時間" }
+    not_ported:
+      - { legacy: imz31, type: varchar2(4), sch: "銷售單位", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz31_fac, type: number(20,8), sch: "銷售單位/庫存單位換算率", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz34, type: varchar2(10), sch: "成本中心", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz42, type: varchar2(1), sch: "批號追蹤方式", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz43, type: varchar2(10), sch: "採購員", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz44, type: varchar2(4), sch: "採購單位", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz44_fac, type: number(20,8), sch: "採購單位/庫存單位換算率", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz45, type: number(15,3), sch: "採購單位倍量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz46, type: number(15,3), sch: "最少採購數量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz47, type: number(9,4), sch: "採購損耗率", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz48, type: number(15,3), sch: "採購安全期", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz49, type: number(15,3), sch: "到廠前置期", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz491, type: number(15,3), sch: "入庫前置期", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz50, type: number(15,3), sch: "請購安全期", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz51, type: number(15,3), sch: "經濟訂購量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz52, type: number(15,3), sch: "平均訂購量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz54, type: varchar2(10), sch: "主要供應廠商", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz55, type: varchar2(4), sch: "生產單位", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz55_fac, type: number(20,8), sch: "生產單位/庫存單位換算率", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz56, type: number(15,3), sch: "生產單位倍量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz561, type: number(15,3), sch: "最少生產數量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz562, type: number(9,4), sch: "生產損耗率", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz571, type: varchar2(40), sch: "主製程料件", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz59, type: number(15,3), sch: "固定前置時間", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz60, type: number(15,3), sch: "變動前置時間", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz61, type: number(15,3), sch: "QC 前置時間", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz62, type: number(15,3), sch: "累計前置時間", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz63, type: varchar2(4), sch: "發料單位", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz63_fac, type: number(20,8), sch: "發料單位/庫存單位換算率", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz64, type: number(15,3), sch: "發料單位倍量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz641, type: number(15,3), sch: "最少發料數量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz65, type: number(15,3), sch: "發料安全存量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz66, type: number(15,3), sch: "發料安全期", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz67, type: varchar2(10), sch: "計劃員", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz68, type: number(15,3), sch: "需求時距", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz69, type: number(15,3), sch: "計劃時距", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz86, type: varchar2(4), sch: "成本單位", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz86_fac, type: number(20,8), sch: "成本/庫存單位換算", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz87, type: varchar2(10), sch: "成本項目", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz871, type: number(9,4), sch: "材料製造費用分攤率", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz872, type: varchar2(10), sch: "材料製造費用成本項目", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz873, type: number(9,4), sch: "人工製造費用分攤率", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz874, type: varchar2(10), sch: "人工製造費用成本項目", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz88, type: number(15,3), sch: "期間採購數量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz89, type: number(5), sch: "期間採購使用的期間", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz90, type: number(5), sch: "期間採購使用的期間", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz94, type: varchar2(10), sch: "預設製程編號 (工單開立時預", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz100, type: varchar2(1), sch: "檢驗程度", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz101, type: varchar2(1), sch: "檢驗水準", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz102, type: varchar2(1), sch: "級數", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz103, type: varchar2(1), sch: "採購特性", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz108, type: varchar2(1), sch: "工單發料前調撥否", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz110, type: varchar2(1), sch: "工單開立展開選項", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz130, type: varchar2(1), sch: "產品銷售特性", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz131, type: varchar2(10), sch: "產品分類編號", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz132, type: varchar2(24), sch: "費用科目編號", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz133, type: varchar2(40), sch: "產品預測料號", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz134, type: varchar2(15), sch: "主要包裝方式編號", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz148, type: number(5), sch: "保證期", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz906, type: varchar2(1), sch: "單位使用方式1.單一單位2.母子", reason: "系統參數 sma115 未移植，固定單一單位（IG6）" }
+      - { legacy: imz136, type: varchar2(10), sch: "主要WIP 倉庫", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz137, type: varchar2(10), sch: "主要WIP 儲位", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz1321, type: varchar2(24), sch: "費用科目二", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz150, type: varchar2(1) NOT NULL, sch: "'  收貨替代方式", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz152, type: varchar2(1) NOT NULL, sch: "'  PO對Blanket PO替代方式", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imzud01, type: varchar2(255), sch: "自訂欄位-Textedit", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud02, type: varchar2(40), sch: "自訂欄位-文字", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud03, type: varchar2(40), sch: "自訂欄位-文字", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud04, type: varchar2(40), sch: "自訂欄位-文字", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud05, type: varchar2(40), sch: "自訂欄位-文字", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud06, type: varchar2(40), sch: "自訂欄位-文字", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud07, type: number(15,3), sch: "自訂欄位-數值", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud08, type: number(15,3), sch: "自訂欄位-數值", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud09, type: number(15,3), sch: "自訂欄位-數值", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud10, type: number(10), sch: "自訂欄位-整數", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud11, type: number(10), sch: "自訂欄位-整數", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud12, type: number(10), sch: "自訂欄位-整數", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud13, type: date, sch: "自訂欄位-日期", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud14, type: date, sch: "自訂欄位-日期", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imzud15, type: date, sch: "自訂欄位-日期", reason: "自訂欄位，機制另案（IG12）" }
+      - { legacy: imz601, type: number(15,3), sch: "變動前置時間批量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imz153, type: number(9,4), sch: "工單完工誤差率", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
+      - { legacy: imzicd01, type: varchar2(40), sch: "母體料號", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imzicd02, type: varchar2(40), sch: "外編母體", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imzicd03, type: varchar2(40), sch: "外編子體", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imzicd04, type: varchar2(1), sch: "料件狀態", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imzicd05, type: varchar2(1), sch: "料件特性", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imzicd06, type: varchar2(40), sch: "內編子體", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imzicd07, type: varchar2(1), sch: "RoHs", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imzicd08, type: varchar2(1), sch: "刻號/BIN管理", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imzicd09, type: varchar2(1), sch: "Date Code 否", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imzicd10, type: varchar2(10), sch: "作業群組", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imzicd12, type: number(9,4), sch: "備品比率", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imzicd79, type: varchar2(80), sch: "ICD 群組", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+      - { legacy: imz918, type: varchar2(1), sch: "製造批號管理否", reason: "批號／序號管理隨庫存模組移植（IG12）" }
+      - { legacy: imz919, type: varchar2(1), sch: "製造批號自動編碼否", reason: "批號／序號管理隨庫存模組移植（IG12）" }
+      - { legacy: imz920, type: varchar2(10), sch: "製造批號編碼原則", reason: "批號／序號管理隨庫存模組移植（IG12）" }
+      - { legacy: imz921, type: varchar2(1), sch: "序號管理否", reason: "批號／序號管理隨庫存模組移植（IG12）" }
+      - { legacy: imz922, type: varchar2(1), sch: "序號自動編碼否", reason: "批號／序號管理隨庫存模組移植（IG12）" }
+      - { legacy: imz923, type: varchar2(10), sch: "序號編碼原則", reason: "批號／序號管理隨庫存模組移植（IG12）" }
+      - { legacy: imz924, type: varchar2(1), sch: "序號唯一否", reason: "批號／序號管理隨庫存模組移植（IG12）" }
+      - { legacy: imz925, type: varchar2(1), sch: "排序方式", reason: "批號／序號管理隨庫存模組移植（IG12）" }
+      - { legacy: imzicd13, type: varchar2(1), sch: "批號管控否", reason: "ICD 資料（IC 設計行業別功能，IG12）" }

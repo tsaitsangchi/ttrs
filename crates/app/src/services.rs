@@ -11,13 +11,15 @@ use crate::{
     ports::{
         AccountPolicyRepository, AuditLog, ChangeLogRepository, ClassificationCodeRepository,
         CredentialRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
-        ItemRepository, LegacyCatalogRepository, MasterDataRepository, MenuRepository,
-        PasswordResetTokenRepository, PermissionClassRepository, PlantRepository,
-        ProgramPermissionRepository, ProgramRepository, SchemaCatalog, UserPermissionRepository,
-        UserRepository,
+        ItemGroupRepository, ItemRepository, LegacyCatalogRepository, MasterDataRepository,
+        MenuRepository, PasswordResetTokenRepository, PermissionClassRepository, PlantRepository,
+        ProductClassRepository, ProgramPermissionRepository, ProgramRepository, SchemaCatalog,
+        UnitRepository, UserPermissionRepository, UserRepository,
     },
 };
-use crate::{ChangeHistoryService, MenuService};
+use crate::{
+    ChangeHistoryService, ItemGroupService, MenuService, ProductClassService, UnitService,
+};
 
 /// 實作全部 repository 的資料存取（ttrs_infra::PgStore、memory::InMemoryStore）
 pub trait Store:
@@ -41,6 +43,9 @@ pub trait Store:
     + ClassificationCodeRepository
     + ChangeLogRepository
     + MenuRepository
+    + UnitRepository
+    + ProductClassRepository
+    + ItemGroupRepository
     + 'static
 {
 }
@@ -66,6 +71,9 @@ impl<T> Store for T where
         + ClassificationCodeRepository
         + ChangeLogRepository
         + MenuRepository
+        + UnitRepository
+        + ProductClassRepository
+        + ItemGroupRepository
         + 'static
 {
 }
@@ -94,6 +102,12 @@ pub struct Services {
     pub history: ChangeHistoryService,
     /// 選單維護與側欄（p_zm）
     pub menus: MenuService,
+    /// 單位維護（aooi101）
+    pub units: UnitService,
+    /// 產品分類維護（axmi110）
+    pub product_classes: ProductClassService,
+    /// 料件分群維護（aimi110）
+    pub item_groups: ItemGroupService,
     pub authorizer: Arc<dyn Authorizer>,
 }
 
@@ -176,7 +190,24 @@ impl Services {
                 store.clone(),
                 history.clone(),
             ),
-            history: ChangeHistoryService::new(a.clone(), history),
+            history: ChangeHistoryService::new(a.clone(), history.clone()),
+            units: UnitService::new(a.clone(), store.clone()),
+            product_classes: ProductClassService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                history.clone(),
+            ),
+            item_groups: ItemGroupService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                history.clone(),
+            ),
             menus: MenuService::new(
                 a.clone(),
                 store.clone(),

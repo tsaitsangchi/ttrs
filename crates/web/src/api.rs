@@ -1399,3 +1399,212 @@ pub async fn delete_menu(menu: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     no_content(res).await
 }
+
+// ----- Unit 單位維護（TipTop aooi101；共用層） -----
+
+fn unit_url(code: &str, suffix: &str) -> String {
+    if code.is_empty() {
+        url(&format!("/api/units{suffix}"))
+    } else {
+        url(&format!("/api/units/{}{suffix}", urlencoding(code)))
+    }
+}
+
+pub async fn list_units() -> Result<Vec<ttrs_shared::UnitDto>, String> {
+    get_json(unit_url("", "")).await
+}
+
+pub async fn create_unit(req: &ttrs_shared::UnitInput) -> Result<ttrs_shared::UnitDto, String> {
+    send_json(reqwest::Method::POST, unit_url("", ""), Some(req)).await
+}
+
+pub async fn update_unit(
+    code: &str,
+    req: &ttrs_shared::UnitInput,
+) -> Result<ttrs_shared::UnitDto, String> {
+    send_json(reqwest::Method::PUT, unit_url(code, ""), Some(req)).await
+}
+
+pub async fn set_unit_active(
+    code: &str,
+    active: bool,
+    version: i32,
+) -> Result<ttrs_shared::UnitDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!("{}?version={version}", unit_url(code, suffix)),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_unit(code: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!("{}?version={version}", unit_url(code, "")))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+// ----- Product Classification 產品分類維護（TipTop axmi110；工廠層） -----
+
+pub async fn list_product_classes(
+    plant: &str,
+) -> Result<Vec<ttrs_shared::ProductClassDto>, String> {
+    get_json(plant_part_url(plant, "product-classes", "", "")).await
+}
+
+pub async fn create_product_class(
+    plant: &str,
+    req: &ttrs_shared::ProductClassInput,
+) -> Result<ttrs_shared::ProductClassDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "product-classes", "", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_product_class(
+    plant: &str,
+    code: &str,
+    req: &ttrs_shared::ProductClassInput,
+) -> Result<ttrs_shared::ProductClassDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        plant_part_url(plant, "product-classes", code, ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn set_product_class_active(
+    plant: &str,
+    code: &str,
+    active: bool,
+    version: i32,
+) -> Result<ttrs_shared::ProductClassDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "product-classes", code, suffix)
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_product_class(plant: &str, code: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            plant_part_url(plant, "product-classes", code, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn product_class_history(
+    plant: &str,
+    code: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!(
+        "{}?lang={lang}",
+        plant_part_url(plant, "product-classes", code, "/history")
+    ))
+    .await
+}
+
+// ----- Item Group 料件分群維護（TipTop aimi110；工廠層） -----
+
+pub async fn list_item_groups(plant: &str) -> Result<Vec<ttrs_shared::ItemGroupDto>, String> {
+    get_json(plant_part_url(plant, "item-groups", "", "")).await
+}
+
+pub async fn create_item_group(
+    plant: &str,
+    req: &ttrs_shared::ItemGroupInput,
+) -> Result<ttrs_shared::ItemGroupDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "item-groups", "", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_item_group(
+    plant: &str,
+    code: &str,
+    req: &ttrs_shared::ItemGroupInput,
+) -> Result<ttrs_shared::ItemGroupDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        plant_part_url(plant, "item-groups", code, ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn copy_item_group(
+    plant: &str,
+    code: &str,
+    new_code: &str,
+) -> Result<ttrs_shared::ItemGroupDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "item-groups", code, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+pub async fn set_item_group_active(
+    plant: &str,
+    code: &str,
+    active: bool,
+    version: i32,
+) -> Result<ttrs_shared::ItemGroupDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "item-groups", code, suffix)
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_item_group(plant: &str, code: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            plant_part_url(plant, "item-groups", code, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn item_group_history(
+    plant: &str,
+    code: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!(
+        "{}?lang={lang}",
+        plant_part_url(plant, "item-groups", code, "/history")
+    ))
+    .await
+}

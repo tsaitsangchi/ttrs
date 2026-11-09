@@ -1,0 +1,21 @@
+# 產品分類維護（TipTop axmi110；specs/features/axm/product_classification.feature）
+pclass-breadcrumb = Sales / Product Classification Maintenance
+pclass-title = Product Classification Maintenance
+pclass-list-title = Product classes
+pclass-field-code = Product class
+pclass-field-name = Name
+pclass-field-period-format = Planning period format
+pclass-field-periods = Periods
+pclass-field-cost-center = Cost center
+pclass-field-revenue-account = Sales revenue account
+pclass-field-revenue-account2 = Sales revenue account 2
+pclass-action-activate = Activate
+pclass-action-deactivate = Deactivate
+pclass-dialog-new = New product class
+pclass-dialog-edit = Edit product class { $code }
+pclass-msg-saved = Product class { $code } saved
+pclass-msg-deleted = Product class { $code } deleted
+pclass-msg-activated = Product class { $code } activated
+pclass-msg-deactivated = Product class { $code } deactivated
+pclass-hint-cost-center = The cost center must be an active department whose control type is cost center or profit center.
+pclass-hint-account = Accounts are not ported yet; revenue accounts are not checked.
