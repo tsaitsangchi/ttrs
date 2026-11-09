@@ -124,8 +124,18 @@ impl Services {
         let admins: Arc<dyn Authorizer> =
             Arc::new(PermissionAuthorizer::new(store.clone(), store.clone()));
         let history = HistoryReader::new(store.clone(), store.clone());
+        let item_repos = crate::item_service::ItemRepos {
+            items: store.clone(),
+            groups: store.clone(),
+            units: store.clone(),
+            classes: store.clone(),
+            codes: store.clone(),
+            employees: store.clone(),
+            departments: store.clone(),
+            master: store.clone(),
+        };
         Self {
-            items: ItemService::new(a.clone(), store.clone(), store.clone()),
+            items: ItemService::new(a.clone(), item_repos.clone(), history.clone()),
             programs: ProgramService::new(a.clone(), store.clone()),
             dictionary: DataDictionaryService::new(
                 a.clone(),
@@ -199,15 +209,7 @@ impl Services {
                 store.clone(),
                 history.clone(),
             ),
-            item_groups: ItemGroupService::new(
-                a.clone(),
-                store.clone(),
-                store.clone(),
-                store.clone(),
-                store.clone(),
-                store.clone(),
-                history.clone(),
-            ),
+            item_groups: ItemGroupService::new(a.clone(), item_repos, history.clone()),
             menus: MenuService::new(
                 a.clone(),
                 store.clone(),

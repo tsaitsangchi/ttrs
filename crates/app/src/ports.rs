@@ -19,15 +19,33 @@ use ttrs_domain::{
 
 use crate::error::RepoError;
 
+/// 料件（工廠層；item_maintenance.feature）
 #[async_trait]
 pub trait ItemRepository: Send + Sync {
-    async fn get(&self, plant: &PlantId, no: &ItemNo) -> Result<Option<Item>, RepoError>;
-    async fn list(&self, plant: &PlantId) -> Result<Vec<Item>, RepoError>;
-    async fn insert(&self, item: &Item) -> Result<(), RepoError>;
-    async fn update(&self, item: &Item) -> Result<(), RepoError>;
-    async fn delete(&self, plant: &PlantId, no: &ItemNo) -> Result<(), RepoError>;
+    /// 全部料件，依料號排序
+    async fn list_items(&self, plant: &PlantId) -> Result<Vec<Item>, RepoError>;
+    async fn get_item(&self, plant: &PlantId, no: &ItemNo) -> Result<Option<Item>, RepoError>;
+    /// 料號重複回 `Conflict`
+    async fn insert_item(&self, plant: &PlantId, item: &Item) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`（ADR 0012 §4）
+    async fn update_item(&self, plant: &PlantId, item: &Item) -> Result<(), RepoError>;
+    /// 連同多語言品名一併刪除；不存在回 false
+    async fn delete_item(&self, plant: &PlantId, no: &ItemNo) -> Result<bool, RepoError>;
     /// 是否已有庫存異動（TipTop: tlf_file）
     async fn has_transactions(&self, plant: &PlantId, no: &ItemNo) -> Result<bool, RepoError>;
+    /// 其他語系的品名、規格
+    async fn item_texts(
+        &self,
+        plant: &PlantId,
+        no: &ItemNo,
+    ) -> Result<Vec<ttrs_domain::item::ItemText>, RepoError>;
+    /// 新增或取代一個語系的品名、規格；兩者皆空白時刪除該語系
+    async fn set_item_text(
+        &self,
+        plant: &PlantId,
+        no: &ItemNo,
+        text: &ttrs_domain::item::ItemText,
+    ) -> Result<(), RepoError>;
 }
 
 /// 共用基本資料查詢（營運中心、單位…）

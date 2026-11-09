@@ -102,3 +102,5 @@ history-col-after = After
 common-field-created-at = Created at
 common-field-updated-at = Last modified at
 common-field-version = Version
+common-yes = Yes
+common-no = No

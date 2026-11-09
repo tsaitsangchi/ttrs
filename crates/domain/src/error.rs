@@ -21,7 +21,7 @@ pub enum DomainError {
     PlantNotFound,
     #[error("單位不存在")]
     UnitNotFound,
-    #[error("料件已有庫存異動資料，不可刪除")]
+    #[error("料件已有庫存異動資料，不可刪除或作廢")]
     ItemHasTransactions,
     #[error("料件狀態為「{from}」，不可執行「{action}」")]
     InvalidItemTransition {
@@ -230,6 +230,38 @@ pub enum DomainError {
     ItemGroupStockKeeperInvalid,
     #[error("料件分群已被料件使用，不可刪除；請改為停用")]
     ItemGroupInUse,
+
+    // 料件基本資料（aimi100 / ima_file；item_maintenance.feature）
+    #[error("MISC 開頭的料件須先建立料件 MISC")]
+    ItemMiscRequired,
+    #[error("料件分群已停用，不可選用")]
+    ItemGroupInactive,
+    #[error("庫存單位不可空白")]
+    ItemStockUnitRequired,
+    #[error("產品分類不可空白")]
+    ItemProductClassRequired,
+    #[error("來源碼不正確：{0}")]
+    ItemSourceInvalid(String),
+    #[error("ABC 碼須為 A、B 或 C：{0}")]
+    ItemAbcInvalid(String),
+    #[error("補貨策略碼須為 0 到 5：{0}")]
+    ItemReplenishInvalid(String),
+    #[error("補貨策略為再訂購點或期間採購時，來源碼須為 M、S、P、V 或 Z")]
+    ItemReplenishSourceMismatch,
+    #[error("供應商管制須為 0 到 3：{0}")]
+    ItemSupplierControlInvalid(String),
+    #[error("產品週期狀態須為 1 到 6：{0}")]
+    ItemLifeCycleInvalid(String),
+    #[error("經濟訂購量、平均訂購量須大於 0")]
+    ItemOrderQtyInvalid,
+    #[error("數量與天數不可小於 0")]
+    ItemQuantityInvalid,
+    #[error("倉管員須為本營運中心有效的員工")]
+    ItemStockKeeperInvalid,
+    #[error("申請部門須為本營運中心有效的部門")]
+    ItemApplyDeptInvalid,
+    #[error("料件已無效，請先恢復")]
+    ItemInactive,
     #[error("此公司帳號尚未在 TTRS 註冊，請洽系統管理員")]
     UserNotRegistered,
     #[error("使用者已停用")]
@@ -470,6 +502,21 @@ impl DomainError {
             Self::ItemGroupQuantityInvalid => "ITEM_GROUP_QUANTITY_INVALID",
             Self::ItemGroupStockKeeperInvalid => "ITEM_GROUP_STOCK_KEEPER_INVALID",
             Self::ItemGroupInUse => "ITEM_GROUP_IN_USE",
+            Self::ItemMiscRequired => "ITEM_MISC_REQUIRED",
+            Self::ItemGroupInactive => "ITEM_GROUP_INACTIVE",
+            Self::ItemStockUnitRequired => "ITEM_STOCK_UNIT_REQUIRED",
+            Self::ItemProductClassRequired => "ITEM_PRODUCT_CLASS_REQUIRED",
+            Self::ItemSourceInvalid(_) => "ITEM_SOURCE_INVALID",
+            Self::ItemAbcInvalid(_) => "ITEM_ABC_INVALID",
+            Self::ItemReplenishInvalid(_) => "ITEM_REPLENISH_INVALID",
+            Self::ItemReplenishSourceMismatch => "ITEM_REPLENISH_SOURCE_MISMATCH",
+            Self::ItemSupplierControlInvalid(_) => "ITEM_SUPPLIER_CONTROL_INVALID",
+            Self::ItemLifeCycleInvalid(_) => "ITEM_LIFE_CYCLE_INVALID",
+            Self::ItemOrderQtyInvalid => "ITEM_ORDER_QTY_INVALID",
+            Self::ItemQuantityInvalid => "ITEM_QUANTITY_INVALID",
+            Self::ItemStockKeeperInvalid => "ITEM_STOCK_KEEPER_INVALID",
+            Self::ItemApplyDeptInvalid => "ITEM_APPLY_DEPT_INVALID",
+            Self::ItemInactive => "ITEM_INACTIVE",
             Self::UserNotRegistered => "USER_NOT_REGISTERED",
             Self::UserInactive => "USER_INACTIVE",
             Self::UserExpired => "USER_EXPIRED",

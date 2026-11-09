@@ -361,8 +361,8 @@ mod tests {
             ),
             ("pages/home.rs", include_str!("pages/home.rs")),
             (
-                "pages/aim/item_list.rs",
-                include_str!("pages/aim/item_list.rs"),
+                "pages/aim/item_maintenance.rs",
+                include_str!("pages/aim/item_maintenance.rs"),
             ),
             (
                 "pages/azz/legacy_catalog.rs",

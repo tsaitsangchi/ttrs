@@ -35,6 +35,15 @@ async fn has_unit(w: &mut ErpWorld, code: String) {
     }
 }
 
+#[given(expr = "單位 {string} 已停用")]
+async fn unit_inactive(w: &mut ErpWorld, code: String) {
+    let u = w.units.get(&w.actor, &code).await.expect("單位");
+    w.units
+        .set_active(&w.actor, &code, false, Some(u.version))
+        .await
+        .unwrap_or_else(|e| panic!("停用單位 {code} 失敗：{e}"));
+}
+
 #[when(expr = "使用者新增單位 {string}，說明 {string}")]
 async fn add(w: &mut ErpWorld, code: String, name: String) {
     create(w, &code, &name, None).await;

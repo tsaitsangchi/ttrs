@@ -74,7 +74,7 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "item-maintenance",
         "aimi100",
         "AIM",
-        "insert, query, delete, confirm, notconfirm",
+        "insert, query, modify, delete, invalid, reproduce, confirm, notconfirm, order_invalid, update_item, history",
     ),
     (
         "department-maintenance",

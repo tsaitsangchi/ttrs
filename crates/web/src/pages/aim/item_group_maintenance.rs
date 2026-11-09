@@ -344,6 +344,7 @@ fn ItemGroupPage() -> Element {
                             TextField { id: "imz03", label: t("igroup-field-catalog-ref"), maxlength: 20usize, value: txt(&v.catalog_ref), readonly: ro, oninput: move |x| form.write().catalog_ref = opt(x) }
                             TextField { id: "imz72", label: t("igroup-field-supplier-control"), maxlength: 1usize, value: txt(&v.supplier_control), readonly: ro, oninput: move |x| form.write().supplier_control = opt(x) }
                             TextField { id: "imz04", label: t("igroup-field-drawing-no"), maxlength: 20usize, value: txt(&v.drawing_no), readonly: ro, oninput: move |x| form.write().drawing_no = opt(x) }
+                            TextField { id: "imz131", label: t("item-field-product-class"), maxlength: 10usize, value: txt(&v.product_class), readonly: ro, oninput: move |x| form.write().product_class = opt(x) }
                         }
                         p { class: "muted", "{units_hint}" }
                     },
@@ -364,6 +365,8 @@ fn ItemGroupPage() -> Element {
                             Select { id: "imz37", label: t("igroup-field-replenish"), options: options(&REPLENISH, "igroup-replenish"), value: txt(&v.replenish_policy), readonly: ro, onchange: move |x| form.write().replenish_policy = opt(x) }
                             TextField { id: "imz38", label: t("igroup-field-reorder-point"), input_type: "number", value: dec_text(v.reorder_point), readonly: ro, oninput: move |x| form.write().reorder_point = dec(x) }
                             TextField { id: "imz99", label: t("igroup-field-reorder-qty"), input_type: "number", value: dec_text(v.reorder_qty), readonly: ro, oninput: move |x| form.write().reorder_qty = dec(x) }
+                            TextField { id: "imz51", label: t("item-field-economic-order-qty"), input_type: "number", value: dec_text(v.economic_order_qty), readonly: ro, oninput: move |x| form.write().economic_order_qty = dec(x) }
+                            TextField { id: "imz52", label: t("item-field-average-order-qty"), input_type: "number", value: dec_text(v.average_order_qty), readonly: ro, oninput: move |x| form.write().average_order_qty = dec(x) }
                             TextField { id: "imz27", label: t("igroup-field-safety-stock"), input_type: "number", value: dec_text(v.safety_stock), readonly: ro, oninput: move |x| form.write().safety_stock = dec(x) }
                             TextField { id: "imz28", label: t("igroup-field-safety-period"), input_type: "number", value: dec_text(v.safety_period), readonly: ro, oninput: move |x| form.write().safety_period = dec(x) }
                             TextField { id: "imz71", label: t("igroup-field-shelf-life"), input_type: "number", value: v.shelf_life_days.map(|n| n.to_string()).unwrap_or_default(), readonly: ro, oninput: move |x: String| form.write().shelf_life_days = x.trim().parse().ok() }

@@ -5,17 +5,276 @@ tables:
   - legacy: ima_file
     target: item
     scope: plant
-    program: aimi100
-    note: 料件主檔；TipTop 依營運中心分 schema，新系統以 plant_id 區分
-    pending: "早期骨架（未照萃取流程）；aimi100 正式移植時逐欄萃取 264 欄"
+    program: aimi100（Item Maintenance 料件基本資料維護；以客製 topcust/cim 為準）
+    spec: specs/features/aim/item_maintenance.feature
+    note: "料件主檔；工廠層（IM9）。第一階段欄位見規格（IM1、IM31）；以 migrations/plant/0008 擴充早期骨架的 item 表（IM10）；多語言品名、規格在 item_text（IM7）"
     columns:
-      - { legacy: "(schema)", target: plant_id, note: 來源資料庫/營運中心代碼 }
-      - { legacy: ima01, target: item_no, note: 料件編號 }
-      - { legacy: ima02, target: name, note: 品名 }
-      - { legacy: ima021, target: spec, note: 規格 }
-      - { legacy: ima25, target: stock_unit, note: 庫存單位, verify: true }
-      - { legacy: imaacti, target: status, note: 資料有效碼/確認碼對應 unconfirmed|confirmed|voided, verify: true }
-
+      - { legacy: ima01, type: varchar2(40) PK NOT NULL, target: item_no, sch: "料件編號", note: "區分大小寫、最多 40 字（IM21）" }
+      - { legacy: ima02, type: varchar2(120), target: name, sch: "品名", note: "TTRS 必填（IM22）；多語言見 item_text（IM7）", verify: true }
+      - { legacy: ima021, type: varchar2(120), target: spec, sch: "規格", note: "多語言見 item_text（IM7）" }
+      - { legacy: ima03, type: varchar2(20), target: catalog_ref, sch: "目錄參考號碼" }
+      - { legacy: ima04, type: varchar2(255), target: drawing_no, sch: "工程圖號", note: "varchar2(255)" }
+      - { legacy: ima05, type: varchar2(10), target: current_version, sch: "目前使用版本", note: "複製時清空" }
+      - { legacy: ima06, type: varchar2(10), target: group_code, sch: "分群碼", note: "料件分群（item_group），須有效（IM26）" }
+      - { legacy: ima07, type: varchar2(1), target: abc_code, sch: "ABC碼", note: "A/B/C" }
+      - { legacy: ima08, type: varchar2(1), target: source_code, sch: "來源碼", note: "C/T/D/A/M/P/X/K/U/V/R/Z/S；MISC 料件一律 Z" }
+      - { legacy: ima09, type: varchar2(10), target: other_group1, sch: "其他分群碼 一", note: "分類碼類別 D" }
+      - { legacy: ima10, type: varchar2(10), target: other_group2, sch: "其他分群碼 二", note: "分類碼類別 E" }
+      - { legacy: ima11, type: varchar2(10), target: other_group3, sch: "其他分群碼 三", note: "分類碼類別 F" }
+      - { legacy: ima12, type: varchar2(10), target: other_group4, sch: "其他分群碼 四", note: "分類碼類別 G" }
+      - { legacy: ima13, type: varchar2(40), target: configurable_item_no, sch: "規格組件料件編號", note: "來源碼非 T 時清空" }
+      - { legacy: ima14, type: varchar2(1), target: engineering, sch: "是否為工程料件", note: "Y/N → boolean" }
+      - { legacy: ima15, type: varchar2(1), target: bonded, sch: "保稅與否", note: "Y/N → boolean" }
+      - { legacy: ima16, type: number(5), target: low_level_code, sch: "低階碼", note: "系統維護，新增 99（IM29）" }
+      - { legacy: ima23, type: varchar2(10), target: stock_keeper, sch: "倉管員", note: "有效員工" }
+      - { legacy: ima24, type: varchar2(1), target: inspection, sch: "檢驗碼", note: "Y/N → boolean" }
+      - { legacy: ima25, type: varchar2(4), target: stock_unit, sch: "庫存單位", note: "必填、須為有效單位" }
+      - { legacy: ima27, type: number(15,3), target: safety_stock, sch: "安全庫存量", note: "≥ 0" }
+      - { legacy: ima271, type: number(15,3), target: max_stock_qty, sch: "最高儲存數量", note: "≥ 0" }
+      - { legacy: ima28, type: number(15,3), target: safety_period, sch: "安全庫存期間", note: "≥ 0" }
+      - { legacy: ima29, type: date, target: last_txn_on, sch: "最近異動日期", note: "唯讀" }
+      - { legacy: ima30, type: date, target: last_count_on, sch: "最近盤點日期", note: "新增為今天，唯讀" }
+      - { legacy: ima35, type: varchar2(10), target: warehouse, sch: "主要倉庫別", note: "倉庫未移植，先存代碼不檢查（IM2）", verify: true }
+      - { legacy: ima36, type: varchar2(10), target: location, sch: "主要儲位別", note: "儲位未移植，先存代碼不檢查（IM2）", verify: true }
+      - { legacy: ima37, type: varchar2(1), target: replenish_policy, sch: "補貨策略碼", note: "0–5（IM23）；0、5 只限來源碼 M S P V Z" }
+      - { legacy: ima39, type: varchar2(24), target: account, sch: "料件所屬會計科目", note: "會計科目未移植，先存代碼不檢查", verify: true }
+      - { legacy: ima51, type: number(15,3), target: economic_order_qty, sch: "經濟訂購量", note: "> 0，預設 1" }
+      - { legacy: ima52, type: number(15,3), target: average_order_qty, sch: "平均訂購量", note: "> 0，預設 1" }
+      - { legacy: ima70, type: varchar2(1), target: consumable, sch: "消秏料件", note: "Y/N → boolean" }
+      - { legacy: ima71, type: number(5), target: shelf_life_days, sch: "儲存有效天數", note: "≥ 0" }
+      - { legacy: ima73, type: date, target: last_received_on, sch: "最近入庫日", note: "唯讀" }
+      - { legacy: ima74, type: date, target: last_issued_on, sch: "最近出庫日", note: "唯讀" }
+      - { legacy: ima881, type: date, target: last_period_purchase_on, sch: "期間採購最近採購日期", note: "唯讀" }
+      - { legacy: ima93, type: varchar2(8), target: new_part_status, sch: "新料件處理狀況", note: "8 碼 Y/N 旗標，系統維護（IM29）" }
+      - { legacy: ima105, type: varchar2(1), target: software, sch: "是否為軟體物件", note: "Y/N → boolean" }
+      - { legacy: ima107, type: varchar2(1), target: insert_position, sch: "插件位置", note: "Y/N → boolean" }
+      - { legacy: ima109, type: varchar2(10), target: material_category, sch: "材料類別", note: "分類碼類別 8" }
+      - { legacy: ima131, type: varchar2(10), target: product_class, sch: "產品分類編號", note: "客製必填（aim-372）" }
+      - { legacy: ima140, type: varchar2(1), target: phase_out, sch: "Phase Out 否", note: "Y/N → boolean" }
+      - { legacy: ima146, type: varchar2(1), target: bom_changed, sch: "BOM異動否", note: "系統維護，唯讀（IM29）" }
+      - { legacy: ima147, type: varchar2(1), target: insert_qpa_check, sch: "插件位置與QPA是否要勾稽", note: "Y/N → boolean" }
+      - { legacy: ima901, type: date, target: item_created_on, sch: "料件建檔日期", note: "建檔日；新增與複製為今天", verify: true }
+      - { legacy: ima902, type: date, target: slow_moving_on, sch: "呆滯日期", note: "呆滯日期，唯讀" }
+      - { legacy: ima903, type: varchar2(1), target: coproduct, sch: "可否做聯產品入庫", note: "Y/N；來源碼非 M、T 時為否" }
+      - { legacy: ima905, type: varchar2(1), target: coproduct_this_month, sch: "當月是否入聯產品", note: "系統維護，唯讀（IM29）" }
+      - { legacy: ima906, type: varchar2(1), target: unit_usage, sch: "單位使用方式", note: "固定 1 單一單位（IM14）" }
+      - { legacy: ima907, type: varchar2(4), target: second_unit, sch: "第二單位(母單位/參考單位)", note: "保留，不檢查換算（IM14）" }
+      - { legacy: ima908, type: varchar2(4), target: pricing_unit, sch: "計價單位", note: "保留，不檢查換算（IM14）" }
+      - { legacy: imaacti, type: varchar2(1), target: active_code, sch: "資料有效碼", note: "P 處理中／Y 已確認／N 無效（IM27）；TTRS active＝active_code≠N" }
+      - { legacy: imauser, type: varchar2(10), target: created_by, sch: "資料所有者" }
+      - { legacy: imagrup, type: varchar2(10), target: created_dept, sch: "資料所有群" }
+      - { legacy: imamodu, type: varchar2(10), target: updated_by, sch: "資料更改者" }
+      - { legacy: imadate, type: date, target: "created_on / updated_on", sch: "最近修改日", note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: ima1001, type: varchar2(100), target: full_name, sch: "中文名稱(全稱)", note: "中文名稱（全稱）" }
+      - { legacy: ima1002, type: varchar2(80), target: english_name, sch: "英文名稱", note: "英文名稱" }
+      - { legacy: ima1010, type: varchar2(1), target: status_code, sch: "狀態碼", note: "0 開立／1 確認（IM27）" }
+      - { legacy: ima1012, type: date, target: first_shipped_on, sch: "首次出貨日", note: "由出貨寫入，唯讀" }
+      - { legacy: ima1013, type: date, target: first_received_on, sch: "首次入庫日", note: "由入庫寫入，唯讀" }
+      - { legacy: ima1014, type: varchar2(1), target: life_cycle, sch: "產品週期狀態", note: "1–6（IM30）" }
+      - { legacy: ima1015, type: date, target: planned_discontinue_on, sch: "預計停產日" }
+      - { legacy: ima1016, type: varchar2(40), target: carton_barcode, sch: "箱條碼" }
+      - { legacy: ima911, type: varchar2(1), target: repetitive, sch: "是否為重覆性生產料件 (Y/N)", note: "Y/N → boolean" }
+      - { legacy: ima391, type: varchar2(24), target: account2, sch: "會計科目二", note: "會計科目未移植，先存代碼不檢查", verify: true }
+      - { legacy: ima915, type: varchar2(1) NOT NULL, target: supplier_control, sch: "是否需做供應商的管制", note: "0 不管制／1 請購／2 採購／3 二者" }
+      - { legacy: ima916, type: varchar2(10) NOT NULL, target: data_source, sch: "'  資料來源", note: "資料來源營運中心；第一階段記錄目前營運中心（IM13）" }
+      - { legacy: ta_ima01, type: varchar2(1), target: order_invalid, sch: "訂單無效否", note: "客製：訂單無效否，新增預設是（IM18）", verify: true }
+      - { legacy: ta_ima02, type: varchar2(20), target: pcn, sch: "PCN", note: "客製：PCN", verify: true }
+      - { legacy: ta_ima08, type: varchar2(10), target: apply_dept, sch: "申請部門", note: "客製：申請部門（department）", verify: true }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+    not_ported:
+      - { legacy: ima17, type: varchar2(4), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima17_fac, type: number(16,8), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima18, type: number(15,3), sch: "單位重量", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima19, type: varchar2(4), sch: "保稅料件進出口分類統計用類", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima20, type: number(9,3), sch: "保稅料件年度盤差容許率", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima21, type: varchar2(20), sch: "保稅料件稅則編號", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima22, type: number(9,3), sch: "保稅料件應補稅稅率", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima26, type: number(15,3) NOT NULL, sch: "MPS/MRP可用庫存數量", reason: "庫存資料 aimi101，第二階段（IM1）" }
+      - { legacy: ima261, type: number(15,3) NOT NULL, sch: "不可用庫存數量", reason: "庫存資料 aimi101，第二階段（IM1）" }
+      - { legacy: ima262, type: number(15,3) NOT NULL, sch: "庫存可用數量", reason: "庫存資料 aimi101，第二階段（IM1）" }
+      - { legacy: ima31, type: varchar2(4), sch: "銷售單位", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima31_fac, type: number(20,8), sch: "銷售單位/庫存單位換算率", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima32, type: number(20,6), sch: "標準銷售訂價", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima33, type: number(20,6), sch: "最近銷售單價", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima34, type: varchar2(10), sch: "成本中心", reason: "成本資料 aimi105–107，各自成案（IM1）" }
+      - { legacy: ima38, type: number(15,3), sch: "再補貨點", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima40, type: number(15,3), sch: "累計使用數量 期間", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima41, type: number(15,3), sch: "累計使用數量 年度", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima42, type: varchar2(1), sch: "批號追蹤方式", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima43, type: varchar2(10), sch: "採購員", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima44, type: varchar2(4), sch: "採購單位", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima44_fac, type: number(20,8), sch: "採購單位/庫存單位換算率", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima45, type: number(15,3), sch: "採購單位倍量", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima46, type: number(15,3), sch: "最少採購數量", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima47, type: number(9,4), sch: "採購損耗率", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima48, type: number(15,3), sch: "採購安全期", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima49, type: number(15,3), sch: "到廠前置期", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima491, type: number(15,3), sch: "入庫前置期", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima50, type: number(15,3), sch: "請購安全期", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima53, type: number(20,6), sch: "最近採購單價", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima531, type: number(20,6), sch: "市價", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima532, type: date, sch: "市價最近更新日期", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima54, type: varchar2(10), sch: "主要供應廠商", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima55, type: varchar2(4), sch: "生產單位", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima55_fac, type: number(20,8), sch: "生產單位/庫存單位換算率", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima56, type: number(15,3), sch: "生產單位倍量", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima561, type: number(15,3), sch: "最少生產數量", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima562, type: number(9,4), sch: "生產損耗率", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima57, type: number(5), sch: "成本階數", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima571, type: varchar2(40), sch: "主製程料件", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima58, type: number(15,3), sch: "最後人工工時", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima59, type: number(15,3), sch: "固定前置時間", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima60, type: number(15,3), sch: "變動前置時間", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima61, type: number(15,3), sch: "QC 前置時間", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima62, type: number(15,3), sch: "最大累計前置時間", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima63, type: varchar2(4), sch: "發料單位", reason: "庫存資料 aimi101，第二階段（IM1）" }
+      - { legacy: ima63_fac, type: number(20,8), sch: "發料單位/庫存單位換算率", reason: "庫存資料 aimi101，第二階段（IM1）" }
+      - { legacy: ima64, type: number(15,3), sch: "發料單位倍量", reason: "庫存資料 aimi101，第二階段（IM1）" }
+      - { legacy: ima641, type: number(15,3), sch: "最少發料數量", reason: "庫存資料 aimi101，第二階段（IM1）" }
+      - { legacy: ima65, type: number(15,3), sch: "發料安全存量", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima66, type: number(15,3), sch: "發料安全期", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima67, type: varchar2(10), sch: "計劃員", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima68, type: number(15,3), sch: "需求時距", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima69, type: number(15,3), sch: "計劃時距", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima72, type: number(15,3), sch: "MRP允許交期提前天數", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima86, type: varchar2(4), sch: "成本單位", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima86_fac, type: number(20,8), sch: "成本/庫存單位換算率", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima87, type: varchar2(10), sch: "成本項目--材料", reason: "成本資料 aimi105–107，各自成案（IM1）" }
+      - { legacy: ima871, type: number(9,4), sch: "間接物料分攤率", reason: "成本資料 aimi105–107，各自成案（IM1）" }
+      - { legacy: ima872, type: varchar2(10), sch: "材料製造費用成本項目", reason: "成本資料 aimi105–107，各自成案（IM1）" }
+      - { legacy: ima873, type: number(9,4), sch: "間接人工分攤率", reason: "成本資料 aimi105–107，各自成案（IM1）" }
+      - { legacy: ima874, type: varchar2(10), sch: "人工製造費用成本項目", reason: "成本資料 aimi105–107，各自成案（IM1）" }
+      - { legacy: ima88, type: number(15,3), sch: "期間採購數量", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima89, type: number(5), sch: "期間採購使用的期間", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima90, type: number(5), sch: "期間採購使用的期間", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima91, type: number(20,6), sch: "平均採購單價", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima92, type: varchar2(1), sch: "NET CHANGE flag", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima94, type: varchar2(10), sch: "預設製程編號", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima95, type: number(20,6), sch: "保稅單價", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima75, type: varchar2(15), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima76, type: varchar2(10), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima77, type: number(16,8), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima78, type: number(5), sch: "預算成本階數", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima79, type: number(5), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima80, type: number(5), sch: "發料低階碼", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima81, type: number(5), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima82, type: number(5), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima83, type: number(5), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima84, type: number(5), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima85, type: number(5), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima851, type: varchar2(10), sch: "預設工作區", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima852, type: varchar2(1), sch: "是否為量產料件", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima853, type: varchar2(1), sch: "檢查該料件是否已捲算過", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima96, type: number(5), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima97, type: number(5), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima98, type: number(20,6), sch: "月加權平均售價", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima99, type: number(15,3), sch: "再補貨量", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima100, type: varchar2(1), sch: "檢驗程度", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima101, type: varchar2(1), sch: "檢驗水準", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima102, type: varchar2(1), sch: "級數", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima103, type: varchar2(1), sch: "採購特性", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima104, type: number(15,3), sch: "廠商分配限量", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima106, type: varchar2(1), sch: "保稅料件型態", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima108, type: varchar2(1), sch: "工單發料前調撥否", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima110, type: varchar2(1), sch: "工單開立展開選項", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima111, type: varchar2(5), sch: "預設工單單別", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima121, type: number(20,6), sch: "單位材料成本", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima122, type: number(20,6), sch: "單位人工成本", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima123, type: number(20,6), sch: "單位製造費用", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima124, type: number(20,6), sch: "單位管銷成本", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima125, type: number(20,6), sch: "單位成本", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima126, type: number(15,3), sch: "基本利潤率", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima127, type: number(20,6), sch: "未稅訂價", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima128, type: number(20,6), sch: "含稅訂價", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima129, type: number(15,3), sch: "轉撥計價加計百分比", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima130, type: varchar2(1), sch: "產品銷售特性", reason: "料件資料 FM aimi109，各自成案（IM1）" }
+      - { legacy: ima132, type: varchar2(24), sch: "費用科目編號", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima133, type: varchar2(40), sch: "產品預測料號", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima134, type: varchar2(15), sch: "主要包裝方式編號", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima135, type: varchar2(40), sch: "產品條碼編號", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima136, type: varchar2(10), sch: "主要WIP 倉庫", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima137, type: varchar2(10), sch: "主要WIP 儲位", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima138, type: varchar2(40), sch: "FCC No.", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima139, type: varchar2(1), sch: "MPS 計算否", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima141, type: varchar2(1), sch: "產品序號控制方式", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima142, type: number(5), sch: "產品序號之固定長度", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima143, type: number(5), sch: "產品序號之字首固定長度", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima144, type: varchar2(10), sch: "產品序號之字首固定字", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima145, type: varchar2(1), sch: "產品序號是否為固定長度", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima148, type: number(5), sch: "保證期", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima904, type: varchar2(1), sch: "使用者自行定義", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima909, type: number(5), sch: "MRP匯總時距(天)(預留欄位)", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima910, type: varchar2(20), sch: "主特性代碼", reason: "多屬性／主特性，行業別功能不移植（IM19）" }
+      - { legacy: imaag, type: varchar2(10), sch: "屬性群組代碼", reason: "多屬性／主特性，行業別功能不移植（IM19）" }
+      - { legacy: imaag1, type: varchar2(10), sch: "母料件屬性群組代碼", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: imaud01, type: varchar2(255), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud02, type: varchar2(40), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud03, type: varchar2(40), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud04, type: varchar2(40), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud05, type: varchar2(40), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud06, type: varchar2(255), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud07, type: number(15,3), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud08, type: number(15,3), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud09, type: number(15,3), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud10, type: number(10), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud11, type: number(10), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud12, type: number(10), sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud13, type: date, sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud14, type: date, sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: imaud15, type: date, sch: "自訂欄位", reason: "自訂欄位，待 TOPTEST 統計（IM4）" }
+      - { legacy: ima1003, type: varchar2(20), sch: "No Use", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1004, type: varchar2(10), sch: "品類", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1005, type: varchar2(10), sch: "品牌", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1006, type: varchar2(10), sch: "系列", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1007, type: varchar2(10), sch: "型別", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1008, type: varchar2(10), sch: "規格", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1009, type: varchar2(10), sch: "屬性", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1011, type: number(15,3), sch: "單位體積", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1017, type: number(20,6), sch: "料件標準寬", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1018, type: number(20,6), sch: "料件標準秤量", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1019, type: number(20,6), sch: "零只長度", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1020, type: number(20,6), sch: "零只寬度", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1021, type: number(20,6), sch: "零只高度", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1022, type: number(15,3), sch: "零只體積", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1023, type: number(15,3), sch: "零只重量", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1024, type: number(20,6), sch: "整箱長度", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1025, type: number(20,6), sch: "整箱寬度", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1026, type: number(20,6), sch: "整箱高度", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1027, type: number(15,3), sch: "整箱體積", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1028, type: number(15,3), sch: "整箱重量", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1029, type: varchar2(1), sch: "是否秤重控管", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima912, type: number(15,3), sch: "標準機器工時", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima913, type: varchar2(1), sch: "統購否", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima914, type: varchar2(10), sch: "採購中心代碼", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima1321, type: varchar2(24), sch: "費用科目二", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1911, type: varchar2(1), sch: "保稅料區分", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1912, type: varchar2(40), sch: "原產地", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1913, type: number(20,6), sch: "推廣貿易服務費", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1914, type: varchar2(40), sch: "稅則", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1915, type: varchar2(40), sch: "帳卡編號", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1916, type: varchar2(40), sch: "保稅群組代碼", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1919, type: varchar2(1), sch: "受託加工成品否", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima1401, type: date, sch: "生效日", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima917, type: number(10), sch: "拋轉次數", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
+      - { legacy: ima150, type: varchar2(1) NOT NULL, sch: "'  收貨替代方式", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima151, type: varchar2(1) NOT NULL, sch: "'  母料件否", reason: "多屬性／主特性，行業別功能不移植（IM19）" }
+      - { legacy: ima152, type: varchar2(1) NOT NULL, sch: "'  PO對Blanket PO替代方式", reason: "採購資料 aimi103，各自成案（IM1）" }
+      - { legacy: ima918, type: varchar2(1), sch: "製造批號管理否", reason: "批號序號，第二階段（IM1）" }
+      - { legacy: ima919, type: varchar2(1), sch: "製造批號自動編碼否", reason: "批號序號，第二階段（IM1）" }
+      - { legacy: ima920, type: varchar2(10), sch: "製造批號編碼原則", reason: "批號序號，第二階段（IM1）" }
+      - { legacy: ima921, type: varchar2(1), sch: "序號管理否", reason: "批號序號，第二階段（IM1）" }
+      - { legacy: ima922, type: varchar2(1), sch: "序號自動編碼否", reason: "批號序號，第二階段（IM1）" }
+      - { legacy: ima923, type: varchar2(10), sch: "序號編碼原則", reason: "批號序號，第二階段（IM1）" }
+      - { legacy: ima924, type: varchar2(1), sch: "序號唯一否", reason: "批號序號，第二階段（IM1）" }
+      - { legacy: ima925, type: varchar2(1), sch: "排序方式", reason: "批號序號，第二階段（IM1）" }
+      - { legacy: ima601, type: number(15,3), sch: "變動前置時間批量", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ima153, type: number(9,4), sch: "工單完工誤差率", reason: "生管資料 aimi104，各自成案（IM1）" }
+      - { legacy: ta_ima03, type: varchar2(10), sch: "成本中心", reason: "客製欄位，不在 aimi100 畫面，待 TOPTEST 統計（IM8）" }
+      - { legacy: ta_ima04, type: varchar2(6), sch: "採購分類", reason: "客製欄位，不在 aimi100 畫面，待 TOPTEST 統計（IM8）" }
+      - { legacy: ta_ima05, type: varchar2(10), sch: "採購大分類", reason: "客製欄位，不在 aimi100 畫面，待 TOPTEST 統計（IM8）" }
+      - { legacy: ta_ima06, type: varchar2(10), sch: "採購中分類", reason: "客製欄位，不在 aimi100 畫面，待 TOPTEST 統計（IM8）" }
+      - { legacy: ta_ima07, type: varchar2(20), sch: "採購小分類", reason: "客製欄位，不在 aimi100 畫面，待 TOPTEST 統計（IM8）" }
+      - { legacy: ta_ima09, type: varchar2(1), sch: "安庫否", reason: "客製欄位，不在 aimi100 畫面，待 TOPTEST 統計（IM8）" }
   - legacy: tlf_file
     target: inventory_txn
     scope: plant
@@ -80,6 +339,9 @@ tables:
       - { legacy: imz911, type: varchar2(1), target: repetitive, sch: "是否為重覆性生產料件 (Y/N)" }
       - { legacy: imz391, type: varchar2(24), target: account2, sch: "會計科目二", note: "尚未移植對應主檔，先存代碼不檢查（IG4）", verify: true }
       - { legacy: imz72, type: varchar2(1) NOT NULL, target: supplier_control, sch: "是否需做供應商的管制", note: "代碼意義待 Key User 確認", verify: true }
+      - { legacy: imz131, type: varchar2(10), target: product_class, sch: "產品分類編號", note: "新增料件時帶入 ima131（IM24）" }
+      - { legacy: imz51, type: number(15,3), target: economic_order_qty, sch: "經濟訂購量", note: "新增料件時帶入 ima51（IM24）" }
+      - { legacy: imz52, type: number(15,3), target: average_order_qty, sch: "平均訂購量", note: "新增料件時帶入 ima52（IM24）" }
       - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）；轉入時 version＝1、created_at＝轉檔時間" }
     not_ported:
       - { legacy: imz31, type: varchar2(4), sch: "銷售單位", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
@@ -96,8 +358,6 @@ tables:
       - { legacy: imz49, type: number(15,3), sch: "到廠前置期", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
       - { legacy: imz491, type: number(15,3), sch: "入庫前置期", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
       - { legacy: imz50, type: number(15,3), sch: "請購安全期", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
-      - { legacy: imz51, type: number(15,3), sch: "經濟訂購量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
-      - { legacy: imz52, type: number(15,3), sch: "平均訂購量", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
       - { legacy: imz54, type: varchar2(10), sch: "主要供應廠商", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
       - { legacy: imz55, type: varchar2(4), sch: "生產單位", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
       - { legacy: imz55_fac, type: number(20,8), sch: "生產單位/庫存單位換算率", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
@@ -136,7 +396,6 @@ tables:
       - { legacy: imz108, type: varchar2(1), sch: "工單發料前調撥否", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
       - { legacy: imz110, type: varchar2(1), sch: "工單開立展開選項", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
       - { legacy: imz130, type: varchar2(1), sch: "產品銷售特性", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
-      - { legacy: imz131, type: varchar2(10), sch: "產品分類編號", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
       - { legacy: imz132, type: varchar2(24), sch: "費用科目編號", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
       - { legacy: imz133, type: varchar2(40), sch: "產品預測料號", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }
       - { legacy: imz134, type: varchar2(15), sch: "主要包裝方式編號", reason: "由 aimi111／112／113 維護（採購銷售、生產、成本），料件第二階段一起做（IG3、IG12）" }

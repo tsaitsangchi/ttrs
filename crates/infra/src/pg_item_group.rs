@@ -54,6 +54,9 @@ struct Row {
     bonded_class: Option<String>,
     tariff_no: Option<String>,
     bonded_type: Option<String>,
+    product_class: Option<String>,
+    economic_order_qty: Option<Decimal>,
+    average_order_qty: Option<Decimal>,
     active: bool,
     created_by: String,
     created_dept: String,
@@ -67,7 +70,7 @@ struct Row {
 
 macro_rules! select_group {
     ($rest:literal) => {
-        concat!("SELECT group_code, description, source_code, stock_unit, catalog_ref, supplier_control, drawing_no, software, engineering, insert_qpa_check, insert_position, material_category, coproduct, inspection, repetitive, abc_code, consumable, replenish_policy, reorder_point, reorder_qty, safety_stock, safety_period, shelf_life_days, mrp_bucket_days, warehouse, location, stock_keeper, sales_stat_unit, second_unit, pricing_unit, other_group1, other_group2, other_group3, other_group4, account, account2, bonded, bonded_class, tariff_no, bonded_type, active, created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at FROM item_group ", $rest)
+        concat!("SELECT group_code, description, source_code, stock_unit, catalog_ref, supplier_control, drawing_no, software, engineering, insert_qpa_check, insert_position, material_category, coproduct, inspection, repetitive, abc_code, consumable, replenish_policy, reorder_point, reorder_qty, safety_stock, safety_period, shelf_life_days, mrp_bucket_days, warehouse, location, stock_keeper, sales_stat_unit, second_unit, pricing_unit, other_group1, other_group2, other_group3, other_group4, account, account2, bonded, bonded_class, tariff_no, bonded_type, product_class, economic_order_qty, average_order_qty, active, created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at FROM item_group ", $rest)
     };
 }
 
@@ -114,6 +117,9 @@ impl TryFrom<Row> for ItemGroup {
                 bonded_class: r.bonded_class,
                 tariff_no: r.tariff_no,
                 bonded_type: r.bonded_type,
+                product_class: r.product_class,
+                economic_order_qty: r.economic_order_qty,
+                average_order_qty: r.average_order_qty,
                 other_groups: [
                     r.other_group1,
                     r.other_group2,
@@ -171,7 +177,7 @@ impl ItemGroupRepository for PgStore {
         let mut tx = self.required_plant_tx(plant).await?;
         let a = &g.attrs;
         sqlx::query(
-            "INSERT INTO item_group (group_code, description, source_code, stock_unit, catalog_ref, supplier_control, drawing_no, software, engineering, insert_qpa_check, insert_position, material_category, coproduct, inspection, repetitive, abc_code, consumable, replenish_policy, reorder_point, reorder_qty, safety_stock, safety_period, shelf_life_days, mrp_bucket_days, warehouse, location, stock_keeper, sales_stat_unit, second_unit, pricing_unit, other_group1, other_group2, other_group3, other_group4, account, account2, bonded, bonded_class, tariff_no, bonded_type, active, created_by, created_dept, created_on) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44)",
+            "INSERT INTO item_group (group_code, description, source_code, stock_unit, catalog_ref, supplier_control, drawing_no, software, engineering, insert_qpa_check, insert_position, material_category, coproduct, inspection, repetitive, abc_code, consumable, replenish_policy, reorder_point, reorder_qty, safety_stock, safety_period, shelf_life_days, mrp_bucket_days, warehouse, location, stock_keeper, sales_stat_unit, second_unit, pricing_unit, other_group1, other_group2, other_group3, other_group4, account, account2, bonded, bonded_class, tariff_no, bonded_type, active, created_by, created_dept, created_on, product_class, economic_order_qty, average_order_qty) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47)",
         )
         .bind(g.code.as_str())
         .bind(&a.description)
@@ -217,6 +223,9 @@ impl ItemGroupRepository for PgStore {
         .bind(&g.created_by)
         .bind(&g.created_dept)
         .bind(g.created_on)
+        .bind(&a.product_class)
+        .bind(a.economic_order_qty)
+        .bind(a.average_order_qty)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
@@ -227,7 +236,7 @@ impl ItemGroupRepository for PgStore {
         let mut tx = self.required_plant_tx(plant).await?;
         let a = &g.attrs;
         let n = sqlx::query(
-            "UPDATE item_group SET description = $2, source_code = $3, stock_unit = $4, catalog_ref = $5, supplier_control = $6, drawing_no = $7, software = $8, engineering = $9, insert_qpa_check = $10, insert_position = $11, material_category = $12, coproduct = $13, inspection = $14, repetitive = $15, abc_code = $16, consumable = $17, replenish_policy = $18, reorder_point = $19, reorder_qty = $20, safety_stock = $21, safety_period = $22, shelf_life_days = $23, mrp_bucket_days = $24, warehouse = $25, location = $26, stock_keeper = $27, sales_stat_unit = $28, second_unit = $29, pricing_unit = $30, other_group1 = $31, other_group2 = $32, other_group3 = $33, other_group4 = $34, account = $35, account2 = $36, bonded = $37, bonded_class = $38, tariff_no = $39, bonded_type = $40, active = $41, updated_by = $42, updated_on = $43
+            "UPDATE item_group SET description = $2, source_code = $3, stock_unit = $4, catalog_ref = $5, supplier_control = $6, drawing_no = $7, software = $8, engineering = $9, insert_qpa_check = $10, insert_position = $11, material_category = $12, coproduct = $13, inspection = $14, repetitive = $15, abc_code = $16, consumable = $17, replenish_policy = $18, reorder_point = $19, reorder_qty = $20, safety_stock = $21, safety_period = $22, shelf_life_days = $23, mrp_bucket_days = $24, warehouse = $25, location = $26, stock_keeper = $27, sales_stat_unit = $28, second_unit = $29, pricing_unit = $30, other_group1 = $31, other_group2 = $32, other_group3 = $33, other_group4 = $34, account = $35, account2 = $36, bonded = $37, bonded_class = $38, tariff_no = $39, bonded_type = $40, active = $41, updated_by = $42, updated_on = $43, product_class = $45, economic_order_qty = $46, average_order_qty = $47
              WHERE group_code = $1 AND version = $44",
         )
         .bind(g.code.as_str())
@@ -274,6 +283,9 @@ impl ItemGroupRepository for PgStore {
         .bind(&g.updated_by)
         .bind(g.updated_on)
         .bind(g.stamp.version)
+        .bind(&a.product_class)
+        .bind(a.economic_order_qty)
+        .bind(a.average_order_qty)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?

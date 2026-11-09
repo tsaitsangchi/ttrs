@@ -105,6 +105,8 @@ pub struct ErpWorld {
     /// 料件分群維護（item_group.feature）
     pub item_groups: ttrs_app::ItemGroupService,
     pub menu_tree: Option<Vec<ttrs_shared::MenuNodeDto>>,
+    /// 取得分群預設值的結果（item_maintenance.feature IM-7）
+    pub item_defaults: Option<ttrs_shared::ItemInput>,
     /// 以應用程式的資料庫角色修改異動記錄是否被拒（CH-9）
     pub db_denied: Option<bool>,
     /// 最近一次 ttrs-admin 指令的結果
@@ -229,6 +231,7 @@ impl ErpWorld {
             product_classes,
             item_groups,
             menu_tree: None,
+            item_defaults: None,
             db_denied: None,
         }
     }

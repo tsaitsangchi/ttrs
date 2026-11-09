@@ -105,9 +105,19 @@ async fn invalid_time_zone_422_and_plant_in_use_409() {
         .clone()
         .oneshot(request(
             "POST",
-            "/api/items",
+            "/api/plants/TW01/product-classes",
+            Some(serde_json::json!({ "class_code": "P01", "name": "產品" })),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CREATED);
+    let res = app
+        .clone()
+        .oneshot(request(
+            "POST",
+            "/api/plants/TW01/items",
             Some(serde_json::json!({
-                "plant_id": "TW01", "item_no": "A001", "name": "螺絲", "stock_unit": "PCS"
+                "item_no": "A001", "name": "螺絲", "stock_unit": "PCS", "product_class": "P01"
             })),
         ))
         .await

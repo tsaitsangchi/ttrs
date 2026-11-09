@@ -74,6 +74,8 @@
 #   aimi100  查詢、查看料件                              query                               aimi100.4gl:791-1203
 #   aimi100  新增／刪除料件                              insert / delete
 #   aimi100  確認／取消確認料件                          confirm / notconfirm                aimi100.4gl:1178, 1203
+#   aimi100  修改、作廢、複製、訂單無效、多語言品名、異動記錄  modify / invalid / reproduce / order_invalid / update_item / history
+#                                                       （item_maintenance.feature；menu :7725-7958）
 #   aooi030  查詢部門                                   query                               aooi030.4gl:163-166
 #   aooi030  新增／修改／停用／刪除部門（基本欄位）       detail                       R+ R-   aooi030.4gl:231-232
 #   aooi030  會計資料維護                               account                             aooi030.4gl:167-170
@@ -335,6 +337,12 @@
       | item-maintenance | delete                     | 刪除料件 A001              |
       | item-maintenance | confirm                    | 確認料件 A001              |
       | item-maintenance | notconfirm                 | 取消確認料件 A001          |
+      | item-maintenance | modify                     | 修改料件 A001              |
+      | item-maintenance | invalid                    | 作廢料件 A001              |
+      | item-maintenance | reproduce                  | 複製料件 A001 為 A002      |
+      | item-maintenance | order_invalid              | 切換料件 A001 的訂單無效   |
+      | item-maintenance | update_item                | 設定料件 A001 的英文品名   |
+      | item-maintenance | history                    | 查詢料件 A001 的異動記錄   |
       | department-maintenance | query                      | 查詢部門                   |
       | department-maintenance | detail                     | 新增部門 D01               |
       | department-maintenance | detail                     | 修改部門 D01               |

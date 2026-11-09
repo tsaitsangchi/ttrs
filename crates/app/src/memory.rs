@@ -12,7 +12,7 @@ use ttrs_domain::{
     department::{Department, DeptCode},
     dictionary::{ColumnText, TableDictionary, TableText},
     employee::{Employee, EmployeeId},
-    item::{Item, ItemNo},
+    item::{Item, ItemNo, ItemText},
     item_group::{ItemGroup, ItemGroupCode},
     lang::Lang,
     legacy_catalog::LegacyTable,
@@ -83,6 +83,8 @@ struct State {
     /// 單位（gfe_file，共用）
     units: BTreeMap<String, Unit>,
     items: BTreeMap<(PlantId, ItemNo), Item>,
+    /// 料件的其他語系品名、規格（item_text）
+    item_texts: BTreeMap<(PlantId, ItemNo, String), ItemText>,
     transactions: HashSet<(PlantId, ItemNo)>,
     // Program Maintenance
     modules: HashSet<String>,
@@ -500,39 +502,75 @@ impl InMemoryStore {
 
 #[async_trait]
 impl ItemRepository for InMemoryStore {
-    async fn get(&self, plant: &PlantId, no: &ItemNo) -> Result<Option<Item>, RepoError> {
-        Ok(self.lock().items.get(&(plant.clone(), no.clone())).cloned())
-    }
-
-    async fn list(&self, plant: &PlantId) -> Result<Vec<Item>, RepoError> {
+    async fn list_items(&self, plant: &PlantId) -> Result<Vec<Item>, RepoError> {
         Ok(self
             .lock()
             .items
-            .values()
-            .filter(|i| &i.plant_id == plant)
-            .cloned()
+            .iter()
+            .filter(|((p, _), _)| p == plant)
+            .map(|(_, i)| i.clone())
             .collect())
     }
 
-    async fn insert(&self, item: &Item) -> Result<(), RepoError> {
-        let key = (item.plant_id.clone(), item.item_no.clone());
+    async fn get_item(&self, plant: &PlantId, no: &ItemNo) -> Result<Option<Item>, RepoError> {
+        Ok(self.lock().items.get(&(plant.clone(), no.clone())).cloned())
+    }
+
+    async fn insert_item(&self, plant: &PlantId, item: &Item) -> Result<(), RepoError> {
         let mut s = self.lock();
+        let key = (plant.clone(), item.no.clone());
         if s.items.contains_key(&key) {
             return Err(RepoError::Conflict);
         }
-        s.items.insert(key, item.clone());
+        let mut item = item.clone();
+        item.stamp = new_stamp();
+        s.log_change(
+            Some(plant),
+            "item",
+            item_key(&item),
+            None,
+            Some(item_row(&item)),
+            &[],
+        );
+        s.items.insert(key, item);
         Ok(())
     }
 
-    async fn update(&self, item: &Item) -> Result<(), RepoError> {
-        let key = (item.plant_id.clone(), item.item_no.clone());
-        self.lock().items.insert(key, item.clone());
+    async fn update_item(&self, plant: &PlantId, item: &Item) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (plant.clone(), item.no.clone());
+        let Some(old) = s.items.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut new = item.clone();
+        new.stamp = bumped(&old.stamp, &item.stamp)?;
+        s.log_change(
+            Some(plant),
+            "item",
+            item_key(&new),
+            Some(item_row(&old)),
+            Some(item_row(&new)),
+            &[],
+        );
+        s.items.insert(key, new);
         Ok(())
     }
 
-    async fn delete(&self, plant: &PlantId, no: &ItemNo) -> Result<(), RepoError> {
-        self.lock().items.remove(&(plant.clone(), no.clone()));
-        Ok(())
+    async fn delete_item(&self, plant: &PlantId, no: &ItemNo) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.items.remove(&(plant.clone(), no.clone())) else {
+            return Ok(false);
+        };
+        s.item_texts.retain(|(p, n, _), _| !(p == plant && n == no));
+        s.log_change(
+            Some(plant),
+            "item",
+            item_key(&old),
+            Some(item_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
     }
 
     async fn has_transactions(&self, plant: &PlantId, no: &ItemNo) -> Result<bool, RepoError> {
@@ -540,6 +578,32 @@ impl ItemRepository for InMemoryStore {
             .lock()
             .transactions
             .contains(&(plant.clone(), no.clone())))
+    }
+
+    async fn item_texts(&self, plant: &PlantId, no: &ItemNo) -> Result<Vec<ItemText>, RepoError> {
+        Ok(self
+            .lock()
+            .item_texts
+            .iter()
+            .filter(|((p, n, _), _)| p == plant && n == no)
+            .map(|(_, t)| t.clone())
+            .collect())
+    }
+
+    async fn set_item_text(
+        &self,
+        plant: &PlantId,
+        no: &ItemNo,
+        text: &ItemText,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (plant.clone(), no.clone(), text.lang.as_str().to_owned());
+        if text.name.is_none() && text.spec.is_none() {
+            s.item_texts.remove(&key);
+        } else {
+            s.item_texts.insert(key, text.clone());
+        }
+        Ok(())
     }
 }
 
@@ -2635,7 +2699,10 @@ impl UnitRepository for InMemoryStore {
     async fn delete_unit(&self, code: &UnitCode) -> Result<bool, RepoError> {
         let mut s = self.lock();
         // 與 PostgreSQL 的外鍵一致：料件、料件分群引用時不可刪除（UN5）
-        let used = s.items.values().any(|i| i.stock_unit == code.as_str())
+        let used = s
+            .items
+            .values()
+            .any(|i| i.attrs.units().any(|u| u == code.as_str()))
             || s.item_groups
                 .values()
                 .any(|g| g.attrs.units().any(|u| u == code.as_str()));
@@ -2765,7 +2832,15 @@ impl ProductClassRepository for InMemoryStore {
         code: &ProductClassCode,
     ) -> Result<bool, RepoError> {
         let mut s = self.lock();
-        // 料件的產品分類（ima131）移植後在此檢查引用（PC8）
+        // 與 PostgreSQL 的外鍵一致：料件、料件分群的產品分類引用時不可刪除（PC8）
+        let used = s.items.iter().any(|((p, _), i)| {
+            p == plant && i.attrs.product_class.as_deref() == Some(code.as_str())
+        }) || s.item_groups.iter().any(|((p, _), g)| {
+            p == plant && g.attrs.product_class.as_deref() == Some(code.as_str())
+        });
+        if used {
+            return Err(RepoError::InUse);
+        }
         let Some(old) = s
             .product_classes
             .remove(&(plant.clone(), code.as_str().to_owned()))
@@ -2892,7 +2967,13 @@ impl ItemGroupRepository for InMemoryStore {
         code: &ItemGroupCode,
     ) -> Result<bool, RepoError> {
         let mut s = self.lock();
-        // 料件的分群碼（ima06）移植後在此檢查引用（IG7）
+        // 與 PostgreSQL 的外鍵一致：料件的分群碼（ima06）引用時不可刪除（IG7）
+        if s.items
+            .iter()
+            .any(|((p, _), i)| p == plant && i.attrs.group_code.as_deref() == Some(code.as_str()))
+        {
+            return Err(RepoError::InUse);
+        }
         let Some(old) = s
             .item_groups
             .remove(&(plant.clone(), code.as_str().to_owned()))
@@ -2909,6 +2990,38 @@ impl ItemGroupRepository for InMemoryStore {
         );
         Ok(true)
     }
+}
+
+fn item_key(i: &Item) -> Vec<(&'static str, String)> {
+    vec![("item_no", i.no.as_str().to_owned())]
+}
+
+/// 料件的主要欄位（其餘欄位只在 PostgreSQL 的異動記錄中）
+fn item_row(i: &Item) -> Row {
+    let a = &i.attrs;
+    let mut cols = vec![
+        ("item_no", text::s(i.no.as_str())),
+        ("name", text::opt(a.name.as_deref())),
+        ("spec", text::opt(a.spec.as_deref())),
+        ("group_code", text::opt(a.group_code.as_deref())),
+        ("source_code", text::opt(a.source_code.as_deref())),
+        ("stock_unit", text::opt(a.stock_unit.as_deref())),
+        ("product_class", text::opt(a.product_class.as_deref())),
+        ("safety_stock", a.safety_stock.map(|d| d.to_string())),
+        ("active_code", text::s(i.active_code.code())),
+        ("status_code", text::s(i.status_code.code())),
+        ("order_invalid", Some(i.order_invalid.to_string())),
+    ];
+    cols.extend(audit_cols(
+        i.active(),
+        &i.created_by,
+        &i.created_dept,
+        i.created_on,
+        i.updated_by.as_deref(),
+        i.updated_on,
+        &i.stamp,
+    ));
+    row(cols)
 }
 
 fn group_key(g: &ItemGroup) -> Vec<(&'static str, String)> {

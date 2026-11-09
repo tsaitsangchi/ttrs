@@ -13,6 +13,7 @@ use ttrs_domain::{
     employee::EmployeeId,
     item_group::{ItemGroup, ItemGroupAttrs, ItemGroupCode},
     plant::PlantId,
+    product_class::ProductClassCode,
     unit::UnitCode,
 };
 use ttrs_shared::{ChangeDto, ItemGroupDto, ItemGroupInput};
@@ -24,7 +25,7 @@ use crate::{
     error::RepoError,
     ports::{
         ClassificationCodeRepository, EmployeeRepository, ItemGroupRepository,
-        MasterDataRepository, UnitRepository,
+        MasterDataRepository, ProductClassRepository, UnitRepository,
     },
 };
 
@@ -41,27 +42,26 @@ pub struct ItemGroupService {
     units: Arc<dyn UnitRepository>,
     codes: Arc<dyn ClassificationCodeRepository>,
     employees: Arc<dyn EmployeeRepository>,
+    classes: Arc<dyn ProductClassRepository>,
     master: Arc<dyn MasterDataRepository>,
     history: HistoryReader,
 }
 
 impl ItemGroupService {
+    /// 資料存取與料件共用（[`crate::item_service::ItemRepos`]）
     pub fn new(
         authz: Arc<dyn Authorizer>,
-        groups: Arc<dyn ItemGroupRepository>,
-        units: Arc<dyn UnitRepository>,
-        codes: Arc<dyn ClassificationCodeRepository>,
-        employees: Arc<dyn EmployeeRepository>,
-        master: Arc<dyn MasterDataRepository>,
+        repos: crate::item_service::ItemRepos,
         history: HistoryReader,
     ) -> Self {
         Self {
             authz,
-            groups,
-            units,
-            codes,
-            employees,
-            master,
+            groups: repos.groups,
+            units: repos.units,
+            codes: repos.codes,
+            employees: repos.employees,
+            classes: repos.classes,
+            master: repos.master,
             history,
         }
     }
@@ -260,8 +260,26 @@ impl ItemGroupService {
             bonded_class: i.bonded_class,
             tariff_no: i.tariff_no,
             bonded_type: i.bonded_type,
+            product_class: i.product_class,
+            economic_order_qty: i.economic_order_qty,
+            average_order_qty: i.average_order_qty,
         }
         .validated()?;
+        // 產品分類（IM24）：須為有效的產品分類
+        if let Some(c) = &attrs.product_class {
+            let ok = match ProductClassCode::parse(c) {
+                Ok(code) => self
+                    .classes
+                    .get_product_class(plant, &code)
+                    .await
+                    .map_err(infra)?
+                    .is_some_and(|x| x.active),
+                Err(_) => false,
+            };
+            if !ok {
+                return Err(DomainError::ProductClassNotFound.into());
+            }
+        }
         // 單位：須為有效的單位（:1505-1556）
         for u in attrs.units() {
             let ok = match UnitCode::parse(u) {
@@ -405,6 +423,9 @@ impl ItemGroupService {
                 bonded_class: a.bonded_class.clone(),
                 tariff_no: a.tariff_no.clone(),
                 bonded_type: a.bonded_type.clone(),
+                product_class: a.product_class.clone(),
+                economic_order_qty: a.economic_order_qty,
+                average_order_qty: a.average_order_qty,
                 version: None,
             },
             stock_keeper_name,

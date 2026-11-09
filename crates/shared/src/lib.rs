@@ -5,42 +5,184 @@ pub use chrono::NaiveDate;
 pub use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// 料件狀態（對應 TipTop 料件確認碼，見 docs/legacy-map/aim.yaml）
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ItemStatusDto {
-    Unconfirmed,
-    Confirmed,
-    Voided,
+// ---------------------------------------------------------------------------
+// Item Maintenance 料件基本資料維護（TipTop aimi100 / ima_file；specs/features/aim/item_maintenance.feature）
+// ---------------------------------------------------------------------------
+
+/// 料件可輸入的欄位（第一階段，IM1）；新增、修改共用，也是「取得分群預設值」的結果（IM25）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ItemInput {
+    /// ima01 料件編號
+    pub item_no: String,
+    /// ima02 品名（zh-TW；其他語系見 texts）
+    pub name: Option<String>,
+    /// ima021 規格
+    pub spec: Option<String>,
+    /// ima06 分群碼
+    pub group_code: Option<String>,
+    /// ima08 來源碼
+    pub source_code: Option<String>,
+    /// ima13 規格組件料件編號
+    pub configurable_item_no: Option<String>,
+    /// ima05 目前使用版本
+    pub current_version: Option<String>,
+    /// ima03 目錄參考號碼
+    pub catalog_ref: Option<String>,
+    /// ima915 供應商管制 0–3
+    pub supplier_control: Option<String>,
+    /// ima131 產品分類
+    pub product_class: Option<String>,
+    /// ima04 工程圖號
+    pub drawing_no: Option<String>,
+    /// ta_ima08 申請部門（客製）
+    pub apply_dept: Option<String>,
+    pub software: bool,
+    pub engineering: bool,
+    pub insert_position: bool,
+    pub insert_qpa_check: bool,
+    /// ima109 材料類別（分類碼類別 8）
+    pub material_category: Option<String>,
+    pub coproduct: bool,
+    pub inspection: bool,
+    pub repetitive: bool,
+    /// ta_ima02 PCN（客製）
+    pub pcn: Option<String>,
+    pub abc_code: Option<String>,
+    pub consumable: bool,
+    pub replenish_policy: Option<String>,
+    pub economic_order_qty: Option<rust_decimal::Decimal>,
+    pub average_order_qty: Option<rust_decimal::Decimal>,
+    pub safety_stock: Option<rust_decimal::Decimal>,
+    pub safety_period: Option<rust_decimal::Decimal>,
+    pub max_stock_qty: Option<rust_decimal::Decimal>,
+    pub shelf_life_days: Option<i32>,
+    pub stock_unit: Option<String>,
+    pub warehouse: Option<String>,
+    pub location: Option<String>,
+    pub stock_keeper: Option<String>,
+    pub second_unit: Option<String>,
+    pub pricing_unit: Option<String>,
+    pub other_group1: Option<String>,
+    pub other_group2: Option<String>,
+    pub other_group3: Option<String>,
+    pub other_group4: Option<String>,
+    pub account: Option<String>,
+    pub account2: Option<String>,
+    pub bonded: bool,
+    /// ima1001 中文名稱（全稱）
+    pub full_name: Option<String>,
+    /// ima1002 英文名稱
+    pub english_name: Option<String>,
+    /// ima1015 預計停產日
+    pub planned_discontinue_on: Option<NaiveDate>,
+    /// ima1014 產品週期狀態 1–6
+    pub life_cycle: Option<String>,
+    /// ima1016 箱條碼
+    pub carton_barcode: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）；ItemDto 攤平時不輸出（版本號在外層）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<i32>,
 }
 
-impl ItemStatusDto {
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Unconfirmed => "未確認",
-            Self::Confirmed => "已確認",
-            Self::Voided => "作廢",
-        }
-    }
+/// 料件的多語言品名、規格（item_text；ADR 0005、IM7）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ItemTextDto {
+    pub lang: String,
+    pub name: Option<String>,
+    pub spec: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ItemDto {
-    pub plant_id: String,
-    pub item_no: String,
-    pub name: String,
-    pub spec: Option<String>,
-    pub stock_unit: String,
-    pub status: ItemStatusDto,
+    /// 可輸入的欄位；name、spec 依查詢語系（指定語系 → zh-TW）
+    #[serde(flatten)]
+    pub fields: ItemInput,
+    /// imaacti 資料有效碼：P 處理中、Y 已確認、N 無效（IM27）
+    pub active_code: String,
+    /// ima1010 狀態碼：0 開立、1 確認
+    pub status_code: String,
+    /// ta_ima01 訂單無效否（客製）
+    pub order_invalid: bool,
+    /// ima140 Phase Out 否
+    pub phase_out: bool,
+    /// ima906 單位使用方式（固定 1，IM14）
+    pub unit_usage: String,
+    /// ima16 低階碼
+    pub low_level_code: i32,
+    /// ima146 BOM 異動否
+    pub bom_changed: Option<String>,
+    /// ima905 當月是否入聯產品
+    pub coproduct_this_month: bool,
+    /// ima93 新料件處理狀況（8 碼 Y/N）
+    pub new_part_status: String,
+    /// ima916 資料來源
+    pub data_source: String,
+    /// ima901 料件建檔日期
+    pub item_created_on: NaiveDate,
+    pub first_shipped_on: Option<NaiveDate>,
+    pub first_received_on: Option<NaiveDate>,
+    pub slow_moving_on: Option<NaiveDate>,
+    pub last_period_purchase_on: Option<NaiveDate>,
+    pub last_received_on: Option<NaiveDate>,
+    pub last_issued_on: Option<NaiveDate>,
+    pub last_txn_on: Option<NaiveDate>,
+    pub last_count_on: Option<NaiveDate>,
+    /// 帶出的名稱
+    pub group_description: Option<String>,
+    pub product_class_name: Option<String>,
+    pub stock_keeper_name: Option<String>,
+    pub apply_dept_name: Option<String>,
+    /// 各語系的品名、規格（zh-TW 為 name、spec 本身）
+    #[serde(default)]
+    pub texts: Vec<ItemTextDto>,
+    /// 資料有效（資料有效碼不是 N）
+    pub active: bool,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
+impl ItemDto {
+    pub fn to_input(&self) -> ItemInput {
+        ItemInput {
+            version: Some(self.version),
+            ..self.fields.clone()
+        }
+    }
+}
+
+/// 複製料件（reproduce）
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct CreateItemRequest {
-    pub plant_id: String,
-    pub item_no: String,
-    pub name: String,
-    pub spec: Option<String>,
-    pub stock_unit: String,
+pub struct CopyItemRequest {
+    pub new_item_no: String,
+    pub name: Option<String>,
+}
+
+/// 畫面 maxlength（與 ttrs_domain::item 一致）
+pub mod item_max_len {
+    pub const ITEM_NO: usize = 40;
+    pub const NAME: usize = 120;
+    pub const SPEC: usize = 120;
+    pub const GROUP: usize = 10;
+    pub const VERSION: usize = 10;
+    pub const CATALOG_REF: usize = 20;
+    pub const DRAWING_NO: usize = 255;
+    pub const CODE10: usize = 10;
+    pub const PCN: usize = 20;
+    pub const UNIT: usize = 4;
+    pub const ACCOUNT: usize = 24;
+    pub const FULL_NAME: usize = 100;
+    pub const ENGLISH_NAME: usize = 80;
+    pub const BARCODE: usize = 40;
 }
 
 /// 所有 API 錯誤的統一格式；`code` 是穩定的機器可讀代碼，`message` 給使用者看。
@@ -1597,6 +1739,12 @@ pub struct ItemGroupInput {
     pub bonded_class: Option<String>,
     pub tariff_no: Option<String>,
     pub bonded_type: Option<String>,
+    /// imz131 產品分類（新增料件時帶入，IM24）
+    pub product_class: Option<String>,
+    /// imz51 經濟訂購量（IM24）
+    pub economic_order_qty: Option<rust_decimal::Decimal>,
+    /// imz52 平均訂購量（IM24）
+    pub average_order_qty: Option<rust_decimal::Decimal>,
     /// 修改時帶回的版本號（ADR 0012 §4）。ItemGroupDto 攤平此結構時不輸出（版本號在外層 `version`），
     /// 否則 JSON 會有兩個 version，前端解析失敗
     #[serde(skip_serializing_if = "Option::is_none")]

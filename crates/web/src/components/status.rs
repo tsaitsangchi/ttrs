@@ -177,6 +177,7 @@ has_status!(
     ttrs_shared::UnitDto,
     ttrs_shared::ProductClassDto,
     ttrs_shared::ItemGroupDto,
+    ttrs_shared::ItemDto,
 );
 
 macro_rules! has_status_no_active {

@@ -102,3 +102,5 @@ history-col-after = 改后
 common-field-created-at = 建立时间
 common-field-updated-at = 最后修改时间
 common-field-version = 版本
+common-yes = 是
+common-no = 否

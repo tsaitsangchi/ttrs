@@ -332,3 +332,4 @@ a.md-button { text-decoration: none; }
 .sidebar .group-toggle .chevron--open { transform: rotate(90deg); }
 .sidebar button.group-toggle.nav-level-1 { padding-left: 28px; }
 .sidebar button.group-toggle.nav-level-2 { padding-left: 44px; }
+.field-action { display: flex; align-items: center; }

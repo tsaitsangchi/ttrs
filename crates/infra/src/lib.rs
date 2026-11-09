@@ -8,6 +8,7 @@ mod pg_classification;
 mod pg_credential;
 mod pg_department;
 mod pg_dictionary;
+mod pg_item;
 mod pg_item_group;
 mod pg_legacy;
 mod pg_menu;

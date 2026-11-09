@@ -108,6 +108,12 @@ pub struct ItemGroupAttrs {
     pub tariff_no: Option<String>,
     /// imz106 保稅料件型態
     pub bonded_type: Option<String>,
+    /// imz131 產品分類（料件帶入預設值用，IM24）
+    pub product_class: Option<String>,
+    /// imz51 經濟訂購量（IM24）
+    pub economic_order_qty: Option<Decimal>,
+    /// imz52 平均訂購量（IM24）
+    pub average_order_qty: Option<Decimal>,
 }
 
 fn clean(v: &mut Option<String>, field: &'static str, max: usize) -> Result<(), DomainError> {
@@ -153,6 +159,7 @@ impl ItemGroupAttrs {
         clean(&mut self.bonded_class, "保稅進出口分類", 4)?;
         clean(&mut self.tariff_no, "保稅稅則編號", 4)?;
         clean(&mut self.bonded_type, "保稅料件型態", 1)?;
+        clean(&mut self.product_class, "產品分類", 10)?;
         let sc = self.supplier_control.trim().to_owned();
         self.supplier_control = if sc.is_empty() { "0".to_owned() } else { sc };
         if self.supplier_control.chars().count() > 1 {
@@ -182,6 +189,8 @@ impl ItemGroupAttrs {
         non_negative(self.safety_period)?;
         non_negative(self.shelf_life_days)?;
         non_negative(self.mrp_bucket_days)?;
+        non_negative(self.economic_order_qty)?;
+        non_negative(self.average_order_qty)?;
         Ok(self)
     }
 

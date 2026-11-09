@@ -6,8 +6,8 @@
 use ttrs_shared::{
     ApiError, ChangePasswordInput, ClassificationCodeDto, ClassificationCodeInput, ColumnInfoDto,
     ColumnTextDto, ConstraintDto, CopyPermissionsRequest, CopyUserPermissionsRequest,
-    CreateItemRequest, DepartmentAccountingInput, DepartmentDto, DepartmentInput, EmployeeDto,
-    EmployeeInput, GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto, LegacyTableDto,
+    DepartmentAccountingInput, DepartmentDto, DepartmentInput, EmployeeDto, EmployeeInput,
+    GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto, LegacyTableDto,
     LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto, MyPermissionDto,
     NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PasswordResetInput,
     PasswordResetRequestInput, PasswordResetStatusDto, PermissionBatchResultDto,
@@ -77,55 +77,104 @@ async fn error_message(res: reqwest::Response) -> String {
     }
 }
 
+// ----- Item Maintenance 料件基本資料維護（TipTop aimi100；工廠層） -----
+
+fn item_url(plant: &str, no: &str, suffix: &str) -> String {
+    plant_part_url(plant, "items", no, suffix)
+}
+
 pub async fn list_items(plant: &str) -> Result<Vec<ItemDto>, String> {
-    let res = reqwest::Client::new()
-        .get(url("/api/items"))
-        .query(&[("plant", plant)])
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    into_result(res).await
+    get_json(item_url(plant, "", "")).await
 }
 
-pub async fn create_item(req: &CreateItemRequest) -> Result<ItemDto, String> {
-    let res = reqwest::Client::new()
-        .post(url("/api/items"))
-        .json(req)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    into_result(res).await
+/// 查詢一筆；品名、規格用目前介面語系（退回繁中）
+pub async fn get_item(plant: &str, no: &str) -> Result<ItemDto, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!("{}?lang={lang}", item_url(plant, no, ""))).await
 }
 
-pub async fn confirm_item(plant: &str, no: &str) -> Result<ItemDto, String> {
-    let res = reqwest::Client::new()
-        .post(url(&format!("/api/items/{plant}/{no}/confirm")))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    into_result(res).await
+pub async fn create_item(plant: &str, req: &ttrs_shared::ItemInput) -> Result<ItemDto, String> {
+    send_json(reqwest::Method::POST, item_url(plant, "", ""), Some(req)).await
 }
 
-pub async fn unconfirm_item(plant: &str, no: &str) -> Result<ItemDto, String> {
-    let res = reqwest::Client::new()
-        .post(url(&format!("/api/items/{plant}/{no}/unconfirm")))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    into_result(res).await
+pub async fn update_item(
+    plant: &str,
+    no: &str,
+    req: &ttrs_shared::ItemInput,
+) -> Result<ItemDto, String> {
+    send_json(reqwest::Method::PUT, item_url(plant, no, ""), Some(req)).await
 }
 
-pub async fn delete_item(plant: &str, no: &str) -> Result<(), String> {
+/// confirm、unconfirm、void（作廢／恢復）、order-invalid（訂單無效切換）
+pub async fn item_action(
+    plant: &str,
+    no: &str,
+    action: &str,
+    version: i32,
+) -> Result<ItemDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            item_url(plant, no, &format!("/{action}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn copy_item(
+    plant: &str,
+    no: &str,
+    req: &ttrs_shared::CopyItemRequest,
+) -> Result<ItemDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        item_url(plant, no, "/copy"),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn set_item_text(
+    plant: &str,
+    no: &str,
+    req: &ttrs_shared::ItemTextDto,
+) -> Result<ItemDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        item_url(plant, no, "/texts"),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn delete_item(plant: &str, no: &str, version: i32) -> Result<(), String> {
     let res = reqwest::Client::new()
-        .delete(url(&format!("/api/items/{plant}/{no}")))
+        .delete(format!("{}?version={version}", item_url(plant, no, "")))
         .send()
         .await
         .map_err(|e| e.to_string())?;
-    if res.status().is_success() {
-        Ok(())
-    } else {
-        Err(error_message(res).await)
-    }
+    no_content(res).await
+}
+
+pub async fn item_history(plant: &str, no: &str) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!("{}?lang={lang}", item_url(plant, no, "/history"))).await
+}
+
+/// 分群碼帶入的料件預設值（IM25）
+pub async fn item_group_defaults(
+    plant: &str,
+    group: &str,
+) -> Result<ttrs_shared::ItemInput, String> {
+    get_json(plant_part_url(
+        plant,
+        "item-groups",
+        group,
+        "/item-defaults",
+    ))
+    .await
 }
 
 // ----- Program Maintenance 程式維護 -----

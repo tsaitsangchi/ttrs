@@ -9,8 +9,8 @@ use ttrs_app::{
 };
 use ttrs_domain::{DomainError, authorization::DenyReason};
 use ttrs_shared::{
-    ColumnTextDto, CreateItemRequest, PermissionClassInput, PlantInput, ProgramInput,
-    ProgramNameDto, ProgramPermissionInput, QbeCondition, QueryRequest, SpecialPermissionKindDto,
+    ColumnTextDto, PermissionClassInput, PlantInput, ProgramInput, ProgramNameDto,
+    ProgramPermissionInput, QbeCondition, QueryRequest, SpecialPermissionKindDto,
     TableDictionaryInput, TableTextDto, UserInput, UserPermissionInput,
 };
 
@@ -286,18 +286,52 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         // aimi100 料件維護
         ["查詢料件"] => w.items.list(a, "TW01").await.map(drop),
         ["新增料件", no] => {
-            let req = CreateItemRequest {
-                plant_id: "TW01".into(),
+            let req = ttrs_shared::ItemInput {
                 item_no: (*no).into(),
-                name: "螺絲".into(),
-                spec: None,
-                stock_unit: "PCS".into(),
+                name: Some("螺絲".into()),
+                stock_unit: Some("PCS".into()),
+                product_class: Some("P01".into()),
+                ..Default::default()
             };
-            w.items.create(a, req).await.map(drop)
+            w.items.create(a, "TW01", req).await.map(drop)
         }
-        ["刪除料件", no] => w.items.delete(a, "TW01", no).await,
-        ["確認料件", no] => w.items.confirm(a, "TW01", no).await.map(drop),
-        ["取消確認料件", no] => w.items.unconfirm(a, "TW01", no).await.map(drop),
+        ["修改料件", no] => {
+            let req = ttrs_shared::ItemInput {
+                item_no: (*no).into(),
+                name: Some("螺絲".into()),
+                stock_unit: Some("PCS".into()),
+                product_class: Some("P01".into()),
+                ..Default::default()
+            };
+            w.items.update(a, "TW01", no, req).await.map(drop)
+        }
+        ["刪除料件", no] => w.items.delete(a, "TW01", no, None).await,
+        ["確認料件", no] => w.items.confirm(a, "TW01", no, None).await.map(drop),
+        ["取消確認料件", no] => w.items.unconfirm(a, "TW01", no, None).await.map(drop),
+        ["作廢料件", no] => w.items.toggle_void(a, "TW01", no, None).await.map(drop),
+        ["切換料件", no, "的訂單無效"] => w
+            .items
+            .toggle_order_invalid(a, "TW01", no, None)
+            .await
+            .map(drop),
+        ["複製料件", from, "為", to] => {
+            let req = ttrs_shared::CopyItemRequest {
+                new_item_no: (*to).into(),
+                name: None,
+            };
+            w.items.copy(a, "TW01", from, req).await.map(drop)
+        }
+        ["設定料件", no, "的英文品名"] => {
+            let t = ttrs_shared::ItemTextDto {
+                lang: "en".into(),
+                name: Some("Screw".into()),
+                spec: None,
+            };
+            w.items.set_text(a, "TW01", no, t).await.map(drop)
+        }
+        ["查詢料件", no, "的異動記錄"] => {
+            w.items.history(a, "TW01", no, None).await.map(drop)
+        }
         // aooi030 部門維護、aooi040 員工維護（工廠層，營運中心 TW01）
         ["查詢部門"] => w
             .departments

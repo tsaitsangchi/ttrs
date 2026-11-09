@@ -27,16 +27,15 @@ use ttrs_app::{
 use ttrs_shared::{
     ApiError, ChangePasswordInput, ClassificationCodeDto, ClassificationCodeInput, ColumnInfoDto,
     ColumnTextDto, ConstraintDto, CopyPermissionsRequest, CopyUserPermissionsRequest,
-    CreateItemRequest, DepartmentAccountingInput, DepartmentDto, DepartmentInput, EmployeeDto,
-    EmployeeInput, GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto,
-    LegacyImportResultDto, LegacyTableDto, LegacyTableSummaryDto, MenuPermissionsRequest,
-    MigrationDto, MyPermissionDto, NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page,
-    PasswordResetInput, PasswordResetRequestInput, PasswordResetStatusDto,
-    PermissionBatchResultDto, PermissionClassDto, PermissionClassInput, PlantDto, PlantInput,
-    ProgramDto, ProgramInput, ProgramNameDto, ProgramPermissionDto, ProgramPermissionInput,
-    QueryRequest, SessionDto, SignInInput, SignInPlantsDto, SwitchPlantInput, TableDictionaryDto,
-    TableDictionaryInput, TableTextDto, UpdatedCountDto, UserDto, UserInput, UserPermissionDto,
-    UserPermissionInput,
+    DepartmentAccountingInput, DepartmentDto, DepartmentInput, EmployeeDto, EmployeeInput,
+    GeneratePermissionsRequest, GrantRequest, IndexDto, ItemDto, LegacyImportResultDto,
+    LegacyTableDto, LegacyTableSummaryDto, MenuPermissionsRequest, MigrationDto, MyPermissionDto,
+    NewPlantIdRequest, NewProgramNoRequest, NewUserIdRequest, Page, PasswordResetInput,
+    PasswordResetRequestInput, PasswordResetStatusDto, PermissionBatchResultDto,
+    PermissionClassDto, PermissionClassInput, PlantDto, PlantInput, ProgramDto, ProgramInput,
+    ProgramNameDto, ProgramPermissionDto, ProgramPermissionInput, QueryRequest, SessionDto,
+    SignInInput, SignInPlantsDto, SwitchPlantInput, TableDictionaryDto, TableDictionaryInput,
+    TableTextDto, UpdatedCountDto, UserDto, UserInput, UserPermissionDto, UserPermissionInput,
 };
 
 #[derive(Clone)]
@@ -202,10 +201,26 @@ pub fn router(state: AppState) -> Router {
         .route("/api/session/plant", axum::routing::put(switch_plant))
         // 目前使用者的有效權限（authorization.feature AQ13）
         .route("/api/me/permissions/{program}", get(my_permission))
-        .route("/api/items", get(list_items).post(create_item))
-        .route("/api/items/{plant}/{no}", get(get_item).delete(delete_item))
-        .route("/api/items/{plant}/{no}/confirm", post(confirm_item))
-        .route("/api/items/{plant}/{no}/unconfirm", post(unconfirm_item))
+        // Item Maintenance 料件基本資料維護（TipTop aimi100；工廠層）
+        .route(
+            "/api/plants/{plant}/items",
+            get(list_items).post(create_item),
+        )
+        .route(
+            "/api/plants/{plant}/items/{no}",
+            get(get_item).put(update_item).delete(delete_item),
+        )
+        .route("/api/plants/{plant}/items/{no}/history", get(item_history))
+        .route("/api/plants/{plant}/items/{no}/copy", post(copy_item))
+        .route(
+            "/api/plants/{plant}/items/{no}/texts",
+            axum::routing::put(set_item_text),
+        )
+        .route("/api/plants/{plant}/items/{no}/{action}", post(item_action))
+        .route(
+            "/api/plants/{plant}/item-groups/{code}/item-defaults",
+            get(item_group_defaults),
+        )
         .route("/api/programs", get(list_programs).post(create_program))
         .route("/api/programs/query", post(query_programs))
         .route(
@@ -1026,6 +1041,7 @@ impl IntoResponse for HttpError {
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
             | "ITEM_HAS_TRANSACTIONS"
+            | "ITEM_INACTIVE"
             | "PROGRAM_ALREADY_EXISTS"
             | "DICT_ALREADY_EXISTS"
             | "USER_ALREADY_EXISTS"
@@ -1202,52 +1218,112 @@ async fn my_permission(
     ))
 }
 
-#[derive(Deserialize)]
-struct PlantQuery {
-    plant: String,
-}
+// ----- Item Maintenance 料件基本資料維護（aimi100；工廠層） -----
 
-async fn list_items(Ctx(s): Ctx, Query(q): Query<PlantQuery>) -> ApiResult<Json<Vec<ItemDto>>> {
-    Ok(Json(s.items.list(&s.actor, &q.plant).await?))
-}
-
-async fn create_item(
-    Ctx(s): Ctx,
-    Json(req): Json<CreateItemRequest>,
-) -> ApiResult<(StatusCode, Json<ItemDto>)> {
-    Ok((
-        StatusCode::CREATED,
-        Json(s.items.create(&s.actor, req).await?),
-    ))
+async fn list_items(Ctx(s): Ctx, Path(plant): Path<String>) -> ApiResult<Json<Vec<ItemDto>>> {
+    Ok(Json(s.items.list(&s.actor, &plant).await?))
 }
 
 async fn get_item(
     Ctx(s): Ctx,
     Path((plant, no)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
 ) -> ApiResult<Json<ItemDto>> {
-    Ok(Json(s.items.get(&s.actor, &plant, &no).await?))
+    Ok(Json(
+        s.items
+            .get(&s.actor, &plant, &no, q.lang.as_deref())
+            .await?,
+    ))
 }
 
-async fn confirm_item(
+async fn create_item(
     Ctx(s): Ctx,
-    Path((plant, no)): Path<(String, String)>,
-) -> ApiResult<Json<ItemDto>> {
-    Ok(Json(s.items.confirm(&s.actor, &plant, &no).await?))
+    Path(plant): Path<String>,
+    Json(req): Json<ttrs_shared::ItemInput>,
+) -> ApiResult<(StatusCode, Json<ItemDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.items.create(&s.actor, &plant, req).await?),
+    ))
 }
 
-async fn unconfirm_item(
+async fn update_item(
     Ctx(s): Ctx,
     Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::ItemInput>,
 ) -> ApiResult<Json<ItemDto>> {
-    Ok(Json(s.items.unconfirm(&s.actor, &plant, &no).await?))
+    require_version(req.version)?;
+    Ok(Json(s.items.update(&s.actor, &plant, &no, req).await?))
+}
+
+/// 確認 confirm、取消確認 unconfirm、作廢／恢復 void、訂單無效切換 order-invalid（須帶 ?version=）
+async fn item_action(
+    Ctx(s): Ctx,
+    Path((plant, no, action)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let dto = match action.as_str() {
+        "confirm" => s.items.confirm(&s.actor, &plant, &no, version).await?,
+        "unconfirm" => s.items.unconfirm(&s.actor, &plant, &no, version).await?,
+        "void" => s.items.toggle_void(&s.actor, &plant, &no, version).await?,
+        "order-invalid" => {
+            s.items
+                .toggle_order_invalid(&s.actor, &plant, &no, version)
+                .await?
+        }
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn copy_item(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::CopyItemRequest>,
+) -> ApiResult<(StatusCode, Json<ItemDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.items.copy(&s.actor, &plant, &no, req).await?),
+    ))
+}
+
+async fn set_item_text(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::ItemTextDto>,
+) -> ApiResult<Json<ItemDto>> {
+    Ok(Json(s.items.set_text(&s.actor, &plant, &no, req).await?))
 }
 
 async fn delete_item(
     Ctx(s): Ctx,
     Path((plant, no)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
 ) -> ApiResult<StatusCode> {
-    s.items.delete(&s.actor, &plant, &no).await?;
+    let version = Some(require_version(v.version)?);
+    s.items.delete(&s.actor, &plant, &no, version).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+async fn item_history(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.items
+            .history(&s.actor, &plant, &no, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+/// 分群碼帶入料件的預設值（IM25）
+async fn item_group_defaults(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+) -> ApiResult<Json<ttrs_shared::ItemInput>> {
+    Ok(Json(s.items.group_defaults(&s.actor, &plant, &code).await?))
 }
 
 // ----- Program Maintenance 程式維護（TipTop p_zz） -----
