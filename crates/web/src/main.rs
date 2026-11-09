@@ -101,6 +101,8 @@ fn App() -> Element {
     use_context_provider(|| Signal::new(i18n::load()));
     // 目前的連線（sign_in.feature）：登入者與目前營運中心，供外框與工廠層作業使用
     use_context_provider(|| Signal::new(SessionState::Loading));
+    // 選單維護變更後側欄即時更新（MN15）
+    components::menu::provide_menu_version();
     rsx! {
         // 不要由瀏覽器翻譯（Chrome）：譯文會蓋掉畫面更新；語系由 i18n::set 設在 <html lang>
         document::Meta { name: "google", content: "notranslate" }
@@ -181,11 +183,27 @@ fn group_icon(node: &ttrs_shared::MenuNodeDto) -> (&'static str, Tone) {
 /// 側欄樹狀選單（cl_create_4sm 的 StartMenu）：由 API 依使用者的選單與權限組成
 #[component]
 fn SideMenu() -> Element {
-    let tree = use_resource(api::menu_tree);
-    match &*tree.read() {
-        Some(Ok(nodes)) => rsx! { MenuNodes { nodes: nodes.clone(), level: 0 } },
-        Some(Err(e)) => rsx! { p { class: "session-error", "{e}" } },
-        None => rsx! {},
+    let version = use_context::<components::menu::MenuVersion>().0;
+    // 選單維護變更時版本加 1，重新取得（MN15）；重新載入期間保留上一份，側欄不閃爍
+    let tree = use_resource(move || {
+        let _ = version();
+        api::menu_tree()
+    });
+    let mut last = use_signal(Vec::<ttrs_shared::MenuNodeDto>::new);
+    let mut error = use_signal(|| None::<String>);
+    use_effect(move || match &*tree.read() {
+        Some(Ok(nodes)) => {
+            error.set(None);
+            last.set(nodes.clone());
+        }
+        Some(Err(e)) => error.set(Some(e.clone())),
+        None => {}
+    });
+    rsx! {
+        if let Some(e) = error() {
+            p { class: "session-error", "{e}" }
+        }
+        MenuNodes { nodes: last(), level: 0 }
     }
 }
 

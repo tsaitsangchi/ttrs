@@ -2,6 +2,7 @@
 
 pub mod history;
 pub mod material;
+pub mod menu;
 pub mod multilingual;
 pub mod permission;
 pub mod plant;

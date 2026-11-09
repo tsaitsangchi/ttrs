@@ -2,7 +2,7 @@
 menu-breadcrumb = System Admin / Menu Maintenance
 menu-title = Menu Maintenance
 menu-field-menu = Menu
-menu-hint-menu = A menu is a program in module MENU; register it in Program Maintenance first. The sidebar follows each user's menu; reload the page after changes.
+menu-hint-menu = A menu is a program in module MENU; register it in Program Maintenance first. The sidebar follows each user's menu; the sidebar updates right after each change.
 menu-list-title = Items
 menu-field-seq = Seq.
 menu-field-program = Program

@@ -1,7 +1,7 @@
 //! Menu Maintenance 選單維護（TipTop p_zm 系統目錄資料建立作業）
 //! 版面比照 tiptop/azz/4fd/p_zm.4fd（MN1）：單頭目錄代號＋名稱（以下拉切換目錄），單身序號、程式代號、程式名稱。
 //! 單身新增以小視窗輸入；上移／下移、重新編號、移除、複製、刪除目錄、異動記錄。規則在後端 MenuService。
-//! 側欄依目錄組成，目錄異動後重新整理頁面即生效（MN15）。
+//! 側欄依目錄組成，目錄異動後側欄立即更新（MN15）。
 
 use dioxus::prelude::*;
 use ttrs_shared::{MenuItemDto, MenuItemInput};
@@ -12,6 +12,7 @@ use crate::components::material::{
     Button, ButtonVariant, Card, Chip, Dialog, IconButton, Notification, NotificationKind, Select,
     TextField, Tone, icons,
 };
+use crate::components::menu::{MenuVersion, refresh_menu};
 use crate::components::permission::{Perm, ProgramGate};
 use crate::i18n::{t, tf};
 
@@ -90,7 +91,10 @@ fn MenuMaintenancePage() -> Element {
         })
         .collect();
 
+    // 側欄即時更新（MN15）
+    let menu_version = use_context::<MenuVersion>();
     let mut done = move |msg: String| {
+        refresh_menu(menu_version);
         error.set(None);
         dialog_error.set(None);
         open.set(None);
@@ -248,7 +252,7 @@ fn MenuMaintenancePage() -> Element {
                                                         let (m, p) = (menu(), p.clone());
                                                         spawn(async move {
                                                             match api::shift_menu_item(&m, &p, true).await {
-                                                                Ok(_) => { selected.set(Some(p)); items.restart(); }
+                                                                Ok(_) => { selected.set(Some(p)); items.restart(); refresh_menu(menu_version); }
                                                                 Err(e) => error.set(Some(e)),
                                                             }
                                                         });
@@ -263,7 +267,7 @@ fn MenuMaintenancePage() -> Element {
                                                         let (m, p) = (menu(), p.clone());
                                                         spawn(async move {
                                                             match api::shift_menu_item(&m, &p, false).await {
-                                                                Ok(_) => { selected.set(Some(p)); items.restart(); }
+                                                                Ok(_) => { selected.set(Some(p)); items.restart(); refresh_menu(menu_version); }
                                                                 Err(e) => error.set(Some(e)),
                                                             }
                                                         });

@@ -2,7 +2,7 @@
 menu-breadcrumb = 系统管理 / Menu Maintenance
 menu-title = 选单维护
 menu-field-menu = 目录代号
-menu-hint-menu = 目录是模组 MENU 的程序，请先在程序维护登录；侧栏依用户的选单组成，修改后重新整理页面即生效。
+menu-hint-menu = 目录是模组 MENU 的程序，请先在程序维护登录；侧栏依用户的选单组成，修改后侧栏立即更新。
 menu-list-title = 单身
 menu-field-seq = 序号
 menu-field-program = 程序代号
