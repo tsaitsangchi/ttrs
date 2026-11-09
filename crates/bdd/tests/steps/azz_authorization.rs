@@ -334,6 +334,22 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
                 .map(drop)
         }
         ["刪除部門", code] => w.departments.delete(a, "TW01", code, None).await,
+        // p_zm 選單維護（menu_maintenance.feature）
+        ["查詢選單目錄"] => w.menus.menus(a, "zh-TW").await.map(drop),
+        ["在目錄", menu, "加入程式", program] => w
+            .menus
+            .add(
+                a,
+                menu,
+                ttrs_shared::MenuItemInput {
+                    program_no: (*program).into(),
+                    seq: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["複製目錄", from, "為", to] => w.menus.copy(a, from, to).await,
+        ["刪除目錄", menu] => w.menus.delete(a, menu).await,
         // 異動記錄（ADR 0012 §8，功能 history）
         ["查詢作業", program, key, "的異動記錄"] => w
             .shared_history

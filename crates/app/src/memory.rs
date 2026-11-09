@@ -15,6 +15,7 @@ use ttrs_domain::{
     item::{Item, ItemNo},
     lang::Lang,
     legacy_catalog::LegacyTable,
+    menu::MenuItem,
     permission::{PermissionAttrs, ProgramPermission, parse_actions},
     permission_class::{ClassCode, ClassIdleControl, PermissionClass, PermissionClassAttrs},
     plant::{DEFAULT_TIME_ZONE, Plant, PlantAttrs, PlantId, PlantSchema},
@@ -32,9 +33,9 @@ use crate::{
         AccountPolicy, AccountPolicyRepository, AuditEntry, ChangeLogRepository, Credential,
         CredentialRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
         ItemRepository, LegacyCatalogRepository, LegacyTableSummary, MasterDataRepository,
-        MigrationSource, PermissionClassRepository, PermissionListItem, PlantRepository,
-        ProgramName, ProgramPermissionRepository, ProgramRepository, SchemaCatalog, TableSchema,
-        UserPermissionItem, UserPermissionRepository, UserRepository,
+        MenuRepository, MigrationSource, PermissionClassRepository, PermissionListItem,
+        PlantRepository, ProgramName, ProgramPermissionRepository, ProgramRepository,
+        SchemaCatalog, TableSchema, UserPermissionItem, UserPermissionRepository, UserRepository,
     },
     query,
 };
@@ -79,7 +80,8 @@ struct State {
     /// 權限類別（zw_file）
     permission_classes: BTreeMap<ClassCode, PermissionClass>,
     /// (選單代號, 程式代號)（zm_file）
-    menu_items: HashSet<(String, String)>,
+    /// 選單單身（zm_file）：目錄、序號、子項程式
+    menu_items: Vec<MenuItem>,
     /// p_query 查詢定義代號（zai_file）
     query_definitions: HashSet<String>,
     programs: BTreeMap<ProgramNo, Program>,
@@ -119,6 +121,138 @@ impl InMemoryStore {
         s.add_permission_class("ADMIN");
         s.add_ported_programs(Some("ADMIN"));
         s
+    }
+
+    /// 起始目錄（同 migrations/0026，menu_maintenance.feature MN14）：目錄程式、名稱與單身
+    pub fn add_default_menus(&self) {
+        self.add_module("MENU");
+        let today = chrono::Local::now().date_naive();
+        let menus = [
+            (
+                "menu-main",
+                ["主選單", "Main Menu", "主选单"],
+                vec!["menu-aim", "menu-aoo", "menu-azz"],
+            ),
+            (
+                "menu-aim",
+                ["庫存管理", "Inventory", "库存管理"],
+                vec!["item-maintenance"],
+            ),
+            (
+                "menu-aoo",
+                ["整體管理", "General Management", "整体管理"],
+                vec![
+                    "plant-maintenance",
+                    "department-maintenance",
+                    "employee-maintenance",
+                    "classification-code-maintenance",
+                ],
+            ),
+            (
+                "menu-azz",
+                ["系統管理", "System Admin", "系统管理"],
+                vec![
+                    "program-maintenance",
+                    "data-dictionary",
+                    "user-maintenance",
+                    "user-permission-maintenance",
+                    "permission-class-maintenance",
+                    "program-permission-maintenance",
+                    "menu-maintenance",
+                ],
+            ),
+        ];
+        {
+            let mut s = self.lock();
+            for (no, names, _) in &menus {
+                let pno = ProgramNo::parse(no).expect("程式代號");
+                let module = ModuleCode::parse("MENU").expect("模組");
+                let program = Program::new(
+                    pno.clone(),
+                    module,
+                    ProgramAttrs::default(),
+                    "tiptop",
+                    "",
+                    today,
+                )
+                .expect("程式");
+                s.programs.entry(pno).or_insert(program);
+                for (lang, name) in ["zh-TW", "en", "zh-CN"].iter().zip(names) {
+                    let lang = Lang::parse(lang).expect("語系");
+                    s.names
+                        .entry(((*no).to_owned(), lang))
+                        .or_insert(((*name).to_owned(), None));
+                }
+            }
+        }
+        for (no, _, children) in &menus {
+            for child in children {
+                self.add_menu_item(no, child);
+            }
+        }
+        // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
+        let names: [(&str, [&str; 3]); 12] = [
+            (
+                "menu-maintenance",
+                ["選單維護", "Menu Maintenance", "选单维护"],
+            ),
+            (
+                "item-maintenance",
+                ["料件基本資料", "Item Master", "料件基本资料"],
+            ),
+            (
+                "plant-maintenance",
+                ["營運中心維護", "Plants", "营运中心维护"],
+            ),
+            (
+                "department-maintenance",
+                ["部門維護", "Departments", "部门维护"],
+            ),
+            (
+                "employee-maintenance",
+                ["員工維護", "Employees", "员工维护"],
+            ),
+            (
+                "classification-code-maintenance",
+                ["分類碼維護", "Classification Codes", "分类码维护"],
+            ),
+            (
+                "program-maintenance",
+                ["程式維護", "Program Maintenance", "程序维护"],
+            ),
+            (
+                "data-dictionary",
+                ["資料字典維護", "Data Dictionary", "数据字典维护"],
+            ),
+            (
+                "user-maintenance",
+                ["使用者維護", "User Maintenance", "用户维护"],
+            ),
+            (
+                "user-permission-maintenance",
+                ["使用者特殊權限", "User Special Permissions", "用户特殊权限"],
+            ),
+            (
+                "permission-class-maintenance",
+                ["權限類別維護", "Permission Classes", "权限类别维护"],
+            ),
+            (
+                "program-permission-maintenance",
+                ["程式執行權限", "Program Permissions", "程序执行权限"],
+            ),
+        ];
+        let mut s = self.lock();
+        for (no, texts) in names {
+            if !s.programs.keys().any(|p| p.as_str() == no) {
+                continue;
+            }
+            for (lang, name) in ["zh-TW", "en", "zh-CN"].iter().zip(texts) {
+                let lang = Lang::parse(lang).expect("語系");
+                s.names
+                    .entry((no.to_owned(), lang))
+                    .or_insert((name.to_owned(), None));
+            }
+        }
     }
 
     /// 登錄 TTRS 已移植的作業（AQ11，同 migrations/0015）；`grant_to` 有值時給該權限類別全部功能、資料權限 0／0／0、單身 0。
@@ -293,10 +427,28 @@ impl InMemoryStore {
             .count()
     }
 
+    /// 測試資料：加入選單單身，序號接在最後（與 PostgreSQL 種子資料相同）
     pub fn add_menu_item(&self, menu: &str, program: &str) {
-        self.lock()
+        let mut s = self.lock();
+        if s.menu_items
+            .iter()
+            .any(|i| i.menu == menu && i.program == program)
+        {
+            return;
+        }
+        let seq = s
             .menu_items
-            .insert((menu.to_string(), program.to_string()));
+            .iter()
+            .filter(|i| i.menu == menu)
+            .map(|i| i.seq)
+            .max()
+            .unwrap_or(0)
+            + ttrs_domain::menu::SEQ_STEP;
+        s.menu_items.push(MenuItem {
+            menu: menu.to_owned(),
+            seq,
+            program: program.to_owned(),
+        });
     }
 
     pub fn add_query_definition(&self, query: &str) {
@@ -512,10 +664,11 @@ impl ProgramRepository for InMemoryStore {
                 ((class, rename(no, old, new)), p)
             })
             .collect();
-        s.menu_items = std::mem::take(&mut s.menu_items)
-            .into_iter()
-            .map(|(menu, no)| (menu, rename(no, old, new)))
-            .collect();
+        for i in &mut s.menu_items {
+            if i.program == old {
+                i.program = new.to_owned();
+            }
+        }
         // 特殊權限的程式列（同 PostgreSQL 的 ON UPDATE CASCADE）
         for up in s.user_permissions.values_mut() {
             if let SpecialTarget::Program { program, .. } = &mut up.target
@@ -542,7 +695,7 @@ impl ProgramRepository for InMemoryStore {
         let no = no.as_str();
         s.names.retain(|(n, _), _| n != no);
         s.permissions.retain(|(_, n), _| n != no);
-        s.menu_items.retain(|(_, n)| n != no);
+        s.menu_items.retain(|i| i.program != no);
         s.user_permissions
             .retain(|_, up| up.target.program().is_none_or(|p| p.as_str() != no));
         s.audit.push(audit.clone());
@@ -596,8 +749,8 @@ impl ProgramRepository for InMemoryStore {
             .lock()
             .menu_items
             .iter()
-            .filter(|(_, n)| n == no.as_str())
-            .map(|(m, _)| m.clone())
+            .filter(|i| i.program == no.as_str())
+            .map(|i| i.menu.clone())
             .collect();
         v.sort();
         Ok(v)
@@ -610,7 +763,8 @@ impl ProgramRepository for InMemoryStore {
             .values()
             .filter(|p| {
                 s.menu_items
-                    .contains(&(menu.to_owned(), p.program_no.as_str().to_owned()))
+                    .iter()
+                    .any(|i| i.menu == menu && i.program == p.program_no.as_str())
             })
             .cloned()
             .collect())
@@ -2347,5 +2501,61 @@ impl State {
             USER_MASKED,
         );
         self.users.insert(id.clone(), u);
+    }
+}
+
+// ----- 選單（zm_file；menu_maintenance.feature） -----
+
+#[async_trait]
+impl MenuRepository for InMemoryStore {
+    async fn all_menu_items(&self) -> Result<Vec<MenuItem>, RepoError> {
+        Ok(self.lock().menu_items.clone())
+    }
+
+    async fn menu_items(&self, menu: &str) -> Result<Vec<MenuItem>, RepoError> {
+        let mut v: Vec<MenuItem> = self
+            .lock()
+            .menu_items
+            .iter()
+            .filter(|i| i.menu == menu)
+            .cloned()
+            .collect();
+        v.sort_by_key(|i| i.seq);
+        Ok(v)
+    }
+
+    async fn insert_menu_item(&self, item: &MenuItem) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.menu_items
+            .iter()
+            .any(|i| i.menu == item.menu && (i.seq == item.seq || i.program == item.program))
+        {
+            return Err(RepoError::Conflict);
+        }
+        s.menu_items.push(item.clone());
+        Ok(())
+    }
+
+    async fn remove_menu_item(&self, menu: &str, program: &str) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let before = s.menu_items.len();
+        s.menu_items
+            .retain(|i| !(i.menu == menu && i.program == program));
+        Ok(s.menu_items.len() != before)
+    }
+
+    async fn set_menu_seqs(&self, menu: &str, items: &[MenuItem]) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        for i in s.menu_items.iter_mut().filter(|i| i.menu == menu) {
+            if let Some(n) = items.iter().find(|n| n.program == i.program) {
+                i.seq = n.seq;
+            }
+        }
+        Ok(())
+    }
+
+    async fn clear_menu(&self, menu: &str) -> Result<(), RepoError> {
+        self.lock().menu_items.retain(|i| i.menu != menu);
+        Ok(())
     }
 }

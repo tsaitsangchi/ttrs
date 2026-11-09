@@ -10,6 +10,7 @@ pub mod error;
 pub mod item;
 pub mod lang;
 pub mod legacy_catalog;
+pub mod menu;
 pub mod password;
 pub mod password_reset;
 pub mod permission;

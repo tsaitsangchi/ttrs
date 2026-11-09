@@ -2,17 +2,6 @@
 # 語系：zh-TW。ID 規則見 docs/adr/0005-i18n.md；三個語系的 ID 必須一致。
 
 shell-nav-home = 首頁
-shell-group-aim = 庫存管理 (aim)
-shell-nav-items = 料件基本資料
-shell-group-aoo = 整體管理 (aoo)
-shell-nav-plants = 營運中心維護
-shell-group-azz = 系統管理 (azz)
-shell-nav-program = 程式維護
-shell-nav-users = 使用者維護
-shell-nav-user-permissions = 使用者特殊權限
-shell-nav-classes = 權限類別維護
-shell-nav-permissions = 程式執行權限
-shell-nav-dictionary = 資料字典維護
 shell-language = 語言
 shell-user-menu = 使用者
 shell-switch-plant = 切換營運中心
@@ -56,9 +45,6 @@ common-multilingual-open = 編輯各語言（已填 { $count } 種）
 query-action-clear = 清除查詢條件
 query-msg-tab-not-queryable = 此頁籤的欄位不能作為查詢條件
 common-field-plant = 營運中心
-shell-nav-departments = 部門維護
-shell-nav-employees = 員工維護
-shell-nav-codes = 分類碼維護
 shell-change-password = 變更密碼
 shell-sign-out = 登出
 shell-password-expiring = 密碼將於 { $days } 天後到期，請盡早變更

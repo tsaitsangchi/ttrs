@@ -58,6 +58,8 @@ pub struct AppState {
     pub password_reset: PasswordResetService,
     /// 共用層作業的異動記錄（ADR 0012 §8）
     pub history: ttrs_app::ChangeHistoryService,
+    /// 選單維護與側欄（p_zm；menu_maintenance.feature）
+    pub menus: ttrs_app::MenuService,
     /// 權限檢查（ADR 0006 §4）：各 use case 已在 app 層檢查，這裡只供查詢有效權限
     pub authorizer: Arc<dyn Authorizer>,
     /// 操作者：固定身分時為 `actor_from_env`；開發用登入時由 [`Ctx`] 換成連線的使用者
@@ -118,6 +120,7 @@ impl AppState {
             password_reset,
             emergency: _,
             history,
+            menus,
             authorizer,
         } = services;
         Self {
@@ -136,6 +139,7 @@ impl AppState {
             sign_in,
             password_reset,
             history,
+            menus,
             authorizer,
             actor,
             auth: AuthMode::Fixed,
@@ -271,6 +275,24 @@ pub fn router(state: AppState) -> Router {
             "/api/users/{id}/copy-permissions",
             post(copy_user_permissions),
         )
+        // Menu Maintenance 選單維護（TipTop p_zm）與側欄樹狀選單（cl_create_4sm）
+        .route("/api/menus", get(list_menus))
+        .route("/api/menus/tree", get(menu_tree))
+        .route("/api/menus/{menu}", axum::routing::delete(delete_menu))
+        .route(
+            "/api/menus/{menu}/items",
+            get(menu_items).post(add_menu_item),
+        )
+        .route(
+            "/api/menus/{menu}/items/{program}",
+            axum::routing::delete(remove_menu_item),
+        )
+        .route(
+            "/api/menus/{menu}/items/{program}/{direction}",
+            post(shift_menu_item),
+        )
+        .route("/api/menus/{menu}/renumber", post(renumber_menu))
+        .route("/api/menus/{menu}/copy", post(copy_menu))
         // 共用層作業的異動記錄（ADR 0012 §8；功能 history）
         .route("/api/history/{program}/{key}", get(shared_history))
         // Department Maintenance 部門維護（TipTop aooi030；工廠層）
@@ -924,6 +946,11 @@ impl IntoResponse for HttpError {
             "PLANT_NOT_ALLOWED" | "NO_USABLE_PLANT" => StatusCode::FORBIDDEN,
             "REPORT_TOO_LARGE" => StatusCode::PAYLOAD_TOO_LARGE,
             "RECORD_CHANGED" => StatusCode::CONFLICT,
+            "MENU_NOT_FOUND" | "MENU_ITEM_NOT_FOUND" => StatusCode::NOT_FOUND,
+            "MENU_SEQ_DUPLICATE"
+            | "MENU_ITEM_DUPLICATE"
+            | "MENU_IN_USE"
+            | "MENU_ALREADY_HAS_ITEMS" => StatusCode::CONFLICT,
             "VERSION_REQUIRED" => StatusCode::BAD_REQUEST,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
@@ -1698,6 +1725,88 @@ struct VersionQuery {
 /// 請求一律要帶版本號（CH4）；沒帶回 400
 fn require_version(v: Option<i32>) -> Result<i32, HttpError> {
     v.ok_or_else(|| AppError::from(ttrs_domain::DomainError::VersionRequired).into())
+}
+
+// ----- Menu Maintenance 選單維護（p_zm）與側欄 -----
+
+fn lang_of(q: &LangQuery) -> String {
+    q.lang.clone().unwrap_or_else(|| DEFAULT_LANG.to_owned())
+}
+
+async fn list_menus(
+    Ctx(s): Ctx,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::MenuSummaryDto>>> {
+    Ok(Json(s.menus.menus(&s.actor, &lang_of(&q)).await?))
+}
+
+/// 目前使用者的側欄樹狀選單（MN9–MN11）
+async fn menu_tree(
+    Ctx(s): Ctx,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::MenuNodeDto>>> {
+    Ok(Json(s.menus.tree(&s.actor, &lang_of(&q)).await?))
+}
+
+async fn menu_items(
+    Ctx(s): Ctx,
+    Path(menu): Path<String>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::MenuItemDto>>> {
+    Ok(Json(s.menus.items(&s.actor, &menu, &lang_of(&q)).await?))
+}
+
+async fn add_menu_item(
+    Ctx(s): Ctx,
+    Path(menu): Path<String>,
+    Json(req): Json<ttrs_shared::MenuItemInput>,
+) -> ApiResult<(StatusCode, Json<Vec<ttrs_shared::MenuItemDto>>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.menus.add(&s.actor, &menu, req).await?),
+    ))
+}
+
+async fn remove_menu_item(
+    Ctx(s): Ctx,
+    Path((menu, program)): Path<(String, String)>,
+) -> ApiResult<StatusCode> {
+    s.menus.remove(&s.actor, &menu, &program).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// 上移（up）、下移（down）
+async fn shift_menu_item(
+    Ctx(s): Ctx,
+    Path((menu, program, direction)): Path<(String, String, String)>,
+) -> ApiResult<Response> {
+    let up = match direction.as_str() {
+        "up" => true,
+        "down" => false,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(s.menus.shift(&s.actor, &menu, &program, up).await?).into_response())
+}
+
+async fn renumber_menu(
+    Ctx(s): Ctx,
+    Path(menu): Path<String>,
+) -> ApiResult<Json<Vec<ttrs_shared::MenuItemDto>>> {
+    Ok(Json(s.menus.renumber(&s.actor, &menu).await?))
+}
+
+async fn copy_menu(
+    Ctx(s): Ctx,
+    Path(menu): Path<String>,
+    Json(req): Json<ttrs_shared::MenuCopyInput>,
+) -> ApiResult<StatusCode> {
+    s.menus.copy(&s.actor, &menu, &req.new_menu_no).await?;
+    Ok(StatusCode::CREATED)
+}
+
+async fn delete_menu(Ctx(s): Ctx, Path(menu): Path<String>) -> ApiResult<StatusCode> {
+    s.menus.delete(&s.actor, &menu).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn shared_history(

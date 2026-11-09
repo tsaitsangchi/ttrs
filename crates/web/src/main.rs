@@ -17,8 +17,9 @@ use pages::{
         ClassificationCodeMaintenance, DepartmentMaintenance, EmployeeMaintenance, PlantMaintenance,
     },
     azz::{
-        DataDictionary, PermissionClassMaintenance, ProgramMaintenance, ProgramPermissions,
-        ProgramPermissionsFor, UserMaintenance, UserPermissions, UserPermissionsFor,
+        DataDictionary, MenuMaintenance, PermissionClassMaintenance, ProgramMaintenance,
+        ProgramPermissions, ProgramPermissionsFor, UserMaintenance, UserPermissions,
+        UserPermissionsFor,
     },
     home::Home,
 };
@@ -37,8 +38,9 @@ enum Route {
     #[layout(Shell)]
         #[route("/")]
         Home {},
+        // 網址一律 /<模組>/<程式代號>（menu_maintenance.feature MN12）；舊網址轉到新網址
         /// aimi100 料件基本資料
-        #[route("/aim/items")]
+        #[route("/aim/item-maintenance")]
         ItemList {},
         /// Plant Maintenance 營運中心維護（TipTop aooi901）
         #[route("/aoo/plant-maintenance")]
@@ -48,7 +50,7 @@ enum Route {
         #[route("/aoo/employee-maintenance")]
         EmployeeMaintenance {},
         /// Classification Code Maintenance 分類碼維護（TipTop aooi300）
-        #[route("/aoo/classification-codes")]
+        #[route("/aoo/classification-code-maintenance")]
         ClassificationCodeMaintenance {},
         /// Program Maintenance 程式維護（TipTop p_zz）
         #[route("/azz/program-maintenance")]
@@ -60,20 +62,33 @@ enum Route {
         #[route("/azz/user-maintenance")]
         UserMaintenance {},
         /// User Special Permission Maintenance 使用者特殊權限維護（TipTop p_zxw）
-        #[route("/azz/user-permissions")]
+        #[route("/azz/user-permission-maintenance")]
         UserPermissions {},
         /// 由使用者維護帶入使用者
-        #[route("/azz/user-permissions/:user")]
+        #[route("/azz/user-permission-maintenance/:user")]
         UserPermissionsFor { user: String },
         /// Permission Class Maintenance 權限類別維護（TipTop p_zw）
-        #[route("/azz/permission-classes")]
+        #[route("/azz/permission-class-maintenance")]
         PermissionClassMaintenance {},
         /// Program Permission Maintenance 程式執行權限維護（TipTop p_zy）
-        #[route("/azz/program-permissions")]
+        #[route("/azz/program-permission-maintenance")]
         ProgramPermissions {},
         /// 由權限類別維護帶入權限類別
-        #[route("/azz/program-permissions/:class")]
+        #[route("/azz/program-permission-maintenance/:class")]
         ProgramPermissionsFor { class: String },
+        /// Menu Maintenance 選單維護（TipTop p_zm）
+        #[route("/azz/menu-maintenance")]
+        MenuMaintenance {},
+    #[end_layout]
+    #[redirect("/aim/items", || Route::ItemList {})]
+    #[redirect("/aoo/classification-codes", || Route::ClassificationCodeMaintenance {})]
+    #[redirect("/azz/user-permissions", || Route::UserPermissions {})]
+    #[redirect("/azz/user-permissions/:user", |user: String| Route::UserPermissionsFor { user })]
+    #[redirect("/azz/permission-classes", || Route::PermissionClassMaintenance {})]
+    #[redirect("/azz/program-permissions", || Route::ProgramPermissions {})]
+    #[redirect("/azz/program-permissions/:class", |class: String| Route::ProgramPermissionsFor { class })]
+    #[route("/:..segments")]
+    PageNotFound { segments: Vec<String> },
 }
 
 fn main() {
@@ -104,6 +119,102 @@ fn NavIcon(path: &'static str, tone: Tone) -> Element {
             path { d: path }
         }
     }
+}
+
+/// 程式代號 → 畫面、圖示、色調（MN12、MN13）。不在此表的程式（尚未移植）不顯示
+fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
+    Some(match program {
+        "item-maintenance" => (Route::ItemList {}, icons::CATEGORY, Tone::Tertiary),
+        "plant-maintenance" => (Route::PlantMaintenance {}, icons::FACTORY, Tone::Success),
+        "department-maintenance" => (
+            Route::DepartmentMaintenance {},
+            icons::ACCOUNT_TREE,
+            Tone::Success,
+        ),
+        "employee-maintenance" => (
+            Route::EmployeeMaintenance {},
+            icons::GROUP_PEOPLE,
+            Tone::Success,
+        ),
+        "classification-code-maintenance" => (
+            Route::ClassificationCodeMaintenance {},
+            icons::LABEL,
+            Tone::Success,
+        ),
+        "program-maintenance" => (Route::ProgramMaintenance {}, icons::APPS, Tone::Primary),
+        "data-dictionary" => (Route::DataDictionary {}, icons::MENU_BOOK, Tone::Primary),
+        "user-maintenance" => (Route::UserMaintenance {}, icons::PERSON, Tone::Primary),
+        "user-permission-maintenance" => (
+            Route::UserPermissions {},
+            icons::VERIFIED_USER,
+            Tone::Primary,
+        ),
+        "permission-class-maintenance" => (
+            Route::PermissionClassMaintenance {},
+            icons::SHIELD,
+            Tone::Primary,
+        ),
+        "program-permission-maintenance" => {
+            (Route::ProgramPermissions {}, icons::KEY, Tone::Primary)
+        }
+        "menu-maintenance" => (Route::MenuMaintenance {}, icons::LIST, Tone::Primary),
+        _ => return None,
+    })
+}
+
+/// 目錄節點的圖示與色調：依第一個程式的模組（aim 第三色、aoo 綠、azz 藍）；混合或無法判斷時用資料夾
+fn group_icon(node: &ttrs_shared::MenuNodeDto) -> (&'static str, Tone) {
+    fn first_module(n: &ttrs_shared::MenuNodeDto) -> Option<String> {
+        if !n.is_menu() {
+            return Some(n.module_code.to_uppercase());
+        }
+        n.children.iter().find_map(first_module)
+    }
+    match first_module(node).as_deref() {
+        Some("AIM") => (icons::INVENTORY, Tone::Tertiary),
+        Some("AOO") => (icons::PLANT, Tone::Success),
+        Some("AZZ") => (icons::SETTINGS, Tone::Primary),
+        _ => (icons::FOLDER, Tone::Neutral),
+    }
+}
+
+/// 側欄樹狀選單（cl_create_4sm 的 StartMenu）：由 API 依使用者的選單與權限組成
+#[component]
+fn SideMenu() -> Element {
+    let tree = use_resource(api::menu_tree);
+    match &*tree.read() {
+        Some(Ok(nodes)) => rsx! { MenuNodes { nodes: nodes.clone(), level: 0 } },
+        Some(Err(e)) => rsx! { p { class: "session-error", "{e}" } },
+        None => rsx! {},
+    }
+}
+
+#[component]
+fn MenuNodes(nodes: Vec<ttrs_shared::MenuNodeDto>, level: u8) -> Element {
+    rsx! {
+        for n in nodes {
+            if n.is_menu() {
+                {
+                    let (path, tone) = group_icon(&n);
+                    rsx! {
+                        p { key: "{n.program_no}", class: "group nav-level-{level}", NavIcon { path, tone } span { "{n.name}" } }
+                        MenuNodes { nodes: n.children.clone(), level: level.saturating_add(1) }
+                    }
+                }
+            } else if let Some((to, path, tone)) = screen(&n.program_no) {
+                Link { key: "{n.program_no}", class: "nav-level-{level}", active_class: "active", to, NavIcon { path, tone } span { "{n.name}" } }
+            }
+        }
+    }
+}
+
+/// 找不到的網址回首頁
+#[component]
+fn PageNotFound(segments: Vec<String>) -> Element {
+    let _ = segments;
+    let nav = use_navigator();
+    nav.replace(Route::Home {});
+    rsx! {}
 }
 
 #[component]
@@ -199,21 +310,9 @@ fn Shell() -> Element {
                         }
                     }
                 }
+                // 首頁固定在最上方（MN15）；其餘依目錄資料組成（menu_maintenance.feature MN9–MN11）
                 Link { active_class: "active", to: Route::Home {}, NavIcon { path: icons::HOME, tone: Tone::Primary } span { {t("shell-nav-home")} } }
-                p { class: "group", NavIcon { path: icons::INVENTORY, tone: Tone::Tertiary } span { {t("shell-group-aim")} } }
-                Link { active_class: "active", to: Route::ItemList {}, NavIcon { path: icons::CATEGORY, tone: Tone::Tertiary } span { {t("shell-nav-items")} } }
-                p { class: "group", NavIcon { path: icons::PLANT, tone: Tone::Success } span { {t("shell-group-aoo")} } }
-                Link { active_class: "active", to: Route::PlantMaintenance {}, NavIcon { path: icons::FACTORY, tone: Tone::Success } span { {t("shell-nav-plants")} } }
-                Link { active_class: "active", to: Route::DepartmentMaintenance {}, NavIcon { path: icons::ACCOUNT_TREE, tone: Tone::Success } span { {t("shell-nav-departments")} } }
-                Link { active_class: "active", to: Route::EmployeeMaintenance {}, NavIcon { path: icons::GROUP_PEOPLE, tone: Tone::Success } span { {t("shell-nav-employees")} } }
-                Link { active_class: "active", to: Route::ClassificationCodeMaintenance {}, NavIcon { path: icons::LABEL, tone: Tone::Success } span { {t("shell-nav-codes")} } }
-                p { class: "group", NavIcon { path: icons::SETTINGS, tone: Tone::Primary } span { {t("shell-group-azz")} } }
-                Link { active_class: "active", to: Route::ProgramMaintenance {}, NavIcon { path: icons::APPS, tone: Tone::Primary } span { {t("shell-nav-program")} } }
-                Link { active_class: "active", to: Route::DataDictionary {}, NavIcon { path: icons::MENU_BOOK, tone: Tone::Primary } span { {t("shell-nav-dictionary")} } }
-                Link { active_class: "active", to: Route::UserMaintenance {}, NavIcon { path: icons::PERSON, tone: Tone::Primary } span { {t("shell-nav-users")} } }
-                Link { active_class: "active", to: Route::UserPermissions {}, NavIcon { path: icons::VERIFIED_USER, tone: Tone::Primary } span { {t("shell-nav-user-permissions")} } }
-                Link { active_class: "active", to: Route::PermissionClassMaintenance {}, NavIcon { path: icons::SHIELD, tone: Tone::Primary } span { {t("shell-nav-classes")} } }
-                Link { active_class: "active", to: Route::ProgramPermissions {}, NavIcon { path: icons::KEY, tone: Tone::Primary } span { {t("shell-nav-permissions")} } }
+                SideMenu { key: "{current.code()}" }
             }
             // 以語系為 key：切換語系時重新載入畫面，所有文字改用新語系
             for l in [current] {

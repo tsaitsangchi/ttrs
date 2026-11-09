@@ -1377,3 +1377,57 @@ pub struct ChangeDto {
     /// 新增、刪除為全部欄位；修改為變動的欄位
     pub fields: Vec<ChangeFieldDto>,
 }
+
+// ---------------------------------------------------------------------------
+// Menu Maintenance 選單維護（TipTop p_zm / zm_file；menu_maintenance.feature）
+// ---------------------------------------------------------------------------
+
+/// 目錄清單的一筆（模組 MENU 的程式）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MenuSummaryDto {
+    pub menu_no: String,
+    /// 依 ?lang= 顯示的目錄名稱（程式名稱）
+    pub name: Option<String>,
+    pub item_count: u32,
+}
+
+/// 目錄的一筆單身
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MenuItemDto {
+    pub seq: i32,
+    pub program_no: String,
+    pub name: Option<String>,
+    /// 子項為目錄（模組 MENU）
+    pub is_menu: bool,
+}
+
+/// 新增單身；序號空白時接在最後（MN6）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MenuItemInput {
+    pub program_no: String,
+    pub seq: Option<i32>,
+}
+
+/// 複製目錄（MN7）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct MenuCopyInput {
+    pub new_menu_no: String,
+}
+
+/// 側欄樹狀選單的節點（cl_create_4sm：目錄為 StartMenuGroup、程式為 StartMenuCommand）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MenuNodeDto {
+    pub program_no: String,
+    /// 依語系的程式名稱；沒有名稱時為程式代號
+    pub name: String,
+    /// 程式節點的模組（前端依模組與程式代號組成網址 /<模組>/<程式代號>，MN12）
+    pub module_code: String,
+    pub children: Vec<MenuNodeDto>,
+}
+
+impl MenuNodeDto {
+    pub fn is_menu(&self) -> bool {
+        self.module_code == "MENU"
+    }
+}

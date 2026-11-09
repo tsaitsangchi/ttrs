@@ -2,17 +2,6 @@
 # 語系：zh-CN。ID 規則見 docs/adr/0005-i18n.md；三個語系的 ID 必須一致。
 
 shell-nav-home = 首页
-shell-group-aim = 库存管理 (aim)
-shell-nav-items = 料件基本资料
-shell-group-aoo = 整体管理 (aoo)
-shell-nav-plants = 营运中心维护
-shell-group-azz = 系统管理 (azz)
-shell-nav-program = 程序维护
-shell-nav-users = 用户维护
-shell-nav-user-permissions = 用户特殊权限
-shell-nav-classes = 权限类别维护
-shell-nav-permissions = 程序执行权限
-shell-nav-dictionary = 数据字典维护
 shell-language = 语言
 shell-user-menu = 用户
 shell-switch-plant = 切换营运中心
@@ -56,9 +45,6 @@ common-multilingual-open = 编辑各语言（已填 { $count } 种）
 query-action-clear = 清除查询条件
 query-msg-tab-not-queryable = 此页签的栏位不能作为查询条件
 common-field-plant = 营运中心
-shell-nav-departments = 部门维护
-shell-nav-employees = 员工维护
-shell-nav-codes = 分类码维护
 shell-change-password = 变更密码
 shell-sign-out = 注销
 shell-password-expiring = 密码将于 { $days } 天后到期，请尽早变更

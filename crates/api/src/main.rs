@@ -24,7 +24,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(_) => {
             // 記憶體模式沒有真正的資料庫結構，資料字典只能看到空清單
             tracing::warn!("DATABASE_URL not set, using in-memory store");
-            Services::new(Arc::new(InMemoryStore::seeded()))
+            // 起始目錄同 migrations/0026（側欄樹狀選單，menu_maintenance.feature MN14）
+            let store = InMemoryStore::seeded();
+            store.add_default_menus();
+            Services::new(Arc::new(store))
         }
     };
 

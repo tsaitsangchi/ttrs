@@ -14,6 +14,7 @@ pub mod legacy_catalog_service;
 pub mod mail;
 #[cfg(feature = "memory")]
 pub mod memory;
+pub mod menu_service;
 pub mod password_hash;
 pub mod password_reset_service;
 pub mod permission_class_service;
@@ -39,6 +40,7 @@ pub use employee_service::EmployeeService;
 pub use error::AppError;
 pub use item_service::ItemService;
 pub use legacy_catalog_service::LegacyCatalogService;
+pub use menu_service::MenuService;
 pub use password_reset_service::PasswordResetService;
 pub use permission_class_service::PermissionClassService;
 pub use permission_service::ProgramPermissionService;

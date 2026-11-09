@@ -96,6 +96,9 @@ pub struct ErpWorld {
     pub history: Option<Vec<ttrs_shared::ChangeDto>>,
     /// 共用層作業的異動記錄（ADR 0012 §8）
     pub shared_history: ttrs_app::ChangeHistoryService,
+    /// 選單維護與側欄（menu_maintenance.feature）
+    pub menus: ttrs_app::MenuService,
+    pub menu_tree: Option<Vec<ttrs_shared::MenuNodeDto>>,
     /// 以應用程式的資料庫角色修改異動記錄是否被拒（CH-9）
     pub db_denied: Option<bool>,
     /// 最近一次 ttrs-admin 指令的結果
@@ -167,6 +170,7 @@ impl ErpWorld {
             password_reset,
             emergency,
             history: shared_history,
+            menus,
             authorizer: _,
         } = services;
         Self {
@@ -211,6 +215,8 @@ impl ErpWorld {
             report: None,
             history: None,
             shared_history,
+            menus,
+            menu_tree: None,
             db_denied: None,
         }
     }

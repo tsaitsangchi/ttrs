@@ -1322,3 +1322,80 @@ pub async fn code_history(
     ))
     .await
 }
+
+// ----- Menu Maintenance 選單維護（p_zm）與側欄樹狀選單（menu_maintenance.feature） -----
+
+fn menu_url(menu: &str, suffix: &str) -> String {
+    url(&format!("/api/menus/{menu}{suffix}"))
+}
+
+/// 目前使用者的側欄（依介面語系）
+pub async fn menu_tree() -> Result<Vec<ttrs_shared::MenuNodeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(url(&format!("/api/menus/tree?lang={lang}"))).await
+}
+
+pub async fn list_menus() -> Result<Vec<ttrs_shared::MenuSummaryDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(url(&format!("/api/menus?lang={lang}"))).await
+}
+
+pub async fn menu_items(menu: &str) -> Result<Vec<ttrs_shared::MenuItemDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!("{}?lang={lang}", menu_url(menu, "/items"))).await
+}
+
+pub async fn add_menu_item(
+    menu: &str,
+    req: &ttrs_shared::MenuItemInput,
+) -> Result<Vec<ttrs_shared::MenuItemDto>, String> {
+    send_json(reqwest::Method::POST, menu_url(menu, "/items"), Some(req)).await
+}
+
+pub async fn remove_menu_item(menu: &str, program: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(menu_url(menu, &format!("/items/{program}")))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn shift_menu_item(
+    menu: &str,
+    program: &str,
+    up: bool,
+) -> Result<Vec<ttrs_shared::MenuItemDto>, String> {
+    let dir = if up { "up" } else { "down" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        menu_url(menu, &format!("/items/{program}/{dir}")),
+        None,
+    )
+    .await
+}
+
+pub async fn renumber_menu(menu: &str) -> Result<Vec<ttrs_shared::MenuItemDto>, String> {
+    send_json::<_, ()>(reqwest::Method::POST, menu_url(menu, "/renumber"), None).await
+}
+
+pub async fn copy_menu(menu: &str, new_menu_no: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .post(menu_url(menu, "/copy"))
+        .json(&ttrs_shared::MenuCopyInput {
+            new_menu_no: new_menu_no.to_owned(),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn delete_menu(menu: &str) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(menu_url(menu, ""))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}

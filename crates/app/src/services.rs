@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-use crate::ChangeHistoryService;
 use crate::change_log::HistoryReader;
 use crate::{
     Authorizer, ClassificationCodeService, DataDictionaryService, DepartmentService,
@@ -12,12 +11,13 @@ use crate::{
     ports::{
         AccountPolicyRepository, AuditLog, ChangeLogRepository, ClassificationCodeRepository,
         CredentialRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
-        ItemRepository, LegacyCatalogRepository, MasterDataRepository,
+        ItemRepository, LegacyCatalogRepository, MasterDataRepository, MenuRepository,
         PasswordResetTokenRepository, PermissionClassRepository, PlantRepository,
         ProgramPermissionRepository, ProgramRepository, SchemaCatalog, UserPermissionRepository,
         UserRepository,
     },
 };
+use crate::{ChangeHistoryService, MenuService};
 
 /// 實作全部 repository 的資料存取（ttrs_infra::PgStore、memory::InMemoryStore）
 pub trait Store:
@@ -40,6 +40,7 @@ pub trait Store:
     + AuditLog
     + ClassificationCodeRepository
     + ChangeLogRepository
+    + MenuRepository
     + 'static
 {
 }
@@ -64,6 +65,7 @@ impl<T> Store for T where
         + AuditLog
         + ClassificationCodeRepository
         + ChangeLogRepository
+        + MenuRepository
         + 'static
 {
 }
@@ -90,6 +92,8 @@ pub struct Services {
     pub emergency: EmergencyService,
     /// 共用層作業的異動記錄（ADR 0012 §8）
     pub history: ChangeHistoryService,
+    /// 選單維護與側欄（p_zm）
+    pub menus: MenuService,
     pub authorizer: Arc<dyn Authorizer>,
 }
 
@@ -173,6 +177,13 @@ impl Services {
                 history.clone(),
             ),
             history: ChangeHistoryService::new(a.clone(), history),
+            menus: MenuService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+            ),
             special: UserPermissionService::new(
                 a,
                 store.clone(),

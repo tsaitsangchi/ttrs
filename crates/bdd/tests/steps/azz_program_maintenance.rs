@@ -105,7 +105,10 @@ async fn permission_class_exists(w: &mut ErpWorld, class: String) {
 
 #[given(expr = "選單 {string} 包含程式 {string}")]
 async fn menu_contains(w: &mut ErpWorld, menu: String, no: String) {
-    let sql = "INSERT INTO menu_item (menu_no, program_no) VALUES ($1, $2)";
+    // 序號接在最後（menu_maintenance.feature MN6）
+    let sql = "INSERT INTO menu_item (menu_no, seq, program_no) \
+               SELECT $1, COALESCE(MAX(seq), 0) + 10, $2 FROM menu_item WHERE menu_no = $1 \
+               ON CONFLICT (menu_no, program_no) DO NOTHING";
     seed(w, |s| s.add_menu_item(&menu, &no), sql, &[&menu, &no]).await;
 }
 

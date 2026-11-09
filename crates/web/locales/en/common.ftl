@@ -2,17 +2,6 @@
 # 語系：en。ID 規則見 docs/adr/0005-i18n.md；三個語系的 ID 必須一致。
 
 shell-nav-home = Home
-shell-group-aim = Inventory (aim)
-shell-nav-items = Item Master
-shell-group-aoo = General Management (aoo)
-shell-nav-plants = Plants
-shell-group-azz = System Admin (azz)
-shell-nav-program = Program Maintenance
-shell-nav-users = User Maintenance
-shell-nav-user-permissions = User Special Permissions
-shell-nav-classes = Permission Classes
-shell-nav-permissions = Program Permissions
-shell-nav-dictionary = Data Dictionary
 shell-language = Language
 shell-user-menu = User
 shell-switch-plant = Switch plant
@@ -56,9 +45,6 @@ common-multilingual-open = Edit languages ({ $count } filled)
 query-action-clear = Clear query
 query-msg-tab-not-queryable = Fields on this tab cannot be used as query conditions
 common-field-plant = Plant
-shell-nav-departments = Departments
-shell-nav-employees = Employees
-shell-nav-codes = Classification Codes
 shell-change-password = Change password
 shell-sign-out = Sign out
 shell-password-expiring = Your password expires in { $days } days. Please change it soon.

@@ -9,6 +9,7 @@ mod pg_credential;
 mod pg_department;
 mod pg_dictionary;
 mod pg_legacy;
+mod pg_menu;
 mod pg_password_reset;
 mod pg_permission;
 mod pg_permission_class;

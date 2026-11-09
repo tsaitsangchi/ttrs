@@ -94,6 +94,12 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "query, detail, history",
     ),
+    (
+        "menu-maintenance",
+        "p_zm",
+        "AZZ",
+        "insert, query, delete, detail, reproduce, history",
+    ),
 ];
 
 /// 身分種類（ADR 0006 §6）

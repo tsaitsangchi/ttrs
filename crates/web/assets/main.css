@@ -307,3 +307,9 @@ a.md-button { text-decoration: none; }
 .history-before { color: var(--md-sys-color-on-surface-variant); text-decoration: line-through; }
 .history-after { color: var(--md-sys-color-primary); }
 .history-error { color: var(--md-sys-color-error); font-size: 0.8125rem; align-self: center; }
+
+/* 側欄樹狀選單（menu_maintenance.feature）：依層級縮排 */
+.sidebar .nav-level-1 { padding-left: 28px; }
+.sidebar .nav-level-2 { padding-left: 44px; }
+.sidebar .nav-level-3 { padding-left: 60px; }
+.sidebar .nav-level-4 { padding-left: 76px; }

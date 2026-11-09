@@ -499,3 +499,24 @@ pub trait ChangeLogRepository: Send + Sync {
         key: &std::collections::BTreeMap<String, String>,
     ) -> Result<Vec<crate::change_log::ChangeRecord>, RepoError>;
 }
+
+/// 選單目錄（zm_file，p_zm）；側欄樹狀選單也由此組成（cl_create_4sm）
+#[async_trait]
+pub trait MenuRepository: Send + Sync {
+    /// 全部單身（組成樹狀、檢查迴圈與使用中；資料量小）
+    async fn all_menu_items(&self) -> Result<Vec<ttrs_domain::menu::MenuItem>, RepoError>;
+    /// 某目錄的單身，依序號排列
+    async fn menu_items(&self, menu: &str) -> Result<Vec<ttrs_domain::menu::MenuItem>, RepoError>;
+    /// 新增單身；序號或程式在同一目錄重複回 `Conflict`
+    async fn insert_menu_item(&self, item: &ttrs_domain::menu::MenuItem) -> Result<(), RepoError>;
+    /// 移除單身；回傳是否有刪到
+    async fn remove_menu_item(&self, menu: &str, program: &str) -> Result<bool, RepoError>;
+    /// 依 `items` 更新目錄內各程式的序號（上移、下移、重新編號），同一交易內完成
+    async fn set_menu_seqs(
+        &self,
+        menu: &str,
+        items: &[ttrs_domain::menu::MenuItem],
+    ) -> Result<(), RepoError>;
+    /// 刪除目錄的全部單身（p_zm.4gl:604-636）
+    async fn clear_menu(&self, menu: &str) -> Result<(), RepoError>;
+}

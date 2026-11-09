@@ -37,6 +37,7 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
         "user_id",
     ),
     ("plant-maintenance", &["plant"], "plant_id"),
+    ("menu-maintenance", &["menu_item"], "menu_no"),
     (
         "data-dictionary",
         &[

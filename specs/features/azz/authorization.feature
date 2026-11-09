@@ -79,6 +79,8 @@
 #   aooi030  會計資料維護                               account                             aooi030.4gl:167-170
 #   aooi040  查詢員工                                   query
 #   aooi040  新增／修改／停用／刪除員工                   detail                       R+ R-   aooi040.4gl
+#   p_zm     查詢／單身維護／複製／刪除選單目錄             query／detail／reproduce／delete    p_zm.4gl
+#            （側欄樹狀選單只要求登入，依權限隱藏節點，menu_maintenance.feature MN10）
 #   參考清單（下拉選單、開窗、欄位檢查）：程式、權限類別、使用者、營運中心的全部清單，只要求登入（AQ4）
 #
 # 確認事項（皆採草稿）：
@@ -351,6 +353,11 @@
       | classification-code-maintenance | detail          | 停用分類碼 D X01           |
       | classification-code-maintenance | detail          | 刪除分類碼 D X01           |
       | classification-code-maintenance | history         | 查詢分類碼 D X01 的異動記錄 |
+      | menu-maintenance | query                      | 查詢選單目錄               |
+      | menu-maintenance | detail                     | 在目錄 menu-a 加入程式 plant-maintenance |
+      | menu-maintenance | reproduce                  | 複製目錄 menu-a 為 menu-b  |
+      | menu-maintenance | delete                     | 刪除目錄 menu-a            |
+      | menu-maintenance | history                    | 查詢作業 menu-maintenance menu-a 的異動記錄 |
 
   # AQ2 權限檢查在輸入檢查之前
   場景: 沒有權限時先回權限錯誤

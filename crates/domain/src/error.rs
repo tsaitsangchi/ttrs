@@ -164,6 +164,24 @@ pub enum DomainError {
     RecordChanged,
     #[error("修改、刪除、啟用或停用時須帶版本號")]
     VersionRequired,
+
+    // 選單（p_zm / zm_file；menu_maintenance.feature）
+    #[error("目錄須為已登錄、模組 MENU 的程式")]
+    MenuNotFound,
+    #[error("目錄中沒有此程式")]
+    MenuItemNotFound,
+    #[error("序號須大於 0")]
+    MenuSeqInvalid,
+    #[error("此目錄已有相同序號")]
+    MenuSeqDuplicate,
+    #[error("此目錄已有這支程式")]
+    MenuItemDuplicate,
+    #[error("不可把目錄本身或上層目錄加入單身")]
+    MenuCycle,
+    #[error("目錄仍被使用者、權限類別或其他目錄使用，不可刪除")]
+    MenuInUse,
+    #[error("新目錄已有單身")]
+    MenuAlreadyHasItems,
     #[error("此公司帳號尚未在 TTRS 註冊，請洽系統管理員")]
     UserNotRegistered,
     #[error("使用者已停用")]
@@ -375,6 +393,14 @@ impl DomainError {
             Self::ReportTooLarge { .. } => "REPORT_TOO_LARGE",
             Self::RecordChanged => "RECORD_CHANGED",
             Self::VersionRequired => "VERSION_REQUIRED",
+            Self::MenuNotFound => "MENU_NOT_FOUND",
+            Self::MenuItemNotFound => "MENU_ITEM_NOT_FOUND",
+            Self::MenuSeqInvalid => "MENU_SEQ_INVALID",
+            Self::MenuSeqDuplicate => "MENU_SEQ_DUPLICATE",
+            Self::MenuItemDuplicate => "MENU_ITEM_DUPLICATE",
+            Self::MenuCycle => "MENU_CYCLE",
+            Self::MenuInUse => "MENU_IN_USE",
+            Self::MenuAlreadyHasItems => "MENU_ALREADY_HAS_ITEMS",
             Self::UserNotRegistered => "USER_NOT_REGISTERED",
             Self::UserInactive => "USER_INACTIVE",
             Self::UserExpired => "USER_EXPIRED",

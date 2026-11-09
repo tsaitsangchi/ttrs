@@ -248,13 +248,13 @@ tables:
   - legacy: zm_file
     target: menu_item
     scope: system
-    note: "目錄檔；主鍵 (zm01, zm03)"
-    mismatch: true   # 新系統主鍵為 (menu_no, program_no) 且無序號；TipTop 以序號排列、同一程式可重複出現
+    program: p_zm（Menu Maintenance 選單維護，menu-maintenance）；側欄樹狀選單（cl_create_4sm）
+    spec: specs/features/azz/menu_maintenance.feature
+    note: "目錄檔；主鍵 (zm01, zm03)。TTRS 主鍵同為 (menu_no, seq)，另加同一目錄內程式不可重複（MN2，TipTop 允許重複）。migration 0026"
     columns:
-      - { legacy: zm01, type: varchar2(20) NOT NULL, target: menu_no, sch: 目錄代號 }
-      - { legacy: zm04, type: varchar2(20), target: program_no, sch: 程式代號 }
-    not_ported:
-      - { legacy: zm03, type: number(5) NOT NULL, sch: 序號, reason: "目前 menu_item 沒有序號；p_zm 選單移植時處理排列順序" }
+      - { legacy: zm01, type: varchar2(20) NOT NULL, target: menu_no, sch: 目錄代號, note: "模組 MENU 的程式（MN3）" }
+      - { legacy: zm03, type: number(5) NOT NULL, target: seq, sch: 序號, note: "未指定時為最大序號＋10；既有資料依程式代號給 10、20、30…（MN2、MN6）" }
+      - { legacy: zm04, type: varchar2(20), target: program_no, sch: 程式代號, note: "須為已登錄的程式；有單身的子項為下一層目錄" }
 
   - legacy: zai_file
     target: query_definition
