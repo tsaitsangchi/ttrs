@@ -10,7 +10,6 @@ use ttrs_shared::{ItemGroupDto, ItemGroupInput, Page};
 
 use crate::api;
 use crate::components::history::HistoryDialog;
-use crate::components::history::local_time;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Chip, Dialog, Notification, NotificationKind, Select,
     Tabs, TextField, Tone, active_tone, icons,
@@ -21,6 +20,7 @@ use crate::components::qbe::{
     HINT_FLAG, HINT_NUMBER, ListPager, Q, Qbe, RecordNav, conditions_of,
     use_query_records_on_demand,
 };
+use crate::components::status::{ConfirmFields, ConfirmQbe};
 use crate::components::status::{HasStatus, StatusForm, TAB_STATUS};
 use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{t, tf};
@@ -548,15 +548,10 @@ fn ItemGroupPage() -> Element {
                     _ => rsx! {
                         StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|c| c.status()), queryable: crate::components::status::ALL, query: q, qbe, prefix: "imz",
                             // 確認狀態（ADR 0013 SA9）
-                            TextField { id: "imz_confirmed", label: t("common-field-confirmed"), readonly: true, value: match cur.as_ref().filter(|_| m != Mode::New) { Some(c) if c.confirmed => t("common-yes"), Some(_) => t("common-no"), None => String::new() } }
-                            TextField { id: "imz_confirmed_by", label: t("common-field-confirmed-by"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).and_then(|c| c.confirmed_by.clone()).unwrap_or_default() }
-                            TextField { id: "imz_confirmed_at", label: t("common-field-confirmed-at"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).and_then(|c| c.confirmed_at).map(local_time).unwrap_or_default() }
+                            ConfirmFields { prefix: "imz", state: cur.as_ref().filter(|_| m != Mode::New).map(|c| (c.confirmed, c.confirmed_by.clone(), c.confirmed_at)) }
                         }
                         if q {
-                            div { class: "form-grid cols-4",
-                                Q { field: "confirmed", label: t("common-field-confirmed"), hint: HINT_FLAG, query: true, qbe, div {} }
-                                Q { field: "confirmed_by", label: t("common-field-confirmed-by"), query: true, qbe, div {} }
-                            }
+                            ConfirmQbe { qbe }
                         }
                     },
                   }

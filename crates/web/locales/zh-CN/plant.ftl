@@ -23,5 +23,7 @@ plant-msg-saved = 营运中心 { $id } 已保存
 plant-msg-deleted = 营运中心 { $id } 已删除
 plant-msg-activated = 营运中心 { $id } 已启用
 plant-msg-deactivated = 营运中心 { $id } 已停用
+plant-msg-confirmed = 已确认营运中心 { $id }
+plant-msg-unconfirmed = 已取消确认营运中心 { $id }
 plant-msg-copied = 已将营运中心 { $from } 复制为 { $to }
 plant-note-schema = 新增营运中心只需建立一笔数据，不必另建数据库或 schema；TipTop 的数据库代码、DB link、在线人数等设置不再使用。有用户或业务数据的营运中心不可删除，请改为停用。

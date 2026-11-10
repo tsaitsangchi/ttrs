@@ -67,7 +67,7 @@ impl ListReporter {
     pub async fn build(
         &self,
         actor: &Actor,
-        plant: &PlantId,
+        plant: Option<&PlantId>,
         spec: &ListSpec,
         rows: Vec<Vec<String>>,
         conditions: &[QbeCondition],
@@ -95,17 +95,22 @@ impl ListReporter {
         } else {
             None
         };
-        let plant_name = self
-            .plants
-            .get(plant)
-            .await
-            .map_err(infra)?
-            .map(|p| p.attrs.name)
-            .unwrap_or_default();
+        // 系統層作業（營運中心、使用者…）沒有營運中心：表頭不印
+        let plant_name = match plant {
+            Some(p) => self
+                .plants
+                .get(p)
+                .await
+                .map_err(infra)?
+                .map(|p| p.attrs.name)
+                .unwrap_or_default(),
+            None => String::new(),
+        };
+        let plant_code = plant.map(|p| p.as_str().to_owned()).unwrap_or_default();
         let data = ReportData {
             program: spec.program.to_owned(),
             title: t(spec.title),
-            plant: plant.as_str().to_owned(),
+            plant: plant_code.clone(),
             plant_name,
             printed_by: actor.user_id.clone(),
             printed_at: chrono::Local::now().format("%Y/%m/%d %H:%M").to_string(),
@@ -121,7 +126,7 @@ impl ListReporter {
             .record(&AuditEntry {
                 program: spec.program.to_owned(),
                 user_id: actor.user_id.clone(),
-                key: plant.as_str().to_owned(),
+                key: plant_code,
                 action: format.action().to_owned(),
                 detail: Some(format!(
                     "條件={all}；格式={}；筆數={}",

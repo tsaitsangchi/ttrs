@@ -297,6 +297,10 @@
       | user-maintenance    | invalid                    | 停用使用者 u001            |
       | user-maintenance    | invalid                    | 啟用使用者 u001            |
       | user-maintenance    | user_unlock                | 解除使用者 u001 的鎖定     |
+      | user-maintenance    | confirm                    | 確認使用者 u001            |
+      | user-maintenance    | notconfirm                 | 取消確認使用者 u001        |
+      | user-maintenance    | output                     | 列印使用者                 |
+      | user-maintenance    | exporttoexcel              | 匯出使用者為 Excel         |
       | user-maintenance | history | 查詢作業 user-maintenance u001 的異動記錄 |
       | permission-class-maintenance    | query                      | 查詢權限類別               |
       | permission-class-maintenance    | query                      | 查看權限類別 MGR           |
@@ -305,6 +309,11 @@
       | permission-class-maintenance    | detail                     | 停用權限類別 MGR           |
       | permission-class-maintenance    | detail                     | 刪除權限類別 MGR           |
       | permission-class-maintenance    | detail                     | 更新所有使用者選單         |
+      | permission-class-maintenance    | reproduce                  | 複製權限類別 MGR           |
+      | permission-class-maintenance    | confirm                    | 確認權限類別 MGR           |
+      | permission-class-maintenance    | notconfirm                 | 取消確認權限類別 MGR       |
+      | permission-class-maintenance    | output                     | 列印權限類別               |
+      | permission-class-maintenance    | exporttoexcel              | 匯出權限類別為 Excel       |
       | permission-class-maintenance | history | 查詢作業 permission-class-maintenance MGR 的異動記錄 |
       | plant-maintenance | query                      | 查詢營運中心               |
       | plant-maintenance | query                      | 查看營運中心 TW01          |
@@ -313,6 +322,10 @@
       | plant-maintenance | modify                     | 停用營運中心 TW01          |
       | plant-maintenance | delete                     | 刪除營運中心 TW01          |
       | plant-maintenance | reproduce                  | 複製營運中心 TW01          |
+      | plant-maintenance | confirm                    | 確認營運中心 TW01          |
+      | plant-maintenance | notconfirm                 | 取消確認營運中心 TW01      |
+      | plant-maintenance | output                     | 列印營運中心               |
+      | plant-maintenance | exporttoexcel              | 匯出營運中心為 Excel       |
       | plant-maintenance | history | 查詢作業 plant-maintenance TW01 的異動記錄 |
       | program-permission-maintenance    | query                      | 查詢程式執行權限           |
       | program-permission-maintenance    | query                      | 查看權限類別 MGR 的權限    |

@@ -34,6 +34,8 @@ fn user_column(field: &str) -> Option<Column> {
         "valid_until" => Column::Scalar("u.valid_until", false),
         "lang" => Column::Scalar("u.lang", true),
         "active" => Column::Scalar("u.active", false),
+        "confirmed" => Column::Scalar("u.confirmed", false),
+        "confirmed_by" => Column::Scalar("u.confirmed_by", true),
         "created_by" => Column::Scalar("u.created_by", true),
         "created_dept" => Column::Scalar("u.created_dept", true),
         "updated_by" => Column::Scalar("u.updated_by", true),
@@ -59,6 +61,9 @@ struct UserRow {
     lang: String,
     valid_until: Option<NaiveDate>,
     active: bool,
+    confirmed: bool,
+    confirmed_by: Option<String>,
+    confirmed_at: Option<DateTime<Utc>>,
     created_by: String,
     created_dept: String,
     created_on: NaiveDate,
@@ -74,7 +79,7 @@ macro_rules! select_user {
     ($rest:literal) => {
         concat!(
             "SELECT user_id, name, dept_code, class_code, menu_program, multi_plant, default_plant, ",
-            "email, idp_username, idp_subject, lang, valid_until, active, created_by, created_dept, ",
+            "email, idp_username, idp_subject, lang, valid_until, active, confirmed, confirmed_by, confirmed_at, created_by, created_dept, ",
             "created_on, updated_by, updated_on, version, created_at, updated_at FROM user_account ",
             $rest
         )
@@ -106,6 +111,11 @@ impl TryFrom<UserRow> for User {
             },
             idp_subject: r.idp_subject,
             active: r.active,
+            confirmation: ttrs_domain::confirmation::Confirmation {
+                confirmed: r.confirmed,
+                by: r.confirmed_by,
+                at: r.confirmed_at,
+            },
             created_by: r.created_by,
             created_dept: r.created_dept,
             created_on: r.created_on,
@@ -214,8 +224,9 @@ impl UserRepository for PgStore {
         sqlx::query(
             "INSERT INTO user_account (user_id, name, dept_code, class_code, menu_program, multi_plant,
                  default_plant, email, idp_username, idp_subject, lang, valid_until, active,
-                 created_by, created_dept, created_on, updated_by, updated_on, all_plants)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)",
+                 created_by, created_dept, created_on, updated_by, updated_on, all_plants,
+                 confirmed, confirmed_by, confirmed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)",
         )
         .bind(user.user_id.as_str())
         .bind(&a.name)
@@ -236,6 +247,9 @@ impl UserRepository for PgStore {
         .bind(&user.updated_by)
         .bind(user.updated_on)
         .bind(plants.iter().any(PlantId::is_all))
+        .bind(user.confirmation.confirmed)
+        .bind(&user.confirmation.by)
+        .bind(user.confirmation.at)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
@@ -250,7 +264,7 @@ impl UserRepository for PgStore {
             "UPDATE user_account SET name = $2, dept_code = $3, class_code = $4, menu_program = $5,
                  multi_plant = $6, default_plant = $7, email = $8, idp_username = $9, idp_subject = $10,
                  lang = $11, valid_until = $12, active = $13, updated_by = $14, updated_on = $15,
-                 all_plants = $17
+                 all_plants = $17, confirmed = $18, confirmed_by = $19, confirmed_at = $20
              WHERE user_id = $1 AND version = $16",
         )
         .bind(user.user_id.as_str())
@@ -270,6 +284,9 @@ impl UserRepository for PgStore {
         .bind(user.updated_on)
         .bind(user.stamp.version)
         .bind(plants.iter().any(PlantId::is_all))
+        .bind(user.confirmation.confirmed)
+        .bind(&user.confirmation.by)
+        .bind(user.confirmation.at)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?

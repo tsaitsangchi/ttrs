@@ -356,3 +356,61 @@ where
         active,
     }
 }
+
+/// 表格式作業的上下筆（ADR 0013 SA2）：第一筆／上一筆／下一筆／最後一筆移動「目前選取列」，跨頁時自動換頁。
+/// `page` 為清單頁次、`selected` 為選取列的鍵值；換頁後等新的一頁載入完成再選取目標列。
+#[derive(Clone, Copy)]
+pub struct RowNav {
+    pending: Signal<Option<usize>>,
+    page: Signal<u32>,
+    selected: Signal<Option<String>>,
+}
+
+impl RowNav {
+    /// 目前選取列在查詢結果的序號（0 起算）；沒有選取時為清單第一列
+    pub fn pos(&self, keys: &[String], current: Option<&str>) -> Option<u64> {
+        let offset = u64::from(self.page.peek().saturating_sub(1)) * u64::from(PAGE_SIZE);
+        let i = match current {
+            Some(c) => keys.iter().position(|k| k == c)?,
+            None if keys.is_empty() => return None,
+            None => 0,
+        };
+        Some(offset + i as u64)
+    }
+
+    /// 移到查詢結果的第 i 列（0 起算）
+    pub fn go(mut self, i: u64, keys: &[String]) {
+        let target = u32::try_from(i / u64::from(PAGE_SIZE)).unwrap_or(0) + 1;
+        let idx = usize::try_from(i % u64::from(PAGE_SIZE)).unwrap_or(0);
+        if target == *self.page.peek() {
+            if let Some(k) = keys.get(idx) {
+                self.selected.set(Some(k.clone()));
+            }
+        } else {
+            self.pending.set(Some(idx));
+            self.page.set(target);
+        }
+    }
+}
+
+/// 建立表格式作業的上下筆：`keys` 讀取目前這一頁各列的鍵值（讀清單資源，資源更新時重新比對）
+pub fn use_row_nav(
+    page: Signal<u32>,
+    mut selected: Signal<Option<String>>,
+    keys: impl Fn() -> Vec<String> + 'static,
+) -> RowNav {
+    let mut pending = use_signal(|| None::<usize>);
+    use_effect(move || {
+        let ks = keys();
+        let Some(i) = *pending.peek() else { return };
+        if let Some(k) = ks.get(i) {
+            selected.set(Some(k.clone()));
+            pending.set(None);
+        }
+    });
+    RowNav {
+        pending,
+        page,
+        selected,
+    }
+}

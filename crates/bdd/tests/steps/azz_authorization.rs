@@ -204,6 +204,21 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["停用使用者", id] => w.users.deactivate(a, id, None).await.map(drop),
         ["解除使用者", id, "的鎖定"] => w.users.unlock(a, id).await,
         ["啟用使用者", id] => w.users.activate(a, id, None).await.map(drop),
+        ["確認使用者", id] => w.users.confirm(a, id, true, None).await.map(drop),
+        ["取消確認使用者", id] => {
+            let _ = unchecked!(w, w.users.confirm(a, id, true, None));
+            w.users.confirm(a, id, false, None).await.map(drop)
+        }
+        ["列印使用者"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.users.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
+        ["匯出使用者為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.users.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
         // p_zw 權限類別維護
         ["查詢權限類別"] => w.classes.query(a, QueryRequest::default()).await.map(drop),
         ["查看權限類別", code] => w.classes.get(a, code).await.map(drop),
@@ -212,6 +227,22 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["停用權限類別", code] => w.classes.deactivate(a, code, None).await.map(drop),
         ["刪除權限類別", code] => w.classes.delete(a, code, None).await,
         ["更新所有使用者選單"] => w.classes.update_user_menus(a).await.map(drop),
+        ["複製權限類別", code] => w.classes.copy(a, code, "COPY1").await.map(drop),
+        ["確認權限類別", code] => w.classes.confirm(a, code, true, None).await.map(drop),
+        ["取消確認權限類別", code] => {
+            let _ = unchecked!(w, w.classes.confirm(a, code, true, None));
+            w.classes.confirm(a, code, false, None).await.map(drop)
+        }
+        ["列印權限類別"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.classes.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
+        ["匯出權限類別為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.classes.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
         // aooi901 營運中心維護
         ["查詢營運中心"] => w.plants.query(a, QueryRequest::default()).await.map(drop),
         ["查看營運中心", id] => w.plants.get(a, id).await.map(drop),
@@ -220,6 +251,21 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["停用營運中心", id] => w.plants.deactivate(a, id, None).await.map(drop),
         ["刪除營運中心", id] => w.plants.delete(a, id, None).await,
         ["複製營運中心", id] => w.plants.copy(a, id, "TW08").await.map(drop),
+        ["確認營運中心", id] => w.plants.confirm(a, id, true, None).await.map(drop),
+        ["取消確認營運中心", id] => {
+            let _ = unchecked!(w, w.plants.confirm(a, id, true, None));
+            w.plants.confirm(a, id, false, None).await.map(drop)
+        }
+        ["列印營運中心"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.plants.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
+        ["匯出營運中心為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.plants.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
         // p_zy 程式執行權限維護
         ["查詢程式執行權限"] => w
             .permissions

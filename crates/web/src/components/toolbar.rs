@@ -44,6 +44,13 @@ pub fn MaintenanceToolbar(
     /// 目前這筆已失效：按鈕顯示為「啟用」
     #[props(default)]
     inactive: bool,
+    /// 失效／啟用檢查的功能代號；未給時為 invalid（例如營運中心沿用 modify，AQ3）
+    #[props(default)]
+    invalid_action: Option<&'static str>,
+    /// 新增、修改、刪除檢查的功能代號；未給時為 insert、modify、delete
+    /// （TipTop 單身式作業如 p_zw、aooi101 一律用 detail）
+    #[props(default)]
+    detail_action: Option<&'static str>,
     /// 失效、啟用的按鈕文字（翻譯 ID），未給時用通用的「失效」「啟用」
     #[props(default)]
     invalid_label: Option<(&'static str, &'static str)>,
@@ -69,13 +76,13 @@ pub fn MaintenanceToolbar(
                 rsx! { Button { icon: icons::SEARCH, tone: Tone::Primary, variant: ButtonVariant::Tonal, disabled: !enabled, onclick: move |_| on.call(()), {t("common-action-query")} } }
             }
         }
-        if show(&insert, "insert") {
+        if show(&insert, detail_action.unwrap_or("insert")) {
             {
                 let (enabled, on) = btn(&insert);
                 rsx! { Button { icon: icons::ADD, tone: Tone::Success, disabled: !enabled, onclick: move |_| on.call(()), {t("common-action-new")} } }
             }
         }
-        if show(&modify, "modify") {
+        if show(&modify, detail_action.unwrap_or("modify")) {
             {
                 let (enabled, on) = btn(&modify);
                 rsx! { Button { icon: icons::EDIT, tone: Tone::Tertiary, variant: ButtonVariant::Tonal, disabled: !enabled, onclick: move |_| on.call(()), {t("common-action-edit")} } }
@@ -87,7 +94,7 @@ pub fn MaintenanceToolbar(
                 rsx! { Button { icon: icons::COPY, tone: Tone::Primary, variant: ButtonVariant::Outlined, disabled: !enabled, onclick: move |_| on.call(()), {t("common-action-copy")} } }
             }
         }
-        if show(&delete, "delete") {
+        if show(&delete, detail_action.unwrap_or("delete")) {
             {
                 let (enabled, on) = btn(&delete);
                 rsx! { Button { icon: icons::DELETE, tone: Tone::Error, variant: ButtonVariant::Error, disabled: !enabled, onclick: move |_| on.call(()), {t("common-action-delete")} } }
@@ -108,7 +115,7 @@ pub fn MaintenanceToolbar(
                 }
             }
         }
-        if show(&invalid, "invalid") {
+        if show(&invalid, invalid_action.unwrap_or("invalid")) {
             {
                 let (enabled, on) = btn(&invalid);
                 rsx! {

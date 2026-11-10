@@ -335,3 +335,64 @@ pub fn StatusCells(
         }
     }
 }
+
+/// 確認狀態（ADR 0013 SA9）：（已確認否, 確認人, 確認時間）；新增中或沒有資料時為 None
+pub type ConfirmState = Option<(bool, Option<String>, Option<DateTime<Utc>>)>;
+
+/// 「狀態」頁籤的確認欄位：已確認、確認人、確認時間（放在 `StatusForm` 的 children）
+#[component]
+pub fn ConfirmFields(prefix: &'static str, state: ConfirmState) -> Element {
+    let (confirmed, by, at) = match &state {
+        Some((c, by, at)) => (
+            t(if *c { "common-yes" } else { "common-no" }),
+            by.clone().unwrap_or_default(),
+            at.map(local_time).unwrap_or_default(),
+        ),
+        None => (String::new(), String::new(), String::new()),
+    };
+    rsx! {
+        TextField { id: "{prefix}_confirmed", label: t("common-field-confirmed"), readonly: true, value: confirmed }
+        TextField { id: "{prefix}_confirmed_by", label: t("common-field-confirmed-by"), readonly: true, value: by }
+        TextField { id: "{prefix}_confirmed_at", label: t("common-field-confirmed-at"), readonly: true, value: at }
+    }
+}
+
+/// 查詢模式的確認條件：已確認否、確認人
+#[component]
+pub fn ConfirmQbe(qbe: Qbe) -> Element {
+    rsx! {
+        div { class: "form-grid cols-4",
+            Q { field: "confirmed", label: t("common-field-confirmed"), hint: HINT_FLAG, query: true, qbe, div {} }
+            Q { field: "confirmed_by", label: t("common-field-confirmed-by"), query: true, qbe, div {} }
+        }
+    }
+}
+
+/// 表格「狀態」頁的確認欄位標題（ADR 0013 SA9）
+#[component]
+pub fn ConfirmHeaders() -> Element {
+    rsx! {
+        th { {t("common-field-confirmed")} }
+        th { {t("common-field-confirmed-by")} }
+    }
+}
+
+/// 表格「狀態」頁的確認欄位值
+#[component]
+pub fn ConfirmCells(confirmed: bool, by: Option<String>) -> Element {
+    rsx! {
+        td {
+            Chip { label: t(if confirmed { "common-yes" } else { "common-no" }), tone: active_tone(confirmed) }
+        }
+        td { class: "mono", {by.unwrap_or_default()} }
+    }
+}
+
+/// 表格查詢列的確認條件
+#[component]
+pub fn ConfirmQbeCells(qbe: Qbe) -> Element {
+    rsx! {
+        th { Q { field: "confirmed", label: t("common-field-confirmed"), hint: HINT_FLAG, query: true, qbe, div {} } }
+        th { Q { field: "confirmed_by", label: t("common-field-confirmed-by"), query: true, qbe, div {} } }
+    }
+}

@@ -30,6 +30,10 @@ class-msg-saved = 權限類別 { $code } 已存檔
 class-msg-deleted = 權限類別 { $code } 已刪除
 class-msg-activated = 權限類別 { $code } 已啟用
 class-msg-deactivated = 權限類別 { $code } 已停用
+class-msg-confirmed = 已確認權限類別 { $code }
+class-msg-unconfirmed = 已取消確認權限類別 { $code }
+class-msg-copied = 已將權限類別 { $from } 複製為 { $to }
+class-field-copy-as = 複製為
 class-msg-menus-updated = 已更新 { $count } 位使用者的選單
 class-note-permissions = 群組執行權限（p_zy）與列印權限（p_zy2）的維護將於後續移植；新增的權限類別不會自動帶入任何程式權限。
 # 查詢模式提示（WQ2：可輸入代碼或繁中顯示文字）

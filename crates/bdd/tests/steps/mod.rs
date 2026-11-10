@@ -34,3 +34,4 @@ mod azz_user_maintenance_query;
 mod azz_user_permission_maintenance;
 mod azz_web_password;
 mod common;
+mod std_actions;

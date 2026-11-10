@@ -161,7 +161,15 @@ impl ItemService {
             ]);
         }
         reports
-            .build(actor, &plant, &REPORT, lines, &conditions, format, lang)
+            .build(
+                actor,
+                Some(&plant),
+                &REPORT,
+                lines,
+                &conditions,
+                format,
+                lang,
+            )
             .await
     }
 

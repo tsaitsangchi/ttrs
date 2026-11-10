@@ -28,6 +28,8 @@ fn plant_column(field: &str) -> Option<Column> {
         "phone" => Column::Scalar("p.phone", true),
         "fax" => Column::Scalar("p.fax", true),
         "active" => Column::Scalar("p.active", false),
+        "confirmed" => Column::Scalar("p.confirmed", false),
+        "confirmed_by" => Column::Scalar("p.confirmed_by", true),
         "schema_name" => Column::Scalar("p.schema_name", true),
         "created_by" => Column::Scalar("p.created_by", true),
         "created_dept" => Column::Scalar("p.created_dept", true),
@@ -49,6 +51,9 @@ struct PlantRow {
     phone: Option<String>,
     fax: Option<String>,
     active: bool,
+    confirmed: bool,
+    confirmed_by: Option<String>,
+    confirmed_at: Option<DateTime<Utc>>,
     created_by: String,
     created_dept: String,
     created_on: NaiveDate,
@@ -63,7 +68,7 @@ struct PlantRow {
 macro_rules! select_plant {
     ($rest:literal) => {
         concat!(
-            "SELECT plant_id, schema_name, name, time_zone, address, phone, fax, active, ",
+            "SELECT plant_id, schema_name, name, time_zone, address, phone, fax, active, confirmed, confirmed_by, confirmed_at, ",
             "created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at FROM plant ",
             $rest
         )
@@ -89,6 +94,11 @@ impl TryFrom<PlantRow> for Plant {
                 fax: r.fax,
             },
             active: r.active,
+            confirmation: ttrs_domain::confirmation::Confirmation {
+                confirmed: r.confirmed,
+                by: r.confirmed_by,
+                at: r.confirmed_at,
+            },
             created_by: r.created_by,
             created_dept: r.created_dept,
             created_on: r.created_on,
@@ -167,8 +177,8 @@ impl PlantRepository for PgStore {
         let mut tx = self.pool.begin().await.map_err(db_err)?;
         sqlx::query(
             "INSERT INTO plant (plant_id, schema_name, name, time_zone, address, phone, fax, active,
-                 created_by, created_dept, created_on, updated_by, updated_on)
-             VALUES ($1, $13, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+                 created_by, created_dept, created_on, updated_by, updated_on, confirmed, confirmed_by, confirmed_at)
+             VALUES ($1, $13, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $14, $15, $16)",
         )
         .bind(p.id.as_str())
         .bind(&a.name)
@@ -183,6 +193,9 @@ impl PlantRepository for PgStore {
         .bind(&p.updated_by)
         .bind(p.updated_on)
         .bind(p.schema.as_str())
+        .bind(p.confirmation.confirmed)
+        .bind(&p.confirmation.by)
+        .bind(p.confirmation.at)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
@@ -197,7 +210,8 @@ impl PlantRepository for PgStore {
         let a = &p.attrs;
         let n = sqlx::query(
             "UPDATE plant SET name = $2, time_zone = $3, address = $4, phone = $5, fax = $6,
-                 active = $7, updated_by = $8, updated_on = $9
+                 active = $7, updated_by = $8, updated_on = $9,
+                 confirmed = $11, confirmed_by = $12, confirmed_at = $13
              WHERE plant_id = $1 AND version = $10",
         )
         .bind(p.id.as_str())
@@ -210,6 +224,9 @@ impl PlantRepository for PgStore {
         .bind(&p.updated_by)
         .bind(p.updated_on)
         .bind(p.stamp.version)
+        .bind(p.confirmation.confirmed)
+        .bind(&p.confirmation.by)
+        .bind(p.confirmation.at)
         .execute(&self.pool)
         .await
         .map_err(db_err)?

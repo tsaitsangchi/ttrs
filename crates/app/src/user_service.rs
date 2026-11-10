@@ -2,6 +2,7 @@
 //! 規格：specs/features/azz/user_maintenance.feature（U1–U9）、user_maintenance_department.feature（UD1–UD6）、
 //! user_maintenance_plants.feature（PZ1–PZ8，TipTop p_zxy）；登入與權限：docs/adr/0006
 
+use crate::list_report::{ListReporter, ListSpec};
 use std::sync::Arc;
 
 use chrono::NaiveDate;
@@ -54,7 +55,23 @@ pub struct UserService {
     /// 依權限資料判斷誰是使用者維護管理員（不受測試時關閉權限檢查影響）：
     /// 至少保留一位（emergency_password_reset.feature，ADR 0010 R14）
     admins: Arc<dyn Authorizer>,
+    /// 列印、匯出 Excel（ADR 0013 SA3）
+    reports: ListReporter,
 }
+
+/// 清單報表（ADR 0013 SA3；user_maintenance_standard_actions.feature）
+const REPORT: ListSpec = ListSpec {
+    program: PROGRAM,
+    title: "user-report-title",
+    columns: &[
+        ("user_id", "user-col-id"),
+        ("name", "user-col-name"),
+        ("dept_code", "user-col-dept"),
+        ("permission_class", "user-col-class"),
+        ("default_plant", "user-col-default-plant"),
+        ("active", "user-col-active"),
+    ],
+};
 
 impl UserService {
     #[allow(clippy::too_many_arguments)]
@@ -69,8 +86,10 @@ impl UserService {
         depts: Arc<dyn DepartmentRepository>,
         plants: Arc<dyn PlantRepository>,
         admins: Arc<dyn Authorizer>,
+        reports: ListReporter,
     ) -> Self {
         Self {
+            reports,
             authz,
             users,
             programs,
@@ -272,10 +291,81 @@ impl UserService {
             let user = self.load(user_id).await?;
             user.stamp.check(version)?;
             grant.record(&user.created_by, &user.created_dept)?;
+            // 已確認不可刪除，須先取消確認（ADR 0013 SA9-2）
+            user.confirmation.check_deletable()?;
             self.check_keeps_admin(&user, None).await?;
             self.users.delete(&user.user_id).await.map_err(infra)
         })
         .await
+    }
+
+    /// 確認（confirm）／取消確認（notconfirm）（ADR 0013 SA9）
+    pub async fn confirm(
+        &self,
+        actor: &Actor,
+        user_id: &str,
+        confirm: bool,
+        version: Option<i32>,
+    ) -> Result<UserDto, AppError> {
+        let action = if confirm { "confirm" } else { "notconfirm" };
+        crate::change_log::run(actor, PROGRAM, action, async {
+            let grant = self.authorize(actor, action).await?;
+            let mut user = self.load(user_id).await?;
+            grant.record(&user.created_by, &user.created_dept)?;
+            user.stamp.check(version)?;
+            user.set_confirmed(confirm, &actor.user_id, chrono::Utc::now())?;
+            let plants = self.users.plants(&user.user_id).await.map_err(infra)?;
+            self.users.update(&user, &plants).await.map_err(infra)?;
+            let saved = self.load(user_id).await?;
+            Ok(to_dto(&saved, &plants))
+        })
+        .await
+    }
+
+    /// 列印 output、匯出 Excel exporttoexcel（p_zx.4gl:267；ADR 0013 SA3）：依查詢條件與資料權限、使用者代號排序
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        conditions: Vec<ttrs_shared::QbeCondition>,
+        format: crate::report::ReportFormat,
+        lang: &ttrs_domain::lang::Lang,
+    ) -> Result<crate::report::ReportData, AppError> {
+        let scope = self.authorize(actor, format.action()).await?.scope();
+        let filters = query::user::filters(&conditions)?;
+        let (rows, total) = self
+            .users
+            .query(&filters, &scope, 0, self.reports.fetch_limit())
+            .await
+            .map_err(infra)?;
+        self.reports.check(total)?;
+        let t = |id: &str| crate::report::text(lang, id);
+        let lines = rows
+            .iter()
+            .map(|u| {
+                let a = &u.attrs;
+                vec![
+                    u.user_id.as_str().to_owned(),
+                    a.name.clone().unwrap_or_default(),
+                    a.dept_code.clone().unwrap_or_default(),
+                    a.permission_class.clone(),
+                    a.default_plant.as_str().to_owned(),
+                    t(if u.active {
+                        "report-active"
+                    } else {
+                        "report-inactive"
+                    }),
+                ]
+            })
+            .collect();
+        self.reports
+            .build(actor, None, &REPORT, lines, &conditions, format, lang)
+            .await
+    }
+
+    /// 測試用：調整同步產生報表的筆數上限
+    pub fn with_report_limit(mut self, limit: u64) -> Self {
+        self.reports.limit = limit;
+        self
     }
 
     /// 複製（p_zx_copy）：可使用營運中心只帶預設營運中心（p_zx.4gl:1360-1379）
@@ -547,6 +637,9 @@ fn to_dto(u: &User, plants: &[PlantId]) -> UserDto {
         lang: a.lang.as_str().to_owned(),
         valid_until: a.valid_until,
         active: u.active,
+        confirmed: u.confirmation.confirmed,
+        confirmed_by: u.confirmation.by.clone(),
+        confirmed_at: u.confirmation.at,
         allowed_plants: plants
             .iter()
             .filter(|p| !p.is_all())

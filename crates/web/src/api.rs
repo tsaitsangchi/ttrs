@@ -567,6 +567,20 @@ pub async fn update_user(id: &str, req: &UserInput) -> Result<UserDto, String> {
     into_result(res).await
 }
 
+/// 確認或取消確認（ADR 0013 SA9）
+pub async fn confirm_user(id: &str, confirm: bool, version: i32) -> Result<UserDto, String> {
+    let suffix = if confirm { "confirm" } else { "unconfirm" };
+    let res = reqwest::Client::new()
+        .post(url(&format!(
+            "/api/users/{}/{suffix}?version={version}",
+            urlencoding(id)
+        )))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
 pub async fn delete_user(id: &str, version: i32) -> Result<(), String> {
     let res = reqwest::Client::new()
         .delete(format!("{}?version={version}", user_url(id, "")))
@@ -648,6 +662,38 @@ pub async fn update_class(
     let res = reqwest::Client::new()
         .put(class_url(code, ""))
         .json(req)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+/// 複製（ADR 0013 SA5）
+pub async fn copy_class(code: &str, new_code: &str) -> Result<PermissionClassDto, String> {
+    let res = reqwest::Client::new()
+        .post(url(&format!(
+            "/api/permission-classes/{}/copy",
+            urlencoding(code)
+        )))
+        .json(&serde_json::json!({ "new_class_code": new_code }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+/// 確認或取消確認（ADR 0013 SA9）
+pub async fn confirm_class(
+    code: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<PermissionClassDto, String> {
+    let suffix = if confirm { "confirm" } else { "unconfirm" };
+    let res = reqwest::Client::new()
+        .post(url(&format!(
+            "/api/permission-classes/{}/{suffix}?version={version}",
+            urlencoding(code)
+        )))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -742,6 +788,17 @@ pub async fn copy_plant(id: &str, new_id: &str) -> Result<PlantDto, String> {
 /// 停用或啟用（P9）
 pub async fn set_plant_active(id: &str, active: bool, version: i32) -> Result<PlantDto, String> {
     let suffix = if active { "/activate" } else { "/deactivate" };
+    let res = reqwest::Client::new()
+        .post(format!("{}?version={version}", plant_url(id, suffix)))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+/// 確認或取消確認（ADR 0013 SA9）
+pub async fn confirm_plant(id: &str, confirm: bool, version: i32) -> Result<PlantDto, String> {
+    let suffix = if confirm { "/confirm" } else { "/unconfirm" };
     let res = reqwest::Client::new()
         .post(format!("{}?version={version}", plant_url(id, suffix)))
         .send()
@@ -1057,8 +1114,35 @@ pub async fn list_report(
     lang: &str,
     tab: ReportTab,
 ) -> Result<(), String> {
-    let q = serde_json::to_string(conditions).map_err(|e| e.to_string())?;
     let u = plant_part_url(plant, part, "", &format!("/report.{}", format.ext()));
+    let file = format!("{plant}-{part}.{}", format.ext());
+    report_at(u, &file, format, conditions, lang, tab).await
+}
+
+/// 系統層作業的清單報表（營運中心、使用者…，ADR 0013 SA3）：`path` 為 API 路徑（如 `/api/plants`）
+pub async fn system_list_report(
+    path: &str,
+    name: &str,
+    format: ReportFormat,
+    conditions: &[QbeCondition],
+    lang: &str,
+    tab: ReportTab,
+) -> Result<(), String> {
+    let u = url(&format!("{path}/report.{}", format.ext()));
+    let file = format!("{name}.{}", format.ext());
+    report_at(u, &file, format, conditions, lang, tab).await
+}
+
+/// 取得報表檔：成功時 PDF 顯示在先開好的分頁、Excel 下載；失敗時關掉分頁並回傳錯誤訊息
+async fn report_at(
+    u: String,
+    file: &str,
+    format: ReportFormat,
+    conditions: &[QbeCondition],
+    lang: &str,
+    tab: ReportTab,
+) -> Result<(), String> {
+    let q = serde_json::to_string(conditions).map_err(|e| e.to_string())?;
     let res = reqwest::Client::new()
         .get(u)
         .query(&[("q", q.as_str()), ("lang", lang)])
@@ -1077,12 +1161,7 @@ pub async fn list_report(
         }
     };
     let bytes = res.bytes().await.map_err(|e| e.to_string())?;
-    show_report(
-        &bytes,
-        format,
-        &format!("{plant}-{part}.{}", format.ext()),
-        tab,
-    )
+    show_report(&bytes, format, file, tab)
 }
 
 #[cfg(target_arch = "wasm32")]

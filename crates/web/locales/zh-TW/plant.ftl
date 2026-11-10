@@ -23,5 +23,7 @@ plant-msg-saved = 營運中心 { $id } 已存檔
 plant-msg-deleted = 營運中心 { $id } 已刪除
 plant-msg-activated = 營運中心 { $id } 已啟用
 plant-msg-deactivated = 營運中心 { $id } 已停用
+plant-msg-confirmed = 已確認營運中心 { $id }
+plant-msg-unconfirmed = 已取消確認營運中心 { $id }
 plant-msg-copied = 已將營運中心 { $from } 複製為 { $to }
 plant-note-schema = 新增營運中心只需建立一筆資料，不必另建資料庫或 schema；TipTop 的資料庫代碼、DB link、上線人數等設定不再使用。有使用者或業務資料的營運中心不可刪除，請改為停用。

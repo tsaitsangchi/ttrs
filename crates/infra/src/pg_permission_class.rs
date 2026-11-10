@@ -29,6 +29,8 @@ fn class_column(field: &str) -> Option<Column> {
         "idle_action" => Column::Scalar("c.idle_action", true),
         "idle_seconds" => Column::Scalar("c.idle_seconds", false),
         "active" => Column::Scalar("c.active", false),
+        "confirmed" => Column::Scalar("c.confirmed", false),
+        "confirmed_by" => Column::Scalar("c.confirmed_by", true),
         "created_by" => Column::Scalar("c.created_by", true),
         "created_dept" => Column::Scalar("c.created_dept", true),
         "created_on" => Column::Scalar("c.created_on", false),
@@ -48,6 +50,9 @@ struct ClassRow {
     idle_action: Option<String>,
     idle_seconds: Option<i32>,
     active: bool,
+    confirmed: bool,
+    confirmed_by: Option<String>,
+    confirmed_at: Option<DateTime<Utc>>,
     created_by: String,
     created_dept: String,
     created_on: NaiveDate,
@@ -62,7 +67,7 @@ struct ClassRow {
 macro_rules! select_class {
     ($rest:literal) => {
         concat!(
-            "SELECT class_code, name, default_menu, idle_control, idle_action, idle_seconds, active, ",
+            "SELECT class_code, name, default_menu, idle_control, idle_action, idle_seconds, active, confirmed, confirmed_by, confirmed_at, ",
             "created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at FROM permission_class ",
             $rest
         )
@@ -92,6 +97,11 @@ impl TryFrom<ClassRow> for PermissionClass {
                 idle_seconds: r.idle_seconds,
             },
             active: r.active,
+            confirmation: ttrs_domain::confirmation::Confirmation {
+                confirmed: r.confirmed,
+                by: r.confirmed_by,
+                at: r.confirmed_at,
+            },
             created_by: r.created_by,
             created_dept: r.created_dept,
             created_on: r.created_on,
@@ -150,8 +160,9 @@ impl PermissionClassRepository for PgStore {
         let a = &c.attrs;
         sqlx::query(
             "INSERT INTO permission_class (class_code, name, default_menu, idle_control, idle_action,
-                 idle_seconds, active, created_by, created_dept, created_on, updated_by, updated_on)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+                 idle_seconds, active, created_by, created_dept, created_on, updated_by, updated_on,
+                 confirmed, confirmed_by, confirmed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
         )
         .bind(c.code.as_str())
         .bind(&a.name)
@@ -165,6 +176,9 @@ impl PermissionClassRepository for PgStore {
         .bind(c.created_on)
         .bind(&c.updated_by)
         .bind(c.updated_on)
+        .bind(c.confirmation.confirmed)
+        .bind(&c.confirmation.by)
+        .bind(c.confirmation.at)
         .execute(&self.pool)
         .await
         .map_err(db_err)?;
@@ -175,7 +189,8 @@ impl PermissionClassRepository for PgStore {
         let a = &c.attrs;
         let n = sqlx::query(
             "UPDATE permission_class SET name = $2, default_menu = $3, idle_control = $4,
-                 idle_action = $5, idle_seconds = $6, active = $7, updated_by = $8, updated_on = $9
+                 idle_action = $5, idle_seconds = $6, active = $7, updated_by = $8, updated_on = $9,
+                 confirmed = $11, confirmed_by = $12, confirmed_at = $13
              WHERE class_code = $1 AND version = $10",
         )
         .bind(c.code.as_str())
@@ -188,6 +203,9 @@ impl PermissionClassRepository for PgStore {
         .bind(&c.updated_by)
         .bind(c.updated_on)
         .bind(c.stamp.version)
+        .bind(c.confirmation.confirmed)
+        .bind(&c.confirmation.by)
+        .bind(c.confirmation.at)
         .execute(&self.pool)
         .await
         .map_err(db_err)?

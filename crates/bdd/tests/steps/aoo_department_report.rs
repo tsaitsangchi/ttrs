@@ -213,7 +213,9 @@ fn excel_rows(w: &mut ErpWorld, n: usize) {
 
 #[then(regex = r#"^稽核紀錄應有一筆程式 "(\S+)"、動作 "(\S+)"、筆數 (\d+)$"#)]
 async fn audit(w: &mut ErpWorld, program: String, action: String, count: u64) {
-    let entries = w.programs.audit_entries(&w.actor, "TW01").await.unwrap();
+    // 工廠層作業的鍵值為營運中心；系統層作業（營運中心、使用者…）沒有營運中心，鍵值空白
+    let mut entries = w.programs.audit_entries(&w.actor, "TW01").await.unwrap();
+    entries.extend(w.programs.audit_entries(&w.actor, "").await.unwrap());
     let want = format!("筆數={count}");
     assert!(
         entries.iter().any(|e| e.program == program

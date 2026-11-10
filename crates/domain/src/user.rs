@@ -127,6 +127,8 @@ pub struct User {
     pub idp_subject: Option<String>,
     /// zxacti 資料有效
     pub active: bool,
+    /// 確認狀態（TTRS 標準確認欄位，ADR 0013 SA9；zx_file 無此欄）
+    pub confirmation: crate::confirmation::Confirmation,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -157,6 +159,7 @@ impl User {
             attrs,
             idp_subject: None,
             active,
+            confirmation: crate::confirmation::Confirmation::default(),
             created_by: actor.to_owned(),
             created_dept: actor_dept.to_owned(),
             created_on: today,
@@ -174,6 +177,22 @@ impl User {
         self.active = active_on(attrs.valid_until, today);
         self.attrs = attrs;
         self.touch(actor, today);
+    }
+
+    /// 確認／取消確認（ADR 0013 SA9）
+    pub fn set_confirmed(
+        &mut self,
+        confirm: bool,
+        actor: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(), crate::DomainError> {
+        if confirm {
+            self.confirmation.confirm(actor, now)?;
+        } else {
+            self.confirmation.unconfirm()?;
+        }
+        self.touch(actor, now.date_naive());
+        Ok(())
     }
 
     /// 停用：失效日期設為今天（p_zx.4gl:1125-1127）

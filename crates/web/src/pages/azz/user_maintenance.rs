@@ -20,7 +20,8 @@ use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{
     HINT_DATE, HINT_FLAG, ListPager, Q, RecordNav, conditions_of, use_query_records,
 };
-use crate::components::status::{HasStatus, StatusForm, TAB_STATUS};
+use crate::components::status::{ConfirmFields, ConfirmQbe, HasStatus, StatusForm, TAB_STATUS};
+use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{self, UiLang, t, tf};
 
 const TABS: [&str; 4] = [
@@ -148,6 +149,27 @@ fn UserMaintenancePage() -> Element {
     let cur_toggle = cur.clone();
     let cur_unlock = cur.clone();
     let cur_copy = cur.clone();
+    let cur_confirm = cur.clone();
+    let confirmed = cur.as_ref().is_some_and(|u| u.confirmed);
+    // 列印、匯出 Excel（ADR 0013 SA3）：使用者維護一進畫面就查全部（QBE4），依目前生效的條件
+    let report = move |format: api::ReportFormat| {
+        let conds = rec.conditions.read().clone();
+        let tab = api::ReportTab::open(format);
+        spawn(async move {
+            if let Err(e) = api::system_list_report(
+                "/api/users",
+                "users",
+                format,
+                &conds,
+                crate::i18n::current().code(),
+                tab,
+            )
+            .await
+            {
+                error.set(Some(e));
+            }
+        });
+    };
     let m = mode();
     let q = m == Mode::Query;
     let ro = matches!(m, Mode::View | Mode::Query);
@@ -282,125 +304,110 @@ fn UserMaintenancePage() -> Element {
                         }
                     },
                     Mode::View => rsx! {
-                        if perm.can("query") {
-                            Button {
-                                icon: icons::SEARCH, tone: Tone::Primary,
-                                variant: ButtonVariant::Tonal,
-                                onclick: move |_| {
-                                    message.set(None);
-                                    error.set(None);
-                                    rec.qbe.set(Default::default());
-                                    mode.set(Mode::Query);
-                                    tab.set(0);
-                                },
-                                {t("common-action-query")}
-                            }
-                        }
-                        if perm.can("insert") {
-                            Button {
-                                icon: icons::ADD, tone: Tone::Success,
-                                onclick: move |_| {
-                                    message.set(None);
-                                    error.set(None);
-                                    form.set(UserInput { lang: Some(UiLang::ZhTw.code().into()), ..Default::default() });
-                                    mode.set(Mode::New);
-                                },
-                                {t("common-action-new")}
-                            }
-                        }
-                        if perm.can("modify") {
-                            Button { icon: icons::EDIT, tone: Tone::Tertiary, variant: ButtonVariant::Tonal, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), {t("common-action-edit")} }
-                        }
-                        // 異動記錄（ADR 0012 §8，功能 history）
-                        if perm.can("history") {
-                            HistoryButton { program: PROGRAM, record: cur.as_ref().map(|u| u.user_id.clone()) }
-                        }
-                        if perm.can("delete") {
-                            Button {
-                                icon: icons::DELETE, tone: Tone::Error,
-                                variant: ButtonVariant::Error,
-                                disabled: no_cur,
-                                onclick: move |_| {
-                                    let Some(u) = cur_delete.clone() else { return };
-                                    spawn(async move {
-                                        match api::delete_user(&u.user_id, u.version).await {
-                                            Ok(()) => done(tf("user-msg-deleted", &[("id", u.user_id.as_str())]), None),
-                                            Err(e) => error.set(Some(e)),
+                        MaintenanceToolbar {
+                            query: Act::new(true, move |_| {
+                                message.set(None);
+                                error.set(None);
+                                rec.qbe.set(Default::default());
+                                mode.set(Mode::Query);
+                                tab.set(0);
+                            }),
+                            insert: Act::new(true, move |_| {
+                                message.set(None);
+                                error.set(None);
+                                form.set(UserInput { lang: Some(UiLang::ZhTw.code().into()), ..Default::default() });
+                                mode.set(Mode::New);
+                            }),
+                            modify: Act::new(!no_cur, move |_| mode.set(Mode::Edit)),
+                            // 複製（p_zx_copy）：新代號輸入在功能列後方
+                            copy: Act::new(!no_cur && !copy_id().trim().is_empty(), move |_| {
+                                let Some(u) = cur_copy.clone() else { return };
+                                let new_id = copy_id();
+                                spawn(async move {
+                                    match api::copy_user(&u.user_id, &new_id).await {
+                                        Ok(r) => {
+                                            copy_id.set(String::new());
+                                            done(tf("user-msg-copied", &[("from", u.user_id.as_str()), ("to", r.user_id.as_str())]), Some(r));
                                         }
-                                    });
-                                },
-                                {t("common-action-delete")}
+                                        Err(e) => error.set(Some(e)),
+                                    }
+                                });
+                            }),
+                            // 已確認不可刪除（ADR 0013 SA9-2）
+                            delete: Act::new(!no_cur && !confirmed, move |_| {
+                                let Some(u) = cur_delete.clone() else { return };
+                                spawn(async move {
+                                    match api::delete_user(&u.user_id, u.version).await {
+                                        Ok(()) => done(tf("user-msg-deleted", &[("id", u.user_id.as_str())]), None),
+                                        Err(e) => error.set(Some(e)),
+                                    }
+                                });
+                            }),
+                            // 確認／取消確認（ADR 0013 SA9）
+                            confirm: Act::new(!no_cur, move |_| {
+                                let Some(u) = cur_confirm.clone() else { return };
+                                spawn(async move {
+                                    match api::confirm_user(&u.user_id, !u.confirmed, u.version).await {
+                                        Ok(r) => {
+                                            let id = if r.confirmed { "user-msg-confirmed" } else { "user-msg-unconfirmed" };
+                                            done(tf(id, &[("id", r.user_id.as_str())]), Some(r));
+                                        }
+                                        Err(e) => error.set(Some(e)),
+                                    }
+                                });
+                            }),
+                            confirmed,
+                            // TipTop 無效切換：有效 → 停用、停用 → 啟用
+                            invalid: Act::new(!no_cur, move |_| {
+                                let Some(u) = cur_toggle.clone() else { return };
+                                spawn(async move {
+                                    match api::set_user_active(&u.user_id, !u.active, u.version).await {
+                                        Ok(r) => {
+                                            let id = if r.active { "user-msg-activated" } else { "user-msg-deactivated" };
+                                            done(tf(id, &[("id", r.user_id.as_str())]), Some(r));
+                                        }
+                                        Err(e) => error.set(Some(e)),
+                                    }
+                                });
+                            }),
+                            inactive: cur.as_ref().is_some_and(|u| !u.active),
+                            invalid_label: Some(("user-action-deactivate", "user-action-activate")),
+                            // 列印、匯出 Excel（p_zx output；ADR 0013 SA3）：依目前生效的查詢條件
+                            print: Act::new(true, move |_| report(api::ReportFormat::Pdf)),
+                            export: Act::new(true, move |_| report(api::ReportFormat::Excel)),
+                            // 異動記錄（ADR 0012 §8，功能 history）
+                            if perm.can("history") {
+                                HistoryButton { program: PROGRAM, record: cur.as_ref().map(|u| u.user_id.clone()) }
                             }
-                        }
-                        // TipTop 無效切換：有效 → 停用、停用 → 啟用
-                        if perm.can("invalid") {
-                            Button {
-                                icon: if cur.as_ref().is_some_and(|u| !u.active) { icons::CHECK_CIRCLE } else { icons::BLOCK }, tone: if cur.as_ref().is_some_and(|u| !u.active) { Tone::Success } else { Tone::Error },
-                                variant: ButtonVariant::Outlined,
-                                disabled: no_cur,
-                                onclick: move |_| {
-                                    let Some(u) = cur_toggle.clone() else { return };
-                                    spawn(async move {
-                                        match api::set_user_active(&u.user_id, !u.active, u.version).await {
-                                            Ok(r) => {
-                                                let id = if r.active { "user-msg-activated" } else { "user-msg-deactivated" };
-                                                done(tf(id, &[("id", r.user_id.as_str())]), Some(r));
+                            // 解除鎖定（p_zx user_unlock）：試誤次數歸零
+                            if perm.can("user_unlock") {
+                                Button {
+                                    icon: icons::LOCK_OPEN, tone: Tone::Success,
+                                    variant: ButtonVariant::Outlined,
+                                    disabled: no_cur,
+                                    onclick: move |_| {
+                                        let Some(u) = cur_unlock.clone() else { return };
+                                        spawn(async move {
+                                            match api::unlock_user(&u.user_id).await {
+                                                Ok(()) => done(tf("user-msg-unlocked", &[("id", u.user_id.as_str())]), None),
+                                                Err(e) => error.set(Some(e)),
                                             }
-                                            Err(e) => error.set(Some(e)),
-                                        }
-                                    });
-                                },
-                                if cur.as_ref().is_some_and(|u| !u.active) { {t("user-action-activate")} } else { {t("user-action-deactivate")} }
+                                        });
+                                    },
+                                    {t("user-action-unlock")}
+                                }
                             }
-                        }
-                        // 解除鎖定（p_zx user_unlock）：試誤次數歸零
-                        if perm.can("user_unlock") {
-                            Button {
-                                icon: icons::LOCK_OPEN, tone: Tone::Success,
-                                variant: ButtonVariant::Outlined,
-                                disabled: no_cur,
-                                onclick: move |_| {
-                                    let Some(u) = cur_unlock.clone() else { return };
-                                    spawn(async move {
-                                        match api::unlock_user(&u.user_id).await {
-                                            Ok(()) => done(tf("user-msg-unlocked", &[("id", u.user_id.as_str())]), None),
-                                            Err(e) => error.set(Some(e)),
-                                        }
-                                    });
-                                },
-                                {t("user-action-unlock")}
+                            // 串接 p_zxw「維護使用者特殊權限」（p_zx action maintain_zxw）
+                            if let Some(u) = cur.as_ref() {
+                                Link {
+                                    class: "md-button md-state md-button--outlined md-button--with-icon",
+                                    to: crate::Route::UserPermissionsFor { user: u.user_id.clone() },
+                                    svg { class: "md-button__icon md-icon--primary", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::VERIFIED_USER } }
+                                    {t("user-action-special")}
+                                }
                             }
-                        }
-                        // 串接 p_zxw「維護使用者特殊權限」（p_zx action maintain_zxw）
-                        if let Some(u) = cur.as_ref() {
-                            Link {
-                                class: "md-button md-state md-button--outlined md-button--with-icon",
-                                to: crate::Route::UserPermissionsFor { user: u.user_id.clone() },
-                                svg { class: "md-button__icon md-icon--primary", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::VERIFIED_USER } }
-                                {t("user-action-special")}
-                            }
-                        }
-                        div { class: "spacer" }
-                        if perm.can("reproduce") {
-                            TextField { id: "copy-id", label: t("user-field-copy-as"), maxlength: max_len::USER_ID, value: copy_id(), disabled: no_cur, oninput: move |v| copy_id.set(v) }
-                            Button {
-                                icon: icons::COPY, tone: Tone::Tertiary,
-                                variant: ButtonVariant::Outlined,
-                                disabled: no_cur,
-                                onclick: move |_| {
-                                    let Some(u) = cur_copy.clone() else { return };
-                                    let new_id = copy_id();
-                                    spawn(async move {
-                                        match api::copy_user(&u.user_id, &new_id).await {
-                                            Ok(r) => {
-                                                copy_id.set(String::new());
-                                                done(tf("user-msg-copied", &[("from", u.user_id.as_str()), ("to", r.user_id.as_str())]), Some(r));
-                                            }
-                                            Err(e) => error.set(Some(e)),
-                                        }
-                                    });
-                                },
-                                {t("common-action-copy")}
+                            if perm.can("reproduce") {
+                                TextField { id: "copy-id", label: t("user-field-copy-as"), maxlength: max_len::USER_ID, value: copy_id(), disabled: no_cur, oninput: move |v| copy_id.set(v) }
                             }
                         }
                     },
@@ -505,6 +512,11 @@ fn UserMaintenancePage() -> Element {
                             // p_zx.4fd info（Status）頁：zxacti、zxuser、zxgrup、zxmodu、zxdate（ADR 0012 §9）
                             StatusForm { status: cur.as_ref().map(|u| u.status()), queryable: crate::components::status::ALL, query: q, qbe, prefix: "zx",
                                 TextField { id: "idp-bound", label: t("user-field-idp-bound"), readonly: true, value: cur.as_ref().map(|u| if u.idp_bound { t("user-idp-bound") } else { t("user-idp-unbound") }).unwrap_or_default() }
+                                // 確認狀態（ADR 0013 SA9）
+                                ConfirmFields { prefix: "zx", state: cur.as_ref().filter(|_| m != Mode::New).map(|u| (u.confirmed, u.confirmed_by.clone(), u.confirmed_at)) }
+                            }
+                            if q {
+                                ConfirmQbe { qbe }
                             }
                         },
                         _ if q => rsx! {

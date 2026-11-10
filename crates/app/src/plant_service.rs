@@ -14,8 +14,29 @@ use ttrs_domain::{
 use ttrs_shared::{Page, PlantDto, PlantInput, QueryRequest};
 
 use crate::{
-    Actor, AppError, Authorizer, authorization::Grant, error::RepoError, ports::PlantRepository,
+    Actor, AppError, Authorizer,
+    authorization::Grant,
+    error::RepoError,
+    list_report::{ListReporter, ListSpec},
+    ports::PlantRepository,
     query,
+    report::{self, ReportData, ReportFormat},
+};
+use ttrs_domain::lang::Lang;
+use ttrs_shared::QbeCondition;
+
+/// 清單報表（ADR 0013 SA3；plant_maintenance_standard_actions.feature）
+const REPORT: ListSpec = ListSpec {
+    program: PROGRAM,
+    title: "plant-report-title",
+    columns: &[
+        ("plant_id", "plant-col-id"),
+        ("name", "plant-col-name"),
+        ("schema_name", "plant-col-schema"),
+        ("time_zone", "plant-col-time-zone"),
+        ("phone", "plant-col-phone"),
+        ("active", "plant-col-active"),
+    ],
 };
 
 /// 權限檢查用的程式代號；TipTop 沒有設定資料所有者，不檢查資料權限（AQ5）
@@ -25,11 +46,85 @@ const PROGRAM: &str = "plant-maintenance";
 pub struct PlantService {
     authz: Arc<dyn Authorizer>,
     plants: Arc<dyn PlantRepository>,
+    reports: ListReporter,
 }
 
 impl PlantService {
-    pub fn new(authz: Arc<dyn Authorizer>, plants: Arc<dyn PlantRepository>) -> Self {
-        Self { authz, plants }
+    pub fn new(
+        authz: Arc<dyn Authorizer>,
+        plants: Arc<dyn PlantRepository>,
+        reports: ListReporter,
+    ) -> Self {
+        Self {
+            authz,
+            plants,
+            reports,
+        }
+    }
+
+    /// 確認（confirm）／取消確認（notconfirm）（ADR 0013 SA9）
+    pub async fn confirm(
+        &self,
+        actor: &Actor,
+        id: &str,
+        confirm: bool,
+        version: Option<i32>,
+    ) -> Result<PlantDto, AppError> {
+        let action = if confirm { "confirm" } else { "notconfirm" };
+        crate::change_log::run(actor, PROGRAM, action, async {
+            self.authorize(actor, action).await?;
+            let mut plant = self.load(id).await?;
+            plant.stamp.check(version)?;
+            plant.set_confirmed(confirm, &actor.user_id, chrono::Utc::now())?;
+            self.plants.update(&plant).await.map_err(infra)?;
+            Ok(to_dto(&self.load(id).await?))
+        })
+        .await
+    }
+
+    /// 列印 output、匯出 Excel exporttoexcel（ADR 0013 SA3；aooi901 原本沒有）：依查詢條件、營運中心代碼排序
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        conditions: Vec<QbeCondition>,
+        format: ReportFormat,
+        lang: &Lang,
+    ) -> Result<ReportData, AppError> {
+        self.authorize(actor, format.action()).await?;
+        let filters = query::plant::filters(&conditions)?;
+        let (rows, total) = self
+            .plants
+            .query(&filters, 0, self.reports.fetch_limit())
+            .await
+            .map_err(infra)?;
+        self.reports.check(total)?;
+        let t = |id: &str| report::text(lang, id);
+        let lines = rows
+            .iter()
+            .map(|p| {
+                vec![
+                    p.id.as_str().to_owned(),
+                    p.attrs.name.clone(),
+                    p.schema.as_str().to_owned(),
+                    p.attrs.time_zone.clone(),
+                    p.attrs.phone.clone().unwrap_or_default(),
+                    t(if p.active {
+                        "report-active"
+                    } else {
+                        "report-inactive"
+                    }),
+                ]
+            })
+            .collect();
+        self.reports
+            .build(actor, None, &REPORT, lines, &conditions, format, lang)
+            .await
+    }
+
+    /// 測試用：調整同步產生報表的筆數上限
+    pub fn with_report_limit(mut self, limit: u64) -> Self {
+        self.reports.limit = limit;
+        self
     }
 
     /// 新增（aooi901.4gl:296-388）
@@ -123,6 +218,8 @@ impl PlantService {
             if self.plants.in_use(&plant.id).await.map_err(infra)? {
                 return Err(DomainError::PlantInUse.into());
             }
+            // 已確認不可刪除，須先取消確認（ADR 0013 SA9-2）
+            plant.confirmation.check_deletable()?;
             self.check_keeps_active(&plant).await?;
             match self.plants.delete(&plant.id).await {
                 Ok(()) => Ok(()),
@@ -274,6 +371,9 @@ fn to_dto(p: &Plant) -> PlantDto {
         phone: a.phone.clone(),
         fax: a.fax.clone(),
         active: p.active,
+        confirmed: p.confirmation.confirmed,
+        confirmed_by: p.confirmation.by.clone(),
+        confirmed_at: p.confirmation.at,
         created_by: p.created_by.clone(),
         created_dept: p.created_dept.clone(),
         created_on: p.created_on,

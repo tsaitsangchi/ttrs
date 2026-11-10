@@ -86,3 +86,14 @@ async fn item_and_group_report_formats() {
     let res = get(&app, "/api/plants/TW01/item-groups/report.doc").await;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
 }
+
+/// 系統層作業的清單報表（營運中心，ADR 0013 SA3）：/api/plants/report.* 不被 /api/plants/{id} 吃掉
+#[tokio::test]
+async fn plant_report_formats() {
+    let app = app();
+    let res = get(&app, "/api/plants/report.pdf").await;
+    assert_eq!(res.status(), StatusCode::OK);
+    assert_eq!(res.headers()[header::CONTENT_TYPE], "application/pdf");
+    let res = get(&app, "/api/plants/report.xlsx").await;
+    assert_eq!(res.status(), StatusCode::OK);
+}

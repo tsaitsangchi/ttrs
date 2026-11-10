@@ -775,6 +775,13 @@ pub struct UserDto {
     pub valid_until: Option<NaiveDate>,
     /// zxacti 資料有效
     pub active: bool,
+    /// 確認狀態（ADR 0013 SA9）：已確認否、確認人、確認時間
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
     /// zxy 可使用的營運中心（不含 ALL）
     pub allowed_plants: Vec<String>,
     /// zxy03＝ALL 可使用全部營運中心（PZ3）
@@ -880,6 +887,13 @@ pub struct PermissionClassDto {
     pub idle_action: Option<IdleActionDto>,
     pub idle_seconds: Option<i32>,
     pub active: bool,
+    /// 確認狀態（ADR 0013 SA9）：已確認否、確認人、確認時間
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -1042,6 +1056,13 @@ pub struct PlantDto {
     pub phone: Option<String>,
     pub fax: Option<String>,
     pub active: bool,
+    /// 確認狀態（ADR 0013 SA9）：已確認否、確認人、確認時間
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,

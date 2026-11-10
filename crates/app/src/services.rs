@@ -124,6 +124,9 @@ impl Services {
         let admins: Arc<dyn Authorizer> =
             Arc::new(PermissionAuthorizer::new(store.clone(), store.clone()));
         let history = HistoryReader::new(store.clone(), store.clone());
+        // 列印、匯出 Excel 的共用組裝（ADR 0013 SA3）
+        let reports =
+            crate::list_report::ListReporter::new(store.clone(), store.clone(), store.clone());
         let item_repos = crate::item_service::ItemRepos {
             items: store.clone(),
             groups: store.clone(),
@@ -133,11 +136,7 @@ impl Services {
             employees: store.clone(),
             departments: store.clone(),
             master: store.clone(),
-            reports: crate::list_report::ListReporter::new(
-                store.clone(),
-                store.clone(),
-                store.clone(),
-            ),
+            reports: reports.clone(),
         };
         Self {
             items: ItemService::new(a.clone(), item_repos.clone(), history.clone()),
@@ -160,14 +159,16 @@ impl Services {
                 store.clone(),
                 store.clone(),
                 admins,
+                reports.clone(),
             ),
             classes: PermissionClassService::new(
                 a.clone(),
                 store.clone(),
                 store.clone(),
                 store.clone(),
+                reports.clone(),
             ),
-            plants: PlantService::new(a.clone(), store.clone()),
+            plants: PlantService::new(a.clone(), store.clone(), reports.clone()),
             permissions: ProgramPermissionService::new(
                 a.clone(),
                 store.clone(),

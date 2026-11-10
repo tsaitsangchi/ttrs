@@ -23,5 +23,7 @@ plant-msg-saved = Plant { $id } saved
 plant-msg-deleted = Plant { $id } deleted
 plant-msg-activated = Plant { $id } activated
 plant-msg-deactivated = Plant { $id } deactivated
+plant-msg-confirmed = Plant { $id } confirmed
+plant-msg-unconfirmed = Plant { $id } unconfirmed
 plant-msg-copied = Copied plant { $from } to { $to }
 plant-note-schema = Adding a plant only creates one record; no database or schema is needed. TipTop's schema code, DB link and concurrent-user settings are no longer used. A plant with users or business data cannot be deleted; deactivate it instead.

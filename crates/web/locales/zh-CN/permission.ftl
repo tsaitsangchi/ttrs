@@ -30,6 +30,10 @@ class-msg-saved = 权限类别 { $code } 已保存
 class-msg-deleted = 权限类别 { $code } 已删除
 class-msg-activated = 权限类别 { $code } 已启用
 class-msg-deactivated = 权限类别 { $code } 已停用
+class-msg-confirmed = 已确认权限类别 { $code }
+class-msg-unconfirmed = 已取消确认权限类别 { $code }
+class-msg-copied = 已将权限类别 { $from } 复制为 { $to }
+class-field-copy-as = 复制为
 class-msg-menus-updated = 已更新 { $count } 位用户的菜单
 class-note-permissions = 群组执行权限（p_zy）与打印权限（p_zy2）的维护将于后续移植；新增的权限类别不会自动带入任何程序权限。
 # 查询模式提示（WQ2：可输入代码或繁中显示文字）

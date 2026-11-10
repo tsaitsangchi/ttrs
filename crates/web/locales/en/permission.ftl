@@ -30,6 +30,10 @@ class-msg-saved = Permission class { $code } saved
 class-msg-deleted = Permission class { $code } deleted
 class-msg-activated = Permission class { $code } activated
 class-msg-deactivated = Permission class { $code } deactivated
+class-msg-confirmed = Permission class { $code } confirmed
+class-msg-unconfirmed = Permission class { $code } unconfirmed
+class-msg-copied = Permission class { $from } copied to { $to }
+class-field-copy-as = Copy as
 class-msg-menus-updated = Updated the menu of { $count } users
 class-note-permissions = Program run permissions (p_zy) and print permissions (p_zy2) will be ported later; a new permission class starts without program permissions.
 # Query mode hints (WQ2: code or Traditional Chinese label)

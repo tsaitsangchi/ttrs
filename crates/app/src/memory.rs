@@ -130,6 +130,12 @@ impl InMemoryStore {
             s.add_module(m);
         }
         s.add_permission_class("ADMIN");
+        // 同 PostgreSQL：ADMIN 由早期 migration 建立，加上確認欄位時既有資料視為已確認（ADR 0013 SA9-3）
+        if let Ok(admin) = ClassCode::parse("ADMIN")
+            && let Some(c) = s.lock().permission_classes.get_mut(&admin)
+        {
+            c.confirmation = ttrs_domain::confirmation::Confirmation::confirmed(None, None);
+        }
         s.add_ported_programs(Some("ADMIN"));
         s
     }
@@ -329,6 +335,8 @@ impl InMemoryStore {
                 fax: None,
             },
             active: true,
+            // 與 PostgreSQL 直接寫入相同：欄位預設未確認
+            confirmation: Default::default(),
             created_by: String::new(),
             created_dept: String::new(),
             created_on: chrono::Local::now().date_naive(),
@@ -429,6 +437,7 @@ impl InMemoryStore {
                 idle_seconds: None,
             },
             active: true,
+            confirmation: Default::default(),
             created_by: String::new(),
             created_dept: String::new(),
             created_on: chrono::Local::now().date_naive(),
@@ -2431,6 +2440,8 @@ fn user_row(u: &User, plants: &[PlantId]) -> Row {
         ("lang", text::s(a.lang.as_str())),
         ("valid_until", text::opt_date(a.valid_until)),
         ("active", text::b(u.active)),
+        ("confirmed", text::b(u.confirmation.confirmed)),
+        ("confirmed_by", text::opt(u.confirmation.by.as_deref())),
         ("all_plants", text::b(plants.iter().any(PlantId::is_all))),
     ];
     cols.extend(stamp_cols(
@@ -2458,6 +2469,8 @@ fn permission_class_row(c: &PermissionClass) -> Row {
         ("idle_action", a.idle_action.map(|x| x.code().to_owned())),
         ("idle_seconds", a.idle_seconds.map(|n| n.to_string())),
         ("active", text::b(c.active)),
+        ("confirmed", text::b(c.confirmation.confirmed)),
+        ("confirmed_by", text::opt(c.confirmation.by.as_deref())),
     ];
     cols.extend(stamp_cols(
         &c.created_by,
@@ -2485,6 +2498,8 @@ fn plant_row(p: &Plant) -> Row {
         ("phone", text::opt(a.phone.as_deref())),
         ("fax", text::opt(a.fax.as_deref())),
         ("active", text::b(p.active)),
+        ("confirmed", text::b(p.confirmation.confirmed)),
+        ("confirmed_by", text::opt(p.confirmation.by.as_deref())),
     ];
     cols.extend(stamp_cols(
         &p.created_by,

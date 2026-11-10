@@ -1,6 +1,7 @@
 //! Permission Class Maintenance 權限類別維護 use case（TipTop: p_zw）
 //! 規格：specs/features/azz/permission_class_maintenance.feature（W1–W11）；權限框架：docs/adr/0006
 
+use crate::list_report::{ListReporter, ListSpec};
 use std::{collections::HashMap, sync::Arc};
 
 use chrono::NaiveDate;
@@ -31,7 +32,21 @@ pub struct PermissionClassService {
     classes: Arc<dyn PermissionClassRepository>,
     programs: Arc<dyn ProgramRepository>,
     users: Arc<dyn UserRepository>,
+    /// 列印、匯出 Excel（ADR 0013 SA3）
+    reports: ListReporter,
 }
+
+/// 清單報表（ADR 0013 SA3；permission_class_maintenance_standard_actions.feature）
+const REPORT: ListSpec = ListSpec {
+    program: PROGRAM,
+    title: "class-report-title",
+    columns: &[
+        ("class_code", "class-col-code"),
+        ("name", "class-col-name"),
+        ("default_menu", "class-col-menu"),
+        ("active", "class-col-active"),
+    ],
+};
 
 impl PermissionClassService {
     pub fn new(
@@ -39,13 +54,99 @@ impl PermissionClassService {
         classes: Arc<dyn PermissionClassRepository>,
         programs: Arc<dyn ProgramRepository>,
         users: Arc<dyn UserRepository>,
+        reports: ListReporter,
     ) -> Self {
         Self {
             authz,
             classes,
             programs,
             users,
+            reports,
         }
+    }
+
+    /// 複製（ADR 0013 SA5；p_zw 原本沒有）：新代號、全部欄位；程式執行權限不複製
+    pub async fn copy(
+        &self,
+        actor: &Actor,
+        code: &str,
+        new_code: &str,
+    ) -> Result<PermissionClassDto, AppError> {
+        crate::change_log::run(actor, PROGRAM, "reproduce", async {
+            self.authorize(actor, "reproduce").await?;
+            let source = self.load(code).await?;
+            let new_code = ClassCode::parse(new_code)?;
+            let class = source.copy_as(new_code, &actor.user_id, &actor.dept, today());
+            match self.classes.insert(&class).await {
+                Ok(()) => Ok(to_dto(&class)),
+                Err(RepoError::Conflict) => Err(DomainError::PermissionClassAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
+    }
+
+    /// 確認（confirm）／取消確認（notconfirm）（ADR 0013 SA9）
+    pub async fn confirm(
+        &self,
+        actor: &Actor,
+        code: &str,
+        confirm: bool,
+        version: Option<i32>,
+    ) -> Result<PermissionClassDto, AppError> {
+        let action = if confirm { "confirm" } else { "notconfirm" };
+        crate::change_log::run(actor, PROGRAM, action, async {
+            self.authorize(actor, action).await?;
+            let mut class = self.load(code).await?;
+            class.stamp.check(version)?;
+            class.set_confirmed(confirm, &actor.user_id, chrono::Utc::now())?;
+            self.classes.update(&class).await.map_err(infra)?;
+            Ok(to_dto(&self.load(code).await?))
+        })
+        .await
+    }
+
+    /// 列印 output、匯出 Excel exporttoexcel（ADR 0013 SA3；p_zw 原本沒有）：依查詢條件、權限類別代號排序
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        conditions: Vec<ttrs_shared::QbeCondition>,
+        format: crate::report::ReportFormat,
+        lang: &ttrs_domain::lang::Lang,
+    ) -> Result<crate::report::ReportData, AppError> {
+        self.authorize(actor, format.action()).await?;
+        let filters = query::permission_class::filters(&conditions)?;
+        let (rows, total) = self
+            .classes
+            .query(&filters, 0, self.reports.fetch_limit())
+            .await
+            .map_err(infra)?;
+        self.reports.check(total)?;
+        let t = |id: &str| crate::report::text(lang, id);
+        let lines = rows
+            .iter()
+            .map(|c| {
+                vec![
+                    c.code.as_str().to_owned(),
+                    c.attrs.name.clone(),
+                    c.attrs.default_menu.clone().unwrap_or_default(),
+                    t(if c.active {
+                        "report-active"
+                    } else {
+                        "report-inactive"
+                    }),
+                ]
+            })
+            .collect();
+        self.reports
+            .build(actor, None, &REPORT, lines, &conditions, format, lang)
+            .await
+    }
+
+    /// 測試用：調整同步產生報表的筆數上限
+    pub fn with_report_limit(mut self, limit: u64) -> Self {
+        self.reports.limit = limit;
+        self
     }
 
     /// 新增：不自動加入基本程式權限（W8，TipTop p_zw.4gl:333-343 不移植）。
@@ -149,6 +250,8 @@ impl PermissionClassService {
             {
                 return Err(DomainError::PermissionClassHasPermissions.into());
             }
+            // 已確認不可刪除，須先取消確認（ADR 0013 SA9-2）；仍被使用時先回報使用中
+            class.confirmation.check_deletable()?;
             self.classes.delete(&class.code).await.map_err(infra)
         })
         .await
@@ -329,6 +432,9 @@ pub(crate) fn to_dto(c: &PermissionClass) -> PermissionClassDto {
         idle_action: a.idle_action.map(idle_action_dto),
         idle_seconds: a.idle_seconds,
         active: c.active,
+        confirmed: c.confirmation.confirmed,
+        confirmed_by: c.confirmation.by.clone(),
+        confirmed_at: c.confirmation.at,
         created_by: c.created_by.clone(),
         created_dept: c.created_dept.clone(),
         created_on: c.created_on,

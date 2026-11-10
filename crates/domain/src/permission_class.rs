@@ -99,6 +99,8 @@ pub struct PermissionClass {
     pub attrs: PermissionClassAttrs,
     /// zwacti 資料有效
     pub active: bool,
+    /// 確認狀態（TTRS 標準確認欄位，ADR 0013 SA9；zw_file 無此欄）
+    pub confirmation: crate::confirmation::Confirmation,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -122,6 +124,7 @@ impl PermissionClass {
             code,
             attrs,
             active: true,
+            confirmation: crate::confirmation::Confirmation::default(),
             created_by: actor.to_owned(),
             created_dept: actor_dept.to_owned(),
             created_on: today,
@@ -133,6 +136,34 @@ impl PermissionClass {
     pub fn update(&mut self, attrs: PermissionClassAttrs, actor: &str, today: NaiveDate) {
         self.attrs = attrs;
         self.touch(actor, today);
+    }
+
+    /// 複製（ADR 0013 SA5；p_zw 原本沒有）：新代號、全部欄位，資料所有者為目前使用者、未確認；
+    /// 程式執行權限不複製（由程式執行權限維護 p_zy 的複製處理）
+    pub fn copy_as(
+        &self,
+        code: ClassCode,
+        actor: &str,
+        actor_dept: &str,
+        today: NaiveDate,
+    ) -> Self {
+        Self::new(code, self.attrs.clone(), actor, actor_dept, today)
+    }
+
+    /// 確認／取消確認（ADR 0013 SA9）
+    pub fn set_confirmed(
+        &mut self,
+        confirm: bool,
+        actor: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(), crate::DomainError> {
+        if confirm {
+            self.confirmation.confirm(actor, now)?;
+        } else {
+            self.confirmation.unconfirm()?;
+        }
+        self.touch(actor, now.date_naive());
+        Ok(())
     }
 
     /// 有效／無效切換（是否仍有使用者由 app 層檢查，p_zw.4gl:511-535）

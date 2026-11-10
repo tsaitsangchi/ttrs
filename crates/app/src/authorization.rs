@@ -44,19 +44,19 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "user-maintenance",
         "p_zx",
         "AZZ",
-        "insert, query, modify, delete, reproduce, invalid, user_unlock, history",
+        "insert, query, modify, delete, reproduce, invalid, user_unlock, history, confirm, notconfirm, output, exporttoexcel",
     ),
     (
         "permission-class-maintenance",
         "p_zw",
         "AZZ",
-        "query, detail, history",
+        "query, detail, history, reproduce, confirm, notconfirm, output, exporttoexcel",
     ),
     (
         "plant-maintenance",
         "aooi901",
         "AOO",
-        "insert, query, modify, delete, reproduce, history",
+        "insert, query, modify, delete, reproduce, history, confirm, notconfirm, output, exporttoexcel",
     ),
     (
         "program-permission-maintenance",

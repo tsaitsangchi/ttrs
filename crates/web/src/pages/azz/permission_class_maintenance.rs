@@ -18,10 +18,14 @@ use crate::components::material::{
     Tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
-use crate::components::qbe::{HINT_NUMBER, ListPager, PAGE_SIZE, Qbe, conditions_of};
-use crate::components::status::{
-    self, HasStatus, StatusCells, StatusHeaders, StatusQbeCells, TAB_DATA, TAB_STATUS,
+use crate::components::qbe::{
+    HINT_NUMBER, ListPager, PAGE_SIZE, Qbe, RecordNav, conditions_of, use_row_nav,
 };
+use crate::components::status::{
+    self, ConfirmCells, ConfirmHeaders, ConfirmQbeCells, HasStatus, StatusCells, StatusHeaders,
+    StatusQbeCells, TAB_DATA, TAB_STATUS,
+};
+use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{t, tf};
 
 /// 表格欄位（p_zw.4fd s_zw 順序）：（標題翻譯 ID, 查詢欄位鍵值, 查詢提示翻譯 ID）
@@ -136,13 +140,22 @@ fn PermissionClassMaintenancePage() -> Element {
         async move { api::query_classes(&req).await }
     });
     let mut selected = use_signal(|| None::<String>);
+    let mut copy_code = use_signal(String::new);
+    let nav = use_row_nav(page, selected, move || {
+        classes
+            .read()
+            .as_ref()
+            .and_then(|r| r.as_ref().ok())
+            .map(|p| p.items.iter().map(|c| c.class_code.clone()).collect())
+            .unwrap_or_default()
+    });
     let mut editor = use_signal(|| None::<Editor>);
     let mut form = use_signal(PermissionClassInput::default);
     let mut dialog_error = use_signal(|| None::<String>);
     let col_tab = use_signal(|| 0usize);
     let status_tab = col_tab() == 1;
     let cols = if status_tab {
-        KEY_COLUMNS + status::ALL.len()
+        KEY_COLUMNS + status::ALL.len() + 2
     } else {
         COLUMNS.len()
     };
@@ -234,6 +247,29 @@ fn PermissionClassMaintenancePage() -> Element {
     let cur_edit = cur.clone();
     let cur_delete = cur.clone();
     let cur_toggle = cur.clone();
+    let cur_copy = cur.clone();
+    let cur_confirm = cur.clone();
+    let confirmed = cur.as_ref().is_some_and(|c| c.confirmed);
+    let keys: Vec<String> = list.iter().map(|c| c.class_code.clone()).collect();
+    // 列印、匯出 Excel（ADR 0013 SA3）：依目前生效的查詢條件（QBE4 預設全部）
+    let report = move |format: api::ReportFormat| {
+        let conds = conditions.read().clone();
+        let tab = api::ReportTab::open(format);
+        spawn(async move {
+            if let Err(e) = api::system_list_report(
+                "/api/permission-classes",
+                "permission-classes",
+                format,
+                &conds,
+                crate::i18n::current().code(),
+                tab,
+            )
+            .await
+            {
+                error.set(Some(e));
+            }
+        });
+    };
     let v = form();
     let by_class = v.idle_control == Some(ClassIdleControlDto::ByClass);
     let control_options: Vec<(String, String)> = IDLE_CONTROLS
@@ -264,107 +300,124 @@ fn PermissionClassMaintenancePage() -> Element {
                 p { class: "muted", {format!("{}: {}", t("class-field-idle-action"), t("class-hint-qbe-idle-action"))} }
             } else {
             div { class: "action-bar",
-                if perm.can("query") {
-                    Button {
-                        icon: icons::SEARCH, tone: Tone::Primary,
-                        variant: ButtonVariant::Tonal,
-                        onclick: move |_| {
-                            message.set(None);
-                            error.set(None);
-                            qbe.set(Default::default());
-                            querying.set(true);
-                        },
-                        {t("common-action-query")}
-                    }
-                }
-                if perm.add_row() {
-                    Button {
-                        icon: icons::ADD, tone: Tone::Success,
-                        onclick: move |_| {
-                            message.set(None);
-                            error.set(None);
-                            dialog_error.set(None);
-                            form.set(PermissionClassInput { idle_control: Some(ClassIdleControlDto::Off), ..Default::default() });
-                            editor.set(Some(Editor::New));
-                        },
-                        {t("common-action-new")}
-                    }
-                }
-                if perm.can("detail") {
-                    Button {
-                        icon: icons::EDIT, tone: Tone::Tertiary,
-                        variant: ButtonVariant::Tonal,
-                        disabled: no_cur,
-                        onclick: move |_| {
-                            let Some(c) = cur_edit.clone() else { return };
-                            dialog_error.set(None);
-                            form.set(c.to_input());
-                            editor.set(Some(Editor::Edit(c.class_code)));
-                        },
-                        {t("common-action-edit")}
-                    }
-                }
-                // 異動記錄（ADR 0012 §8，功能 history）
-                if perm.can("history") {
-                    HistoryButton { program: PROGRAM, record: cur.as_ref().map(|c| c.class_code.clone()) }
-                }
-                if perm.delete_row() {
-                    Button {
-                        icon: icons::DELETE, tone: Tone::Error,
-                        variant: ButtonVariant::Error,
-                        disabled: no_cur,
-                        onclick: move |_| {
-                            let Some(c) = cur_delete.clone() else { return };
-                            spawn(async move {
-                                match api::delete_class(&c.class_code, c.version).await {
-                                    Ok(()) => done(tf("class-msg-deleted", &[("code", c.class_code.as_str())]), None),
-                                    Err(e) => error.set(Some(e)),
+                MaintenanceToolbar {
+                    query: Act::new(true, move |_| {
+                        message.set(None);
+                        error.set(None);
+                        qbe.set(Default::default());
+                        querying.set(true);
+                    }),
+                    // p_zw 是單身式作業：新增、修改、刪除、停用都用 detail（AQ3、AQ8）
+                    detail_action: "detail",
+                    insert: if perm.add_row() { Act::new(true, move |_| {
+                        message.set(None);
+                        error.set(None);
+                        dialog_error.set(None);
+                        form.set(PermissionClassInput { idle_control: Some(ClassIdleControlDto::Off), ..Default::default() });
+                        editor.set(Some(Editor::New));
+                    }) } else { None },
+                    modify: Act::new(!no_cur, move |_| {
+                        let Some(c) = cur_edit.clone() else { return };
+                        dialog_error.set(None);
+                        form.set(c.to_input());
+                        editor.set(Some(Editor::Edit(c.class_code)));
+                    }),
+                    // 複製（ADR 0013 SA5）：新代號輸入在功能列後方
+                    copy: Act::new(!no_cur && !copy_code().trim().is_empty(), move |_| {
+                        let Some(c) = cur_copy.clone() else { return };
+                        let new_code = copy_code();
+                        spawn(async move {
+                            match api::copy_class(&c.class_code, new_code.trim()).await {
+                                Ok(r) => {
+                                    copy_code.set(String::new());
+                                    done(tf("class-msg-copied", &[("from", c.class_code.as_str()), ("to", r.class_code.as_str())]), Some(r.class_code));
                                 }
-                            });
-                        },
-                        {t("common-action-delete")}
-                    }
-                }
-                // TipTop 有效欄位：有效 → 停用、無效 → 啟用
-                if perm.can("detail") {
-                    Button {
-                        icon: if cur.as_ref().is_some_and(|c| !c.active) { icons::CHECK_CIRCLE } else { icons::BLOCK }, tone: if cur.as_ref().is_some_and(|c| !c.active) { Tone::Success } else { Tone::Error },
-                        variant: ButtonVariant::Outlined,
-                        disabled: no_cur,
-                        onclick: move |_| {
-                            let Some(c) = cur_toggle.clone() else { return };
-                            spawn(async move {
-                                match api::set_class_active(&c.class_code, !c.active, c.version).await {
-                                    Ok(r) => {
-                                        let id = if r.active { "class-msg-activated" } else { "class-msg-deactivated" };
-                                        done(tf(id, &[("code", r.class_code.as_str())]), Some(r.class_code));
-                                    }
-                                    Err(e) => error.set(Some(e)),
+                                Err(e) => error.set(Some(e)),
+                            }
+                        });
+                    }),
+                    // 已確認不可刪除（ADR 0013 SA9-2）
+                    delete: if perm.delete_row() { Act::new(!no_cur && !confirmed, move |_| {
+                        let Some(c) = cur_delete.clone() else { return };
+                        spawn(async move {
+                            match api::delete_class(&c.class_code, c.version).await {
+                                Ok(()) => done(tf("class-msg-deleted", &[("code", c.class_code.as_str())]), None),
+                                Err(e) => error.set(Some(e)),
+                            }
+                        });
+                    }) } else { None },
+                    // 確認／取消確認（ADR 0013 SA9）
+                    confirm: Act::new(!no_cur, move |_| {
+                        let Some(c) = cur_confirm.clone() else { return };
+                        spawn(async move {
+                            match api::confirm_class(&c.class_code, !c.confirmed, c.version).await {
+                                Ok(r) => {
+                                    let id = if r.confirmed { "class-msg-confirmed" } else { "class-msg-unconfirmed" };
+                                    done(tf(id, &[("code", r.class_code.as_str())]), Some(r.class_code));
                                 }
-                            });
-                        },
-                        if cur.as_ref().is_some_and(|c| !c.active) { {t("class-action-activate")} } else { {t("class-action-deactivate")} }
+                                Err(e) => error.set(Some(e)),
+                            }
+                        });
+                    }),
+                    confirmed,
+                    // TipTop 有效欄位：有效 → 停用、無效 → 啟用
+                    invalid: Act::new(!no_cur, move |_| {
+                        let Some(c) = cur_toggle.clone() else { return };
+                        spawn(async move {
+                            match api::set_class_active(&c.class_code, !c.active, c.version).await {
+                                Ok(r) => {
+                                    let id = if r.active { "class-msg-activated" } else { "class-msg-deactivated" };
+                                    done(tf(id, &[("code", r.class_code.as_str())]), Some(r.class_code));
+                                }
+                                Err(e) => error.set(Some(e)),
+                            }
+                        });
+                    }),
+                    invalid_action: "detail",
+                    inactive: cur.as_ref().is_some_and(|c| !c.active),
+                    invalid_label: Some(("class-action-deactivate", "class-action-activate")),
+                    // 列印、匯出 Excel（ADR 0013 SA3）：依目前生效的查詢條件
+                    print: Act::new(true, move |_| report(api::ReportFormat::Pdf)),
+                    export: Act::new(true, move |_| report(api::ReportFormat::Excel)),
+                    // 異動記錄（ADR 0012 §8，功能 history）
+                    if perm.can("history") {
+                        HistoryButton { program: PROGRAM, record: cur.as_ref().map(|c| c.class_code.clone()) }
                     }
-                }
-                // 串接 p_zy「維護群組執行權限」（p_zw.4gl:130-138）
-                if let Some(c) = cur.as_ref() {
-                    Link {
-                        class: "md-button md-state md-button--outlined md-button--with-icon",
-                        to: crate::Route::ProgramPermissionsFor { class: c.class_code.clone() },
-                        svg { class: "md-button__icon md-icon--primary", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::VERIFIED_USER } }
-                        {t("class-action-permissions")}
+                    // 串接 p_zy「維護群組執行權限」（p_zw.4gl:130-138）
+                    if let Some(c) = cur.as_ref() {
+                        Link {
+                            class: "md-button md-state md-button--outlined md-button--with-icon",
+                            to: crate::Route::ProgramPermissionsFor { class: c.class_code.clone() },
+                            svg { class: "md-button__icon md-icon--primary", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::VERIFIED_USER } }
+                            {t("class-action-permissions")}
+                        }
                     }
-                }
-                div { class: "spacer" }
-                if perm.can("detail") {
-                    Button {
-                        icon: icons::SYNC, tone: Tone::Primary,
-                        variant: ButtonVariant::Outlined,
-                        onclick: move |_| { message.set(None); error.set(None); confirm_menus.set(true); },
-                        {t("class-action-update-menus")}
+                    if perm.can("detail") {
+                        Button {
+                            icon: icons::SYNC, tone: Tone::Primary,
+                            variant: ButtonVariant::Outlined,
+                            onclick: move |_| { message.set(None); error.set(None); confirm_menus.set(true); },
+                            {t("class-action-update-menus")}
+                        }
+                    }
+                    if perm.can("reproduce") {
+                        TextField { id: "copy-code", label: t("class-field-copy-as"), value: copy_code(), disabled: no_cur, oninput: move |v| copy_code.set(v) }
                     }
                 }
             }
+            }
+
+            // 上下筆：移動選取列，跨頁自動換頁（ADR 0013 SA2）
+            if !querying() && total > 0 {
+                RecordNav {
+                    total,
+                    pos: nav.pos(&keys, cur.as_ref().map(|c| c.class_code.as_str())),
+                    ongo: {
+                        let keys = keys.clone();
+                        move |i| { message.set(None); nav.go(i, &keys); }
+                    },
+                    onerror: move |e| error.set(Some(e)),
+                }
             }
 
             if let Some(msg) = error() {
@@ -388,7 +441,7 @@ fn PermissionClassMaintenancePage() -> Element {
                             for (id, _, _) in COLUMNS.iter().take(if status_tab { KEY_COLUMNS } else { COLUMNS.len() }) {
                                 th { key: "{id}", {t(id)} }
                             }
-                            if status_tab { StatusHeaders {} }
+                            if status_tab { StatusHeaders {} ConfirmHeaders {} }
                         }
                         // 查詢列（p_zw 在表格第一列輸入條件）
                         if querying() {
@@ -404,7 +457,7 @@ fn PermissionClassMaintenancePage() -> Element {
                                         }
                                     }
                                 }
-                                if status_tab { StatusQbeCells { queryable: status::ALL, qbe } }
+                                if status_tab { StatusQbeCells { queryable: status::ALL, qbe } ConfirmQbeCells { qbe } }
                             }
                         }
                         }
@@ -427,6 +480,7 @@ fn PermissionClassMaintenancePage() -> Element {
                                             td { "{c.name}" }
                                             if status_tab {
                                                 StatusCells { status: c.status() }
+                                                ConfirmCells { confirmed: c.confirmed, by: c.confirmed_by.clone() }
                                             } else {
                                             td { class: "mono", {c.default_menu.clone().unwrap_or_default()} }
                                             td { {control_label(c.idle_control)} }

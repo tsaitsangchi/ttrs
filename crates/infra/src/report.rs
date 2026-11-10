@@ -65,7 +65,12 @@ fn text_lang(r: &ReportData) -> (&'static str, &'static str) {
 pub fn typst_source(r: &ReportData) -> String {
     let (lang, region) = text_lang(r);
     let l = &r.labels;
-    let plant = format!("{}：{} {}", l.plant, r.plant, r.plant_name);
+    // 系統層作業（營運中心、使用者…）沒有營運中心：表頭不印（ADR 0013 SA3）
+    let plant = if r.plant.is_empty() {
+        String::new()
+    } else {
+        format!("{}：{} {}", l.plant, r.plant, r.plant_name)
+    };
     let printed = format!(
         "{}：{}　{}：{}",
         l.printed_by, r.printed_by, l.printed_at, r.printed_at

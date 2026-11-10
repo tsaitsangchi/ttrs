@@ -289,6 +289,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/users/{id}/copy", post(copy_user))
         .route("/api/users/{id}/deactivate", post(deactivate_user))
         .route("/api/users/{id}/activate", post(activate_user))
+        // 確認／取消確認、列印、匯出 Excel（ADR 0013；user_maintenance_standard_actions.feature）
+        .route("/api/users/{id}/confirm", post(confirm_user))
+        .route("/api/users/{id}/unconfirm", post(unconfirm_user))
+        .route("/api/users/report.{format}", get(user_report))
         .route("/api/users/{id}/unlock", post(unlock_user))
         // User Special Permission Maintenance 使用者特殊權限維護（TipTop p_zxw）
         .route(
@@ -471,6 +475,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/plants/{id}/copy", post(copy_plant))
         .route("/api/plants/{id}/deactivate", post(deactivate_plant))
         .route("/api/plants/{id}/activate", post(activate_plant))
+        // 確認／取消確認、列印、匯出 Excel（ADR 0013；plant_maintenance_standard_actions.feature）
+        .route("/api/plants/{id}/confirm", post(confirm_plant))
+        .route("/api/plants/{id}/unconfirm", post(unconfirm_plant))
+        .route("/api/plants/report.{format}", get(plant_report))
         // Permission Class Maintenance 權限類別維護（TipTop p_zw）
         .route(
             "/api/permission-classes",
@@ -493,6 +501,17 @@ pub fn router(state: AppState) -> Router {
             "/api/permission-classes/{code}/activate",
             post(activate_class),
         )
+        // 複製、確認／取消確認、列印、匯出 Excel（ADR 0013；permission_class_maintenance_standard_actions.feature）
+        .route("/api/permission-classes/{code}/copy", post(copy_class))
+        .route(
+            "/api/permission-classes/{code}/confirm",
+            post(confirm_class),
+        )
+        .route(
+            "/api/permission-classes/{code}/unconfirm",
+            post(unconfirm_class),
+        )
+        .route("/api/permission-classes/report.{format}", get(class_report))
         // Program Permission Maintenance 程式執行權限維護（TipTop p_zy）
         .route(
             "/api/program-permissions/query",
@@ -663,6 +682,39 @@ async fn unlock_user(Ctx(s): Ctx, Path(id): Path<String>) -> ApiResult<StatusCod
     Ok(StatusCode::NO_CONTENT)
 }
 
+async fn confirm_user(
+    Ctx(s): Ctx,
+    Path(id): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<UserDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(s.users.confirm(&s.actor, &id, true, version).await?))
+}
+
+async fn unconfirm_user(
+    Ctx(s): Ctx,
+    Path(id): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<UserDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(s.users.confirm(&s.actor, &id, false, version).await?))
+}
+
+async fn user_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .users
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
 async fn activate_user(
     Ctx(s): Ctx,
     Path(id): Path<String>,
@@ -746,6 +798,39 @@ async fn deactivate_plant(
     ))
 }
 
+async fn confirm_plant(
+    Ctx(s): Ctx,
+    Path(id): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<PlantDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(s.plants.confirm(&s.actor, &id, true, version).await?))
+}
+
+async fn unconfirm_plant(
+    Ctx(s): Ctx,
+    Path(id): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<PlantDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(s.plants.confirm(&s.actor, &id, false, version).await?))
+}
+
+async fn plant_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .plants
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
 async fn activate_plant(
     Ctx(s): Ctx,
     Path(id): Path<String>,
@@ -816,6 +901,59 @@ async fn deactivate_class(
             .deactivate(&s.actor, &code, Some(require_version(v.version)?))
             .await?,
     ))
+}
+
+#[derive(Deserialize)]
+struct NewClassCode {
+    new_class_code: String,
+}
+
+async fn copy_class(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<NewClassCode>,
+) -> ApiResult<(StatusCode, Json<PermissionClassDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.classes.copy(&s.actor, &code, &req.new_class_code).await?),
+    ))
+}
+
+async fn confirm_class(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<PermissionClassDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.classes.confirm(&s.actor, &code, true, version).await?,
+    ))
+}
+
+async fn unconfirm_class(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<PermissionClassDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.classes.confirm(&s.actor, &code, false, version).await?,
+    ))
+}
+
+async fn class_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .classes
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 async fn activate_class(

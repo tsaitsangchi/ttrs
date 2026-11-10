@@ -15,7 +15,8 @@ use crate::components::material::{
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::qbe::{ListPager, Q, RecordNav, conditions_of, use_query_records};
-use crate::components::status::{HasStatus, StatusForm, TAB_STATUS};
+use crate::components::status::{ConfirmFields, ConfirmQbe, HasStatus, StatusForm, TAB_STATUS};
+use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{t, tf};
 
 /// 時區下拉選項（IANA 名稱）；目前值不在清單時另外加入，轉入的舊資料不會被改掉
@@ -157,6 +158,27 @@ fn PlantMaintenancePage() -> Element {
     let cur_delete = cur.clone();
     let cur_toggle = cur.clone();
     let cur_copy = cur.clone();
+    let cur_confirm = cur.clone();
+    let confirmed = cur.as_ref().is_some_and(|p| p.confirmed);
+    // 列印、匯出 Excel（ADR 0013 SA3）：營運中心一進畫面就查全部（QBE4），依目前生效的條件
+    let report = move |format: api::ReportFormat| {
+        let conds = rec.conditions.read().clone();
+        let tab = api::ReportTab::open(format);
+        spawn(async move {
+            if let Err(e) = api::system_list_report(
+                "/api/plants",
+                "plants",
+                format,
+                &conds,
+                crate::i18n::current().code(),
+                tab,
+            )
+            .await
+            {
+                error.set(Some(e));
+            }
+        });
+    };
     let m = mode();
     let q = m == Mode::Query;
     let ro = matches!(m, Mode::View | Mode::Query);
@@ -213,97 +235,83 @@ fn PlantMaintenancePage() -> Element {
                         }
                     },
                     Mode::View => rsx! {
-                        if perm.can("query") {
-                            Button {
-                                icon: icons::SEARCH, tone: Tone::Primary,
-                                variant: ButtonVariant::Tonal,
-                                onclick: move |_| {
-                                    message.set(None);
-                                    error.set(None);
-                                    rec.qbe.set(Default::default());
-                                    mode.set(Mode::Query);
-                                },
-                                {t("common-action-query")}
-                            }
-                        }
-                        if perm.can("insert") {
-                            Button {
-                                icon: icons::ADD, tone: Tone::Success,
-                                onclick: move |_| {
-                                    message.set(None);
-                                    error.set(None);
-                                    form.set(PlantInput { time_zone: Some(DEFAULT_TIME_ZONE.into()), ..Default::default() });
-                                    mode.set(Mode::New);
-                                },
-                                {t("common-action-new")}
-                            }
-                        }
-                        if perm.can("modify") {
-                            Button { icon: icons::EDIT, tone: Tone::Tertiary, variant: ButtonVariant::Tonal, disabled: no_cur, onclick: move |_| mode.set(Mode::Edit), {t("common-action-edit")} }
-                        }
-                        // 異動記錄（ADR 0012 §8，功能 history）
-                        if perm.can("history") {
-                            HistoryButton { program: PROGRAM, record: cur.as_ref().map(|p| p.plant_id.clone()) }
-                        }
-                        if perm.can("delete") {
-                            Button {
-                                icon: icons::DELETE, tone: Tone::Error,
-                                variant: ButtonVariant::Error,
-                                disabled: no_cur,
-                                onclick: move |_| {
-                                    let Some(p) = cur_delete.clone() else { return };
-                                    spawn(async move {
-                                        match api::delete_plant(&p.plant_id, p.version).await {
-                                            Ok(()) => done(tf("plant-msg-deleted", &[("id", p.plant_id.as_str())]), None),
-                                            Err(e) => error.set(Some(e)),
+                        MaintenanceToolbar {
+                            query: Act::new(true, move |_| {
+                                message.set(None);
+                                error.set(None);
+                                rec.qbe.set(Default::default());
+                                mode.set(Mode::Query);
+                            }),
+                            insert: Act::new(true, move |_| {
+                                message.set(None);
+                                error.set(None);
+                                form.set(PlantInput { time_zone: Some(DEFAULT_TIME_ZONE.into()), ..Default::default() });
+                                mode.set(Mode::New);
+                            }),
+                            modify: Act::new(!no_cur, move |_| mode.set(Mode::Edit)),
+                            // 複製（P11）：新代號輸入在功能列後方
+                            copy: Act::new(!no_cur && !copy_id().trim().is_empty(), move |_| {
+                                let Some(p) = cur_copy.clone() else { return };
+                                let new_id = copy_id();
+                                spawn(async move {
+                                    match api::copy_plant(&p.plant_id, &new_id).await {
+                                        Ok(r) => {
+                                            copy_id.set(String::new());
+                                            done(tf("plant-msg-copied", &[("from", p.plant_id.as_str()), ("to", r.plant_id.as_str())]), Some(r));
                                         }
-                                    });
-                                },
-                                {t("common-action-delete")}
-                            }
-                        }
-                        // 有效 → 停用、停用 → 啟用（P9）
-                        if perm.can("modify") {
-                            Button {
-                                icon: if cur.as_ref().is_some_and(|p| !p.active) { icons::CHECK_CIRCLE } else { icons::BLOCK }, tone: if cur.as_ref().is_some_and(|p| !p.active) { Tone::Success } else { Tone::Error },
-                                variant: ButtonVariant::Outlined,
-                                disabled: no_cur,
-                                onclick: move |_| {
-                                    let Some(p) = cur_toggle.clone() else { return };
-                                    spawn(async move {
-                                        match api::set_plant_active(&p.plant_id, !p.active, p.version).await {
-                                            Ok(r) => {
-                                                let id = if r.active { "plant-msg-activated" } else { "plant-msg-deactivated" };
-                                                done(tf(id, &[("id", r.plant_id.as_str())]), Some(r));
-                                            }
-                                            Err(e) => error.set(Some(e)),
+                                        Err(e) => error.set(Some(e)),
+                                    }
+                                });
+                            }),
+                            // 已確認不可刪除（ADR 0013 SA9-2）
+                            delete: Act::new(!no_cur && !confirmed, move |_| {
+                                let Some(p) = cur_delete.clone() else { return };
+                                spawn(async move {
+                                    match api::delete_plant(&p.plant_id, p.version).await {
+                                        Ok(()) => done(tf("plant-msg-deleted", &[("id", p.plant_id.as_str())]), None),
+                                        Err(e) => error.set(Some(e)),
+                                    }
+                                });
+                            }),
+                            // 確認／取消確認（ADR 0013 SA9）
+                            confirm: Act::new(!no_cur, move |_| {
+                                let Some(p) = cur_confirm.clone() else { return };
+                                spawn(async move {
+                                    match api::confirm_plant(&p.plant_id, !p.confirmed, p.version).await {
+                                        Ok(r) => {
+                                            let id = if r.confirmed { "plant-msg-confirmed" } else { "plant-msg-unconfirmed" };
+                                            done(tf(id, &[("id", r.plant_id.as_str())]), Some(r));
                                         }
-                                    });
-                                },
-                                if cur.as_ref().is_some_and(|p| !p.active) { {t("plant-action-activate")} } else { {t("plant-action-deactivate")} }
-                            }
-                        }
-                        div { class: "spacer" }
-                        if perm.can("reproduce") {
-                            TextField { id: "copy-id", label: t("plant-field-copy-as"), maxlength: max_len::ID, value: copy_id(), disabled: no_cur, oninput: move |v| copy_id.set(v) }
-                            Button {
-                                icon: icons::COPY, tone: Tone::Tertiary,
-                                variant: ButtonVariant::Outlined,
-                                disabled: no_cur,
-                                onclick: move |_| {
-                                    let Some(p) = cur_copy.clone() else { return };
-                                    let new_id = copy_id();
-                                    spawn(async move {
-                                        match api::copy_plant(&p.plant_id, &new_id).await {
-                                            Ok(r) => {
-                                                copy_id.set(String::new());
-                                                done(tf("plant-msg-copied", &[("from", p.plant_id.as_str()), ("to", r.plant_id.as_str())]), Some(r));
-                                            }
-                                            Err(e) => error.set(Some(e)),
+                                        Err(e) => error.set(Some(e)),
+                                    }
+                                });
+                            }),
+                            confirmed,
+                            // 有效 → 停用、停用 → 啟用（P9；azp_file 沒有有效碼，權限用 modify，AQ3）
+                            invalid: Act::new(!no_cur && perm.can("modify"), move |_| {
+                                let Some(p) = cur_toggle.clone() else { return };
+                                spawn(async move {
+                                    match api::set_plant_active(&p.plant_id, !p.active, p.version).await {
+                                        Ok(r) => {
+                                            let id = if r.active { "plant-msg-activated" } else { "plant-msg-deactivated" };
+                                            done(tf(id, &[("id", r.plant_id.as_str())]), Some(r));
                                         }
-                                    });
-                                },
-                                {t("common-action-copy")}
+                                        Err(e) => error.set(Some(e)),
+                                    }
+                                });
+                            }),
+                            invalid_action: "modify",
+                            inactive: cur.as_ref().is_some_and(|p| !p.active),
+                            invalid_label: Some(("plant-action-deactivate", "plant-action-activate")),
+                            // 列印、匯出 Excel（ADR 0013 SA3）：依目前的查詢條件
+                            print: Act::new(true, move |_| report(api::ReportFormat::Pdf)),
+                            export: Act::new(true, move |_| report(api::ReportFormat::Excel)),
+                            // 異動記錄（ADR 0012 §8，功能 history）
+                            if perm.can("history") {
+                                HistoryButton { program: PROGRAM, record: cur.as_ref().map(|p| p.plant_id.clone()) }
+                            }
+                            if perm.can("reproduce") {
+                                TextField { id: "copy-id", label: t("plant-field-copy-as"), maxlength: max_len::ID, value: copy_id(), disabled: no_cur, oninput: move |x| copy_id.set(x) }
                             }
                         }
                     },
@@ -331,7 +339,13 @@ fn PlantMaintenancePage() -> Element {
                 div { class: "card-body",
                   if tab() == 1 {
                     // 狀態頁（ADR 0012 §9）：查詢只開放資料有效（PQ1）
-                    StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|p| p.status()), queryable: crate::components::status::ALL, query: q, qbe, prefix: "azp" }
+                    StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|p| p.status()), queryable: crate::components::status::ALL, query: q, qbe, prefix: "azp",
+                        // 確認狀態（ADR 0013 SA9）
+                        ConfirmFields { prefix: "azp", state: cur.as_ref().filter(|_| m != Mode::New).map(|p| (p.confirmed, p.confirmed_by.clone(), p.confirmed_at)) }
+                    }
+                    if q {
+                        ConfirmQbe { qbe }
+                    }
                   } else {
                     div { class: "form-grid",
                         Q { field: "plant_id", label: t("plant-field-id"), query: q, qbe,

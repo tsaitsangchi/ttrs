@@ -181,7 +181,7 @@ pub mod user {
     use super::*;
 
     /// CONSTRUCT 中有 TTRS 對應的 15 個欄位＋公司帳號（UQ1）
-    pub const FIELDS: [Field; 18] = [
+    pub const FIELDS: [Field; 20] = [
         field("user_id", FieldType::Text),
         field("name", FieldType::Text),
         cased("dept_code", Case::Upper),
@@ -193,6 +193,9 @@ pub mod user {
         cased("idp_username", Case::Lower),
         field("valid_until", FieldType::Date),
         field("lang", FieldType::Text),
+        // 確認（ADR 0013 SA9）
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
         field("active", FieldType::Flag),
         field("created_by", FieldType::Text),
         field("created_dept", FieldType::Text),
@@ -220,6 +223,8 @@ pub mod user {
             "idp_username" => opt_text(a.idp_username.as_deref()),
             "valid_until" => date(a.valid_until),
             "lang" => text(a.lang.as_str()),
+            "confirmed" => flag(u.confirmation.confirmed),
+            "confirmed_by" => opt_text(u.confirmation.by.as_deref()),
             "active" => flag(u.active),
             "created_by" => text(&u.created_by),
             "created_dept" => text(&u.created_dept),
@@ -249,7 +254,7 @@ pub mod plant {
     use super::*;
 
     /// CONSTRUCT 中有 TTRS 對應的 6 個欄位＋資料有效（PQ1）＋資料庫代碼（PQ5，存小寫）
-    pub const FIELDS: [Field; 14] = [
+    pub const FIELDS: [Field; 16] = [
         cased("plant_id", Case::Upper),
         cased("schema_name", Case::Lower),
         field("name", FieldType::Text),
@@ -257,6 +262,9 @@ pub mod plant {
         field("address", FieldType::Text),
         field("phone", FieldType::Text),
         field("fax", FieldType::Text),
+        // 確認（ADR 0013 SA9）
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
         field("active", FieldType::Flag),
         field("created_by", FieldType::Text),
         field("created_dept", FieldType::Text),
@@ -280,6 +288,8 @@ pub mod plant {
             "address" => opt_text(a.address.as_deref()),
             "phone" => opt_text(a.phone.as_deref()),
             "fax" => opt_text(a.fax.as_deref()),
+            "confirmed" => flag(p.confirmation.confirmed),
+            "confirmed_by" => opt_text(p.confirmation.by.as_deref()),
             "active" => flag(p.active),
             // 狀態頁籤的欄位（ADR 0012 §9）
             other => status_value(
@@ -309,13 +319,16 @@ pub mod permission_class {
     use super::*;
 
     /// CONSTRUCT 的 7 個欄位（WQ1）
-    pub const FIELDS: [Field; 13] = [
+    pub const FIELDS: [Field; 15] = [
         field("class_code", FieldType::Text),
         field("name", FieldType::Text),
         field("default_menu", FieldType::Text),
         field("idle_control", FieldType::Text),
         field("idle_action", FieldType::Text),
         field("idle_seconds", FieldType::Integer),
+        // 確認（ADR 0013 SA9）
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
         field("active", FieldType::Flag),
         field("created_by", FieldType::Text),
         field("created_dept", FieldType::Text),
@@ -367,6 +380,8 @@ pub mod permission_class {
             "idle_seconds" => {
                 FieldValue::One(a.idle_seconds.map(|s| QbeValue::Integer(i64::from(s))))
             }
+            "confirmed" => flag(c.confirmation.confirmed),
+            "confirmed_by" => opt_text(c.confirmation.by.as_deref()),
             "active" => flag(c.active),
             // 狀態頁籤的欄位（ADR 0012 §9）
             other => status_value(
