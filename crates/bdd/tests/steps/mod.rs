@@ -1,9 +1,11 @@
 //! 步驟定義依 TipTop 模組分檔。共用的「那麼」步驟放 common.rs。
 
 mod aim_item_group;
+mod aim_item_group_confirm;
 mod aim_item_group_query;
 mod aim_item_maintenance;
 mod aim_item_maintenance_query;
+mod aim_list_report;
 mod aoo_classification_code;
 mod aoo_department_employee;
 mod aoo_department_report;

@@ -343,6 +343,8 @@
       | item-maintenance | order_invalid              | 切換料件 A001 的訂單無效   |
       | item-maintenance | update_item                | 設定料件 A001 的英文品名   |
       | item-maintenance | history                    | 查詢料件 A001 的異動記錄   |
+      | item-maintenance | output                     | 列印料件                   |
+      | item-maintenance | exporttoexcel              | 匯出料件為 Excel           |
       | department-maintenance | query                      | 查詢部門                   |
       | department-maintenance | detail                     | 新增部門 D01               |
       | department-maintenance | detail                     | 修改部門 D01               |
@@ -384,6 +386,10 @@
       | item-group-maintenance | invalid              | 停用料件分群 G01           |
       | item-group-maintenance | reproduce            | 複製料件分群 G01 為 G02    |
       | item-group-maintenance | delete               | 刪除料件分群 G01           |
+      | item-group-maintenance | confirm              | 確認料件分群 G01           |
+      | item-group-maintenance | notconfirm           | 取消確認料件分群 G01       |
+      | item-group-maintenance | output               | 列印料件分群               |
+      | item-group-maintenance | exporttoexcel        | 匯出料件分群為 Excel       |
       | item-group-maintenance | history              | 查詢料件分群 G01 的異動記錄 |
 
   # AQ2 權限檢查在輸入檢查之前

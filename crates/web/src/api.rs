@@ -1045,13 +1045,20 @@ pub async fn department_report(
     lang: &str,
     tab: ReportTab,
 ) -> Result<(), String> {
+    list_report(plant, "departments", format, conditions, lang, tab).await
+}
+
+/// 工廠層作業的清單報表（ADR 0013 SA3）：`part` 為 API 路徑中的作業資料（items、item-groups…）
+pub async fn list_report(
+    plant: &str,
+    part: &str,
+    format: ReportFormat,
+    conditions: &[QbeCondition],
+    lang: &str,
+    tab: ReportTab,
+) -> Result<(), String> {
     let q = serde_json::to_string(conditions).map_err(|e| e.to_string())?;
-    let u = plant_part_url(
-        plant,
-        "departments",
-        "",
-        &format!("/report.{}", format.ext()),
-    );
+    let u = plant_part_url(plant, part, "", &format!("/report.{}", format.ext()));
     let res = reqwest::Client::new()
         .get(u)
         .query(&[("q", q.as_str()), ("lang", lang)])
@@ -1073,7 +1080,7 @@ pub async fn department_report(
     show_report(
         &bytes,
         format,
-        &format!("{plant}-departments.{}", format.ext()),
+        &format!("{plant}-{part}.{}", format.ext()),
         tab,
     )
 }
@@ -1627,6 +1634,25 @@ pub async fn set_item_group_active(
     version: i32,
 ) -> Result<ttrs_shared::ItemGroupDto, String> {
     let suffix = if active { "/activate" } else { "/deactivate" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "item-groups", code, suffix)
+        ),
+        None,
+    )
+    .await
+}
+
+/// 確認／取消確認（ADR 0013 SA9）
+pub async fn confirm_item_group(
+    plant: &str,
+    code: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<ttrs_shared::ItemGroupDto, String> {
+    let suffix = if confirm { "/confirm" } else { "/unconfirm" };
     send_json::<_, ()>(
         reqwest::Method::POST,
         format!(

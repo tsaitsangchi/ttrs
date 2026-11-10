@@ -165,6 +165,14 @@ pub enum DomainError {
     #[error("修改、刪除、啟用或停用時須帶版本號")]
     VersionRequired,
 
+    // 確認功能鈕（ADR 0013 SA9）
+    #[error("資料已確認")]
+    RecordAlreadyConfirmed,
+    #[error("資料尚未確認，不能取消確認")]
+    RecordNotConfirmed,
+    #[error("已確認的資料不可刪除，請先取消確認")]
+    RecordConfirmedNotDeletable,
+
     // 選單（p_zm / zm_file；menu_maintenance.feature）
     #[error("目錄須為已登錄、模組 MENU 的程式")]
     MenuNotFound,
@@ -473,6 +481,9 @@ impl DomainError {
             Self::ReportTooLarge { .. } => "REPORT_TOO_LARGE",
             Self::RecordChanged => "RECORD_CHANGED",
             Self::VersionRequired => "VERSION_REQUIRED",
+            Self::RecordAlreadyConfirmed => "RECORD_ALREADY_CONFIRMED",
+            Self::RecordNotConfirmed => "RECORD_NOT_CONFIRMED",
+            Self::RecordConfirmedNotDeletable => "RECORD_CONFIRMED_NOT_DELETABLE",
             Self::MenuNotFound => "MENU_NOT_FOUND",
             Self::MenuItemNotFound => "MENU_ITEM_NOT_FOUND",
             Self::MenuSeqInvalid => "MENU_SEQ_INVALID",

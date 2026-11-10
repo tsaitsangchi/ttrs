@@ -74,7 +74,7 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "item-maintenance",
         "aimi100",
         "AIM",
-        "insert, query, modify, delete, invalid, reproduce, confirm, notconfirm, order_invalid, update_item, history",
+        "insert, query, modify, delete, invalid, reproduce, confirm, notconfirm, order_invalid, update_item, output, exporttoexcel, history",
     ),
     (
         "department-maintenance",
@@ -116,7 +116,7 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "item-group-maintenance",
         "aimi110",
         "AIM",
-        "insert, query, modify, delete, reproduce, invalid, history",
+        "insert, query, modify, delete, reproduce, confirm, notconfirm, invalid, output, exporttoexcel, history",
     ),
 ];
 

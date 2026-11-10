@@ -1759,6 +1759,13 @@ pub struct ItemGroupDto {
     /// 倉管員姓名
     pub stock_keeper_name: Option<String>,
     pub active: bool,
+    /// 確認狀態（ADR 0013 SA9）：已確認否、確認人、確認時間
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -1796,6 +1803,9 @@ mod item_group_dto_tests {
             },
             stock_keeper_name: None,
             active: true,
+            confirmed: true,
+            confirmed_by: Some("tiptop".into()),
+            confirmed_at: None,
             created_by: "tiptop".into(),
             created_dept: "MIS".into(),
             created_on: NaiveDate::from_ymd_opt(2026, 11, 9).unwrap(),

@@ -3089,6 +3089,8 @@ fn group_row(g: &ItemGroup) -> Row {
         ("replenish_policy", text::opt(a.replenish_policy.as_deref())),
         ("safety_stock", a.safety_stock.map(|d| d.to_string())),
         ("stock_keeper", text::opt(a.stock_keeper.as_deref())),
+        ("confirmed", Some(g.confirmation.confirmed.to_string())),
+        ("confirmed_by", text::opt(g.confirmation.by.as_deref())),
     ];
     cols.extend(audit_cols(
         g.active,

@@ -10,17 +10,19 @@ use ttrs_shared::{ItemGroupDto, ItemGroupInput, Page};
 
 use crate::api;
 use crate::components::history::HistoryDialog;
+use crate::components::history::local_time;
 use crate::components::material::{
     Button, ButtonVariant, Card, Checkbox, Chip, Dialog, Notification, NotificationKind, Select,
     Tabs, TextField, Tone, active_tone, icons,
 };
-use crate::components::permission::{Perm, ProgramGate};
+use crate::components::permission::ProgramGate;
 use crate::components::plant::PlantPicker;
 use crate::components::qbe::{
     HINT_FLAG, HINT_NUMBER, ListPager, Q, Qbe, RecordNav, conditions_of,
     use_query_records_on_demand,
 };
 use crate::components::status::{HasStatus, StatusForm, TAB_STATUS};
+use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{t, tf};
 
 /// 權限檢查用的程式代號
@@ -171,7 +173,6 @@ pub fn ItemGroupMaintenance() -> Element {
 
 #[component]
 fn ItemGroupPage() -> Element {
-    let perm = use_context::<Perm>();
     let plant = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
@@ -306,6 +307,40 @@ fn ItemGroupPage() -> Element {
     let cur_delete = cur.clone();
     let cur_history = cur.clone();
     let cur_toggle = cur.clone();
+    let cur_confirm = cur.clone();
+    // 列印、匯出 Excel（aimi110_out）：已查詢時用查詢條件；尚未查詢但有目前這筆時印這一筆；都沒有時停用（取代 9057）
+    let report_conditions: Option<Vec<ttrs_shared::QbeCondition>> = if queried {
+        Some(rec.conditions.read().clone())
+    } else {
+        cur.as_ref().map(|c| {
+            vec![ttrs_shared::QbeCondition {
+                field: "group_code".into(),
+                expr: format!("={}", c.fields.group_code),
+            }]
+        })
+    };
+    let can_print = report_conditions.is_some();
+    let report = move |format: api::ReportFormat| {
+        let Some(conds) = report_conditions.clone() else {
+            return;
+        };
+        let tab = api::ReportTab::open(format);
+        let p = plant();
+        spawn(async move {
+            if let Err(e) = api::list_report(
+                &p,
+                "item-groups",
+                format,
+                &conds,
+                crate::i18n::current().code(),
+                tab,
+            )
+            .await
+            {
+                error.set(Some(e));
+            }
+        });
+    };
     let units_hint = t("igroup-hint-unit");
 
     rsx! {
@@ -325,124 +360,96 @@ fn ItemGroupPage() -> Element {
                         {t("common-action-cancel")}
                     }
                 } else if ro {
-                    if perm.can("query") {
-                        Button {
-                            icon: icons::SEARCH, tone: Tone::Primary,
-                            variant: ButtonVariant::Tonal,
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                rec.qbe.set(Default::default());
-                                mode.set(Mode::Query);
-                            },
-                            {t("common-action-query")}
-                        }
-                    }
-                    if perm.can("insert") {
-                        Button {
-                            icon: icons::ADD, tone: Tone::Success,
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                form.set(ItemGroupInput {
-                                    source_code: Some("P".into()),
-                                    replenish_policy: Some("0".into()),
-                                    ..ItemGroupInput::default()
-                                });
-                                mode.set(Mode::New);
-                            },
-                            {t("common-action-new")}
-                        }
-                    }
-                    if perm.can("modify") {
-                        Button {
-                            icon: icons::EDIT, tone: Tone::Tertiary,
-                            variant: ButtonVariant::Tonal,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(c) = cur_edit.clone() else { return };
-                                message.set(None);
-                                error.set(None);
-                                form.set(c.to_input());
-                                mode.set(Mode::Edit);
-                            },
-                            {t("common-action-edit")}
-                        }
-                    }
-                    if perm.can("reproduce") {
-                        Button {
-                            icon: icons::COPY, tone: Tone::Primary,
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(c) = cur_copy.clone() else { return };
-                                copy_code.set(String::new());
-                                copy_error.set(None);
-                                copying.set(Some(c.fields.group_code));
-                            },
-                            {t("common-action-copy")}
-                        }
-                    }
-                    if perm.can("history") {
-                        Button {
-                            icon: icons::HISTORY, tone: Tone::Primary,
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(c) = cur_history.clone() else { return };
-                                let p = plant();
-                                spawn(async move {
-                                    let code = c.fields.group_code.clone();
-                                    match api::item_group_history(&p, &code).await {
-                                        Ok(h) => history.set(Some((code, h))),
-                                        Err(e) => error.set(Some(e)),
+                    MaintenanceToolbar {
+                        query: Act::new(true, move |_| {
+                            message.set(None);
+                            error.set(None);
+                            rec.qbe.set(Default::default());
+                            mode.set(Mode::Query);
+                        }),
+                        insert: Act::new(true, move |_| {
+                            message.set(None);
+                            error.set(None);
+                            form.set(ItemGroupInput {
+                                source_code: Some("P".into()),
+                                replenish_policy: Some("0".into()),
+                                ..ItemGroupInput::default()
+                            });
+                            mode.set(Mode::New);
+                        }),
+                        modify: Act::new(!no_cur, move |_| {
+                            let Some(c) = cur_edit.clone() else { return };
+                            message.set(None);
+                            error.set(None);
+                            form.set(c.to_input());
+                            mode.set(Mode::Edit);
+                        }),
+                        copy: Act::new(!no_cur, move |_| {
+                            let Some(c) = cur_copy.clone() else { return };
+                            copy_code.set(String::new());
+                            copy_error.set(None);
+                            copying.set(Some(c.fields.group_code));
+                        }),
+                        // 已確認不可刪除（SA9-2）
+                        delete: Act::new(!no_cur && !cur.as_ref().is_some_and(|c| c.confirmed), move |_| {
+                            let Some(c) = cur_delete.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                let code = c.fields.group_code.clone();
+                                match api::delete_item_group(&p, &code, c.version).await {
+                                    Ok(()) => done(tf("igroup-msg-deleted", &[("code", code.as_str())]), None),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        }),
+                        invalid: Act::new(!no_cur, move |_| {
+                            let Some(c) = cur_toggle.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                match api::set_item_group_active(&p, &c.fields.group_code, !c.active, c.version).await {
+                                    Ok(r) => {
+                                        let id = if r.active { "igroup-msg-activated" } else { "igroup-msg-deactivated" };
+                                        let code = r.fields.group_code.clone();
+                                        done(tf(id, &[("code", code.as_str())]), Some(r));
                                     }
-                                });
-                            },
-                            {t("common-action-history")}
-                        }
-                    }
-                    if perm.can("invalid") {
-                        Button {
-                            icon: if inactive { icons::CHECK_CIRCLE } else { icons::BLOCK },
-                            tone: if inactive { Tone::Success } else { Tone::Error },
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(c) = cur_toggle.clone() else { return };
-                                let p = plant();
-                                spawn(async move {
-                                    match api::set_item_group_active(&p, &c.fields.group_code, !c.active, c.version).await {
-                                        Ok(r) => {
-                                            let id = if r.active { "igroup-msg-activated" } else { "igroup-msg-deactivated" };
-                                            let code = r.fields.group_code.clone();
-                                            done(tf(id, &[("code", code.as_str())]), Some(r));
-                                        }
-                                        Err(e) => error.set(Some(e)),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        }),
+                        inactive,
+                        invalid_label: Some(("igroup-action-deactivate", "igroup-action-activate")),
+                        // 確認／取消確認（ADR 0013 SA9）
+                        confirm: Act::new(!no_cur, move |_| {
+                            let Some(c) = cur_confirm.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                match api::confirm_item_group(&p, &c.fields.group_code, !c.confirmed, c.version).await {
+                                    Ok(r) => {
+                                        let id = if r.confirmed { "igroup-msg-confirmed" } else { "igroup-msg-unconfirmed" };
+                                        let code = r.fields.group_code.clone();
+                                        done(tf(id, &[("code", code.as_str())]), Some(r));
                                     }
-                                });
-                            },
-                            if inactive { {t("igroup-action-activate")} } else { {t("igroup-action-deactivate")} }
-                        }
-                    }
-                    if perm.can("delete") {
-                        Button {
-                            icon: icons::DELETE, tone: Tone::Error,
-                            variant: ButtonVariant::Error,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(c) = cur_delete.clone() else { return };
-                                let p = plant();
-                                spawn(async move {
-                                    let code = c.fields.group_code.clone();
-                                    match api::delete_item_group(&p, &code, c.version).await {
-                                        Ok(()) => done(tf("igroup-msg-deleted", &[("code", code.as_str())]), None),
-                                        Err(e) => error.set(Some(e)),
-                                    }
-                                });
-                            },
-                            {t("common-action-delete")}
-                        }
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        }),
+                        confirmed: cur.as_ref().is_some_and(|c| c.confirmed),
+                        print: Act::new(can_print, {
+                            let report = report.clone();
+                            move |_| report(api::ReportFormat::Pdf)
+                        }),
+                        export: Act::new(can_print, move |_| report(api::ReportFormat::Excel)),
+                        history: Act::new(!no_cur, move |_| {
+                            let Some(c) = cur_history.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                let code = c.fields.group_code.clone();
+                                match api::item_group_history(&p, &code).await {
+                                    Ok(h) => history.set(Some((code, h))),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        }),
                     }
                 } else {
                     Button { icon: icons::CHECK, tone: Tone::Success, onclick: save, {t("common-action-ok")} }
@@ -539,7 +546,18 @@ fn ItemGroupPage() -> Element {
                         p { class: "muted", {t("igroup-hint-accounting")} }
                     },
                     _ => rsx! {
-                        StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|c| c.status()), queryable: crate::components::status::ALL, query: q, qbe, prefix: "imz" }
+                        StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|c| c.status()), queryable: crate::components::status::ALL, query: q, qbe, prefix: "imz",
+                            // 確認狀態（ADR 0013 SA9）
+                            TextField { id: "imz_confirmed", label: t("common-field-confirmed"), readonly: true, value: match cur.as_ref().filter(|_| m != Mode::New) { Some(c) if c.confirmed => t("common-yes"), Some(_) => t("common-no"), None => String::new() } }
+                            TextField { id: "imz_confirmed_by", label: t("common-field-confirmed-by"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).and_then(|c| c.confirmed_by.clone()).unwrap_or_default() }
+                            TextField { id: "imz_confirmed_at", label: t("common-field-confirmed-at"), readonly: true, value: cur.as_ref().filter(|_| m != Mode::New).and_then(|c| c.confirmed_at).map(local_time).unwrap_or_default() }
+                        }
+                        if q {
+                            div { class: "form-grid cols-4",
+                                Q { field: "confirmed", label: t("common-field-confirmed"), hint: HINT_FLAG, query: true, qbe, div {} }
+                                Q { field: "confirmed_by", label: t("common-field-confirmed-by"), query: true, qbe, div {} }
+                            }
+                        }
                     },
                   }
                 }

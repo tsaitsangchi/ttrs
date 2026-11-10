@@ -3,6 +3,7 @@
 
 pub mod authorization;
 pub mod classification;
+pub mod confirmation;
 pub mod department;
 pub mod dictionary;
 pub mod employee;

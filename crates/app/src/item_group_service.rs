@@ -23,10 +23,12 @@ use crate::{
     authorization::Grant,
     change_log::HistoryReader,
     error::RepoError,
+    list_report::{ListReporter, ListSpec},
     ports::{
         ClassificationCodeRepository, EmployeeRepository, ItemGroupRepository,
         MasterDataRepository, ProductClassRepository, UnitRepository,
     },
+    report::{self, ReportData, ReportFormat},
 };
 
 /// 權限檢查用的程式代號
@@ -34,6 +36,21 @@ pub const PROGRAM: &str = "item-group-maintenance";
 
 /// 其他分群碼一～四對應的分類碼類別（IG4）
 const OTHER_GROUP_KINDS: [&str; 4] = ["D", "E", "F", "G"];
+
+/// 清單報表（ADR 0013 SA3；item_group_report.feature）
+const REPORT: ListSpec = ListSpec {
+    program: PROGRAM,
+    title: "igroup-report-title",
+    columns: &[
+        ("group_code", "igroup-col-code"),
+        ("description", "igroup-col-description"),
+        ("source_code", "igroup-col-source"),
+        ("stock_unit", "igroup-col-stock-unit"),
+        ("product_class", "igroup-col-product-class"),
+        ("replenish_policy", "igroup-col-replenish"),
+        ("active", "igroup-col-active"),
+    ],
+};
 
 #[derive(Clone)]
 pub struct ItemGroupService {
@@ -45,6 +62,7 @@ pub struct ItemGroupService {
     classes: Arc<dyn ProductClassRepository>,
     master: Arc<dyn MasterDataRepository>,
     history: HistoryReader,
+    reports: ListReporter,
 }
 
 impl ItemGroupService {
@@ -63,6 +81,7 @@ impl ItemGroupService {
             classes: repos.classes,
             master: repos.master,
             history,
+            reports: repos.reports,
         }
     }
 
@@ -74,6 +93,55 @@ impl ItemGroupService {
             out.push(self.to_dto(&plant, &g).await?);
         }
         Ok(out)
+    }
+
+    /// 測試用：調整同步產生報表的筆數上限
+    pub fn with_report_limit(mut self, limit: u64) -> Self {
+        self.reports.limit = limit;
+        self
+    }
+
+    /// 列印、匯出 Excel（aimi110_out，aimi110.4gl:2727-2740；item_group_report.feature）
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        conditions: Vec<ttrs_shared::QbeCondition>,
+        format: ReportFormat,
+        lang: &ttrs_domain::lang::Lang,
+    ) -> Result<ReportData, AppError> {
+        let scope = self.authorize(actor, format.action()).await?.scope();
+        let plant = PlantId::parse(plant)?;
+        let filters = crate::query::item_group::filters(&conditions)?;
+        let (rows, total) = self
+            .groups
+            .query_item_groups(&plant, &filters, &scope, 0, self.reports.fetch_limit())
+            .await
+            .map_err(infra)?;
+        self.reports.check(total)?;
+        let t = |id: &str| report::text(lang, id);
+        let lines = rows
+            .iter()
+            .map(|g| {
+                let a = &g.attrs;
+                vec![
+                    g.code.as_str().to_owned(),
+                    a.description.clone().unwrap_or_default(),
+                    a.source_code.clone().unwrap_or_default(),
+                    a.stock_unit.clone().unwrap_or_default(),
+                    a.product_class.clone().unwrap_or_default(),
+                    a.replenish_policy.clone().unwrap_or_default(),
+                    t(if g.active {
+                        "report-active"
+                    } else {
+                        "report-inactive"
+                    }),
+                ]
+            })
+            .collect();
+        self.reports
+            .build(actor, &plant, &REPORT, lines, &conditions, format, lang)
+            .await
     }
 
     /// QBE 查詢（aimi110.4gl:194-230、476-489；GQ1–GQ3）：依資料權限過濾、依分群碼排序並分頁
@@ -201,6 +269,28 @@ impl ItemGroupService {
         .await
     }
 
+    /// 確認（confirm）／取消確認（notconfirm）（ADR 0013 SA9；item_group_confirm.feature）
+    pub async fn confirm(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        code: &str,
+        confirm: bool,
+        version: Option<i32>,
+    ) -> Result<ItemGroupDto, AppError> {
+        let action = if confirm { "confirm" } else { "notconfirm" };
+        crate::change_log::run(actor, PROGRAM, action, async {
+            let grant = self.authorize(actor, action).await?;
+            let plant = PlantId::parse(plant)?;
+            let mut g = self.load(&plant, code).await?;
+            grant.record(&g.created_by, &g.created_dept)?;
+            g.stamp.check(version)?;
+            g.set_confirmed(confirm, &actor.user_id, chrono::Utc::now())?;
+            self.save(&plant, &g).await
+        })
+        .await
+    }
+
     /// 刪除（aimi110_r，:2600-2635）：已有料件引用時拒絕（mfg9045，IG7）
     pub async fn delete(
         &self,
@@ -215,6 +305,8 @@ impl ItemGroupService {
             let g = self.load(&plant, code).await?;
             grant.record(&g.created_by, &g.created_dept)?;
             g.stamp.check(version)?;
+            // 已確認不可刪除，須先取消確認（ADR 0013 SA9-2）
+            g.confirmation.check_deletable()?;
             match self.groups.delete_item_group(&plant, &g.code).await {
                 Ok(true) => Ok(()),
                 Ok(false) => Err(DomainError::ItemGroupNotFound.into()),
@@ -460,6 +552,9 @@ impl ItemGroupService {
             },
             stock_keeper_name,
             active: g.active,
+            confirmed: g.confirmation.confirmed,
+            confirmed_by: g.confirmation.by.clone(),
+            confirmed_at: g.confirmation.at,
             created_by: g.created_by.clone(),
             created_dept: g.created_dept.clone(),
             created_on: g.created_on,

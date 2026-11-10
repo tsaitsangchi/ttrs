@@ -28,11 +28,13 @@ use crate::{
     authorization::Grant,
     change_log::HistoryReader,
     error::RepoError,
+    list_report::{ListReporter, ListSpec},
     ports::{
         ClassificationCodeRepository, DepartmentRepository, EmployeeRepository,
         ItemGroupRepository, ItemRepository, MasterDataRepository, ProductClassRepository,
         UnitRepository,
     },
+    report::{self, ReportData, ReportFormat},
 };
 
 /// 權限檢查用的程式代號
@@ -40,6 +42,22 @@ pub const PROGRAM: &str = "item-maintenance";
 
 /// 其他分群碼一～四對應的分類碼類別（mfg1306）
 const OTHER_GROUP_KINDS: [&str; 4] = ["D", "E", "F", "G"];
+
+/// 清單報表（ADR 0013 SA3；item_maintenance_report.feature）
+const REPORT: ListSpec = ListSpec {
+    program: PROGRAM,
+    title: "item-report-title",
+    columns: &[
+        ("item_no", "item-col-item-no"),
+        ("name", "item-col-name"),
+        ("spec", "item-col-spec"),
+        ("group_code", "item-col-group"),
+        ("source_code", "item-col-source"),
+        ("stock_unit", "item-col-stock-unit"),
+        ("product_class", "item-col-product-class"),
+        ("active_code", "item-col-active-code"),
+    ],
+};
 
 /// 料件 use case 需要的資料存取
 #[derive(Clone)]
@@ -52,6 +70,8 @@ pub struct ItemRepos {
     pub employees: Arc<dyn EmployeeRepository>,
     pub departments: Arc<dyn DepartmentRepository>,
     pub master: Arc<dyn MasterDataRepository>,
+    /// 列印、匯出 Excel 的共用組裝（ADR 0013 SA3）
+    pub reports: ListReporter,
 }
 
 #[derive(Clone)]
@@ -95,6 +115,54 @@ impl ItemService {
         // 被資料權限過濾掉的料件也不能直接查看（IQ4，同 AQ6）
         grant.record(&i.created_by, &i.created_dept)?;
         self.to_dto(&plant, &i, lang.as_ref()).await
+    }
+
+    /// 測試用：調整同步產生報表的筆數上限
+    pub fn with_report_limit(mut self, limit: u64) -> Self {
+        self.repos.reports.limit = limit;
+        self
+    }
+
+    /// 列印、匯出 Excel（i100_out，aimi100.4gl:4488-4506；item_maintenance_report.feature）：依查詢條件（含資料權限）、
+    /// 料號排序；品名、規格依報表語系；超過上限 → REPORT_TOO_LARGE；寫入稽核紀錄
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        conditions: Vec<ttrs_shared::QbeCondition>,
+        format: ReportFormat,
+        lang: &Lang,
+    ) -> Result<ReportData, AppError> {
+        let scope = self.authorize(actor, format.action()).await?.scope();
+        let plant = PlantId::parse(plant)?;
+        let filters = crate::query::item::filters(&conditions)?;
+        let reports = &self.repos.reports;
+        let (rows, total) = self
+            .repos
+            .items
+            .query_items(&plant, &filters, &scope, 0, reports.fetch_limit())
+            .await
+            .map_err(infra)?;
+        reports.check(total)?;
+        let t = |id: &str| report::text(lang, id);
+        let mut lines = Vec::with_capacity(rows.len());
+        for i in &rows {
+            let d = self.to_dto(&plant, i, Some(lang)).await?;
+            let f = d.fields;
+            lines.push(vec![
+                f.item_no,
+                f.name.unwrap_or_default(),
+                f.spec.unwrap_or_default(),
+                f.group_code.unwrap_or_default(),
+                f.source_code.unwrap_or_default(),
+                f.stock_unit.unwrap_or_default(),
+                f.product_class.unwrap_or_default(),
+                t(&format!("item-active-{}", d.active_code.to_lowercase())),
+            ]);
+        }
+        reports
+            .build(actor, &plant, &REPORT, lines, &conditions, format, lang)
+            .await
     }
 
     /// QBE 查詢（i100_curs、i100_declare_curs，aimi100.4gl:354-730；IQ1–IQ10）：

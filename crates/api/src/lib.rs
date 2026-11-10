@@ -208,6 +208,11 @@ pub fn router(state: AppState) -> Router {
         )
         // QBE 查詢（item_maintenance_query.feature IQ1–IQ10）
         .route("/api/plants/{plant}/items/query", post(query_items))
+        // 列印、匯出 Excel（ADR 0013 SA3；item_maintenance_report.feature）
+        .route(
+            "/api/plants/{plant}/items/report.{format}",
+            get(item_report),
+        )
         .route(
             "/api/plants/{plant}/items/{no}",
             get(get_item).put(update_item).delete(delete_item),
@@ -312,6 +317,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/plants/{plant}/item-groups/query",
             post(query_item_groups),
+        )
+        .route(
+            "/api/plants/{plant}/item-groups/report.{format}",
+            get(item_group_report),
         )
         .route(
             "/api/plants/{plant}/item-groups/{code}",
@@ -1030,7 +1039,10 @@ impl IntoResponse for HttpError {
             "PASSWORD_CHANGE_REQUIRED" => StatusCode::FORBIDDEN,
             "PLANT_NOT_ALLOWED" | "NO_USABLE_PLANT" => StatusCode::FORBIDDEN,
             "REPORT_TOO_LARGE" => StatusCode::PAYLOAD_TOO_LARGE,
-            "RECORD_CHANGED" => StatusCode::CONFLICT,
+            "RECORD_CHANGED"
+            | "RECORD_ALREADY_CONFIRMED"
+            | "RECORD_NOT_CONFIRMED"
+            | "RECORD_CONFIRMED_NOT_DELETABLE" => StatusCode::CONFLICT,
             "MENU_NOT_FOUND" | "MENU_ITEM_NOT_FOUND" => StatusCode::NOT_FOUND,
             "MENU_SEQ_DUPLICATE"
             | "MENU_ITEM_DUPLICATE"
@@ -1696,16 +1708,19 @@ fn report_response(
         .into_response())
 }
 
-async fn department_report(
-    Ctx(s): Ctx,
-    Path((plant, format)): Path<(String, String)>,
-    Query(q): Query<ReportQuery>,
-) -> ApiResult<Response> {
+/// 報表請求：格式（pdf／xlsx，其他為 None → 404）、查詢條件、報表語系
+type ReportArgs = (
+    ttrs_app::report::ReportFormat,
+    Vec<ttrs_shared::QbeCondition>,
+    ttrs_domain::lang::Lang,
+);
+
+fn report_args(format: &str, q: &ReportQuery) -> ApiResult<Option<ReportArgs>> {
     use ttrs_app::report::ReportFormat;
-    let format = match format.as_str() {
+    let format = match format {
         "pdf" => ReportFormat::Pdf,
         "xlsx" => ReportFormat::Excel,
-        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+        _ => return Ok(None),
     };
     let conditions: Vec<ttrs_shared::QbeCondition> =
         match q.q.as_deref().filter(|v| !v.trim().is_empty()) {
@@ -1718,6 +1733,47 @@ async fn department_report(
         };
     let lang = ttrs_domain::lang::Lang::parse(q.lang.as_deref().unwrap_or(DEFAULT_LANG))
         .unwrap_or_else(|_| ttrs_domain::lang::Lang::default_lang());
+    Ok(Some((format, conditions, lang)))
+}
+
+async fn item_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .items
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn item_group_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .item_groups
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn department_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
     let data = s
         .departments
         .report_in(&s.actor, &plant, conditions, format, &lang)
@@ -1959,18 +2015,20 @@ async fn set_item_group_active(
     Path((plant, code, state)): Path<(String, String, String)>,
     Query(v): Query<VersionQuery>,
 ) -> ApiResult<Response> {
-    let active = match state.as_str() {
-        "activate" => true,
-        "deactivate" => false,
+    let version = Some(require_version(v.version)?);
+    let g = &s.item_groups;
+    let dto = match state.as_str() {
+        "activate" => g.set_active(&s.actor, &plant, &code, true, version).await?,
+        "deactivate" => {
+            g.set_active(&s.actor, &plant, &code, false, version)
+                .await?
+        }
+        // 確認／取消確認（ADR 0013 SA9）
+        "confirm" => g.confirm(&s.actor, &plant, &code, true, version).await?,
+        "unconfirm" => g.confirm(&s.actor, &plant, &code, false, version).await?,
         _ => return Ok(StatusCode::NOT_FOUND.into_response()),
     };
-    let version = Some(require_version(v.version)?);
-    Ok(Json(
-        s.item_groups
-            .set_active(&s.actor, &plant, &code, active, version)
-            .await?,
-    )
-    .into_response())
+    Ok(Json(dto).into_response())
 }
 
 async fn delete_item_group(

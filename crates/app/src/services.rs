@@ -133,6 +133,11 @@ impl Services {
             employees: store.clone(),
             departments: store.clone(),
             master: store.clone(),
+            reports: crate::list_report::ListReporter::new(
+                store.clone(),
+                store.clone(),
+                store.clone(),
+            ),
         };
         Self {
             items: ItemService::new(a.clone(), item_repos.clone(), history.clone()),

@@ -21,6 +21,9 @@ bdd：驗收測試，執行 specs/features/**/*.feature
   設計系統採 Material 3（ADR 0004）：畫面只用 `components/material.rs` 的元件，版面比照該作業的 4fd，
   顏色只用 `--md-sys-color-*` token，不寫死色碼；色彩 token 由 `scripts/m3-colors.mjs` 產生，不手改。
   資料有效、資料所有者、所有部門、建立時間、最後修改者與時間、版本一律放「狀態」頁籤（`components/status.rs`，ADR 0012 §9）。
+- **每支維護作業都必須有標準功能鈕**：新增、修改、刪除、查詢、列印、匯出 Excel、第一筆、上一筆、下一筆、最後一筆、
+  失效（停用／啟用）、複製、異動記錄，以及「確認」（含確認與取消確認）（Key User 要求，2026-11-10；細節與例外見 ADR 0013）。
+  萃取規格時即使 TipTop 該作業沒有某個功能，也要在規格列出並說明做法；不做的須列為例外經使用者確認。
 
 ## TipTop 原始碼（legacy/，唯讀，不進版控）
 

@@ -405,6 +405,51 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .history(a, "TW01", kind, code, None)
             .await
             .map(drop),
+        ["列印料件"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.items
+                .report_in(a, "TW01", Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["匯出料件為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.items
+                .report_in(a, "TW01", Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["確認料件分群", code] => w
+            .item_groups
+            .confirm(a, "TW01", code, true, None)
+            .await
+            .map(drop),
+        ["取消確認料件分群", code] => {
+            // 先以不檢查權限的方式確認，再檢查取消確認的權限
+            let _ = unchecked!(w, w.item_groups.confirm(a, "TW01", code, true, None));
+            w.item_groups
+                .confirm(a, "TW01", code, false, None)
+                .await
+                .map(drop)
+        }
+        ["列印料件分群"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.item_groups
+                .report_in(a, "TW01", Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["匯出料件分群為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.item_groups
+                .report_in(a, "TW01", Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
         ["列印部門"] => w
             .departments
             .report(a, "TW01", Vec::new(), ttrs_app::report::ReportFormat::Pdf)

@@ -139,3 +139,57 @@ async fn query_items_and_field_not_allowed() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
+
+/// 料件分群確認（ADR 0013 SA9）：須帶版本；已確認後刪除回 409 RECORD_CONFIRMED_NOT_DELETABLE
+#[tokio::test]
+async fn item_group_confirm_and_delete_conflict() {
+    let app = app();
+    let res = app
+        .clone()
+        .oneshot(post(
+            "/api/plants/TW01/item-groups",
+            serde_json::json!({ "group_code": "RM", "description": "原料" }),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CREATED);
+
+    let res = app
+        .clone()
+        .oneshot(post(
+            "/api/plants/TW01/item-groups/RM/confirm",
+            serde_json::json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::BAD_REQUEST, "沒帶版本");
+
+    let res = app
+        .clone()
+        .oneshot(post(
+            "/api/plants/TW01/item-groups/RM/confirm?version=1",
+            serde_json::json!({}),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let g: ttrs_shared::ItemGroupDto =
+        serde_json::from_slice(&to_bytes(res.into_body(), usize::MAX).await.unwrap()).unwrap();
+    assert!(g.confirmed);
+
+    let res = app
+        .oneshot(
+            Request::delete(format!(
+                "/api/plants/TW01/item-groups/RM?version={}",
+                g.version
+            ))
+            .body(Body::empty())
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::CONFLICT);
+    let err: ApiError =
+        serde_json::from_slice(&to_bytes(res.into_body(), usize::MAX).await.unwrap()).unwrap();
+    assert_eq!(err.code, "RECORD_CONFIRMED_NOT_DELETABLE");
+}

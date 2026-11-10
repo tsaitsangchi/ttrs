@@ -68,3 +68,21 @@ async fn department_report_formats() {
     let res = get(&app, "/api/plants/TW01/departments/report.doc").await;
     assert_eq!(res.status(), StatusCode::NOT_FOUND);
 }
+
+/// 料件、料件分群的通用清單報表（ADR 0013 SA3）：/items/report.* 不被 /items/{no} 吃掉
+#[tokio::test]
+async fn item_and_group_report_formats() {
+    let app = app();
+    for uri in [
+        "/api/plants/TW01/items/report.pdf",
+        "/api/plants/TW01/item-groups/report.pdf",
+    ] {
+        let res = get(&app, uri).await;
+        assert_eq!(res.status(), StatusCode::OK, "{uri}");
+        assert_eq!(res.headers()[header::CONTENT_TYPE], "application/pdf");
+    }
+    let res = get(&app, "/api/plants/TW01/items/report.xlsx").await;
+    assert_eq!(res.status(), StatusCode::OK);
+    let res = get(&app, "/api/plants/TW01/item-groups/report.doc").await;
+    assert_eq!(res.status(), StatusCode::NOT_FOUND);
+}

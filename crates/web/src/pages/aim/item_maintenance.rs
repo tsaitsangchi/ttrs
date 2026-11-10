@@ -25,6 +25,7 @@ use crate::components::qbe::{
     use_query_records_on_demand,
 };
 use crate::components::status::{HasStatus, StatusForm, TAB_STATUS};
+use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{UiLang, t, tf};
 
 /// 權限檢查用的程式代號
@@ -527,6 +528,46 @@ fn ItemPage(item_no: String) -> Element {
     let cur_copy = cur.clone();
     let cur_delete = cur.clone();
     let cur_history = cur.clone();
+    // 列印、匯出 Excel（i100_out）：已查詢時用查詢條件；尚未查詢但有目前這筆時印這一筆、排除無效料件（客製）；
+    // 兩者都沒有時停用（取代 9057 請先查詢）
+    let report_conditions: Option<Vec<QbeCondition>> = if queried {
+        Some(rec.conditions.read().clone())
+    } else {
+        cur.as_ref().map(|c| {
+            vec![
+                QbeCondition {
+                    field: "item_no".into(),
+                    expr: qbe_literal(&c.fields.item_no),
+                },
+                QbeCondition {
+                    field: "active_code".into(),
+                    expr: "<>N".into(),
+                },
+            ]
+        })
+    };
+    let can_print = report_conditions.is_some();
+    let report = move |format: api::ReportFormat| {
+        let Some(conds) = report_conditions.clone() else {
+            return;
+        };
+        let tab = api::ReportTab::open(format);
+        let p = plant();
+        spawn(async move {
+            if let Err(e) = api::list_report(
+                &p,
+                "items",
+                format,
+                &conds,
+                crate::i18n::current().code(),
+                tab,
+            )
+            .await
+            {
+                error.set(Some(e));
+            }
+        });
+    };
 
     rsx! {
         div { class: "page",
@@ -545,135 +586,83 @@ fn ItemPage(item_no: String) -> Element {
                         {t("common-action-cancel")}
                     }
                 } else if ro {
-                    if perm.can("query") {
-                        Button {
-                            icon: icons::SEARCH, tone: Tone::Primary,
-                            variant: ButtonVariant::Tonal,
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                rec.qbe.set(Default::default());
-                                mode.set(Mode::Query);
-                            },
-                            {t("common-action-query")}
-                        }
-                    }
-                    if perm.can("insert") {
-                        Button {
-                            icon: icons::ADD, tone: Tone::Success,
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                form.set(ItemInput::default());
-                                texts.set(LangValues::default());
-                                loaded_texts.set(LangValues::default());
-                                mode.set(Mode::New);
-                            },
-                            {t("common-action-new")}
-                        }
-                    }
-                    if perm.can("modify") {
-                        Button {
-                            icon: icons::EDIT, tone: Tone::Tertiary,
-                            variant: ButtonVariant::Tonal,
-                            disabled: no_cur || invalid,
-                            onclick: move |_| {
-                                let Some(c) = cur_edit.clone() else { return };
-                                message.set(None);
-                                error.set(None);
-                                form.set(c.to_input());
-                                mode.set(Mode::Edit);
-                            },
-                            {t("common-action-edit")}
-                        }
-                    }
-                    if perm.can("reproduce") {
-                        Button {
-                            icon: icons::COPY, tone: Tone::Primary,
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(c) = cur_copy.clone() else { return };
-                                copy_no.set(String::new());
-                                copy_name.set(txt(&c.fields.name));
-                                copy_error.set(None);
-                                copying.set(Some(c.fields.item_no));
-                            },
-                            {t("common-action-copy")}
-                        }
-                    }
-                    if perm.can("confirm") && !confirmed {
-                        Button {
-                            icon: icons::CHECK_CIRCLE, tone: Tone::Success,
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur || invalid,
-                            onclick: move |_| act("confirm", "item-msg-confirmed"),
-                            {t("item-action-confirm")}
-                        }
-                    }
-                    if perm.can("notconfirm") && confirmed {
-                        Button {
-                            icon: icons::UNDO, tone: Tone::Tertiary,
-                            variant: ButtonVariant::Outlined,
-                            onclick: move |_| act("unconfirm", "item-msg-unconfirmed"),
-                            {t("item-action-unconfirm")}
-                        }
-                    }
-                    if perm.can("invalid") {
-                        Button {
-                            icon: if invalid { icons::CHECK_CIRCLE } else { icons::BLOCK },
-                            tone: if invalid { Tone::Success } else { Tone::Error },
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| act("void", if invalid { "item-msg-restored" } else { "item-msg-voided" }),
-                            if invalid { {t("item-action-restore")} } else { {t("item-action-void")} }
-                        }
-                    }
-                    if perm.can("order_invalid") {
-                        Button {
-                            icon: icons::SYNC, tone: Tone::Primary,
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| act("order-invalid", "item-msg-order-invalid"),
-                            {t("item-action-order-invalid")}
-                        }
-                    }
-                    if perm.can("history") {
-                        Button {
-                            icon: icons::HISTORY, tone: Tone::Primary,
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(c) = cur_history.clone() else { return };
-                                let p = plant();
-                                spawn(async move {
-                                    let no = c.fields.item_no.clone();
-                                    match api::item_history(&p, &no).await {
-                                        Ok(h) => history.set(Some((no, h))),
-                                        Err(e) => error.set(Some(e)),
-                                    }
-                                });
-                            },
-                            {t("common-action-history")}
-                        }
-                    }
-                    if perm.can("delete") {
-                        Button {
-                            icon: icons::DELETE, tone: Tone::Error,
-                            variant: ButtonVariant::Error,
-                            disabled: no_cur || active_code != "P",
-                            onclick: move |_| {
-                                let Some(c) = cur_delete.clone() else { return };
-                                let p = plant();
-                                spawn(async move {
-                                    let no = c.fields.item_no.clone();
-                                    match api::delete_item(&p, &no, c.version).await {
-                                        Ok(()) => done(tf("item-msg-deleted", &[("no", no.as_str())]), None),
-                                        Err(e) => error.set(Some(e)),
-                                    }
-                                });
-                            },
-                            {t("common-action-delete")}
+                    MaintenanceToolbar {
+                        query: Act::new(true, move |_| {
+                            message.set(None);
+                            error.set(None);
+                            rec.qbe.set(Default::default());
+                            mode.set(Mode::Query);
+                        }),
+                        insert: Act::new(true, move |_| {
+                            message.set(None);
+                            error.set(None);
+                            form.set(ItemInput::default());
+                            texts.set(LangValues::default());
+                            loaded_texts.set(LangValues::default());
+                            mode.set(Mode::New);
+                        }),
+                        modify: Act::new(!no_cur && !invalid, move |_| {
+                            let Some(c) = cur_edit.clone() else { return };
+                            message.set(None);
+                            error.set(None);
+                            form.set(c.to_input());
+                            mode.set(Mode::Edit);
+                        }),
+                        copy: Act::new(!no_cur, move |_| {
+                            let Some(c) = cur_copy.clone() else { return };
+                            copy_no.set(String::new());
+                            copy_name.set(txt(&c.fields.name));
+                            copy_error.set(None);
+                            copying.set(Some(c.fields.item_no));
+                        }),
+                        // 只有處理中的料件可刪除
+                        delete: Act::new(!no_cur && active_code == "P", move |_| {
+                            let Some(c) = cur_delete.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                let no = c.fields.item_no.clone();
+                                match api::delete_item(&p, &no, c.version).await {
+                                    Ok(()) => done(tf("item-msg-deleted", &[("no", no.as_str())]), None),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        }),
+                        // 確認 confirm／取消確認 notconfirm（IM-16～IM-18）：無效的料件不能確認
+                        confirm: Act::new(!no_cur && (confirmed || !invalid), move |_| {
+                            if confirmed {
+                                act("unconfirm", "item-msg-unconfirmed");
+                            } else {
+                                act("confirm", "item-msg-confirmed");
+                            }
+                        }),
+                        confirmed,
+                        invalid: Act::new(!no_cur, move |_| act("void", if invalid { "item-msg-restored" } else { "item-msg-voided" })),
+                        inactive: invalid,
+                        invalid_label: Some(("item-action-void", "item-action-restore")),
+                        print: Act::new(can_print, {
+                            let report = report.clone();
+                            move |_| report(api::ReportFormat::Pdf)
+                        }),
+                        export: Act::new(can_print, move |_| report(api::ReportFormat::Excel)),
+                        history: Act::new(!no_cur, move |_| {
+                            let Some(c) = cur_history.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                let no = c.fields.item_no.clone();
+                                match api::item_history(&p, &no).await {
+                                    Ok(h) => history.set(Some((no, h))),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        }),
+                        if perm.can("order_invalid") {
+                            Button {
+                                icon: icons::SYNC, tone: Tone::Primary,
+                                variant: ButtonVariant::Outlined,
+                                disabled: no_cur,
+                                onclick: move |_| act("order-invalid", "item-msg-order-invalid"),
+                                {t("item-action-order-invalid")}
+                            }
                         }
                     }
                 } else {

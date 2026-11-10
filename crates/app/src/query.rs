@@ -847,6 +847,9 @@ pub mod item_group {
         field("product_class", FieldType::Text),
         field("economic_order_qty", FieldType::Decimal),
         field("average_order_qty", FieldType::Decimal),
+        // 確認（ADR 0013 SA9）
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
         // 狀態頁籤（ADR 0012 §9）
         field("active", FieldType::Flag),
         field("created_by", FieldType::Text),
@@ -908,6 +911,8 @@ pub mod item_group {
             "product_class" => t(&a.product_class),
             "economic_order_qty" => opt_dec(a.economic_order_qty),
             "average_order_qty" => opt_dec(a.average_order_qty),
+            "confirmed" => flag(g.confirmation.confirmed),
+            "confirmed_by" => opt_text(g.confirmation.by.as_deref()),
             other => status_value(
                 other,
                 Some(g.active),

@@ -12,6 +12,7 @@ pub mod error;
 pub mod item_group_service;
 pub mod item_service;
 pub mod legacy_catalog_service;
+pub mod list_report;
 pub mod mail;
 #[cfg(feature = "memory")]
 pub mod memory;

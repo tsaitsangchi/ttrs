@@ -107,6 +107,8 @@ async fn print_conditions(w: &mut ErpWorld, program: String, flag: String) {
 #[given(expr = "報表同步產生的上限為 {int} 筆")]
 fn report_limit(w: &mut ErpWorld, limit: u64) {
     w.departments = w.departments.clone().with_report_limit(limit);
+    w.items = w.items.clone().with_report_limit(limit);
+    w.item_groups = w.item_groups.clone().with_report_limit(limit);
 }
 
 // ----- 當 -----

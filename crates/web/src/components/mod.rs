@@ -9,3 +9,4 @@ pub mod plant;
 pub mod qbe;
 pub mod session;
 pub mod status;
+pub mod toolbar;
