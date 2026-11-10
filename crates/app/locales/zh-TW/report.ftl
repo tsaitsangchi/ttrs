@@ -114,3 +114,68 @@ dict-col-column = 欄位代碼
 dict-col-type = 型別
 dict-col-name = 名稱
 dict-col-extra = 額外說明
+
+# 基本代碼（basic_code_service.rs）
+basic-code-col-active = 資料有效
+region-report-title = 區域別
+region-col-code = 區域編號
+region-col-name = 區域名稱
+country-report-title = 國別
+country-col-code = 國別編號
+country-col-name = 國別名稱
+country-col-parent = 隸屬區域
+area-report-title = 地區
+area-col-code = 地區編號
+area-col-name = 地區名稱
+area-col-parent = 隸屬國別
+shipping-method-report-title = 交運方式
+shipping-method-col-code = 交運方式
+shipping-method-col-name = 說明
+report-title-report-title = 報表抬頭
+report-title-col-code = 抬頭代碼
+report-title-col-name = 抬頭名稱
+
+# 幣別（currency_service.rs）
+currency-report-title = 幣別
+currency-col-code = 幣別
+currency-col-name = 說明
+currency-col-price-decimals = 單價小數位數
+currency-col-amount-decimals = 金額小數位數
+currency-col-total-decimals = 小計總計小數位數
+currency-col-rate-decimals = 匯率小數位數
+currency-col-rate-method = 計算方式
+currency-col-active = 資料有效
+currency-rate-multiply = 乘
+currency-rate-divide = 除
+
+# 稅別（tax_type_service.rs）
+tax-report-title = 稅別
+tax-col-code = 稅別碼
+tax-col-name = 名稱
+tax-col-direction = 進銷項
+tax-col-account = 會計科目
+tax-col-account2 = 會計科目二
+tax-col-invoice-copies = 發票聯數
+tax-col-class = 課稅別
+tax-col-rate = 稅率
+tax-col-include-tax = 單價含稅否
+tax-col-filing-format = 申報格式
+tax-col-active = 資料有效
+tax-direction-1 = 進項
+tax-direction-2 = 銷項
+tax-copies-0 = 園區收據
+tax-copies-2 = 二聯
+tax-copies-3 = 三聯
+tax-copies-4 = 收據
+tax-copies-x = 不申報
+tax-class-1 = 應稅
+tax-class-2 = 零稅率
+tax-class-3 = 免稅
+
+# 專案（project_service.rs）
+project-report-title = 專案
+project-col-code = 專案編號
+project-col-name = 專案名稱
+project-col-start = 起始日期
+project-col-end = 結束日期
+project-col-active = 資料有效

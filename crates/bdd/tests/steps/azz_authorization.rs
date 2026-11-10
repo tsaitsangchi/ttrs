@@ -122,6 +122,39 @@ macro_rules! unchecked {
     }};
 }
 
+/// 基本代碼的操作：「查詢區域」「新增國別」「匯出地區為」… → (動作, 種類)
+fn basic_op(verb: &str) -> Option<(&'static str, ttrs_domain::basic_code::BasicCodeKind)> {
+    use ttrs_domain::basic_code::BasicCodeKind as K;
+    let kinds = [
+        ("區域", K::Region),
+        ("國別", K::Country),
+        ("地區", K::Area),
+        ("交運方式", K::ShippingMethod),
+        ("報表抬頭", K::ReportTitle),
+    ];
+    let verb = verb.strip_suffix('為').unwrap_or(verb);
+    let actions = [
+        "取消確認",
+        "查詢",
+        "新增",
+        "修改",
+        "停用",
+        "刪除",
+        "複製",
+        "確認",
+        "列印",
+        "匯出",
+    ];
+    for action in actions {
+        if let Some(rest) = verb.strip_prefix(action)
+            && let Some((_, k)) = kinds.iter().find(|(n, _)| *n == rest)
+        {
+            return Some((action, *k));
+        }
+    }
+    None
+}
+
 /// 「目前使用者執行 <操作>」：操作名稱 → use case（權限檢查已啟用）
 async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
     let a = &w.actor;
@@ -825,6 +858,167 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["刪除料件分群", code] => w.item_groups.delete(a, "TW01", code, None).await,
         ["查詢料件分群", code, "的異動記錄"] => {
             w.item_groups.history(a, "TW01", code, None).await.map(drop)
+        }
+        // aooi200 專案維護（工廠層，營運中心 TW01）
+        ["查詢專案"] => w
+            .projects
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增專案", code] | ["修改專案", code] => {
+            let req = ttrs_shared::ProjectInput {
+                project_code: (*code).into(),
+                name: Some("專案".into()),
+                ..Default::default()
+            };
+            if arg(0) == "新增專案" {
+                w.projects.create(a, "TW01", req).await.map(drop)
+            } else {
+                w.projects.update(a, "TW01", code, req).await.map(drop)
+            }
+        }
+        ["停用專案", code] => w
+            .projects
+            .set_active(a, "TW01", code, false, None)
+            .await
+            .map(drop),
+        ["刪除專案", code] => w.projects.delete(a, "TW01", code, None).await,
+        ["複製專案", code] => w.projects.copy(a, "TW01", code, "P2").await.map(drop),
+        ["確認專案", code] => w
+            .projects
+            .confirm(a, "TW01", code, true, None)
+            .await
+            .map(drop),
+        ["取消確認專案", code] => w
+            .projects
+            .confirm(a, "TW01", code, false, None)
+            .await
+            .map(drop),
+        ["查詢專案", code, "的異動記錄"] => {
+            w.projects.history(a, "TW01", code, None).await.map(drop)
+        }
+        ["列印專案"] | ["匯出專案為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = if arg(0) == "列印專案" {
+                ttrs_app::report::ReportFormat::Pdf
+            } else {
+                ttrs_app::report::ReportFormat::Excel
+            };
+            w.projects
+                .report_in(a, "TW01", Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        // aooi150 稅別維護（共用層）：鍵值 T5 銷項
+        ["查詢稅別"] => w.taxes.query(a, QueryRequest::default()).await.map(drop),
+        ["新增稅別", code] | ["修改稅別", code] => {
+            let req = ttrs_shared::TaxTypeInput {
+                tax_code: (*code).into(),
+                direction: "2".into(),
+                name: Some("稅別".into()),
+                ..Default::default()
+            };
+            if arg(0) == "新增稅別" {
+                w.taxes.create(a, req).await.map(drop)
+            } else {
+                w.taxes.update(a, code, "2", req).await.map(drop)
+            }
+        }
+        ["停用稅別", code] => w
+            .taxes
+            .set_active(a, code, "2", false, None)
+            .await
+            .map(drop),
+        ["刪除稅別", code] => w.taxes.delete(a, code, "2", None).await,
+        ["複製稅別", code] => w.taxes.copy(a, code, "2", "T6", "2").await.map(drop),
+        ["確認稅別", code] => w.taxes.confirm(a, code, "2", true, None).await.map(drop),
+        ["取消確認稅別", code] => w.taxes.confirm(a, code, "2", false, None).await.map(drop),
+        ["列印稅別"] | ["匯出稅別為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = if arg(0) == "列印稅別" {
+                ttrs_app::report::ReportFormat::Pdf
+            } else {
+                ttrs_app::report::ReportFormat::Excel
+            };
+            w.taxes.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
+        // aooi050 幣別維護（共用層）
+        ["查詢幣別"] => w
+            .currencies
+            .query(a, QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增幣別", code] | ["修改幣別", code] => {
+            let req = ttrs_shared::CurrencyInput {
+                currency_code: (*code).into(),
+                name: Some("幣別".into()),
+                ..Default::default()
+            };
+            if arg(0) == "新增幣別" {
+                w.currencies.create(a, req).await.map(drop)
+            } else {
+                w.currencies.update(a, code, req).await.map(drop)
+            }
+        }
+        ["停用幣別", code] => w
+            .currencies
+            .set_active(a, code, false, None)
+            .await
+            .map(drop),
+        ["刪除幣別", code] => w.currencies.delete(a, code, None).await,
+        ["複製幣別", code] => w.currencies.copy(a, code, "HKD").await.map(drop),
+        ["確認幣別", code] => w.currencies.confirm(a, code, true, None).await.map(drop),
+        ["取消確認幣別", code] => w.currencies.confirm(a, code, false, None).await.map(drop),
+        ["列印幣別"] | ["匯出幣別為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = if arg(0) == "列印幣別" {
+                ttrs_app::report::ReportFormat::Pdf
+            } else {
+                ttrs_app::report::ReportFormat::Excel
+            };
+            w.currencies
+                .report_in(a, Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        // 基本代碼（aooi100、090、110、160、210；共用層）：「<動作><種類> [代號]」
+        [verb, rest @ ..] if basic_op(verb).is_some() => {
+            let (action, kind) = basic_op(verb).expect("基本代碼");
+            let code = rest.first().copied().unwrap_or("X01");
+            let b = &w.basic_codes;
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            match action {
+                "查詢" => b.query(a, kind, QueryRequest::default()).await.map(drop),
+                "新增" => {
+                    let req = ttrs_shared::BasicCodeInput {
+                        code: code.into(),
+                        name: Some("名稱".into()),
+                        ..Default::default()
+                    };
+                    b.create(a, kind, req).await.map(drop)
+                }
+                "修改" => {
+                    let req = ttrs_shared::BasicCodeInput {
+                        code: code.into(),
+                        name: Some("名稱".into()),
+                        ..Default::default()
+                    };
+                    b.update(a, kind, code, req).await.map(drop)
+                }
+                "停用" => b.set_active(a, kind, code, false, None).await.map(drop),
+                "刪除" => b.delete(a, kind, code, None).await,
+                "複製" => b.copy(a, kind, code, "X02").await.map(drop),
+                "確認" => b.confirm(a, kind, code, true, None).await.map(drop),
+                "取消確認" => b.confirm(a, kind, code, false, None).await.map(drop),
+                "列印" => {
+                    let f = ttrs_app::report::ReportFormat::Pdf;
+                    b.report_in(a, kind, Vec::new(), f, &lang).await.map(drop)
+                }
+                _ => {
+                    let f = ttrs_app::report::ReportFormat::Excel;
+                    b.report_in(a, kind, Vec::new(), f, &lang).await.map(drop)
+                }
+            }
         }
         _ => panic!("未定義的操作：{op}（{}）", arg(0)),
     }

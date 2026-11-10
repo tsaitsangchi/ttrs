@@ -1,8 +1,9 @@
 //! 分類碼（TipTop: aooi300 共用程式 / azf_file）；工廠層，每廠的 schema 各一份（ADR 0007，CC8）
 //! 規格：specs/features/aoo/classification_code.feature（CC1–CC9）
 //!
-//! 第一階段只開放料件用到的類別（CC2）：8 材料類別（aooi305，ima109）、D／E／F／G 其他分群碼一～四
-//! （aooi309–aooi312，ima09–ima12）。
+//! 第一階段開放料件用到的類別（CC2）：8 材料類別（aooi305，ima109）、D／E／F／G 其他分群碼一～四
+//! （aooi309–aooi312，ima09–ima12）；批次 1 加入客製 aooi080 的其他類別（OC1）：2 理由碼、6 檢驗碼、
+//! A 保稅原料領用、R 業務請求狀態、S 業務處理結果（classification_code_other_kinds.feature）。
 
 use chrono::NaiveDate;
 
@@ -21,9 +22,22 @@ pub mod max_len {
 }
 
 coded_enum!(
-    /// 碼類別（azf02），對應 TipTop 作業代號（aooi300.4gl:106-140）：
-    /// 8 材料類別（aooi305）、D／E／F／G 其他分群碼一～四（aooi309–aooi312；G 另有存貨差異科目與成本性質）
-    CodeKind { Material = "8", Group1 = "D", Group2 = "E", Group3 = "F", Group4 = "G" }
+    /// 碼類別（azf02），對應 TipTop 作業代號（aooi300.4gl:106-140、topcust/coo/4gl/aooi080.4gl:274-315）：
+    /// 8 材料類別（aooi305）、D／E／F／G 其他分群碼一～四（aooi309–aooi312；G 另有存貨差異科目與成本性質）、
+    /// 2 理由碼（aooi301）、6 檢驗碼（aooi304）、A 保稅原料領用（aooi306）、R 業務請求狀態、S 業務處理結果（客製 aooi080）。
+    /// 3、5、H、Z 不開放（OC2）
+    CodeKind {
+        Material = "8",
+        Group1 = "D",
+        Group2 = "E",
+        Group3 = "F",
+        Group4 = "G",
+        Reason = "2",
+        Inspection = "6",
+        BondedIssue = "A",
+        RequestStatus = "R",
+        ResultStatus = "S",
+    }
 );
 
 impl CodeKind {
@@ -200,7 +214,7 @@ mod tests {
     fn kind_and_code_rules() {
         assert_eq!(CodeKind::parse("d").unwrap(), CodeKind::Group1);
         assert_eq!(
-            CodeKind::parse("2").unwrap_err().code(),
+            CodeKind::parse("3").unwrap_err().code(),
             "CODE_KIND_INVALID"
         );
         assert_eq!(Code::parse(" x01 ").unwrap().as_str(), "x01");

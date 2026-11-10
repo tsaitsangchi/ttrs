@@ -114,3 +114,68 @@ dict-col-column = 栏位代码
 dict-col-type = 类型
 dict-col-name = 名称
 dict-col-extra = 额外说明
+
+# 基本代码（basic_code_service.rs）
+basic-code-col-active = 资料有效
+region-report-title = 区域别
+region-col-code = 区域编号
+region-col-name = 区域名称
+country-report-title = 国别
+country-col-code = 国别编号
+country-col-name = 国别名称
+country-col-parent = 隶属区域
+area-report-title = 地区
+area-col-code = 地区编号
+area-col-name = 地区名称
+area-col-parent = 隶属国别
+shipping-method-report-title = 交运方式
+shipping-method-col-code = 交运方式
+shipping-method-col-name = 说明
+report-title-report-title = 报表抬头
+report-title-col-code = 抬头代码
+report-title-col-name = 抬头名称
+
+# 币别（currency_service.rs）
+currency-report-title = 币别
+currency-col-code = 币别
+currency-col-name = 说明
+currency-col-price-decimals = 单价小数位数
+currency-col-amount-decimals = 金额小数位数
+currency-col-total-decimals = 小计总计小数位数
+currency-col-rate-decimals = 汇率小数位数
+currency-col-rate-method = 计算方式
+currency-col-active = 资料有效
+currency-rate-multiply = 乘
+currency-rate-divide = 除
+
+# 稅別（tax_type_service.rs）
+tax-report-title = 税别
+tax-col-code = 税别码
+tax-col-name = 名称
+tax-col-direction = 进销项
+tax-col-account = 会计科目
+tax-col-account2 = 会计科目二
+tax-col-invoice-copies = 发票联数
+tax-col-class = 课税别
+tax-col-rate = 税率
+tax-col-include-tax = 单价含税否
+tax-col-filing-format = 申报格式
+tax-col-active = 资料有效
+tax-direction-1 = 进项
+tax-direction-2 = 销项
+tax-copies-0 = 园区收据
+tax-copies-2 = 二联
+tax-copies-3 = 三联
+tax-copies-4 = 收据
+tax-copies-x = 不申报
+tax-class-1 = 应税
+tax-class-2 = 零税率
+tax-class-3 = 免税
+
+# 專案（project_service.rs）
+project-report-title = 专案
+project-col-code = 专案编号
+project-col-name = 专案名称
+project-col-start = 起始日期
+project-col-end = 结束日期
+project-col-active = 资料有效

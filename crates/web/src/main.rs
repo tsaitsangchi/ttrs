@@ -14,8 +14,10 @@ use i18n::{UiLang, t};
 use pages::{
     aim::{ItemGroupMaintenance, ItemMaintenance},
     aoo::{
-        ClassificationCodeMaintenance, DepartmentMaintenance, EmployeeMaintenance,
-        PlantMaintenance, UnitMaintenance,
+        AreaMaintenance, ClassificationCodeMaintenance, CountryMaintenance, CurrencyMaintenance,
+        DepartmentMaintenance, EmployeeMaintenance, PlantMaintenance, ProjectMaintenance,
+        RegionMaintenance, ReportTitleMaintenance, ShippingMethodMaintenance, TaxTypeMaintenance,
+        UnitMaintenance,
     },
     axm::ProductClassificationMaintenance,
     azz::{
@@ -60,6 +62,30 @@ enum Route {
         /// Unit Maintenance 單位維護（TipTop aooi101）
         #[route("/aoo/unit-maintenance")]
         UnitMaintenance {},
+        /// 幣別維護（TipTop aooi050）
+        #[route("/aoo/currency-maintenance")]
+        CurrencyMaintenance {},
+        /// 稅別維護（TipTop aooi150）
+        #[route("/aoo/tax-type-maintenance")]
+        TaxTypeMaintenance {},
+        /// 專案維護（TipTop aooi200）
+        #[route("/aoo/project-maintenance")]
+        ProjectMaintenance {},
+        /// 區域別維護（TipTop aooi100）
+        #[route("/aoo/region-maintenance")]
+        RegionMaintenance {},
+        /// 國別維護（TipTop aooi090）
+        #[route("/aoo/country-maintenance")]
+        CountryMaintenance {},
+        /// 地區維護（TipTop aooi110）
+        #[route("/aoo/area-maintenance")]
+        AreaMaintenance {},
+        /// 交運方式維護（TipTop aooi160）
+        #[route("/aoo/shipping-method-maintenance")]
+        ShippingMethodMaintenance {},
+        /// 報表抬頭維護（TipTop aooi210）
+        #[route("/aoo/report-title-maintenance")]
+        ReportTitleMaintenance {},
         /// Product Classification Maintenance 產品分類維護（TipTop axmi110）
         #[route("/axm/product-classification-maintenance")]
         ProductClassificationMaintenance {},
@@ -166,6 +192,26 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
             Tone::Success,
         ),
         "unit-maintenance" => (Route::UnitMaintenance {}, icons::STRAIGHTEN, Tone::Success),
+        "currency-maintenance" => (
+            Route::CurrencyMaintenance {},
+            icons::PAYMENTS,
+            Tone::Success,
+        ),
+        "tax-type-maintenance" => (Route::TaxTypeMaintenance {}, icons::PERCENT, Tone::Success),
+        "project-maintenance" => (Route::ProjectMaintenance {}, icons::FOLDER, Tone::Success),
+        "region-maintenance" => (Route::RegionMaintenance {}, icons::PUBLIC, Tone::Success),
+        "country-maintenance" => (Route::CountryMaintenance {}, icons::FLAG, Tone::Success),
+        "area-maintenance" => (Route::AreaMaintenance {}, icons::PLACE, Tone::Success),
+        "shipping-method-maintenance" => (
+            Route::ShippingMethodMaintenance {},
+            icons::LOCAL_SHIPPING,
+            Tone::Success,
+        ),
+        "report-title-maintenance" => (
+            Route::ReportTitleMaintenance {},
+            icons::TITLE,
+            Tone::Success,
+        ),
         "product-classification-maintenance" => (
             Route::ProductClassificationMaintenance {},
             icons::LOCAL_OFFER,

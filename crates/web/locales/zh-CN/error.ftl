@@ -178,3 +178,66 @@ error-ITEM_QUANTITY_INVALID = 数量与天数不可小于 0。
 error-ITEM_STOCK_KEEPER_INVALID = 仓管员须为本营运中心有效的员工。
 error-ITEM_APPLY_DEPT_INVALID = 申请部门须为本营运中心有效的部门。
 error-ITEM_INACTIVE = 料件已无效，请先恢复。
+
+# 基本代碼：區域別、國別、地區、交運方式、報表抬頭（basic_code.rs）
+error-REGION_CODE_EMPTY = 区域代号不可空白。
+error-REGION_CODE_TOO_LONG = 区域代号过长。
+error-REGION_ALREADY_EXISTS = 区域已存在。
+error-REGION_NOT_FOUND = 区域不存在。
+error-REGION_INACTIVE = 区域已停用。
+error-REGION_IN_USE = 区域已被使用，不可删除；请改为停用。
+error-COUNTRY_CODE_EMPTY = 国别代号不可空白。
+error-COUNTRY_CODE_TOO_LONG = 国别代号过长。
+error-COUNTRY_ALREADY_EXISTS = 国别已存在。
+error-COUNTRY_NOT_FOUND = 国别不存在。
+error-COUNTRY_INACTIVE = 国别已停用。
+error-COUNTRY_IN_USE = 国别已被使用，不可删除；请改为停用。
+error-AREA_CODE_EMPTY = 地区代号不可空白。
+error-AREA_CODE_TOO_LONG = 地区代号过长。
+error-AREA_ALREADY_EXISTS = 地区已存在。
+error-AREA_NOT_FOUND = 地区不存在。
+error-AREA_INACTIVE = 地区已停用。
+error-AREA_IN_USE = 地区已被使用，不可删除；请改为停用。
+error-SHIPPING_METHOD_CODE_EMPTY = 交运方式代号不可空白。
+error-SHIPPING_METHOD_CODE_TOO_LONG = 交运方式代号过长。
+error-SHIPPING_METHOD_ALREADY_EXISTS = 交运方式已存在。
+error-SHIPPING_METHOD_NOT_FOUND = 交运方式不存在。
+error-SHIPPING_METHOD_INACTIVE = 交运方式已停用。
+error-SHIPPING_METHOD_IN_USE = 交运方式已被使用，不可删除；请改为停用。
+error-REPORT_TITLE_CODE_EMPTY = 报表抬头代号不可空白。
+error-REPORT_TITLE_CODE_TOO_LONG = 报表抬头代号过长。
+error-REPORT_TITLE_ALREADY_EXISTS = 报表抬头已存在。
+error-REPORT_TITLE_NOT_FOUND = 报表抬头不存在。
+error-REPORT_TITLE_INACTIVE = 报表抬头已停用。
+error-REPORT_TITLE_IN_USE = 报表抬头已被使用，不可删除；请改为停用。
+
+# 幣別（aooi050）
+error-CURRENCY_CODE_EMPTY = 币别不可空白。
+error-CURRENCY_CODE_TOO_LONG = 币别代码过长。
+error-CURRENCY_DECIMALS_INVALID = 小数位数超出范围（单价、金额、小计总计 0–6，汇率 0–10）。
+error-CURRENCY_RATE_METHOD_INVALID = 计算方式只能为 1（乘）或 2（除）。
+error-CURRENCY_ALREADY_EXISTS = 币别已存在。
+error-CURRENCY_NOT_FOUND = 币别不存在。
+error-CURRENCY_IN_USE = 币别已被使用，不可删除；请改为停用。
+
+# 稅別（aooi150）
+error-TAX_CODE_EMPTY = 税别码不可空白。
+error-TAX_CODE_TOO_LONG = 税别码过长。
+error-TAX_DIRECTION_INVALID = 进／销项只能为 1（进项）或 2（销项）。
+error-TAX_INVOICE_COPIES_INVALID = 发票联数只能为 0、2、3、4、X。
+error-TAX_CLASS_INVALID = 课税别只能为 1（应税）、2（零税率）、3（免税）。
+error-TAX_RATE_INVALID = 税率须在 0 到 100 之间，最多 4 位小数。
+error-TAX_ACCOUNT_REQUIRED = 税率不为 0 时会计科目必填。
+error-TAX_FILING_FORMAT_INVALID = 媒体申报格式不符合进销项（进项 21–29、销项 31–38，或 XX 不申报）。
+error-TAX_TWO_COPY_MUST_INCLUDE_TAX = 二联式发票的单价须含税（申报格式 28 除外）。
+error-TAX_TYPE_ALREADY_EXISTS = 税别已存在。
+error-TAX_TYPE_NOT_FOUND = 税别不存在。
+error-TAX_TYPE_IN_USE = 税别已被使用，不可删除；请改为停用。
+
+# 專案（aooi200）
+error-PROJECT_CODE_EMPTY = 专案编号不可空白。
+error-PROJECT_CODE_TOO_LONG = 专案编号过长。
+error-PROJECT_DATE_RANGE_INVALID = 专案结束日期不可早于起始日期。
+error-PROJECT_ALREADY_EXISTS = 专案已存在。
+error-PROJECT_NOT_FOUND = 专案不存在。
+error-PROJECT_IN_USE = 专案已被使用，不可删除；请改为停用。

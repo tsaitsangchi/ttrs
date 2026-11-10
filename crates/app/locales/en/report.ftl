@@ -114,3 +114,68 @@ dict-col-column = Column
 dict-col-type = Type
 dict-col-name = Name
 dict-col-extra = Extra
+
+# Basic codes (basic_code_service.rs)
+basic-code-col-active = Active
+region-report-title = Regions
+region-col-code = Region
+region-col-name = Region Name
+country-report-title = Countries
+country-col-code = Country
+country-col-name = Country Name
+country-col-parent = Region
+area-report-title = Areas
+area-col-code = Area
+area-col-name = Area Name
+area-col-parent = Country
+shipping-method-report-title = Shipping Methods
+shipping-method-col-code = Shipping Method
+shipping-method-col-name = Description
+report-title-report-title = Report Titles
+report-title-col-code = Title Code
+report-title-col-name = Title
+
+# Currencies (currency_service.rs)
+currency-report-title = Currencies
+currency-col-code = Currency
+currency-col-name = Description
+currency-col-price-decimals = Price Decimals
+currency-col-amount-decimals = Amount Decimals
+currency-col-total-decimals = Total Decimals
+currency-col-rate-decimals = Rate Decimals
+currency-col-rate-method = Calculation
+currency-col-active = Active
+currency-rate-multiply = Multiply
+currency-rate-divide = Divide
+
+# 稅別（tax_type_service.rs）
+tax-report-title = Tax Types
+tax-col-code = Tax Code
+tax-col-name = Name
+tax-col-direction = Purchase/Sales
+tax-col-account = Account
+tax-col-account2 = Account 2
+tax-col-invoice-copies = Invoice Copies
+tax-col-class = Tax Class
+tax-col-rate = Rate
+tax-col-include-tax = Price Includes Tax
+tax-col-filing-format = Filing Format
+tax-col-active = Active
+tax-direction-1 = Purchase
+tax-direction-2 = Sales
+tax-copies-0 = Science Park Receipt
+tax-copies-2 = Duplicate
+tax-copies-3 = Triplicate
+tax-copies-4 = Receipt
+tax-copies-x = Not Filed
+tax-class-1 = Taxable
+tax-class-2 = Zero-rated
+tax-class-3 = Exempt
+
+# 專案（project_service.rs）
+project-report-title = Projects
+project-col-code = Project
+project-col-name = Project Name
+project-col-start = Start Date
+project-col-end = End Date
+project-col-active = Active

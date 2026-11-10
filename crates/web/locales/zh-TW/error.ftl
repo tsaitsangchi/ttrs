@@ -178,3 +178,66 @@ error-ITEM_QUANTITY_INVALID = （使用伺服器訊息）
 error-ITEM_STOCK_KEEPER_INVALID = （使用伺服器訊息）
 error-ITEM_APPLY_DEPT_INVALID = （使用伺服器訊息）
 error-ITEM_INACTIVE = （使用伺服器訊息）
+
+# 基本代碼：區域別、國別、地區、交運方式、報表抬頭（basic_code.rs）
+error-REGION_CODE_EMPTY = （使用伺服器訊息）
+error-REGION_CODE_TOO_LONG = （使用伺服器訊息）
+error-REGION_ALREADY_EXISTS = （使用伺服器訊息）
+error-REGION_NOT_FOUND = （使用伺服器訊息）
+error-REGION_INACTIVE = （使用伺服器訊息）
+error-REGION_IN_USE = （使用伺服器訊息）
+error-COUNTRY_CODE_EMPTY = （使用伺服器訊息）
+error-COUNTRY_CODE_TOO_LONG = （使用伺服器訊息）
+error-COUNTRY_ALREADY_EXISTS = （使用伺服器訊息）
+error-COUNTRY_NOT_FOUND = （使用伺服器訊息）
+error-COUNTRY_INACTIVE = （使用伺服器訊息）
+error-COUNTRY_IN_USE = （使用伺服器訊息）
+error-AREA_CODE_EMPTY = （使用伺服器訊息）
+error-AREA_CODE_TOO_LONG = （使用伺服器訊息）
+error-AREA_ALREADY_EXISTS = （使用伺服器訊息）
+error-AREA_NOT_FOUND = （使用伺服器訊息）
+error-AREA_INACTIVE = （使用伺服器訊息）
+error-AREA_IN_USE = （使用伺服器訊息）
+error-SHIPPING_METHOD_CODE_EMPTY = （使用伺服器訊息）
+error-SHIPPING_METHOD_CODE_TOO_LONG = （使用伺服器訊息）
+error-SHIPPING_METHOD_ALREADY_EXISTS = （使用伺服器訊息）
+error-SHIPPING_METHOD_NOT_FOUND = （使用伺服器訊息）
+error-SHIPPING_METHOD_INACTIVE = （使用伺服器訊息）
+error-SHIPPING_METHOD_IN_USE = （使用伺服器訊息）
+error-REPORT_TITLE_CODE_EMPTY = （使用伺服器訊息）
+error-REPORT_TITLE_CODE_TOO_LONG = （使用伺服器訊息）
+error-REPORT_TITLE_ALREADY_EXISTS = （使用伺服器訊息）
+error-REPORT_TITLE_NOT_FOUND = （使用伺服器訊息）
+error-REPORT_TITLE_INACTIVE = （使用伺服器訊息）
+error-REPORT_TITLE_IN_USE = （使用伺服器訊息）
+
+# 幣別（aooi050）
+error-CURRENCY_CODE_EMPTY = （使用伺服器訊息）
+error-CURRENCY_CODE_TOO_LONG = （使用伺服器訊息）
+error-CURRENCY_DECIMALS_INVALID = （使用伺服器訊息）
+error-CURRENCY_RATE_METHOD_INVALID = （使用伺服器訊息）
+error-CURRENCY_ALREADY_EXISTS = （使用伺服器訊息）
+error-CURRENCY_NOT_FOUND = （使用伺服器訊息）
+error-CURRENCY_IN_USE = （使用伺服器訊息）
+
+# 稅別（aooi150）
+error-TAX_CODE_EMPTY = （使用伺服器訊息）
+error-TAX_CODE_TOO_LONG = （使用伺服器訊息）
+error-TAX_DIRECTION_INVALID = （使用伺服器訊息）
+error-TAX_INVOICE_COPIES_INVALID = （使用伺服器訊息）
+error-TAX_CLASS_INVALID = （使用伺服器訊息）
+error-TAX_RATE_INVALID = （使用伺服器訊息）
+error-TAX_ACCOUNT_REQUIRED = （使用伺服器訊息）
+error-TAX_FILING_FORMAT_INVALID = （使用伺服器訊息）
+error-TAX_TWO_COPY_MUST_INCLUDE_TAX = （使用伺服器訊息）
+error-TAX_TYPE_ALREADY_EXISTS = （使用伺服器訊息）
+error-TAX_TYPE_NOT_FOUND = （使用伺服器訊息）
+error-TAX_TYPE_IN_USE = （使用伺服器訊息）
+
+# 專案（aooi200）
+error-PROJECT_CODE_EMPTY = （使用伺服器訊息）
+error-PROJECT_CODE_TOO_LONG = （使用伺服器訊息）
+error-PROJECT_DATE_RANGE_INVALID = （使用伺服器訊息）
+error-PROJECT_ALREADY_EXISTS = （使用伺服器訊息）
+error-PROJECT_NOT_FOUND = （使用伺服器訊息）
+error-PROJECT_IN_USE = （使用伺服器訊息）

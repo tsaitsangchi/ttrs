@@ -1,9 +1,11 @@
 //! 應用層：協調 domain 與 repository，不含 SQL、不含 HTTP。
 
 pub mod authorization;
+pub mod basic_code_service;
 pub mod change_history_service;
 pub mod change_log;
 pub mod classification_code_service;
+pub mod currency_service;
 pub mod data_dictionary_service;
 pub mod department_service;
 pub mod emergency_service;
@@ -26,17 +28,21 @@ pub mod ports;
 pub mod product_class_service;
 pub mod program_query;
 pub mod program_service;
+pub mod project_service;
 pub mod query;
 pub mod report;
 pub mod services;
 pub mod sign_in_service;
+pub mod tax_type_service;
 pub mod unit_service;
 pub mod user_permission_service;
 pub mod user_service;
 
 pub use authorization::{Actor, ActorKind, Authorizer, PermissionAuthorizer};
+pub use basic_code_service::BasicCodeService;
 pub use change_history_service::ChangeHistoryService;
 pub use classification_code_service::ClassificationCodeService;
+pub use currency_service::CurrencyService;
 pub use data_dictionary_service::DataDictionaryService;
 pub use department_service::DepartmentService;
 pub use emergency_service::EmergencyService;
@@ -52,8 +58,10 @@ pub use permission_service::ProgramPermissionService;
 pub use plant_service::PlantService;
 pub use product_class_service::ProductClassService;
 pub use program_service::ProgramService;
+pub use project_service::ProjectService;
 pub use services::Services;
 pub use sign_in_service::SignInService;
+pub use tax_type_service::TaxTypeService;
 pub use unit_service::UnitService;
 pub use user_permission_service::UserPermissionService;
 pub use user_service::UserService;

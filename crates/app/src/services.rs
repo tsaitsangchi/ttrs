@@ -9,16 +9,18 @@ use crate::{
     PermissionAuthorizer, PermissionClassService, PlantService, ProgramPermissionService,
     ProgramService, SignInService, UserPermissionService, UserService,
     ports::{
-        AccountPolicyRepository, AuditLog, ChangeLogRepository, ClassificationCodeRepository,
-        CredentialRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
-        ItemGroupRepository, ItemRepository, LegacyCatalogRepository, MasterDataRepository,
-        MenuRepository, PasswordResetTokenRepository, PermissionClassRepository, PlantRepository,
-        ProductClassRepository, ProgramPermissionRepository, ProgramRepository, SchemaCatalog,
-        UnitRepository, UserPermissionRepository, UserRepository,
+        AccountPolicyRepository, AuditLog, BasicCodeRepository, ChangeLogRepository,
+        ClassificationCodeRepository, CredentialRepository, CurrencyRepository,
+        DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemGroupRepository,
+        ItemRepository, LegacyCatalogRepository, MasterDataRepository, MenuRepository,
+        PasswordResetTokenRepository, PermissionClassRepository, PlantRepository,
+        ProductClassRepository, ProgramPermissionRepository, ProgramRepository, ProjectRepository,
+        SchemaCatalog, TaxTypeRepository, UnitRepository, UserPermissionRepository, UserRepository,
     },
 };
 use crate::{
-    ChangeHistoryService, ItemGroupService, MenuService, ProductClassService, UnitService,
+    BasicCodeService, ChangeHistoryService, CurrencyService, ItemGroupService, MenuService,
+    ProductClassService, ProjectService, TaxTypeService, UnitService,
 };
 
 /// 實作全部 repository 的資料存取（ttrs_infra::PgStore、memory::InMemoryStore）
@@ -44,6 +46,10 @@ pub trait Store:
     + ChangeLogRepository
     + MenuRepository
     + UnitRepository
+    + BasicCodeRepository
+    + CurrencyRepository
+    + TaxTypeRepository
+    + ProjectRepository
     + ProductClassRepository
     + ItemGroupRepository
     + 'static
@@ -72,6 +78,10 @@ impl<T> Store for T where
         + ChangeLogRepository
         + MenuRepository
         + UnitRepository
+        + BasicCodeRepository
+        + CurrencyRepository
+        + TaxTypeRepository
+        + ProjectRepository
         + ProductClassRepository
         + ItemGroupRepository
         + 'static
@@ -104,6 +114,14 @@ pub struct Services {
     pub menus: MenuService,
     /// 單位維護（aooi101）
     pub units: UnitService,
+    /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210）
+    pub basic_codes: BasicCodeService,
+    /// 幣別維護（aooi050）
+    pub currencies: CurrencyService,
+    /// 稅別維護（aooi150）
+    pub taxes: TaxTypeService,
+    /// 專案維護（aooi200，工廠層）
+    pub projects: ProjectService,
     /// 產品分類維護（axmi110）
     pub product_classes: ProductClassService,
     /// 料件分群維護（aimi110）
@@ -212,6 +230,16 @@ impl Services {
             ),
             history: ChangeHistoryService::new(a.clone(), history.clone()),
             units: UnitService::new(a.clone(), store.clone(), reports.clone()),
+            basic_codes: BasicCodeService::new(a.clone(), store.clone(), reports.clone()),
+            currencies: CurrencyService::new(a.clone(), store.clone(), reports.clone()),
+            taxes: TaxTypeService::new(a.clone(), store.clone(), reports.clone()),
+            projects: ProjectService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                history.clone(),
+                reports.clone(),
+            ),
             product_classes: ProductClassService::new(
                 a.clone(),
                 store.clone(),

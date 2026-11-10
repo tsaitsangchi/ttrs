@@ -1,0 +1,27 @@
+# 币别维护（TipTop aooi050）
+currency-breadcrumb = 整体管理 / Currency Maintenance
+currency-title = 币别维护
+currency-list-title = 币别
+currency-field-code = 币别
+currency-field-name = 说明
+currency-field-price-decimals = 单价小数位数
+currency-field-amount-decimals = 金额小数位数
+currency-field-total-decimals = 小计总计小数位数
+currency-field-rate-decimals = 汇率小数位数
+currency-field-rate-method = 计算方式
+currency-rate-multiply = 乘
+currency-rate-divide = 除
+currency-action-activate = 启用
+currency-action-deactivate = 停用
+currency-dialog-new = 新增币别
+currency-dialog-edit = 修改币别 { $code }
+currency-msg-saved = 币别 { $code } 已保存
+currency-msg-deleted = 币别 { $code } 已删除
+currency-msg-activated = 币别 { $code } 已启用
+currency-msg-deactivated = 币别 { $code } 已停用
+currency-msg-confirmed = 已确认币别 { $code }
+currency-msg-unconfirmed = 已取消确认币别 { $code }
+currency-msg-copied = 已将币别 { $from } 复制为 { $to }
+currency-field-copy-as = 复制为
+currency-hint-decimals = 单价、金额、小计总计小数位数 0 到 6，汇率小数位数 0 到 10；币别建立后不可修改。
+currency-hint-rate-method = 1 乘、2 除

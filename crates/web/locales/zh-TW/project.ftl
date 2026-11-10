@@ -1,0 +1,21 @@
+# 專案維護（TipTop aooi200；specs/features/aoo/project_maintenance.feature）
+project-breadcrumb = 整體管理 / Project Maintenance
+project-title = 專案維護
+project-list-title = 專案
+project-field-code = 專案編號
+project-field-name = 專案名稱
+project-field-start = 起始日期
+project-field-end = 結束日期
+project-action-activate = 啟用
+project-action-deactivate = 失效
+project-dialog-new = 新增專案
+project-dialog-edit = 修改專案 { $code }
+project-msg-saved = 專案 { $code } 已儲存
+project-msg-deleted = 專案 { $code } 已刪除
+project-msg-activated = 專案 { $code } 已啟用
+project-msg-deactivated = 專案 { $code } 已失效
+project-msg-confirmed = 已確認專案 { $code }
+project-msg-unconfirmed = 已取消確認專案 { $code }
+project-msg-copied = 已將專案 { $from } 複製為 { $to }
+project-field-copy-as = 複製為
+project-hint-dates = 起始、結束日期可空白；兩者都有值時結束日期不可早於起始日期。專案編號建立後不可修改。

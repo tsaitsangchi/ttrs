@@ -1,0 +1,27 @@
+# Currency Maintenance (TipTop aooi050)
+currency-breadcrumb = General Management / Currency Maintenance
+currency-title = Currency Maintenance
+currency-list-title = Currencies
+currency-field-code = Currency
+currency-field-name = Description
+currency-field-price-decimals = Price Decimals
+currency-field-amount-decimals = Amount Decimals
+currency-field-total-decimals = Total Decimals
+currency-field-rate-decimals = Rate Decimals
+currency-field-rate-method = Calculation
+currency-rate-multiply = Multiply
+currency-rate-divide = Divide
+currency-action-activate = Activate
+currency-action-deactivate = Deactivate
+currency-dialog-new = New Currency
+currency-dialog-edit = Edit Currency { $code }
+currency-msg-saved = Currency { $code } saved
+currency-msg-deleted = Currency { $code } deleted
+currency-msg-activated = Currency { $code } activated
+currency-msg-deactivated = Currency { $code } deactivated
+currency-msg-confirmed = Currency { $code } confirmed
+currency-msg-unconfirmed = Currency { $code } unconfirmed
+currency-msg-copied = Copied currency { $from } to { $to }
+currency-field-copy-as = Copy as
+currency-hint-decimals = Price, amount and total decimals 0–6; rate decimals 0–10. The currency code cannot be changed after creation.
+currency-hint-rate-method = 1 multiply, 2 divide

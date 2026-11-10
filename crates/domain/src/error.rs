@@ -1,5 +1,18 @@
 use thiserror::Error;
 
+/// 基本代碼的錯誤代碼：種類前綴＋後綴（如 REGION_NOT_FOUND），皆為字面值
+macro_rules! kind_code {
+    ($kind:expr, $suffix:literal) => {
+        match $kind {
+            crate::basic_code::BasicCodeKind::Region => concat!("REGION", $suffix),
+            crate::basic_code::BasicCodeKind::Country => concat!("COUNTRY", $suffix),
+            crate::basic_code::BasicCodeKind::Area => concat!("AREA", $suffix),
+            crate::basic_code::BasicCodeKind::ShippingMethod => concat!("SHIPPING_METHOD", $suffix),
+            crate::basic_code::BasicCodeKind::ReportTitle => concat!("REPORT_TITLE", $suffix),
+        }
+    };
+}
+
 /// 業務規則違反。`code()` 是穩定代碼，BDD 與前端都依賴它，不可任意更名。
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum DomainError {
@@ -192,6 +205,79 @@ pub enum DomainError {
     MenuAlreadyHasItems,
     #[error("此目錄還有單身，請先移除它的單身")]
     MenuNotEmpty,
+
+    // 基本代碼（區域別、國別、地區、交運方式、報表抬頭；basic_code.rs）
+    #[error("{0}代號不可空白")]
+    BasicCodeEmpty(crate::basic_code::BasicCodeKind),
+    #[error("{kind}代號長度不可超過 {max} 碼")]
+    BasicCodeTooLong {
+        kind: crate::basic_code::BasicCodeKind,
+        max: usize,
+    },
+    #[error("{0}已存在")]
+    BasicCodeAlreadyExists(crate::basic_code::BasicCodeKind),
+    #[error("{0}不存在")]
+    BasicCodeNotFound(crate::basic_code::BasicCodeKind),
+    #[error("{0}已停用")]
+    BasicCodeInactive(crate::basic_code::BasicCodeKind),
+    #[error("{0}已被使用，不可刪除；請改為停用")]
+    BasicCodeInUse(crate::basic_code::BasicCodeKind),
+
+    // 專案（aooi200 / gja_file；project_maintenance.feature）
+    #[error("專案編號不可空白")]
+    ProjectCodeEmpty,
+    #[error("專案編號長度不可超過 {max} 碼")]
+    ProjectCodeTooLong { max: usize },
+    #[error("專案結束日期不可早於起始日期")]
+    ProjectDateRangeInvalid,
+    #[error("專案已存在")]
+    ProjectAlreadyExists,
+    #[error("專案不存在")]
+    ProjectNotFound,
+    #[error("專案已被使用，不可刪除；請改為停用")]
+    ProjectInUse,
+
+    // 稅別（aooi150 / gec_file；tax_type_maintenance.feature）
+    #[error("稅別碼不可空白")]
+    TaxCodeEmpty,
+    #[error("稅別碼長度不可超過 {max} 碼")]
+    TaxCodeTooLong { max: usize },
+    #[error("進／銷項只能為 1（進項）或 2（銷項）：{0}")]
+    TaxDirectionInvalid(String),
+    #[error("發票聯數只能為 0、2、3、4、X：{0}")]
+    TaxInvoiceCopiesInvalid(String),
+    #[error("課稅別只能為 1（應稅）、2（零稅率）、3（免稅）：{0}")]
+    TaxClassInvalid(String),
+    #[error("稅率須在 0 到 100 之間，最多 4 位小數")]
+    TaxRateInvalid,
+    #[error("稅率不為 0 時會計科目必填")]
+    TaxAccountRequired,
+    #[error("媒體申報格式不符合進銷項（進項 21–29、銷項 31–38，或 XX 不申報）：{0}")]
+    TaxFilingFormatInvalid(String),
+    #[error("二聯式發票的單價須含稅（申報格式 28 除外）")]
+    TaxTwoCopyMustIncludeTax,
+    #[error("稅別已存在")]
+    TaxTypeAlreadyExists,
+    #[error("稅別不存在")]
+    TaxTypeNotFound,
+    #[error("稅別已被使用，不可刪除；請改為停用")]
+    TaxTypeInUse,
+
+    // 幣別（aooi050 / azi_file；currency_maintenance.feature）
+    #[error("幣別不可空白")]
+    CurrencyCodeEmpty,
+    #[error("幣別長度不可超過 {max} 碼")]
+    CurrencyCodeTooLong { max: usize },
+    #[error("{field}須在 0 到 {max} 之間")]
+    CurrencyDecimalsInvalid { field: &'static str, max: i16 },
+    #[error("計算方式只能為 1（乘）或 2（除）：{0}")]
+    CurrencyRateMethodInvalid(String),
+    #[error("幣別已存在")]
+    CurrencyAlreadyExists,
+    #[error("幣別不存在")]
+    CurrencyNotFound,
+    #[error("幣別已被使用，不可刪除；請改為停用")]
+    CurrencyInUse,
 
     // 單位（aooi101 / gfe_file；unit_maintenance.feature）
     #[error("單位不可空白")]
@@ -493,6 +579,37 @@ impl DomainError {
             Self::MenuInUse => "MENU_IN_USE",
             Self::MenuAlreadyHasItems => "MENU_ALREADY_HAS_ITEMS",
             Self::MenuNotEmpty => "MENU_NOT_EMPTY",
+            Self::BasicCodeEmpty(k) => kind_code!(*k, "_CODE_EMPTY"),
+            Self::BasicCodeTooLong { kind, .. } => kind_code!(*kind, "_CODE_TOO_LONG"),
+            Self::BasicCodeAlreadyExists(k) => kind_code!(*k, "_ALREADY_EXISTS"),
+            Self::BasicCodeNotFound(k) => kind_code!(*k, "_NOT_FOUND"),
+            Self::BasicCodeInactive(k) => kind_code!(*k, "_INACTIVE"),
+            Self::BasicCodeInUse(k) => kind_code!(*k, "_IN_USE"),
+            Self::ProjectCodeEmpty => "PROJECT_CODE_EMPTY",
+            Self::ProjectCodeTooLong { .. } => "PROJECT_CODE_TOO_LONG",
+            Self::ProjectDateRangeInvalid => "PROJECT_DATE_RANGE_INVALID",
+            Self::ProjectAlreadyExists => "PROJECT_ALREADY_EXISTS",
+            Self::ProjectNotFound => "PROJECT_NOT_FOUND",
+            Self::ProjectInUse => "PROJECT_IN_USE",
+            Self::TaxCodeEmpty => "TAX_CODE_EMPTY",
+            Self::TaxCodeTooLong { .. } => "TAX_CODE_TOO_LONG",
+            Self::TaxDirectionInvalid(_) => "TAX_DIRECTION_INVALID",
+            Self::TaxInvoiceCopiesInvalid(_) => "TAX_INVOICE_COPIES_INVALID",
+            Self::TaxClassInvalid(_) => "TAX_CLASS_INVALID",
+            Self::TaxRateInvalid => "TAX_RATE_INVALID",
+            Self::TaxAccountRequired => "TAX_ACCOUNT_REQUIRED",
+            Self::TaxFilingFormatInvalid(_) => "TAX_FILING_FORMAT_INVALID",
+            Self::TaxTwoCopyMustIncludeTax => "TAX_TWO_COPY_MUST_INCLUDE_TAX",
+            Self::TaxTypeAlreadyExists => "TAX_TYPE_ALREADY_EXISTS",
+            Self::TaxTypeNotFound => "TAX_TYPE_NOT_FOUND",
+            Self::TaxTypeInUse => "TAX_TYPE_IN_USE",
+            Self::CurrencyCodeEmpty => "CURRENCY_CODE_EMPTY",
+            Self::CurrencyCodeTooLong { .. } => "CURRENCY_CODE_TOO_LONG",
+            Self::CurrencyDecimalsInvalid { .. } => "CURRENCY_DECIMALS_INVALID",
+            Self::CurrencyRateMethodInvalid(_) => "CURRENCY_RATE_METHOD_INVALID",
+            Self::CurrencyAlreadyExists => "CURRENCY_ALREADY_EXISTS",
+            Self::CurrencyNotFound => "CURRENCY_NOT_FOUND",
+            Self::CurrencyInUse => "CURRENCY_IN_USE",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",
             Self::UnitCodeTooLong { .. } => "UNIT_CODE_TOO_LONG",
             Self::UnitDecimalsInvalid { .. } => "UNIT_DECIMALS_INVALID",

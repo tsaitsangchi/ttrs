@@ -61,6 +61,14 @@ pub struct AppState {
     pub menus: ttrs_app::MenuService,
     /// 單位維護（aooi101；unit_maintenance.feature）
     pub units: ttrs_app::UnitService,
+    /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
+    pub basic_codes: ttrs_app::BasicCodeService,
+    /// 幣別維護（aooi050；共用）
+    pub currencies: ttrs_app::CurrencyService,
+    /// 稅別維護（aooi150；共用）
+    pub taxes: ttrs_app::TaxTypeService,
+    /// 專案維護（aooi200；工廠層）
+    pub projects: ttrs_app::ProjectService,
     /// 產品分類維護（axmi110；工廠層）
     pub product_classes: ttrs_app::ProductClassService,
     /// 料件分群維護（aimi110；工廠層）
@@ -127,6 +135,10 @@ impl AppState {
             history,
             menus,
             units,
+            basic_codes,
+            currencies,
+            taxes,
+            projects,
             product_classes,
             item_groups,
             authorizer,
@@ -149,6 +161,10 @@ impl AppState {
             history,
             menus,
             units,
+            basic_codes,
+            currencies,
+            taxes,
+            projects,
             product_classes,
             item_groups,
             authorizer,
@@ -359,6 +375,32 @@ pub fn router(state: AppState) -> Router {
             "/api/plants/{plant}/item-groups/{code}/{state}",
             post(set_item_group_active),
         )
+        // Project Maintenance 專案維護（TipTop aooi200；工廠層）
+        .route(
+            "/api/plants/{plant}/projects",
+            get(list_projects).post(create_project),
+        )
+        .route("/api/plants/{plant}/projects/query", post(query_projects))
+        .route(
+            "/api/plants/{plant}/projects/report.{format}",
+            get(project_report),
+        )
+        .route(
+            "/api/plants/{plant}/projects/{code}/copy",
+            post(copy_project),
+        )
+        .route(
+            "/api/plants/{plant}/projects/{code}",
+            get(get_project).put(update_project).delete(delete_project),
+        )
+        .route(
+            "/api/plants/{plant}/projects/{code}/history",
+            get(project_history),
+        )
+        .route(
+            "/api/plants/{plant}/projects/{code}/{state}",
+            post(set_project_state),
+        )
         // Product Classification 產品分類維護（TipTop axmi110；工廠層）
         .route(
             "/api/plants/{plant}/product-classes",
@@ -402,6 +444,60 @@ pub fn router(state: AppState) -> Router {
             get(get_unit).put(update_unit).delete(delete_unit),
         )
         .route("/api/units/{code}/{state}", post(set_unit_active))
+        // Tax Type Maintenance 稅別維護（TipTop aooi150；共用）：鍵值為稅別碼＋進銷項
+        .route("/api/tax-types", get(list_tax_types).post(create_tax_type))
+        .route("/api/tax-types/query", post(query_tax_types))
+        .route("/api/tax-types/report.{format}", get(tax_type_report))
+        .route(
+            "/api/tax-types/{code}/{direction}/copy",
+            post(copy_tax_type),
+        )
+        .route(
+            "/api/tax-types/{code}/{direction}",
+            get(get_tax_type)
+                .put(update_tax_type)
+                .delete(delete_tax_type),
+        )
+        .route(
+            "/api/tax-types/{code}/{direction}/{state}",
+            post(set_tax_type_state),
+        )
+        // Currency Maintenance 幣別維護（TipTop aooi050；共用）
+        .route(
+            "/api/currencies",
+            get(list_currencies).post(create_currency),
+        )
+        .route("/api/currencies/query", post(query_currencies))
+        .route("/api/currencies/report.{format}", get(currency_report))
+        .route("/api/currencies/{code}/copy", post(copy_currency))
+        .route(
+            "/api/currencies/{code}",
+            get(get_currency)
+                .put(update_currency)
+                .delete(delete_currency),
+        )
+        .route("/api/currencies/{code}/{state}", post(set_currency_state))
+        // 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
+        .route(
+            "/api/basic-codes/{kind}",
+            get(list_basic_codes).post(create_basic_code),
+        )
+        .route("/api/basic-codes/{kind}/query", post(query_basic_codes))
+        .route(
+            "/api/basic-codes/{kind}/report.{format}",
+            get(basic_code_report),
+        )
+        .route("/api/basic-codes/{kind}/{code}/copy", post(copy_basic_code))
+        .route(
+            "/api/basic-codes/{kind}/{code}",
+            get(get_basic_code)
+                .put(update_basic_code)
+                .delete(delete_basic_code),
+        )
+        .route(
+            "/api/basic-codes/{kind}/{code}/{state}",
+            post(set_basic_code_state),
+        )
         // Menu Maintenance 選單維護（TipTop p_zm）與側欄樹狀選單（cl_create_4sm）
         .route("/api/menus", get(list_menus))
         .route("/api/menus/tree", get(menu_tree))
@@ -1241,7 +1337,15 @@ impl IntoResponse for HttpError {
             | "CODE_NOT_FOUND"
             | "UNIT_NOT_FOUND"
             | "PRODUCT_CLASS_NOT_FOUND"
-            | "ITEM_GROUP_NOT_FOUND" => StatusCode::NOT_FOUND,
+            | "ITEM_GROUP_NOT_FOUND"
+            | "CURRENCY_NOT_FOUND"
+            | "TAX_TYPE_NOT_FOUND"
+            | "PROJECT_NOT_FOUND"
+            | "REGION_NOT_FOUND"
+            | "COUNTRY_NOT_FOUND"
+            | "AREA_NOT_FOUND"
+            | "SHIPPING_METHOD_NOT_FOUND"
+            | "REPORT_TITLE_NOT_FOUND" => StatusCode::NOT_FOUND,
             "PASSWORD_RESET_UNAVAILABLE" => StatusCode::SERVICE_UNAVAILABLE,
             "NOT_SIGNED_IN"
             | "SIGN_IN_FAILED"
@@ -1267,7 +1371,23 @@ impl IntoResponse for HttpError {
             | "PRODUCT_CLASS_ALREADY_EXISTS"
             | "PRODUCT_CLASS_IN_USE"
             | "ITEM_GROUP_ALREADY_EXISTS"
-            | "ITEM_GROUP_IN_USE" => StatusCode::CONFLICT,
+            | "ITEM_GROUP_IN_USE"
+            | "CURRENCY_ALREADY_EXISTS"
+            | "CURRENCY_IN_USE"
+            | "TAX_TYPE_ALREADY_EXISTS"
+            | "TAX_TYPE_IN_USE"
+            | "PROJECT_ALREADY_EXISTS"
+            | "PROJECT_IN_USE"
+            | "REGION_ALREADY_EXISTS"
+            | "REGION_IN_USE"
+            | "COUNTRY_ALREADY_EXISTS"
+            | "COUNTRY_IN_USE"
+            | "AREA_ALREADY_EXISTS"
+            | "AREA_IN_USE"
+            | "SHIPPING_METHOD_ALREADY_EXISTS"
+            | "SHIPPING_METHOD_IN_USE"
+            | "REPORT_TITLE_ALREADY_EXISTS"
+            | "REPORT_TITLE_IN_USE" => StatusCode::CONFLICT,
             "VERSION_REQUIRED" => StatusCode::BAD_REQUEST,
             "ITEM_ALREADY_EXISTS"
             | "ITEM_INVALID_TRANSITION"
@@ -2603,6 +2723,124 @@ async fn product_class_history(
     ))
 }
 
+// ----- Project Maintenance 專案維護（aooi200；工廠層） -----
+
+async fn list_projects(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+) -> ApiResult<Json<Vec<ttrs_shared::ProjectDto>>> {
+    let req = QueryRequest {
+        page_size: Some(u32::MAX),
+        ..Default::default()
+    };
+    Ok(Json(s.projects.query(&s.actor, &plant, req).await?.items))
+}
+
+async fn get_project(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+) -> ApiResult<Json<ttrs_shared::ProjectDto>> {
+    Ok(Json(s.projects.get(&s.actor, &plant, &code).await?))
+}
+
+async fn create_project(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<ttrs_shared::ProjectInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::ProjectDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.projects.create(&s.actor, &plant, req).await?),
+    ))
+}
+
+async fn update_project(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::ProjectInput>,
+) -> ApiResult<Json<ttrs_shared::ProjectDto>> {
+    require_version(req.version)?;
+    Ok(Json(s.projects.update(&s.actor, &plant, &code, req).await?))
+}
+
+async fn set_project_state(
+    Ctx(s): Ctx,
+    Path((plant, code, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let c = &s.projects;
+    let dto = match state.as_str() {
+        "activate" => c.set_active(&s.actor, &plant, &code, true, version).await?,
+        "deactivate" => {
+            c.set_active(&s.actor, &plant, &code, false, version)
+                .await?
+        }
+        // 確認／取消確認（ADR 0013 SA9）
+        "confirm" => c.confirm(&s.actor, &plant, &code, true, version).await?,
+        "unconfirm" => c.confirm(&s.actor, &plant, &code, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn query_projects(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::ProjectDto>>> {
+    Ok(Json(s.projects.query(&s.actor, &plant, req).await?))
+}
+
+async fn copy_project(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::ProjectDto>)> {
+    let c = s
+        .projects
+        .copy(&s.actor, &plant, &code, &req.new_code)
+        .await?;
+    Ok((StatusCode::CREATED, Json(c)))
+}
+
+async fn project_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .projects
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn delete_project(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.projects.delete(&s.actor, &plant, &code, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn project_history(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.projects
+            .history(&s.actor, &plant, &code, q.lang.as_deref())
+            .await?,
+    ))
+}
+
 // ----- Unit Maintenance 單位維護（aooi101） -----
 
 async fn list_units(Ctx(s): Ctx) -> ApiResult<Json<Vec<ttrs_shared::UnitDto>>> {
@@ -2689,6 +2927,336 @@ async fn delete_unit(
 ) -> ApiResult<StatusCode> {
     let version = Some(require_version(v.version)?);
     s.units.delete(&s.actor, &code, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- Tax Type Maintenance 稅別維護（aooi150） -----
+
+use ttrs_shared::{TaxTypeCopyRequest, TaxTypeDto, TaxTypeInput};
+
+async fn list_tax_types(Ctx(s): Ctx) -> ApiResult<Json<Vec<TaxTypeDto>>> {
+    let req = QueryRequest {
+        page_size: Some(u32::MAX),
+        ..Default::default()
+    };
+    Ok(Json(s.taxes.query(&s.actor, req).await?.items))
+}
+
+async fn get_tax_type(
+    Ctx(s): Ctx,
+    Path((code, direction)): Path<(String, String)>,
+) -> ApiResult<Json<TaxTypeDto>> {
+    Ok(Json(s.taxes.get(&s.actor, &code, &direction).await?))
+}
+
+async fn create_tax_type(
+    Ctx(s): Ctx,
+    Json(req): Json<TaxTypeInput>,
+) -> ApiResult<(StatusCode, Json<TaxTypeDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.taxes.create(&s.actor, req).await?),
+    ))
+}
+
+async fn update_tax_type(
+    Ctx(s): Ctx,
+    Path((code, direction)): Path<(String, String)>,
+    Json(req): Json<TaxTypeInput>,
+) -> ApiResult<Json<TaxTypeDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.taxes.update(&s.actor, &code, &direction, req).await?,
+    ))
+}
+
+/// 停用 deactivate、啟用 activate、確認 confirm、取消確認 unconfirm
+async fn set_tax_type_state(
+    Ctx(s): Ctx,
+    Path((code, direction, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let t = &s.taxes;
+    let a = &s.actor;
+    let dto = match state.as_str() {
+        "activate" => t.set_active(a, &code, &direction, true, version).await?,
+        "deactivate" => t.set_active(a, &code, &direction, false, version).await?,
+        "confirm" => t.confirm(a, &code, &direction, true, version).await?,
+        "unconfirm" => t.confirm(a, &code, &direction, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn query_tax_types(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<TaxTypeDto>>> {
+    Ok(Json(s.taxes.query(&s.actor, req).await?))
+}
+
+async fn copy_tax_type(
+    Ctx(s): Ctx,
+    Path((code, direction)): Path<(String, String)>,
+    Json(req): Json<TaxTypeCopyRequest>,
+) -> ApiResult<(StatusCode, Json<TaxTypeDto>)> {
+    let t = s
+        .taxes
+        .copy(
+            &s.actor,
+            &code,
+            &direction,
+            &req.new_code,
+            &req.new_direction,
+        )
+        .await?;
+    Ok((StatusCode::CREATED, Json(t)))
+}
+
+async fn tax_type_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .taxes
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn delete_tax_type(
+    Ctx(s): Ctx,
+    Path((code, direction)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.taxes.delete(&s.actor, &code, &direction, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- Currency Maintenance 幣別維護（aooi050） -----
+
+async fn list_currencies(Ctx(s): Ctx) -> ApiResult<Json<Vec<ttrs_shared::CurrencyDto>>> {
+    Ok(Json(s.currencies.list(&s.actor).await?))
+}
+
+async fn get_currency(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+) -> ApiResult<Json<ttrs_shared::CurrencyDto>> {
+    Ok(Json(s.currencies.get(&s.actor, &code).await?))
+}
+
+async fn create_currency(
+    Ctx(s): Ctx,
+    Json(req): Json<ttrs_shared::CurrencyInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::CurrencyDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.currencies.create(&s.actor, req).await?),
+    ))
+}
+
+async fn update_currency(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<ttrs_shared::CurrencyInput>,
+) -> ApiResult<Json<ttrs_shared::CurrencyDto>> {
+    require_version(req.version)?;
+    Ok(Json(s.currencies.update(&s.actor, &code, req).await?))
+}
+
+/// 停用（deactivate）、啟用（activate）
+async fn set_currency_state(
+    Ctx(s): Ctx,
+    Path((code, state)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let u = &s.currencies;
+    let dto = match state.as_str() {
+        "activate" => u.set_active(&s.actor, &code, true, version).await?,
+        "deactivate" => u.set_active(&s.actor, &code, false, version).await?,
+        // 確認／取消確認（ADR 0013 SA9）
+        "confirm" => u.confirm(&s.actor, &code, true, version).await?,
+        "unconfirm" => u.confirm(&s.actor, &code, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn query_currencies(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::CurrencyDto>>> {
+    Ok(Json(s.currencies.query(&s.actor, req).await?))
+}
+
+async fn copy_currency(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::CurrencyDto>)> {
+    let u = s.currencies.copy(&s.actor, &code, &req.new_code).await?;
+    Ok((StatusCode::CREATED, Json(u)))
+}
+
+async fn currency_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .units
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn delete_currency(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.currencies.delete(&s.actor, &code, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- 基本代碼：區域別 aooi100、國別 aooi090、地區 aooi110、交運方式 aooi160、報表抬頭 aooi210 -----
+
+use ttrs_domain::basic_code::BasicCodeKind;
+use ttrs_shared::{BasicCodeDto, BasicCodeInput};
+
+/// 路徑的種類（regions、countries…）；不認得視為沒有這支作業（404 PROGRAM_NOT_FOUND）
+fn basic_kind(slug: &str) -> Result<BasicCodeKind, HttpError> {
+    BasicCodeKind::from_slug(slug)
+        .ok_or_else(|| HttpError(ttrs_domain::DomainError::ProgramNotFound.into()))
+}
+
+async fn list_basic_codes(
+    Ctx(s): Ctx,
+    Path(kind): Path<String>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<BasicCodeDto>>> {
+    let kind = basic_kind(&kind)?;
+    Ok(Json(
+        s.basic_codes
+            .list(&s.actor, kind, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+async fn get_basic_code(
+    Ctx(s): Ctx,
+    Path((kind, code)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<BasicCodeDto>> {
+    let kind = basic_kind(&kind)?;
+    Ok(Json(
+        s.basic_codes
+            .get(&s.actor, kind, &code, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+async fn create_basic_code(
+    Ctx(s): Ctx,
+    Path(kind): Path<String>,
+    Json(req): Json<BasicCodeInput>,
+) -> ApiResult<(StatusCode, Json<BasicCodeDto>)> {
+    let kind = basic_kind(&kind)?;
+    Ok((
+        StatusCode::CREATED,
+        Json(s.basic_codes.create(&s.actor, kind, req).await?),
+    ))
+}
+
+async fn update_basic_code(
+    Ctx(s): Ctx,
+    Path((kind, code)): Path<(String, String)>,
+    Json(req): Json<BasicCodeInput>,
+) -> ApiResult<Json<BasicCodeDto>> {
+    let kind = basic_kind(&kind)?;
+    require_version(req.version)?;
+    Ok(Json(
+        s.basic_codes.update(&s.actor, kind, &code, req).await?,
+    ))
+}
+
+/// 停用 deactivate、啟用 activate、確認 confirm、取消確認 unconfirm
+async fn set_basic_code_state(
+    Ctx(s): Ctx,
+    Path((kind, code, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let kind = basic_kind(&kind)?;
+    let version = Some(require_version(v.version)?);
+    let b = &s.basic_codes;
+    let dto = match state.as_str() {
+        "activate" => b.set_active(&s.actor, kind, &code, true, version).await?,
+        "deactivate" => b.set_active(&s.actor, kind, &code, false, version).await?,
+        "confirm" => b.confirm(&s.actor, kind, &code, true, version).await?,
+        "unconfirm" => b.confirm(&s.actor, kind, &code, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn query_basic_codes(
+    Ctx(s): Ctx,
+    Path(kind): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<BasicCodeDto>>> {
+    let kind = basic_kind(&kind)?;
+    Ok(Json(s.basic_codes.query(&s.actor, kind, req).await?))
+}
+
+async fn copy_basic_code(
+    Ctx(s): Ctx,
+    Path((kind, code)): Path<(String, String)>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<BasicCodeDto>)> {
+    let kind = basic_kind(&kind)?;
+    let c = s
+        .basic_codes
+        .copy(&s.actor, kind, &code, &req.new_code)
+        .await?;
+    Ok((StatusCode::CREATED, Json(c)))
+}
+
+async fn basic_code_report(
+    Ctx(s): Ctx,
+    Path((kind, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let kind = basic_kind(&kind)?;
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .basic_codes
+        .report_in(&s.actor, kind, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn delete_basic_code(
+    Ctx(s): Ctx,
+    Path((kind, code)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let kind = basic_kind(&kind)?;
+    let version = Some(require_version(v.version)?);
+    s.basic_codes.delete(&s.actor, kind, &code, version).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

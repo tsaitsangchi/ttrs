@@ -1,0 +1,21 @@
+# Project Maintenance (TipTop aooi200)
+project-breadcrumb = General Management / Project Maintenance
+project-title = Project Maintenance
+project-list-title = Projects
+project-field-code = Project
+project-field-name = Project Name
+project-field-start = Start Date
+project-field-end = End Date
+project-action-activate = Activate
+project-action-deactivate = Invalidate
+project-dialog-new = New Project
+project-dialog-edit = Edit Project { $code }
+project-msg-saved = Project { $code } saved
+project-msg-deleted = Project { $code } deleted
+project-msg-activated = Project { $code } activated
+project-msg-deactivated = Project { $code } invalidated
+project-msg-confirmed = Project { $code } confirmed
+project-msg-unconfirmed = Project { $code } unconfirmed
+project-msg-copied = Copied project { $from } to { $to }
+project-field-copy-as = Copy as
+project-hint-dates = Start and end dates are optional; when both are set the end date cannot be earlier than the start date. The project code cannot be changed after creation.

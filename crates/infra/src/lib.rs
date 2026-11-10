@@ -3,9 +3,11 @@
 //! 資料庫環境就緒後改用 `sqlx::query!` 搭配 `cargo sqlx prepare` 做編譯期檢查。
 
 pub mod pg;
+mod pg_basic_code;
 mod pg_change_log;
 mod pg_classification;
 mod pg_credential;
+mod pg_currency;
 mod pg_department;
 mod pg_dictionary;
 mod pg_item;
@@ -18,6 +20,8 @@ mod pg_permission_class;
 mod pg_plant;
 mod pg_product_class;
 mod pg_program;
+mod pg_project;
+mod pg_tax_type;
 mod pg_unit;
 mod pg_user;
 mod pg_user_permission;

@@ -39,6 +39,22 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
     ("plant-maintenance", &["plant"], "plant_id"),
     ("menu-maintenance", &["menu_item"], "menu_no"),
     ("unit-maintenance", &["unit"], "unit_code"),
+    ("currency-maintenance", &["currency"], "currency_code"),
+    // 稅別以稅別碼查詢（進項與銷項一併列出）
+    ("tax-type-maintenance", &["tax_type"], "tax_code"),
+    ("region-maintenance", &["region"], "region_code"),
+    ("country-maintenance", &["country"], "country_code"),
+    ("area-maintenance", &["area"], "area_code"),
+    (
+        "shipping-method-maintenance",
+        &["shipping_method"],
+        "method_code",
+    ),
+    (
+        "report-title-maintenance",
+        &["report_title", "report_title_text"],
+        "title_code",
+    ),
     (
         "data-dictionary",
         &[

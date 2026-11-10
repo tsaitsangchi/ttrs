@@ -1033,6 +1033,230 @@ pub mod unit {
     }
 }
 
+/// 專案維護（aooi200.4gl:103 CONSTRUCT gja01–gja04、gjauser、gjagrup、gjamodu、gjadate、gjaacti；ADR 0013 SA1）
+pub mod project {
+    use ttrs_domain::{project::Project, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("project_code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("start_on", FieldType::Date),
+        field("end_on", FieldType::Date),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(x: &Project, field: &str) -> FieldValue {
+        let a = &x.attrs;
+        match field {
+            "project_code" => text(x.code.as_str()),
+            "name" => opt_text(a.name.as_deref()),
+            "start_on" => date(a.start_on),
+            "end_on" => date(a.end_on),
+            other => confirm_value(other, &x.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(x.active),
+                        &x.created_by,
+                        &x.created_dept,
+                        Some(x.created_on),
+                        x.updated_by.as_deref(),
+                        x.updated_on,
+                        x.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
+/// 稅別維護（aooi150.4gl:617 CONSTRUCT gec01、gec02、gec011、gec03、gec031、gec05、gec06、gec04、gec07、gec08、gecacti）
+pub mod tax_type {
+    use ttrs_domain::{qbe::FieldType, tax_type::TaxType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("tax_code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("direction", FieldType::Text),
+        field("account", FieldType::Text),
+        field("account2", FieldType::Text),
+        field("invoice_copies", FieldType::Text),
+        field("tax_class", FieldType::Text),
+        field("rate", FieldType::Decimal),
+        field("include_tax", FieldType::Flag),
+        field("filing_format", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(t: &TaxType, field: &str) -> FieldValue {
+        let a = &t.attrs;
+        match field {
+            "tax_code" => text(t.key.code.as_str()),
+            "direction" => text(t.key.direction.code()),
+            "name" => opt_text(a.name.as_deref()),
+            "account" => opt_text(a.account.as_deref()),
+            "account2" => opt_text(a.account2.as_deref()),
+            "invoice_copies" => opt_text(a.invoice_copies.map(|c| c.code())),
+            "tax_class" => opt_text(a.tax_class.map(|c| c.code())),
+            "rate" => opt_dec(Some(a.rate)),
+            "include_tax" => flag(a.include_tax),
+            "filing_format" => text(&a.filing_format),
+            other => confirm_value(other, &t.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(t.active),
+                        &t.created_by,
+                        &t.created_dept,
+                        Some(t.created_on),
+                        t.updated_by.as_deref(),
+                        t.updated_on,
+                        t.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
+/// 幣別維護（aooi050.4gl:395 CONSTRUCT azi01、azi02、azi03、azi04、azi05、azi07、azi10、aziacti；ADR 0013 SA1）
+pub mod currency {
+    use ttrs_domain::{currency::Currency, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("currency_code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("price_decimals", FieldType::Integer),
+        field("amount_decimals", FieldType::Integer),
+        field("total_decimals", FieldType::Integer),
+        field("rate_decimals", FieldType::Integer),
+        field("rate_method", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(c: &Currency, field: &str) -> FieldValue {
+        let a = &c.attrs;
+        match field {
+            "currency_code" => text(c.code.as_str()),
+            "name" => opt_text(a.name.as_deref()),
+            "price_decimals" => int(i32::from(a.price_decimals)),
+            "amount_decimals" => int(i32::from(a.amount_decimals)),
+            "total_decimals" => int(i32::from(a.total_decimals)),
+            "rate_decimals" => int(i32::from(a.rate_decimals)),
+            "rate_method" => text(a.rate_method.code()),
+            other => confirm_value(other, &c.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(c.active),
+                        &c.created_by,
+                        &c.created_dept,
+                        Some(c.created_on),
+                        c.updated_by.as_deref(),
+                        c.updated_on,
+                        c.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
+/// 基本代碼（區域別 aooi100:353、國別 aooi090:419、地區 aooi110:399、交運方式 aooi160:355、報表抬頭 aooi210:118
+/// 的 CONSTRUCT；ADR 0013 SA1 擴及狀態欄位）。欄位：代號 code、名稱 name、隸屬 parent
+pub mod basic_code {
+    use ttrs_domain::{basic_code::BasicCode, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("parent", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(c: &BasicCode, field: &str) -> FieldValue {
+        match field {
+            "code" => text(c.code.as_str()),
+            "name" => opt_text(c.attrs.name.as_deref()),
+            "parent" => opt_text(c.attrs.parent.as_deref()),
+            other => confirm_value(other, &c.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(c.active),
+                        &c.created_by,
+                        &c.created_dept,
+                        Some(c.created_on),
+                        c.updated_by.as_deref(),
+                        c.updated_on,
+                        c.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
 /// 產品分類維護（axmi110.4gl:477-541 CONSTRUCT oba01、oba02、oba10、oba11、oba111；ADR 0013 SA1 擴及全部欄位）
 pub mod product_class {
     use ttrs_domain::{product_class::ProductClass, qbe::FieldType};

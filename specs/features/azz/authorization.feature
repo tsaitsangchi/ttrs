@@ -414,6 +414,94 @@
       | unit-maintenance | output                     | 列印單位                   |
       | unit-maintenance | exporttoexcel              | 匯出單位為 Excel           |
       | unit-maintenance | history                    | 查詢作業 unit-maintenance KG 的異動記錄 |
+      | project-maintenance | query | 查詢專案 |
+      | project-maintenance | insert | 新增專案 P1 |
+      | project-maintenance | modify | 修改專案 P1 |
+      | project-maintenance | invalid | 停用專案 P1 |
+      | project-maintenance | delete | 刪除專案 P1 |
+      | project-maintenance | reproduce | 複製專案 P1 |
+      | project-maintenance | confirm | 確認專案 P1 |
+      | project-maintenance | notconfirm | 取消確認專案 P1 |
+      | project-maintenance | output | 列印專案 |
+      | project-maintenance | exporttoexcel | 匯出專案為 Excel |
+      | project-maintenance | history | 查詢專案 P1 的異動記錄 |
+      | tax-type-maintenance | query | 查詢稅別 |
+      | tax-type-maintenance | detail | 新增稅別 T5 |
+      | tax-type-maintenance | detail | 修改稅別 T5 |
+      | tax-type-maintenance | detail | 停用稅別 T5 |
+      | tax-type-maintenance | detail | 刪除稅別 T5 |
+      | tax-type-maintenance | reproduce | 複製稅別 T5 |
+      | tax-type-maintenance | confirm | 確認稅別 T5 |
+      | tax-type-maintenance | notconfirm | 取消確認稅別 T5 |
+      | tax-type-maintenance | output | 列印稅別 |
+      | tax-type-maintenance | exporttoexcel | 匯出稅別為 Excel |
+      | tax-type-maintenance | history | 查詢作業 tax-type-maintenance T5 的異動記錄 |
+      | currency-maintenance | query | 查詢幣別 |
+      | currency-maintenance | detail | 新增幣別 USD |
+      | currency-maintenance | detail | 修改幣別 USD |
+      | currency-maintenance | detail | 停用幣別 USD |
+      | currency-maintenance | detail | 刪除幣別 USD |
+      | currency-maintenance | reproduce | 複製幣別 USD |
+      | currency-maintenance | confirm | 確認幣別 USD |
+      | currency-maintenance | notconfirm | 取消確認幣別 USD |
+      | currency-maintenance | output | 列印幣別 |
+      | currency-maintenance | exporttoexcel | 匯出幣別為 Excel |
+      | currency-maintenance | history | 查詢作業 currency-maintenance USD 的異動記錄 |
+      | region-maintenance | query | 查詢區域 |
+      | region-maintenance | detail | 新增區域 AS |
+      | region-maintenance | detail | 修改區域 AS |
+      | region-maintenance | detail | 停用區域 AS |
+      | region-maintenance | detail | 刪除區域 AS |
+      | region-maintenance | reproduce | 複製區域 AS |
+      | region-maintenance | confirm | 確認區域 AS |
+      | region-maintenance | notconfirm | 取消確認區域 AS |
+      | region-maintenance | output | 列印區域 |
+      | region-maintenance | exporttoexcel | 匯出區域為 Excel |
+      | region-maintenance | history | 查詢作業 region-maintenance AS 的異動記錄 |
+      | country-maintenance | query | 查詢國別 |
+      | country-maintenance | detail | 新增國別 TW |
+      | country-maintenance | detail | 修改國別 TW |
+      | country-maintenance | detail | 停用國別 TW |
+      | country-maintenance | detail | 刪除國別 TW |
+      | country-maintenance | reproduce | 複製國別 TW |
+      | country-maintenance | confirm | 確認國別 TW |
+      | country-maintenance | notconfirm | 取消確認國別 TW |
+      | country-maintenance | output | 列印國別 |
+      | country-maintenance | exporttoexcel | 匯出國別為 Excel |
+      | country-maintenance | history | 查詢作業 country-maintenance TW 的異動記錄 |
+      | area-maintenance | query | 查詢地區 |
+      | area-maintenance | detail | 新增地區 TPE |
+      | area-maintenance | detail | 修改地區 TPE |
+      | area-maintenance | detail | 停用地區 TPE |
+      | area-maintenance | detail | 刪除地區 TPE |
+      | area-maintenance | reproduce | 複製地區 TPE |
+      | area-maintenance | confirm | 確認地區 TPE |
+      | area-maintenance | notconfirm | 取消確認地區 TPE |
+      | area-maintenance | output | 列印地區 |
+      | area-maintenance | exporttoexcel | 匯出地區為 Excel |
+      | area-maintenance | history | 查詢作業 area-maintenance TPE 的異動記錄 |
+      | shipping-method-maintenance | query | 查詢交運方式 |
+      | shipping-method-maintenance | detail | 新增交運方式 AIR |
+      | shipping-method-maintenance | detail | 修改交運方式 AIR |
+      | shipping-method-maintenance | detail | 停用交運方式 AIR |
+      | shipping-method-maintenance | detail | 刪除交運方式 AIR |
+      | shipping-method-maintenance | reproduce | 複製交運方式 AIR |
+      | shipping-method-maintenance | confirm | 確認交運方式 AIR |
+      | shipping-method-maintenance | notconfirm | 取消確認交運方式 AIR |
+      | shipping-method-maintenance | output | 列印交運方式 |
+      | shipping-method-maintenance | exporttoexcel | 匯出交運方式為 Excel |
+      | shipping-method-maintenance | history | 查詢作業 shipping-method-maintenance AIR 的異動記錄 |
+      | report-title-maintenance | query | 查詢報表抬頭 |
+      | report-title-maintenance | detail | 新增報表抬頭 BS |
+      | report-title-maintenance | detail | 修改報表抬頭 BS |
+      | report-title-maintenance | detail | 停用報表抬頭 BS |
+      | report-title-maintenance | detail | 刪除報表抬頭 BS |
+      | report-title-maintenance | reproduce | 複製報表抬頭 BS |
+      | report-title-maintenance | confirm | 確認報表抬頭 BS |
+      | report-title-maintenance | notconfirm | 取消確認報表抬頭 BS |
+      | report-title-maintenance | output | 列印報表抬頭 |
+      | report-title-maintenance | exporttoexcel | 匯出報表抬頭為 Excel |
+      | report-title-maintenance | history | 查詢作業 report-title-maintenance BS 的異動記錄 |
       | product-classification-maintenance | query    | 查詢產品分類               |
       | product-classification-maintenance | detail   | 新增產品分類 P01           |
       | product-classification-maintenance | detail   | 修改產品分類 P01           |

@@ -1,0 +1,21 @@
+# 专案维护（TipTop aooi200）
+project-breadcrumb = 整体管理 / Project Maintenance
+project-title = 专案维护
+project-list-title = 专案
+project-field-code = 专案编号
+project-field-name = 专案名称
+project-field-start = 起始日期
+project-field-end = 结束日期
+project-action-activate = 启用
+project-action-deactivate = 失效
+project-dialog-new = 新增专案
+project-dialog-edit = 修改专案 { $code }
+project-msg-saved = 专案 { $code } 已保存
+project-msg-deleted = 专案 { $code } 已删除
+project-msg-activated = 专案 { $code } 已启用
+project-msg-deactivated = 专案 { $code } 已失效
+project-msg-confirmed = 已确认专案 { $code }
+project-msg-unconfirmed = 已取消确认专案 { $code }
+project-msg-copied = 已将专案 { $from } 复制为 { $to }
+project-field-copy-as = 复制为
+project-hint-dates = 起始、结束日期可空白；两者都有值时结束日期不可早于起始日期。专案编号建立后不可修改。

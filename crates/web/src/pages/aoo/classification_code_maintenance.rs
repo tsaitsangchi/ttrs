@@ -27,12 +27,18 @@ use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{t, tf};
 
 /// 碼類別（CC2：料件用到的類別）：（代碼, 翻譯 ID）
-const KINDS: [(&str, &str); 5] = [
+const KINDS: [(&str, &str); 10] = [
     ("8", "code-kind-8"),
     ("D", "code-kind-d"),
     ("E", "code-kind-e"),
     ("F", "code-kind-f"),
     ("G", "code-kind-g"),
+    // 客製 aooi080 的其他類別（classification_code_other_kinds.feature OC1）
+    ("2", "code-kind-2"),
+    ("6", "code-kind-6"),
+    ("A", "code-kind-a"),
+    ("R", "code-kind-r"),
+    ("S", "code-kind-s"),
 ];
 
 fn opt(v: String) -> Option<String> {

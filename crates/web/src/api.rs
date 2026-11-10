@@ -1920,3 +1920,379 @@ pub async fn item_group_history(
     ))
     .await
 }
+
+// ----- 基本代碼：區域別、國別、地區、交運方式、報表抬頭（/api/basic-codes/{kind}） -----
+
+use ttrs_shared::{BasicCodeDto, BasicCodeInput, BasicCodeKindDto};
+
+/// 基本代碼的 API 路徑前綴（列印、匯出也用它）
+pub fn basic_code_path(kind: BasicCodeKindDto) -> String {
+    format!("/api/basic-codes/{}", kind.slug())
+}
+
+fn basic_code_url(kind: BasicCodeKindDto, code: &str, suffix: &str) -> String {
+    let base = basic_code_path(kind);
+    if code.is_empty() {
+        url(&format!("{base}{suffix}"))
+    } else {
+        url(&format!("{base}/{}{suffix}", urlencoding(code)))
+    }
+}
+
+/// QBE 查詢（ADR 0013 SA1）；名稱依 req.lang 顯示
+pub async fn query_basic_codes(
+    kind: BasicCodeKindDto,
+    req: &QueryRequest,
+) -> Result<Page<BasicCodeDto>, String> {
+    post_query(basic_code_url(kind, "", "/query"), req).await
+}
+
+/// 全部代碼（隸屬欄位的下拉選單）
+pub async fn list_basic_codes(
+    kind: BasicCodeKindDto,
+    lang: &str,
+) -> Result<Vec<BasicCodeDto>, String> {
+    get_json(format!("{}?lang={lang}", basic_code_url(kind, "", ""))).await
+}
+
+pub async fn create_basic_code(
+    kind: BasicCodeKindDto,
+    req: &BasicCodeInput,
+) -> Result<BasicCodeDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        basic_code_url(kind, "", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_basic_code(
+    kind: BasicCodeKindDto,
+    code: &str,
+    req: &BasicCodeInput,
+) -> Result<BasicCodeDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        basic_code_url(kind, code, ""),
+        Some(req),
+    )
+    .await
+}
+
+/// 停用 deactivate、啟用 activate、確認 confirm、取消確認 unconfirm
+pub async fn set_basic_code_state(
+    kind: BasicCodeKindDto,
+    code: &str,
+    state: &str,
+    version: i32,
+) -> Result<BasicCodeDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            basic_code_url(kind, code, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+/// 複製（ADR 0013 SA5）
+pub async fn copy_basic_code(
+    kind: BasicCodeKindDto,
+    code: &str,
+    new_code: &str,
+) -> Result<BasicCodeDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        basic_code_url(kind, code, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+pub async fn delete_basic_code(
+    kind: BasicCodeKindDto,
+    code: &str,
+    version: i32,
+) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            basic_code_url(kind, code, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+// ----- 幣別維護（aooi050；/api/currencies） -----
+
+fn currency_url(code: &str, suffix: &str) -> String {
+    if code.is_empty() {
+        url(&format!("/api/currencies{suffix}"))
+    } else {
+        url(&format!("/api/currencies/{}{suffix}", urlencoding(code)))
+    }
+}
+
+/// QBE 查詢（ADR 0013 SA1）
+pub async fn query_currencies(
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::CurrencyDto>, String> {
+    post_query(currency_url("", "/query"), req).await
+}
+
+/// 複製（ADR 0013 SA5）
+pub async fn copy_currency(code: &str, new_code: &str) -> Result<ttrs_shared::CurrencyDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        currency_url(code, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+/// 確認或取消確認（ADR 0013 SA9）
+pub async fn confirm_currency(
+    code: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<ttrs_shared::CurrencyDto, String> {
+    let suffix = if confirm { "/confirm" } else { "/unconfirm" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!("{}?version={version}", currency_url(code, suffix)),
+        None,
+    )
+    .await
+}
+
+pub async fn create_currency(
+    req: &ttrs_shared::CurrencyInput,
+) -> Result<ttrs_shared::CurrencyDto, String> {
+    send_json(reqwest::Method::POST, currency_url("", ""), Some(req)).await
+}
+
+pub async fn update_currency(
+    code: &str,
+    req: &ttrs_shared::CurrencyInput,
+) -> Result<ttrs_shared::CurrencyDto, String> {
+    send_json(reqwest::Method::PUT, currency_url(code, ""), Some(req)).await
+}
+
+pub async fn set_currency_active(
+    code: &str,
+    active: bool,
+    version: i32,
+) -> Result<ttrs_shared::CurrencyDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!("{}?version={version}", currency_url(code, suffix)),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_currency(code: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!("{}?version={version}", currency_url(code, "")))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+// ----- 稅別維護（aooi150；/api/tax-types/{稅別碼}/{進銷項}） -----
+
+use ttrs_shared::{TaxTypeDto, TaxTypeInput};
+
+fn tax_type_url(code: &str, direction: &str, suffix: &str) -> String {
+    if code.is_empty() {
+        url(&format!("/api/tax-types{suffix}"))
+    } else {
+        url(&format!(
+            "/api/tax-types/{}/{}{suffix}",
+            urlencoding(code),
+            urlencoding(direction)
+        ))
+    }
+}
+
+/// QBE 查詢（ADR 0013 SA1）
+pub async fn query_tax_types(req: &QueryRequest) -> Result<Page<TaxTypeDto>, String> {
+    post_query(tax_type_url("", "", "/query"), req).await
+}
+
+pub async fn create_tax_type(req: &TaxTypeInput) -> Result<TaxTypeDto, String> {
+    send_json(reqwest::Method::POST, tax_type_url("", "", ""), Some(req)).await
+}
+
+/// 修改；`key` 為畫面選取的「稅別碼 進銷項」（TaxTypeDto::key）
+pub async fn update_tax_type(key: &str, req: &TaxTypeInput) -> Result<TaxTypeDto, String> {
+    let (code, direction) = key.split_once(' ').unwrap_or((key, ""));
+    send_json(
+        reqwest::Method::PUT,
+        tax_type_url(code, direction, ""),
+        Some(req),
+    )
+    .await
+}
+
+/// 複製（ADR 0013 SA5）：新稅別碼與進銷項
+pub async fn copy_tax_type(
+    code: &str,
+    direction: &str,
+    new_code: &str,
+    new_direction: &str,
+) -> Result<TaxTypeDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        tax_type_url(code, direction, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code, "new_direction": new_direction })),
+    )
+    .await
+}
+
+async fn tax_type_state(
+    code: &str,
+    direction: &str,
+    state: &str,
+    version: i32,
+) -> Result<TaxTypeDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            tax_type_url(code, direction, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+/// 確認或取消確認（ADR 0013 SA9）
+pub async fn confirm_tax_type(
+    code: &str,
+    direction: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<TaxTypeDto, String> {
+    let state = if confirm { "confirm" } else { "unconfirm" };
+    tax_type_state(code, direction, state, version).await
+}
+
+pub async fn set_tax_type_active(
+    code: &str,
+    direction: &str,
+    active: bool,
+    version: i32,
+) -> Result<TaxTypeDto, String> {
+    let state = if active { "activate" } else { "deactivate" };
+    tax_type_state(code, direction, state, version).await
+}
+
+pub async fn delete_tax_type(code: &str, direction: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            tax_type_url(code, direction, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+// ----- 專案維護（aooi200；工廠層 /api/plants/{plant}/projects） -----
+
+use ttrs_shared::{ProjectDto, ProjectInput};
+
+/// QBE 查詢（ADR 0013 SA1）
+pub async fn query_projects(plant: &str, req: &QueryRequest) -> Result<Page<ProjectDto>, String> {
+    post_query(plant_part_url(plant, "projects", "query", ""), req).await
+}
+
+pub async fn create_project(plant: &str, req: &ProjectInput) -> Result<ProjectDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "projects", "", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_project(
+    plant: &str,
+    code: &str,
+    req: &ProjectInput,
+) -> Result<ProjectDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        plant_part_url(plant, "projects", code, ""),
+        Some(req),
+    )
+    .await
+}
+
+/// 複製 reproduce
+pub async fn copy_project(plant: &str, code: &str, new_code: &str) -> Result<ProjectDto, String> {
+    copy_plant_part(plant, "projects", code, new_code).await
+}
+
+/// 確認或取消確認（ADR 0013 SA9）
+pub async fn confirm_project(
+    plant: &str,
+    code: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<ProjectDto, String> {
+    confirm_plant_part(plant, "projects", code, confirm, version).await
+}
+
+/// 失效切換 invalid
+pub async fn set_project_active(
+    plant: &str,
+    code: &str,
+    active: bool,
+    version: i32,
+) -> Result<ProjectDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "projects", code, suffix)
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_project(plant: &str, code: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            plant_part_url(plant, "projects", code, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 異動記錄（ADR 0012 §8）
+pub async fn project_history(
+    plant: &str,
+    code: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!(
+        "{}?lang={lang}",
+        plant_part_url(plant, "projects", code, "/history")
+    ))
+    .await
+}

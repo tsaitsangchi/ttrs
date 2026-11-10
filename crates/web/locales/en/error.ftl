@@ -178,3 +178,66 @@ error-ITEM_QUANTITY_INVALID = Quantities and days cannot be less than 0.
 error-ITEM_STOCK_KEEPER_INVALID = The stock keeper must be an active employee of this plant.
 error-ITEM_APPLY_DEPT_INVALID = The applying department must be an active department of this plant.
 error-ITEM_INACTIVE = The item is invalid. Restore it first.
+
+# 基本代碼：區域別、國別、地區、交運方式、報表抬頭（basic_code.rs）
+error-REGION_CODE_EMPTY = Region code is required.
+error-REGION_CODE_TOO_LONG = The region code is too long.
+error-REGION_ALREADY_EXISTS = Region already exists.
+error-REGION_NOT_FOUND = Region not found.
+error-REGION_INACTIVE = Region is inactive.
+error-REGION_IN_USE = Region is in use and cannot be deleted; deactivate it instead.
+error-COUNTRY_CODE_EMPTY = Country code is required.
+error-COUNTRY_CODE_TOO_LONG = The country code is too long.
+error-COUNTRY_ALREADY_EXISTS = Country already exists.
+error-COUNTRY_NOT_FOUND = Country not found.
+error-COUNTRY_INACTIVE = Country is inactive.
+error-COUNTRY_IN_USE = Country is in use and cannot be deleted; deactivate it instead.
+error-AREA_CODE_EMPTY = Area code is required.
+error-AREA_CODE_TOO_LONG = The area code is too long.
+error-AREA_ALREADY_EXISTS = Area already exists.
+error-AREA_NOT_FOUND = Area not found.
+error-AREA_INACTIVE = Area is inactive.
+error-AREA_IN_USE = Area is in use and cannot be deleted; deactivate it instead.
+error-SHIPPING_METHOD_CODE_EMPTY = Shipping method code is required.
+error-SHIPPING_METHOD_CODE_TOO_LONG = The shipping method code is too long.
+error-SHIPPING_METHOD_ALREADY_EXISTS = Shipping method already exists.
+error-SHIPPING_METHOD_NOT_FOUND = Shipping method not found.
+error-SHIPPING_METHOD_INACTIVE = Shipping method is inactive.
+error-SHIPPING_METHOD_IN_USE = Shipping method is in use and cannot be deleted; deactivate it instead.
+error-REPORT_TITLE_CODE_EMPTY = Report title code is required.
+error-REPORT_TITLE_CODE_TOO_LONG = The report title code is too long.
+error-REPORT_TITLE_ALREADY_EXISTS = Report title already exists.
+error-REPORT_TITLE_NOT_FOUND = Report title not found.
+error-REPORT_TITLE_INACTIVE = Report title is inactive.
+error-REPORT_TITLE_IN_USE = Report title is in use and cannot be deleted; deactivate it instead.
+
+# 幣別（aooi050）
+error-CURRENCY_CODE_EMPTY = Currency is required.
+error-CURRENCY_CODE_TOO_LONG = The currency code is too long.
+error-CURRENCY_DECIMALS_INVALID = Decimal places are out of range (prices, amounts and totals 0–6; exchange rates 0–10).
+error-CURRENCY_RATE_METHOD_INVALID = The calculation method must be 1 (multiply) or 2 (divide).
+error-CURRENCY_ALREADY_EXISTS = Currency already exists.
+error-CURRENCY_NOT_FOUND = Currency not found.
+error-CURRENCY_IN_USE = Currency is in use and cannot be deleted; deactivate it instead.
+
+# 稅別（aooi150）
+error-TAX_CODE_EMPTY = Tax code is required.
+error-TAX_CODE_TOO_LONG = The tax code is too long.
+error-TAX_DIRECTION_INVALID = Purchase/sales must be 1 (purchase) or 2 (sales).
+error-TAX_INVOICE_COPIES_INVALID = Invoice copies must be 0, 2, 3, 4 or X.
+error-TAX_CLASS_INVALID = Tax class must be 1 (taxable), 2 (zero-rated) or 3 (exempt).
+error-TAX_RATE_INVALID = The tax rate must be between 0 and 100 with up to 4 decimal places.
+error-TAX_ACCOUNT_REQUIRED = An account is required when the tax rate is not 0.
+error-TAX_FILING_FORMAT_INVALID = The filing format does not match purchase/sales (purchase 21–29, sales 31–38, or XX).
+error-TAX_TWO_COPY_MUST_INCLUDE_TAX = Prices on duplicate invoices must include tax (except filing format 28).
+error-TAX_TYPE_ALREADY_EXISTS = Tax type already exists.
+error-TAX_TYPE_NOT_FOUND = Tax type not found.
+error-TAX_TYPE_IN_USE = Tax type is in use and cannot be deleted; deactivate it instead.
+
+# 專案（aooi200）
+error-PROJECT_CODE_EMPTY = Project is required.
+error-PROJECT_CODE_TOO_LONG = The project code is too long.
+error-PROJECT_DATE_RANGE_INVALID = The end date cannot be earlier than the start date.
+error-PROJECT_ALREADY_EXISTS = Project already exists.
+error-PROJECT_NOT_FOUND = Project not found.
+error-PROJECT_IN_USE = Project is in use and cannot be deleted; deactivate it instead.

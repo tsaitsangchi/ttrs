@@ -549,6 +549,108 @@ pub trait MenuRepository: Send + Sync {
     async fn clear_menu(&self, menu: &str) -> Result<(), RepoError>;
 }
 
+/// 基本代碼（區域別 gea、國別 geb、地區 geo、交運方式 ged、報表抬頭 azh）；共用 schema（RC2、SM2、RH3）
+#[async_trait]
+pub trait BasicCodeRepository: Send + Sync {
+    /// 該種類的全部代碼，依代號（位元組順序）排序
+    async fn list_basic_codes(
+        &self,
+        kind: ttrs_domain::basic_code::BasicCodeKind,
+    ) -> Result<Vec<ttrs_domain::basic_code::BasicCode>, RepoError>;
+    async fn get_basic_code(
+        &self,
+        kind: ttrs_domain::basic_code::BasicCodeKind,
+        code: &ttrs_domain::basic_code::BasicCodeValue,
+    ) -> Result<Option<ttrs_domain::basic_code::BasicCode>, RepoError>;
+    /// 代號重複回 `Conflict`；同時寫入其他語系名稱
+    async fn insert_basic_code(
+        &self,
+        code: &ttrs_domain::basic_code::BasicCode,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`；其他語系名稱整批取代
+    async fn update_basic_code(
+        &self,
+        code: &ttrs_domain::basic_code::BasicCode,
+    ) -> Result<(), RepoError>;
+    /// 已被下層代碼引用時回 `InUse`（RC4）；回傳是否有刪到
+    async fn delete_basic_code(
+        &self,
+        kind: ttrs_domain::basic_code::BasicCodeKind,
+        code: &ttrs_domain::basic_code::BasicCodeValue,
+    ) -> Result<bool, RepoError>;
+}
+
+/// 專案（gja_file，aooi200）；工廠層（PJ2）
+#[async_trait]
+pub trait ProjectRepository: Send + Sync {
+    /// 該營運中心的全部專案，依編號排序；營運中心不存在時為空
+    async fn list_projects(
+        &self,
+        plant: &ttrs_domain::plant::PlantId,
+    ) -> Result<Vec<ttrs_domain::project::Project>, RepoError>;
+    async fn get_project(
+        &self,
+        plant: &ttrs_domain::plant::PlantId,
+        code: &ttrs_domain::project::ProjectCode,
+    ) -> Result<Option<ttrs_domain::project::Project>, RepoError>;
+    /// 編號重複回 `Conflict`
+    async fn insert_project(
+        &self,
+        plant: &ttrs_domain::plant::PlantId,
+        p: &ttrs_domain::project::Project,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`
+    async fn update_project(
+        &self,
+        plant: &ttrs_domain::plant::PlantId,
+        p: &ttrs_domain::project::Project,
+    ) -> Result<(), RepoError>;
+    /// 已被單據引用時回 `InUse`（PJ4）；回傳是否有刪到
+    async fn delete_project(
+        &self,
+        plant: &ttrs_domain::plant::PlantId,
+        code: &ttrs_domain::project::ProjectCode,
+    ) -> Result<bool, RepoError>;
+}
+
+/// 稅別（gec_file，aooi150）；共用 schema（TX2）。鍵值為稅別碼＋進／銷項
+#[async_trait]
+pub trait TaxTypeRepository: Send + Sync {
+    /// 全部稅別，依稅別碼、進銷項排序
+    async fn list_tax_types(&self) -> Result<Vec<ttrs_domain::tax_type::TaxType>, RepoError>;
+    async fn get_tax_type(
+        &self,
+        key: &ttrs_domain::tax_type::TaxKey,
+    ) -> Result<Option<ttrs_domain::tax_type::TaxType>, RepoError>;
+    /// 鍵值重複回 `Conflict`
+    async fn insert_tax_type(&self, t: &ttrs_domain::tax_type::TaxType) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`
+    async fn update_tax_type(&self, t: &ttrs_domain::tax_type::TaxType) -> Result<(), RepoError>;
+    /// 已被引用時回 `InUse`（TX7）；回傳是否有刪到
+    async fn delete_tax_type(&self, key: &ttrs_domain::tax_type::TaxKey)
+    -> Result<bool, RepoError>;
+}
+
+/// 幣別（azi_file，aooi050）；共用 schema（CY2）
+#[async_trait]
+pub trait CurrencyRepository: Send + Sync {
+    /// 全部幣別，依代碼排序
+    async fn list_currencies(&self) -> Result<Vec<ttrs_domain::currency::Currency>, RepoError>;
+    async fn get_currency(
+        &self,
+        code: &ttrs_domain::currency::CurrencyCode,
+    ) -> Result<Option<ttrs_domain::currency::Currency>, RepoError>;
+    /// 代碼重複回 `Conflict`
+    async fn insert_currency(&self, c: &ttrs_domain::currency::Currency) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`
+    async fn update_currency(&self, c: &ttrs_domain::currency::Currency) -> Result<(), RepoError>;
+    /// 已被引用時回 `InUse`（CY6）；回傳是否有刪到
+    async fn delete_currency(
+        &self,
+        code: &ttrs_domain::currency::CurrencyCode,
+    ) -> Result<bool, RepoError>;
+}
+
 /// 單位（gfe_file，aooi101）；共用 schema（UN2）
 #[async_trait]
 pub trait UnitRepository: Send + Sync {

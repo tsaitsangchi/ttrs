@@ -1684,6 +1684,363 @@ pub mod unit_max_len {
 }
 
 // ---------------------------------------------------------------------------
+// Project Maintenance 專案維護（TipTop aooi200 / gja_file；project_maintenance.feature；工廠層）
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProjectDto {
+    pub project_code: String,
+    pub name: Option<String>,
+    pub start_on: Option<NaiveDate>,
+    pub end_on: Option<NaiveDate>,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ProjectInput {
+    pub project_code: String,
+    pub name: Option<String>,
+    pub start_on: Option<NaiveDate>,
+    pub end_on: Option<NaiveDate>,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+impl ProjectDto {
+    pub fn to_input(&self) -> ProjectInput {
+        ProjectInput {
+            project_code: self.project_code.clone(),
+            name: self.name.clone(),
+            start_on: self.start_on,
+            end_on: self.end_on,
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::project 一致）
+pub mod project_max_len {
+    pub const CODE: usize = 10;
+    pub const NAME: usize = 80;
+}
+
+// ---------------------------------------------------------------------------
+// Tax Type Maintenance 稅別維護（TipTop aooi150 / gec_file；tax_type_maintenance.feature）
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaxTypeDto {
+    pub tax_code: String,
+    /// 進／銷項：1 進項、2 銷項（gec011）
+    pub direction: String,
+    pub name: Option<String>,
+    pub account: Option<String>,
+    pub account2: Option<String>,
+    /// 發票聯數：0、2、3、4、X（gec05）
+    pub invoice_copies: Option<String>,
+    /// 課稅別：1 應稅、2 零稅率、3 免稅（gec06）
+    pub tax_class: Option<String>,
+    pub rate: rust_decimal::Decimal,
+    pub include_tax: bool,
+    pub filing_format: String,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TaxTypeInput {
+    pub tax_code: String,
+    pub direction: String,
+    pub name: Option<String>,
+    pub account: Option<String>,
+    pub account2: Option<String>,
+    pub invoice_copies: Option<String>,
+    pub tax_class: Option<String>,
+    /// 稅率；空白為 0
+    pub rate: Option<rust_decimal::Decimal>,
+    /// 單價含稅否；空白為否
+    pub include_tax: Option<bool>,
+    /// 媒體申報格式；空白為 XX 不申報（TX6）
+    pub filing_format: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+/// 稅別複製的目標（ADR 0013 SA5）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct TaxTypeCopyRequest {
+    pub new_code: String,
+    pub new_direction: String,
+}
+
+impl TaxTypeDto {
+    /// 畫面選取用的鍵值：「稅別碼 進銷項」
+    pub fn key(&self) -> String {
+        format!("{} {}", self.tax_code, self.direction)
+    }
+
+    pub fn to_input(&self) -> TaxTypeInput {
+        TaxTypeInput {
+            tax_code: self.tax_code.clone(),
+            direction: self.direction.clone(),
+            name: self.name.clone(),
+            account: self.account.clone(),
+            account2: self.account2.clone(),
+            invoice_copies: self.invoice_copies.clone(),
+            tax_class: self.tax_class.clone(),
+            rate: Some(self.rate),
+            include_tax: Some(self.include_tax),
+            filing_format: Some(self.filing_format.clone()),
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::tax_type 一致）
+pub mod tax_type_max_len {
+    pub const CODE: usize = 4;
+    pub const NAME: usize = 80;
+    pub const ACCOUNT: usize = 24;
+}
+
+// ---------------------------------------------------------------------------
+// Currency Maintenance 幣別維護（TipTop aooi050 / azi_file；currency_maintenance.feature）
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CurrencyDto {
+    pub currency_code: String,
+    pub name: Option<String>,
+    pub price_decimals: i16,
+    pub amount_decimals: i16,
+    pub total_decimals: i16,
+    pub rate_decimals: i16,
+    /// 計算方式：1 乘、2 除（azi10）
+    pub rate_method: String,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CurrencyInput {
+    pub currency_code: String,
+    pub name: Option<String>,
+    /// 小數位數；空白用預設值（單價 4、金額 2、小計總計 2、匯率 6，CY3）
+    pub price_decimals: Option<i16>,
+    pub amount_decimals: Option<i16>,
+    pub total_decimals: Option<i16>,
+    pub rate_decimals: Option<i16>,
+    /// 計算方式；空白為 1 乘（CY4）
+    pub rate_method: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+impl CurrencyDto {
+    pub fn to_input(&self) -> CurrencyInput {
+        CurrencyInput {
+            currency_code: self.currency_code.clone(),
+            name: self.name.clone(),
+            price_decimals: Some(self.price_decimals),
+            amount_decimals: Some(self.amount_decimals),
+            total_decimals: Some(self.total_decimals),
+            rate_decimals: Some(self.rate_decimals),
+            rate_method: Some(self.rate_method.clone()),
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::currency 一致）
+pub mod currency_max_len {
+    pub const CODE: usize = 4;
+    pub const NAME: usize = 80;
+}
+
+// ---------------------------------------------------------------------------
+// 基本代碼：區域別 aooi100、國別 aooi090、地區 aooi110、交運方式 aooi160、報表抬頭 aooi210
+// （region_country_area_maintenance.feature、shipping_method_maintenance.feature、report_title_maintenance.feature）
+// ---------------------------------------------------------------------------
+
+/// 基本代碼的種類（與 ttrs_domain::basic_code::BasicCodeKind 一致）；API 路徑 /api/basic-codes/{slug}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum BasicCodeKindDto {
+    Region,
+    Country,
+    Area,
+    ShippingMethod,
+    ReportTitle,
+}
+
+impl BasicCodeKindDto {
+    pub fn slug(self) -> &'static str {
+        match self {
+            Self::Region => "regions",
+            Self::Country => "countries",
+            Self::Area => "areas",
+            Self::ShippingMethod => "shipping-methods",
+            Self::ReportTitle => "report-titles",
+        }
+    }
+
+    pub fn program(self) -> &'static str {
+        match self {
+            Self::Region => "region-maintenance",
+            Self::Country => "country-maintenance",
+            Self::Area => "area-maintenance",
+            Self::ShippingMethod => "shipping-method-maintenance",
+            Self::ReportTitle => "report-title-maintenance",
+        }
+    }
+
+    /// 隸屬的上層種類（國別 → 區域、地區 → 國別）
+    pub fn parent(self) -> Option<Self> {
+        match self {
+            Self::Country => Some(Self::Region),
+            Self::Area => Some(Self::Country),
+            _ => None,
+        }
+    }
+
+    pub fn multilingual(self) -> bool {
+        self == Self::ReportTitle
+    }
+}
+
+/// 名稱的某一語系
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BasicCodeNameDto {
+    pub lang: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BasicCodeDto {
+    pub code: String,
+    /// 依 ?lang= 的顯示名稱（退回規則：指定語系 → zh-TW → 空白）
+    pub name: Option<String>,
+    /// 隸屬的上層代號與其名稱（國別、地區）
+    #[serde(default)]
+    pub parent: Option<String>,
+    #[serde(default)]
+    pub parent_name: Option<String>,
+    /// 名稱的全部語系（報表抬頭；含 zh-TW）
+    #[serde(default)]
+    pub names: Vec<BasicCodeNameDto>,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BasicCodeInput {
+    pub code: String,
+    /// 名稱（繁中）
+    pub name: Option<String>,
+    pub parent: Option<String>,
+    /// 名稱的其他語系（報表抬頭）；zh-TW 以 name 為準
+    pub names: Vec<BasicCodeNameDto>,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+impl BasicCodeDto {
+    pub fn to_input(&self) -> BasicCodeInput {
+        let zh = self
+            .names
+            .iter()
+            .find(|n| n.lang == "zh-TW")
+            .map(|n| n.name.clone());
+        BasicCodeInput {
+            code: self.code.clone(),
+            name: zh.or_else(|| self.name.clone()),
+            parent: self.parent.clone(),
+            names: self
+                .names
+                .iter()
+                .filter(|n| n.lang != "zh-TW")
+                .cloned()
+                .collect(),
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::basic_code 一致）
+pub mod basic_code_max_len {
+    pub const CODE: usize = 10;
+    pub const NAME: usize = 80;
+}
+
+// ---------------------------------------------------------------------------
 // Product Classification 產品分類維護（TipTop axmi110 / oba_file；product_classification.feature）
 // ---------------------------------------------------------------------------
 

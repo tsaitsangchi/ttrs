@@ -100,6 +100,14 @@ pub struct ErpWorld {
     pub menus: ttrs_app::MenuService,
     /// 單位維護（unit_maintenance.feature）
     pub units: ttrs_app::UnitService,
+    /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭
+    pub basic_codes: ttrs_app::BasicCodeService,
+    /// 幣別維護（currency_maintenance.feature）
+    pub currencies: ttrs_app::CurrencyService,
+    /// 稅別維護（tax_type_maintenance.feature）
+    pub taxes: ttrs_app::TaxTypeService,
+    /// 專案維護（project_maintenance.feature）
+    pub projects: ttrs_app::ProjectService,
     /// 產品分類維護（product_classification.feature）
     pub product_classes: ttrs_app::ProductClassService,
     /// 料件分群維護（item_group.feature）
@@ -132,7 +140,8 @@ impl ErpWorld {
                     .await
                     .expect("drop plant schemas");
                 sqlx::query("TRUNCATE change_log, user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
-                     program, permission_class, module, unit, plant \
+                     program, permission_class, module, unit, plant, \
+                     report_title_text, report_title, area, country, region, shipping_method, currency, tax_type \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
@@ -180,6 +189,10 @@ impl ErpWorld {
             history: shared_history,
             menus,
             units,
+            basic_codes,
+            currencies,
+            taxes,
+            projects,
             product_classes,
             item_groups,
             authorizer: _,
@@ -228,6 +241,10 @@ impl ErpWorld {
             shared_history,
             menus,
             units,
+            basic_codes,
+            currencies,
+            taxes,
+            projects,
             product_classes,
             item_groups,
             menu_tree: None,

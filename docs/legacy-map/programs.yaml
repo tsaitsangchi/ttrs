@@ -15,6 +15,15 @@ programs:
   - { tiptop: aooi901, english: plant-maintenance,              spec: specs/features/aoo/plant_maintenance.feature }
   - { tiptop: aooi030, english: department-maintenance,         spec: specs/features/aoo/department_maintenance.feature }
   - { tiptop: aooi040, english: employee-maintenance,           spec: specs/features/aoo/employee_maintenance.feature }
+  - { tiptop: aooi050, english: currency-maintenance,           spec: specs/features/aoo/currency_maintenance.feature }
+  - { tiptop: aooi150, english: tax-type-maintenance,           spec: specs/features/aoo/tax_type_maintenance.feature }
+  - { tiptop: aooi200, english: project-maintenance,            spec: specs/features/aoo/project_maintenance.feature }
+  # 基本代碼（共用畫面 basic_code_maintenance.rs，ADR 0013 標準功能鈕）
+  - { tiptop: aooi100, english: region-maintenance,             spec: specs/features/aoo/region_country_area_maintenance.feature }
+  - { tiptop: aooi090, english: country-maintenance,            spec: specs/features/aoo/region_country_area_maintenance.feature }
+  - { tiptop: aooi110, english: area-maintenance,               spec: specs/features/aoo/region_country_area_maintenance.feature }
+  - { tiptop: aooi160, english: shipping-method-maintenance,    spec: specs/features/aoo/shipping_method_maintenance.feature }
+  - { tiptop: aooi210, english: report-title-maintenance,       spec: specs/features/aoo/report_title_maintenance.feature }
   # aooi300 分類碼共用程式：TTRS 一支作業以類別切換（CC1）；aooi305、aooi309–aooi312 為 TipTop 選單上帶入類別的代號
   - { tiptop: aooi300, english: classification-code-maintenance, spec: specs/features/aoo/classification_code.feature }
   - { tiptop: aooi305, english: classification-code-maintenance, spec: specs/features/aoo/classification_code.feature, registered: false }

@@ -5,7 +5,7 @@
 
 use cucumber::{gherkin::Step, given, then, when};
 use ttrs_app::{AppError, report::ReportFormat};
-use ttrs_domain::lang::Lang;
+use ttrs_domain::{basic_code::BasicCodeKind, lang::Lang};
 use ttrs_shared::QbeCondition;
 
 use crate::{ErpWorld, steps::common::rows};
@@ -29,6 +29,12 @@ async fn set_confirmed(
         "使用者" => w.users.confirm(a, key, confirm, None).await.map(drop),
         "權限類別" => w.classes.confirm(a, key, confirm, None).await.map(drop),
         "單位" => w.units.confirm(a, key, confirm, None).await.map(drop),
+        "幣別" => w.currencies.confirm(a, key, confirm, None).await.map(drop),
+        "專案" => w
+            .projects
+            .confirm(a, "TW01", key, confirm, None)
+            .await
+            .map(drop),
         // 工廠層作業：營運中心 TW01
         "產品分類" => w
             .product_classes
@@ -45,7 +51,13 @@ async fn set_confirmed(
             .confirm(a, "TW01", key, confirm, None)
             .await
             .map(drop),
-        other => panic!("尚未支援確認的作業資料：{other}"),
+        other => {
+            let k = basic_kind(other).unwrap_or_else(|| panic!("尚未支援確認的作業資料：{other}"));
+            w.basic_codes
+                .confirm(a, k, key, confirm, None)
+                .await
+                .map(drop)
+        }
     }
 }
 
@@ -80,6 +92,20 @@ async fn confirm_state(w: &ErpWorld, entity: &str, key: &str) -> ConfirmState {
                 by: u.confirmed_by,
             }
         }
+        "專案" => {
+            let x = w.projects.get(a, "TW01", key).await.unwrap();
+            ConfirmState {
+                confirmed: x.confirmed,
+                by: x.confirmed_by,
+            }
+        }
+        "幣別" => {
+            let c = w.currencies.get(a, key).await.unwrap();
+            ConfirmState {
+                confirmed: c.confirmed,
+                by: c.confirmed_by,
+            }
+        }
         "產品分類" => {
             let c = w.product_classes.get(a, "TW01", key).await.unwrap();
             ConfirmState {
@@ -101,8 +127,27 @@ async fn confirm_state(w: &ErpWorld, entity: &str, key: &str) -> ConfirmState {
                 by: e.confirmed_by,
             }
         }
-        other => panic!("尚未支援確認的作業資料：{other}"),
+        other => {
+            let k = basic_kind(other).unwrap_or_else(|| panic!("尚未支援確認的作業資料：{other}"));
+            let c = w.basic_codes.get(a, k, key, None).await.unwrap();
+            ConfirmState {
+                confirmed: c.confirmed,
+                by: c.confirmed_by,
+            }
+        }
     }
+}
+
+/// 基本代碼的作業資料名稱（basic_code_service.rs）
+pub fn basic_kind(entity: &str) -> Option<BasicCodeKind> {
+    Some(match entity {
+        "區域" => BasicCodeKind::Region,
+        "國別" => BasicCodeKind::Country,
+        "地區" => BasicCodeKind::Area,
+        "交運方式" => BasicCodeKind::ShippingMethod,
+        "報表抬頭" => BasicCodeKind::ReportTitle,
+        _ => return None,
+    })
 }
 
 /// 查詢欄位名稱 → 鍵值（各作業報表條件用到的）
@@ -113,8 +158,12 @@ fn field_key(label: &str) -> &'static str {
         "權限類別代號" => "class_code",
         "員工編號" => "employee_id",
         "單位代碼" | "單位" => "unit_code",
+        "幣別" => "currency_code",
+        "專案編號" => "project_code",
         "產品分類" => "class_code",
         "程式代號" => "program_no",
+        "區域" | "國別" | "地區" | "交運方式" | "抬頭代碼" => "code",
+        "隸屬區域" | "隸屬國別" => "parent",
         other => panic!("未支援的查詢欄位：{other}"),
     }
 }
@@ -135,6 +184,12 @@ async fn report(
         "程式執行權限" => w.permissions.report_in(&a, conditions, format, &lang).await,
         "使用者特殊權限" => w.special.report_in(&a, conditions, format, &lang).await,
         "單位" => w.units.report_in(&a, conditions, format, &lang).await,
+        "幣別" => w.currencies.report_in(&a, conditions, format, &lang).await,
+        "專案" => {
+            w.projects
+                .report_in(&a, "TW01", conditions, format, &lang)
+                .await
+        }
         "產品分類" => {
             w.product_classes
                 .report_in(&a, "TW01", conditions, format, &lang)
@@ -145,14 +200,21 @@ async fn report(
                 .report_in(&a, "TW01", conditions, format, &lang)
                 .await
         }
-        other => panic!("尚未支援列印的作業資料：{other}"),
+        other => {
+            let k = basic_kind(other).unwrap_or_else(|| panic!("尚未支援列印的作業資料：{other}"));
+            w.basic_codes
+                .report_in(&a, k, conditions, format, &lang)
+                .await
+        }
     };
     w.last = Some(r.map(|r| {
         w.report = Some(r);
     }));
 }
 
-#[given(regex = r#"^(營運中心|使用者|權限類別|部門|員工|單位|產品分類) "(\S+)" 已確認$"#)]
+#[given(
+    regex = r#"^(營運中心|使用者|權限類別|部門|員工|單位|幣別|專案|產品分類|區域|國別|地區|交運方式|報表抬頭) "(\S+)" 已確認$"#
+)]
 async fn given_confirmed(w: &mut ErpWorld, entity: String, key: String) {
     set_confirmed(w, &entity, &key, true)
         .await
@@ -160,14 +222,16 @@ async fn given_confirmed(w: &mut ErpWorld, entity: String, key: String) {
 }
 
 #[when(
-    regex = r#"^使用者(確認|取消確認)(營運中心|使用者|權限類別|部門|員工|單位|產品分類) "(\S+)"$"#
+    regex = r#"^使用者(確認|取消確認)(營運中心|使用者|權限類別|部門|員工|單位|幣別|專案|產品分類|區域|國別|地區|交運方式|報表抬頭) "(\S+)"$"#
 )]
 async fn when_confirm(w: &mut ErpWorld, op: String, entity: String, key: String) {
     let r = set_confirmed(w, &entity, &key, op == "確認").await;
     w.last = Some(r);
 }
 
-#[then(regex = r#"^(營運中心|使用者|權限類別|部門|員工|單位|產品分類) "(\S+)" 的確認狀態應為:$"#)]
+#[then(
+    regex = r#"^(營運中心|使用者|權限類別|部門|員工|單位|幣別|專案|產品分類|區域|國別|地區|交運方式|報表抬頭) "(\S+)" 的確認狀態應為:$"#
+)]
 async fn then_state(w: &mut ErpWorld, entity: String, key: String, step: &Step) {
     let s = confirm_state(w, &entity, &key).await;
     for r in rows(step) {
@@ -181,7 +245,7 @@ async fn then_state(w: &mut ErpWorld, entity: String, key: String, step: &Step) 
 }
 
 #[when(
-    regex = r#"^使用者以條件「(\S+) = (\S+)」列印(營運中心|使用者|權限類別|部門|員工|單位|產品分類|程式|程式執行權限|使用者特殊權限)$"#
+    regex = r#"^使用者以條件「(\S+) = (\S+)」列印(營運中心|使用者|權限類別|部門|員工|單位|幣別|專案|產品分類|程式|程式執行權限|使用者特殊權限|區域|國別|地區|交運方式|報表抬頭)$"#
 )]
 async fn print_with(w: &mut ErpWorld, label: String, expr: String, entity: String) {
     let c = vec![QbeCondition {
@@ -192,7 +256,7 @@ async fn print_with(w: &mut ErpWorld, label: String, expr: String, entity: Strin
 }
 
 #[when(
-    regex = r#"^使用者不輸入條件匯出(營運中心|使用者|權限類別|部門|員工|單位|產品分類)為 Excel$"#
+    regex = r#"^使用者不輸入條件匯出(營運中心|使用者|權限類別|部門|員工|單位|幣別|專案|產品分類|區域|國別|地區|交運方式|報表抬頭)為 Excel$"#
 )]
 async fn export_all(w: &mut ErpWorld, entity: String) {
     report(w, &entity, Vec::new(), ReportFormat::Excel).await;
@@ -206,7 +270,9 @@ fn first_column(w: &mut ErpWorld, expected: String) {
 }
 
 /// 複製（ADR 0013 SA5）
-#[when(regex = r#"^使用者將(權限類別|部門|員工|單位|產品分類) "(\S+)" 複製為 "(\S+)"$"#)]
+#[when(
+    regex = r#"^使用者將(權限類別|部門|員工|單位|幣別|專案|產品分類|區域|國別|地區|交運方式|報表抬頭) "(\S+)" 複製為 "(\S+)"$"#
+)]
 async fn copy(w: &mut ErpWorld, entity: String, from: String, to: String) {
     let a = w.actor.clone();
     let r = match entity.as_str() {
@@ -214,29 +280,41 @@ async fn copy(w: &mut ErpWorld, entity: String, from: String, to: String) {
         "部門" => w.departments.copy(&a, "TW01", &from, &to).await.map(drop),
         "員工" => w.employees.copy(&a, "TW01", &from, &to).await.map(drop),
         "單位" => w.units.copy(&a, &from, &to).await.map(drop),
+        "幣別" => w.currencies.copy(&a, &from, &to).await.map(drop),
+        "專案" => w.projects.copy(&a, "TW01", &from, &to).await.map(drop),
         "產品分類" => w
             .product_classes
             .copy(&a, "TW01", &from, &to)
             .await
             .map(drop),
-        other => panic!("尚未支援複製的作業資料：{other}"),
+        other => {
+            let k = basic_kind(other).unwrap_or_else(|| panic!("尚未支援複製的作業資料：{other}"));
+            w.basic_codes.copy(&a, k, &from, &to).await.map(drop)
+        }
     };
     w.last = Some(r);
 }
 
 /// 刪除（系統層作業）
-#[when(regex = r#"^使用者刪除(單位) "(\S+)"$"#)]
+#[when(regex = r#"^使用者刪除(單位|幣別|專案|區域|國別|地區|交運方式|報表抬頭) "(\S+)"$"#)]
 async fn delete(w: &mut ErpWorld, entity: String, key: String) {
     let a = w.actor.clone();
     let r = match entity.as_str() {
         "單位" => w.units.delete(&a, &key, None).await,
-        other => panic!("尚未支援刪除的作業資料：{other}"),
+        "幣別" => w.currencies.delete(&a, &key, None).await,
+        "專案" => w.projects.delete(&a, "TW01", &key, None).await,
+        other => {
+            let k = basic_kind(other).unwrap_or_else(|| panic!("尚未支援刪除的作業資料：{other}"));
+            w.basic_codes.delete(&a, k, &key, None).await
+        }
     };
     w.last = Some(r);
 }
 
 /// QBE 查詢（ADR 0013 SA1：原本沒有查詢的作業）
-#[when(regex = r#"^使用者以下列條件查詢(單位|產品分類):$"#)]
+#[when(
+    regex = r#"^使用者以下列條件查詢(單位|幣別|專案|產品分類|區域|國別|地區|交運方式|報表抬頭):$"#
+)]
 async fn query(w: &mut ErpWorld, entity: String, step: &Step) {
     let req = crate::steps::common::query_request(step, field_key, None);
     let a = w.actor.clone();
@@ -245,11 +323,23 @@ async fn query(w: &mut ErpWorld, entity: String, step: &Step) {
             let r = w.units.query(&a, req).await;
             crate::steps::common::set_query_result(w, r, |u| u.unit_code.clone());
         }
+        "專案" => {
+            let r = w.projects.query(&a, "TW01", req).await;
+            crate::steps::common::set_query_result(w, r, |x| x.project_code.clone());
+        }
+        "幣別" => {
+            let r = w.currencies.query(&a, req).await;
+            crate::steps::common::set_query_result(w, r, |c| c.currency_code.clone());
+        }
         "產品分類" => {
             let r = w.product_classes.query(&a, "TW01", req).await;
             crate::steps::common::set_query_result(w, r, |c| c.class_code.clone());
         }
-        other => panic!("尚未支援查詢的作業資料：{other}"),
+        other => {
+            let k = basic_kind(other).unwrap_or_else(|| panic!("尚未支援查詢的作業資料：{other}"));
+            let r = w.basic_codes.query(&a, k, req).await;
+            crate::steps::common::set_query_result(w, r, |c| c.code.clone());
+        }
     }
 }
 
@@ -309,6 +399,16 @@ async fn code_query(w: &mut ErpWorld, kind: String, step: &Step) {
     let req = crate::steps::common::query_request(step, code_key, None);
     let a = w.actor.clone();
     let r = w.classification.query(&a, "TW01", &kind, req).await;
+    crate::steps::common::set_query_result(w, r, |c| c.code.clone());
+}
+
+#[when(expr = "使用者查詢類別 {string} 的分類碼")]
+async fn code_query_all(w: &mut ErpWorld, kind: String) {
+    let a = w.actor.clone();
+    let r = w
+        .classification
+        .query(&a, "TW01", &kind, ttrs_shared::QueryRequest::default())
+        .await;
     crate::steps::common::set_query_result(w, r, |c| c.code.clone());
 }
 

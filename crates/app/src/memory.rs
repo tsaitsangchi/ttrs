@@ -9,6 +9,8 @@ use std::{
 use async_trait::async_trait;
 use ttrs_domain::{
     authorization::DataScope,
+    basic_code::{BasicCode, BasicCodeKind, BasicCodeValue},
+    currency::{Currency, CurrencyCode},
     department::{Department, DeptCode},
     dictionary::{ColumnText, TableDictionary, TableText},
     employee::{Employee, EmployeeId},
@@ -22,8 +24,10 @@ use ttrs_domain::{
     plant::{DEFAULT_TIME_ZONE, Plant, PlantAttrs, PlantId, PlantSchema},
     product_class::{ProductClass, ProductClassCode},
     program::{ModuleCode, OtherSettings, Program, ProgramAttrs, ProgramNo},
+    project::{Project, ProjectCode},
     qbe::QbeFilter,
     record::Stamp,
+    tax_type::{TaxKey, TaxType},
     unit::{Unit, UnitAttrs, UnitCode},
     user::{User, UserId},
     user_permission::{SpecialTarget, UserPermission},
@@ -33,13 +37,14 @@ use crate::{
     change_log::{self, ChangeRecord, Row, text},
     error::RepoError,
     ports::{
-        AccountPolicy, AccountPolicyRepository, AuditEntry, ChangeLogRepository, Credential,
-        CredentialRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
-        ItemGroupRepository, ItemRepository, LegacyCatalogRepository, LegacyTableSummary,
-        MasterDataRepository, MenuRepository, MigrationSource, PermissionClassRepository,
-        PermissionListItem, PlantRepository, ProductClassRepository, ProgramName,
-        ProgramPermissionRepository, ProgramRepository, SchemaCatalog, TableSchema, UnitRepository,
-        UserPermissionItem, UserPermissionRepository, UserRepository,
+        AccountPolicy, AccountPolicyRepository, AuditEntry, BasicCodeRepository,
+        ChangeLogRepository, Credential, CredentialRepository, CurrencyRepository,
+        DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemGroupRepository,
+        ItemRepository, LegacyCatalogRepository, LegacyTableSummary, MasterDataRepository,
+        MenuRepository, MigrationSource, PermissionClassRepository, PermissionListItem,
+        PlantRepository, ProductClassRepository, ProgramName, ProgramPermissionRepository,
+        ProgramRepository, ProjectRepository, SchemaCatalog, TableSchema, TaxTypeRepository,
+        UnitRepository, UserPermissionItem, UserPermissionRepository, UserRepository,
     },
     query,
 };
@@ -82,6 +87,14 @@ struct State {
     changes: Vec<(Option<PlantId>, ChangeRecord)>,
     /// 單位（gfe_file，共用）
     units: BTreeMap<String, Unit>,
+    /// (種類, 代號) → 基本代碼（gea、geb、geo、ged、azh，共用）
+    basic_codes: BTreeMap<(BasicCodeKind, String), BasicCode>,
+    /// 幣別（azi_file，共用）
+    currencies: BTreeMap<String, Currency>,
+    /// 稅別（gec_file，共用）
+    tax_types: BTreeMap<TaxKey, TaxType>,
+    /// (營運中心, 專案編號) → 專案（gja_file，工廠層）
+    projects: BTreeMap<(PlantId, String), Project>,
     items: BTreeMap<(PlantId, ItemNo), Item>,
     /// 料件的其他語系品名、規格（item_text）
     item_texts: BTreeMap<(PlantId, ItemNo, String), ItemText>,
@@ -165,6 +178,14 @@ impl InMemoryStore {
                     "classification-code-maintenance",
                     "unit-maintenance",
                     "product-classification-maintenance",
+                    "currency-maintenance",
+                    "tax-type-maintenance",
+                    "project-maintenance",
+                    "region-maintenance",
+                    "country-maintenance",
+                    "area-maintenance",
+                    "shipping-method-maintenance",
+                    "report-title-maintenance",
                 ],
             ),
             (
@@ -210,8 +231,31 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 15] = [
+        let names: [(&str, [&str; 3]); 23] = [
+            ("project-maintenance", ["專案維護", "Projects", "专案维护"]),
+            (
+                "tax-type-maintenance",
+                ["稅別維護", "Tax Types", "税别维护"],
+            ),
+            (
+                "currency-maintenance",
+                ["幣別維護", "Currencies", "币别维护"],
+            ),
             ("unit-maintenance", ["單位維護", "Units", "单位维护"]),
+            (
+                "region-maintenance",
+                ["區域別維護", "Regions", "区域别维护"],
+            ),
+            ("country-maintenance", ["國別維護", "Countries", "国别维护"]),
+            ("area-maintenance", ["地區維護", "Areas", "地区维护"]),
+            (
+                "shipping-method-maintenance",
+                ["交運方式維護", "Shipping Methods", "交运方式维护"],
+            ),
+            (
+                "report-title-maintenance",
+                ["報表抬頭維護", "Report Titles", "报表抬头维护"],
+            ),
             (
                 "product-classification-maintenance",
                 ["產品分類維護", "Product Classifications", "产品分类维护"],
@@ -2792,6 +2836,448 @@ fn unit_row(u: &Unit) -> Row {
         u.updated_by.as_deref(),
         u.updated_on,
         &u.stamp,
+    ));
+    row(cols)
+}
+
+// ----- 專案（gja_file；project_maintenance.feature；工廠層） -----
+
+#[async_trait]
+impl ProjectRepository for InMemoryStore {
+    async fn list_projects(&self, plant: &PlantId) -> Result<Vec<Project>, RepoError> {
+        Ok(self
+            .lock()
+            .projects
+            .iter()
+            .filter(|((p, _), _)| p == plant)
+            .map(|(_, x)| x.clone())
+            .collect())
+    }
+
+    async fn get_project(
+        &self,
+        plant: &PlantId,
+        code: &ProjectCode,
+    ) -> Result<Option<Project>, RepoError> {
+        Ok(self
+            .lock()
+            .projects
+            .get(&(plant.clone(), code.as_str().to_owned()))
+            .cloned())
+    }
+
+    async fn insert_project(&self, plant: &PlantId, x: &Project) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.plants.contains_key(plant) {
+            return Err(RepoError::Other(format!(
+                "營運中心不存在：{}",
+                plant.as_str()
+            )));
+        }
+        let key = (plant.clone(), x.code.as_str().to_owned());
+        if s.projects.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut x = x.clone();
+        x.stamp = new_stamp();
+        s.log_change(
+            Some(plant),
+            "project",
+            project_key(&x),
+            None,
+            Some(project_row(&x)),
+            &[],
+        );
+        s.projects.insert(key, x);
+        Ok(())
+    }
+
+    async fn update_project(&self, plant: &PlantId, x: &Project) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (plant.clone(), x.code.as_str().to_owned());
+        let Some(old) = s.projects.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut new = x.clone();
+        new.stamp = bumped(&old.stamp, &x.stamp)?;
+        s.log_change(
+            Some(plant),
+            "project",
+            project_key(&new),
+            Some(project_row(&old)),
+            Some(project_row(&new)),
+            &[],
+        );
+        s.projects.insert(key, new);
+        Ok(())
+    }
+
+    async fn delete_project(&self, plant: &PlantId, code: &ProjectCode) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        // 引用專案的單據移植後再加入檢查（PJ4）
+        let Some(old) = s
+            .projects
+            .remove(&(plant.clone(), code.as_str().to_owned()))
+        else {
+            return Ok(false);
+        };
+        s.log_change(
+            Some(plant),
+            "project",
+            project_key(&old),
+            Some(project_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+fn project_key(x: &Project) -> Vec<(&'static str, String)> {
+    vec![("project_code", x.code.as_str().to_owned())]
+}
+
+fn project_row(x: &Project) -> Row {
+    let a = &x.attrs;
+    let mut cols = vec![
+        ("project_code", text::s(x.code.as_str())),
+        ("name", text::opt(a.name.as_deref())),
+        ("start_on", text::opt_date(a.start_on)),
+        ("end_on", text::opt_date(a.end_on)),
+        ("confirmed", text::b(x.confirmation.confirmed)),
+        ("confirmed_by", text::opt(x.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        x.active,
+        &x.created_by,
+        &x.created_dept,
+        x.created_on,
+        x.updated_by.as_deref(),
+        x.updated_on,
+        &x.stamp,
+    ));
+    row(cols)
+}
+
+// ----- 稅別（gec_file；tax_type_maintenance.feature） -----
+
+#[async_trait]
+impl TaxTypeRepository for InMemoryStore {
+    async fn list_tax_types(&self) -> Result<Vec<TaxType>, RepoError> {
+        Ok(self.lock().tax_types.values().cloned().collect())
+    }
+
+    async fn get_tax_type(&self, key: &TaxKey) -> Result<Option<TaxType>, RepoError> {
+        Ok(self.lock().tax_types.get(key).cloned())
+    }
+
+    async fn insert_tax_type(&self, t: &TaxType) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.tax_types.contains_key(&t.key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut t = t.clone();
+        t.stamp = new_stamp();
+        s.log_change(None, "tax_type", tax_key(&t), None, Some(tax_row(&t)), &[]);
+        s.tax_types.insert(t.key.clone(), t);
+        Ok(())
+    }
+
+    async fn update_tax_type(&self, t: &TaxType) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.tax_types.get(&t.key).cloned() else {
+            return Ok(());
+        };
+        let mut t = t.clone();
+        t.stamp = bumped(&old.stamp, &t.stamp)?;
+        s.log_change(
+            None,
+            "tax_type",
+            tax_key(&t),
+            Some(tax_row(&old)),
+            Some(tax_row(&t)),
+            &[],
+        );
+        s.tax_types.insert(t.key.clone(), t);
+        Ok(())
+    }
+
+    async fn delete_tax_type(&self, key: &TaxKey) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        // 引用稅別的作業（客戶、供應商、單據）移植後再加入檢查（TX7）
+        let Some(old) = s.tax_types.remove(key) else {
+            return Ok(false);
+        };
+        s.log_change(
+            None,
+            "tax_type",
+            tax_key(&old),
+            Some(tax_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+fn tax_key(t: &TaxType) -> Vec<(&'static str, String)> {
+    vec![
+        ("tax_code", t.key.code.as_str().to_owned()),
+        ("direction", t.key.direction.code().to_owned()),
+    ]
+}
+
+fn tax_row(t: &TaxType) -> Row {
+    let a = &t.attrs;
+    let mut cols = vec![
+        ("tax_code", text::s(t.key.code.as_str())),
+        ("direction", text::s(t.key.direction.code())),
+        ("name", text::opt(a.name.as_deref())),
+        ("account", text::opt(a.account.as_deref())),
+        ("account2", text::opt(a.account2.as_deref())),
+        (
+            "invoice_copies",
+            a.invoice_copies.map(|c| c.code().to_owned()),
+        ),
+        ("tax_class", a.tax_class.map(|c| c.code().to_owned())),
+        ("rate", Some(a.rate.to_string())),
+        ("include_tax", text::b(a.include_tax)),
+        ("filing_format", text::s(&a.filing_format)),
+        ("confirmed", text::b(t.confirmation.confirmed)),
+        ("confirmed_by", text::opt(t.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        t.active,
+        &t.created_by,
+        &t.created_dept,
+        t.created_on,
+        t.updated_by.as_deref(),
+        t.updated_on,
+        &t.stamp,
+    ));
+    row(cols)
+}
+
+// ----- 幣別（azi_file；currency_maintenance.feature） -----
+
+#[async_trait]
+impl CurrencyRepository for InMemoryStore {
+    async fn list_currencies(&self) -> Result<Vec<Currency>, RepoError> {
+        Ok(self.lock().currencies.values().cloned().collect())
+    }
+
+    async fn get_currency(&self, code: &CurrencyCode) -> Result<Option<Currency>, RepoError> {
+        Ok(self.lock().currencies.get(code.as_str()).cloned())
+    }
+
+    async fn insert_currency(&self, c: &Currency) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.currencies.contains_key(c.code.as_str()) {
+            return Err(RepoError::Conflict);
+        }
+        let mut c = c.clone();
+        c.stamp = new_stamp();
+        s.log_change(
+            None,
+            "currency",
+            currency_key(&c),
+            None,
+            Some(currency_row(&c)),
+            &[],
+        );
+        s.currencies.insert(c.code.as_str().to_owned(), c);
+        Ok(())
+    }
+
+    async fn update_currency(&self, c: &Currency) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.currencies.get(c.code.as_str()).cloned() else {
+            return Ok(());
+        };
+        let mut c = c.clone();
+        c.stamp = bumped(&old.stamp, &c.stamp)?;
+        s.log_change(
+            None,
+            "currency",
+            currency_key(&c),
+            Some(currency_row(&old)),
+            Some(currency_row(&c)),
+            &[],
+        );
+        s.currencies.insert(c.code.as_str().to_owned(), c);
+        Ok(())
+    }
+
+    async fn delete_currency(&self, code: &CurrencyCode) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        // 引用幣別的作業（匯率，批次 2）移植後再加入檢查（CY6）
+        let Some(old) = s.currencies.remove(code.as_str()) else {
+            return Ok(false);
+        };
+        s.log_change(
+            None,
+            "currency",
+            currency_key(&old),
+            Some(currency_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+fn currency_key(c: &Currency) -> Vec<(&'static str, String)> {
+    vec![("currency_code", c.code.as_str().to_owned())]
+}
+
+fn currency_row(c: &Currency) -> Row {
+    let a = &c.attrs;
+    let mut cols = vec![
+        ("currency_code", text::s(c.code.as_str())),
+        ("name", text::opt(a.name.as_deref())),
+        ("price_decimals", text::int(i64::from(a.price_decimals))),
+        ("amount_decimals", text::int(i64::from(a.amount_decimals))),
+        ("total_decimals", text::int(i64::from(a.total_decimals))),
+        ("rate_decimals", text::int(i64::from(a.rate_decimals))),
+        ("rate_method", text::s(a.rate_method.code())),
+        ("confirmed", text::b(c.confirmation.confirmed)),
+        ("confirmed_by", text::opt(c.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        c.active,
+        &c.created_by,
+        &c.created_dept,
+        c.created_on,
+        c.updated_by.as_deref(),
+        c.updated_on,
+        &c.stamp,
+    ));
+    row(cols)
+}
+
+// ----- 基本代碼（gea、geb、geo、ged、azh；basic_code_service.rs） -----
+
+#[async_trait]
+impl BasicCodeRepository for InMemoryStore {
+    async fn list_basic_codes(&self, kind: BasicCodeKind) -> Result<Vec<BasicCode>, RepoError> {
+        Ok(self
+            .lock()
+            .basic_codes
+            .range((kind, String::new())..)
+            .take_while(|((k, _), _)| *k == kind)
+            .map(|(_, c)| c.clone())
+            .collect())
+    }
+
+    async fn get_basic_code(
+        &self,
+        kind: BasicCodeKind,
+        code: &BasicCodeValue,
+    ) -> Result<Option<BasicCode>, RepoError> {
+        Ok(self
+            .lock()
+            .basic_codes
+            .get(&(kind, code.as_str().to_owned()))
+            .cloned())
+    }
+
+    async fn insert_basic_code(&self, code: &BasicCode) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (code.kind, code.code.as_str().to_owned());
+        if s.basic_codes.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        // 與 PostgreSQL 的外鍵一致：隸屬的上層代碼須存在
+        if let (Some(pk), Some(p)) = (code.kind.parent(), &code.attrs.parent)
+            && !s.basic_codes.contains_key(&(pk, p.clone()))
+        {
+            return Err(RepoError::Other(format!("上層代碼不存在：{p}")));
+        }
+        let mut c = code.clone();
+        c.stamp = new_stamp();
+        let (table, ..) = crate::basic_code_service::storage(c.kind);
+        s.log_change(None, table, basic_key(&c), None, Some(basic_row(&c)), &[]);
+        s.basic_codes.insert(key, c);
+        Ok(())
+    }
+
+    async fn update_basic_code(&self, code: &BasicCode) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (code.kind, code.code.as_str().to_owned());
+        let Some(old) = s.basic_codes.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut c = code.clone();
+        c.stamp = bumped(&old.stamp, &code.stamp)?;
+        let (table, ..) = crate::basic_code_service::storage(c.kind);
+        s.log_change(
+            None,
+            table,
+            basic_key(&c),
+            Some(basic_row(&old)),
+            Some(basic_row(&c)),
+            &[],
+        );
+        s.basic_codes.insert(key, c);
+        Ok(())
+    }
+
+    async fn delete_basic_code(
+        &self,
+        kind: BasicCodeKind,
+        code: &BasicCodeValue,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        // 與 PostgreSQL 的外鍵一致：被下層代碼引用時不可刪除（RC4）
+        if let Some(child) = kind.child() {
+            let used = s
+                .basic_codes
+                .iter()
+                .any(|((k, _), c)| *k == child && c.attrs.parent.as_deref() == Some(code.as_str()));
+            if used {
+                return Err(RepoError::InUse);
+            }
+        }
+        let Some(old) = s.basic_codes.remove(&(kind, code.as_str().to_owned())) else {
+            return Ok(false);
+        };
+        let (table, ..) = crate::basic_code_service::storage(kind);
+        s.log_change(
+            None,
+            table,
+            basic_key(&old),
+            Some(basic_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+fn basic_key(c: &BasicCode) -> Vec<(&'static str, String)> {
+    let (_, key, _) = crate::basic_code_service::storage(c.kind);
+    vec![(key, c.code.as_str().to_owned())]
+}
+
+fn basic_row(c: &BasicCode) -> Row {
+    let (_, key, parent) = crate::basic_code_service::storage(c.kind);
+    let mut cols = vec![
+        (key, text::s(c.code.as_str())),
+        ("name", text::opt(c.attrs.name.as_deref())),
+        ("confirmed", text::b(c.confirmation.confirmed)),
+        ("confirmed_by", text::opt(c.confirmation.by.as_deref())),
+    ];
+    if let Some(parent) = parent {
+        cols.push((parent, text::opt(c.attrs.parent.as_deref())));
+    }
+    cols.extend(audit_cols(
+        c.active,
+        &c.created_by,
+        &c.created_dept,
+        c.created_on,
+        c.updated_by.as_deref(),
+        c.updated_on,
+        &c.stamp,
     ));
     row(cols)
 }

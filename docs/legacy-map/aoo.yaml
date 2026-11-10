@@ -45,12 +45,12 @@ tables:
   - legacy: azf_file
     target: classification_code
     scope: plant
-    program: aooi300（Classification Code Maintenance 分類碼維護；aooi305、aooi309–aooi312 帶入類別執行）
-    spec: specs/features/aoo/classification_code.feature
-    note: "分類碼；工廠層（CC8）。第一階段只開放料件用到的類別 8、D、E、F、G（CC2），其他類別等引用的作業移植時加入"
+    program: aooi300（Classification Code Maintenance 分類碼維護；aooi305、aooi309–aooi312 帶入類別執行）；客製 aooi080 併入（OC3）
+    spec: "specs/features/aoo/classification_code.feature、classification_code_other_kinds.feature"
+    note: "分類碼；工廠層（CC8）。開放類別 8、D、E、F、G（CC2）與 2、6、A、R、S（OC1）；3、5、H、Z 不開放（OC2）"
     columns:
       - { legacy: azf01,   type: varchar2(10) NOT NULL, target: code, sch: 碼別代號, note: "同一類別內不可重複（-239）；不轉大寫" }
-      - { legacy: azf02,   type: varchar2(1) NOT NULL, target: kind, sch: 碼類別, note: "8、D、E、F、G（CC2）" }
+      - { legacy: azf02,   type: varchar2(1) NOT NULL, target: kind, sch: 碼類別, note: "8、D、E、F、G（CC2）；2、6、A、R、S（OC1）" }
       - { legacy: azf03,   type: varchar2(80), target: description, sch: 說明內容, note: "不做多語言（CC9）" }
       - { legacy: azf05,   type: varchar2(24), target: variance_account, sch: 存貨差異科目代號, note: "類別 G；會計科目未移植，暫不檢查（CC3）", verify: true }
       - { legacy: azf051,  type: varchar2(24), target: variance_account2, sch: 存貨差異科目代號二, note: "類別 G（兩套帳）", verify: true }
@@ -62,7 +62,7 @@ tables:
       - { legacy: azfdate, type: date, target: "created_on / updated_on", sch: 最後修改日期, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
       - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增：版本號（樂觀鎖）、建立與最後修改時間到秒，由觸發器維護（ADR 0012 §1、§4）；轉入時 version＝1、created_at＝轉檔時間、updated_at 空白" }
     not_ported:
-      - { legacy: azf04,  type: number(5), sch: 保稅異動類別, reason: "保稅相關類別（第一階段未開放的類別使用），等相關作業移植時加入" }
+      - { legacy: azf04,  type: number(5), sch: 保稅異動類別, reason: "兩支維護作業都沒有輸入；保稅模組移植時再決定（OC7）" }
       - { legacy: azf07,  type: varchar2(24), sch: 會計科目, reason: "只有類別 H（aooi313）使用，第一階段未開放" }
       - { legacy: azf08,  type: varchar2(1), sch: 是否列入銷售費用, reason: "只有類別 H 使用" }
       - { legacy: azf09,  type: varchar2(1), sch: 用途, reason: "只有類別 H 使用" }
@@ -149,3 +149,163 @@ tables:
       - { legacy: gfemodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
       - { legacy: gfedate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
       - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+
+  # ----- 基本代碼（migrations/0041_basic_codes.sql；basic_code_service.rs） -----
+  - legacy: gea_file
+    target: region
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（RC2），轉入以總公司資料為準"
+    program: aooi100（Region Maintenance 區域別維護）
+    spec: specs/features/aoo/region_country_area_maintenance.feature
+    columns:
+      - { legacy: gea01,   type: varchar2(10) PK NOT NULL, target: region_code, sch: 區域編號, note: "區分大小寫、建立後不可修改（RC5）" }
+      - { legacy: gea02,   type: varchar2(80), target: name, sch: 區域名稱, note: "不做多語言（RC6）" }
+      - { legacy: geaacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean" }
+      - { legacy: geauser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: geagrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
+      - { legacy: geamodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
+      - { legacy: geadate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+
+  - legacy: geb_file
+    target: country
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（RC2）"
+    program: aooi090（Country Maintenance 國別維護）
+    spec: specs/features/aoo/region_country_area_maintenance.feature
+    columns:
+      - { legacy: geb01,   type: varchar2(10) PK NOT NULL, target: country_code, sch: 國別編號, note: "區分大小寫、建立後不可修改（RC5）" }
+      - { legacy: geb02,   type: varchar2(80), target: name, sch: 國別名稱, note: "不做多語言（RC6）" }
+      - { legacy: geb03,   type: varchar2(10), target: region_code, sch: 隸屬區域編號, note: "外鍵 region；可空白，須存在且有效（RC3）" }
+      - { legacy: gebacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean" }
+      - { legacy: gebuser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: gebgrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
+      - { legacy: gebmodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
+      - { legacy: gebdate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+
+  - legacy: geo_file
+    target: area
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（RC2）"
+    program: aooi110（Area Maintenance 地區維護）
+    spec: specs/features/aoo/region_country_area_maintenance.feature
+    columns:
+      - { legacy: geo01,   type: varchar2(10) PK NOT NULL, target: area_code, sch: 地區編號, note: "區分大小寫、建立後不可修改（RC5）" }
+      - { legacy: geo02,   type: varchar2(80), target: name, sch: 地區名稱, note: "不做多語言（RC6）" }
+      - { legacy: geo03,   type: varchar2(10), target: country_code, sch: 隸屬國別, note: "外鍵 country；可空白，須存在且有效（RC3）" }
+      - { legacy: geoacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean" }
+      - { legacy: geouser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: geogrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
+      - { legacy: geomodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
+      - { legacy: geodate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+
+  - legacy: ged_file
+    target: shipping_method
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（SM2）"
+    program: aooi160（Shipping Method Maintenance 交運方式維護）
+    spec: specs/features/aoo/shipping_method_maintenance.feature
+    columns:
+      - { legacy: ged01, type: varchar2(10) PK NOT NULL, target: method_code, sch: 交運方式, note: "區分大小寫、建立後不可修改（SM5）" }
+      - { legacy: ged02, type: varchar2(80), target: name, sch: 交運方式說明 }
+      - { legacy: "(無)", target: active, note: "TTRS 新增資料有效碼；轉入一律有效（SM3）" }
+      - { legacy: "(無)", target: "created_by / created_dept / created_on / updated_by / updated_on", note: "TTRS 新增（ADR 0012）；轉入時填轉檔使用者" }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+
+  - legacy: azh_file
+    target: report_title
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（RH3）"
+    program: aooi210（Report Title Maintenance 報表抬頭維護）
+    spec: specs/features/aoo/report_title_maintenance.feature
+    note: "agl 財務報表列印時選用（RH2）"
+    columns:
+      - { legacy: azh01, type: varchar2(10) PK NOT NULL, target: title_code, sch: 抬頭代碼, note: "區分大小寫、建立後不可修改" }
+      - { legacy: azh02, type: varchar2(80), target: name, sch: 抬頭名稱, note: "繁中；其他語系在 report_title_text（RH4）" }
+      - { legacy: "(無)", target: report_title_text, note: "名稱的 en、zh-CN（ADR 0005）" }
+      - { legacy: "(無)", target: active, note: "TTRS 新增資料有效碼；轉入一律有效（RH5）" }
+      - { legacy: "(無)", target: "created_by / created_dept / created_on / updated_by / updated_on", note: "TTRS 新增（ADR 0012）" }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+
+  - legacy: azi_file
+    target: currency
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（CY2），轉入以總公司資料為準"
+    program: aooi050（Currency Maintenance 幣別維護）
+    spec: specs/features/aoo/currency_maintenance.feature
+    columns:
+      - { legacy: azi01,   type: varchar2(4) PK NOT NULL, target: currency_code, sch: 幣別代碼, note: "區分大小寫、建立後不可修改（CY5）" }
+      - { legacy: azi02,   type: varchar2(80), target: name, sch: 幣別說明, note: "不做多語言（CY7）" }
+      - { legacy: azi03,   type: number(5), target: price_decimals, sch: 單價, note: ".sch 註 0~5；照程式檢查 0–6，預設 4（CY3）" }
+      - { legacy: azi04,   type: number(5), target: amount_decimals, sch: 金額小數位數, note: ".sch 註 0~3；照程式檢查 0–6，預設 2（CY3）" }
+      - { legacy: azi05,   type: number(5), target: total_decimals, sch: 小計總計小數位數, note: ".sch 註 0~3；照程式檢查 0–6，預設 2（CY3）" }
+      - { legacy: azi07,   type: number(5), target: rate_decimals, sch: 除匯率時所取小數位數, note: ".sch 註 0~8；照程式檢查 0–10，預設 6（CY3）" }
+      - { legacy: azi10,   type: varchar2(1), target: rate_method, sch: 計算方式, note: "1 乘、2 除；必填，預設 1（CY4）" }
+      - { legacy: aziacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean" }
+      - { legacy: aziuser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: azigrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
+      - { legacy: azimodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
+      - { legacy: azidate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+    not_ported:
+      - { legacy: azi08, type: varchar2(24), sch: 採購匯兌損益會計科目, reason: "aooi050 不維護（畫面沒有）；會計科目移植（agl）時再決定（CY8）" }
+      - { legacy: azi09, type: varchar2(24), sch: 銷貨匯兌損益會計科目, reason: "同 azi08（CY8）" }
+
+  - legacy: gec_file
+    target: tax_type
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（TX2），若各法人稅別不同再改為工廠層"
+    program: aooi150（Tax Type Maintenance 稅別維護）
+    spec: specs/features/aoo/tax_type_maintenance.feature
+    columns:
+      - { legacy: gec01,   type: varchar2(4) PK NOT NULL, target: tax_code, sch: 稅別碼, note: "區分大小寫、建立後不可修改（TX8）" }
+      - { legacy: gec011,  type: varchar2(1) PK NOT NULL, target: direction, sch: 進/銷項, note: "1 進項、2 銷項" }
+      - { legacy: gec02,   type: varchar2(80), target: name, sch: 稅別名稱, note: "不做多語言（TX8）" }
+      - { legacy: gec03,   type: varchar2(24), target: account, sch: 會計科目編號, note: "會計科目移植前不檢查（TX4）；稅率不為 0 時必填" }
+      - { legacy: gec031,  type: varchar2(24), target: account2, sch: 會計科目二, note: "第二帳套；不檢查（TX4）" }
+      - { legacy: gec04,   type: number(9,4), target: rate, sch: 稅率, note: "numeric(9,4)，0–100，預設 0（TX5）；零稅率、免稅為 0" }
+      - { legacy: gec05,   type: varchar2(1), target: invoice_copies, sch: 發票聯數, note: "台灣版 0／2／3／4／X（TX3）；大陸版值見 not_ported" }
+      - { legacy: gec06,   type: varchar2(1), target: tax_class, sch: "1.應稅 2.零稅率 3.免稅" }
+      - { legacy: gec07,   type: varchar2(1), target: include_tax, sch: 單價含稅否, note: "Y/N → boolean；二聯式（申報格式 28 除外）須含稅" }
+      - { legacy: gec08,   type: varchar2(2), target: filing_format, sch: 媒體申報格式, note: "進項 21–29、銷項 31–38、XX；必填，預設 XX（TX6）" }
+      - { legacy: gecacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean" }
+      - { legacy: gecuser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: gecgrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
+      - { legacy: gecmodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
+      - { legacy: gecdate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+    not_ported:
+      - { legacy: "gec05（A、B、C、G、N、S、T、W、Z）", type: varchar2(1), sch: 大陸版發票種類, reason: "只做台灣版（TX3）；轉入時若有大陸版值須先確認" }
+
+  - legacy: gja_file
+    target: project
+    scope: plant
+    scope_note: "工廠層（PJ2）：每個營運中心的 schema 各一份，與 TipTop 相同"
+    program: aooi200（Project Maintenance 專案維護）
+    spec: specs/features/aoo/project_maintenance.feature
+    columns:
+      - { legacy: gja01,   type: varchar2(10) PK NOT NULL, target: project_code, sch: 專案編號, note: "區分大小寫、建立後不可修改（PJ5）" }
+      - { legacy: gja02,   type: varchar2(80), target: name, sch: 專案名稱, note: "不做多語言（PJ5）" }
+      - { legacy: gja03,   type: date, target: start_on, sch: 專案起始日期, note: "可空白（PJ3）" }
+      - { legacy: gja04,   type: date, target: end_on, sch: 專案結束日期, note: "可空白；不可早於起始日期（apj-018，PJ3）" }
+      - { legacy: gjaacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean" }
+      - { legacy: gjauser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: gjagrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
+      - { legacy: gjamodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
+      - { legacy: gjadate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+    not_ported:
+      - { legacy: gja05, type: "number(15,2)", sch: No Use, reason: ".sch 標示未使用（PJ6）" }
+      - { legacy: gja06, type: "number(15,2)", sch: No Use, reason: ".sch 標示未使用（PJ6）" }
+      - { legacy: gja07, type: "number(15,2)", sch: No Use, reason: ".sch 標示未使用（PJ6）" }
+      - { legacy: gja08, type: "number(15,2)", sch: No Use, reason: ".sch 標示未使用（PJ6）" }

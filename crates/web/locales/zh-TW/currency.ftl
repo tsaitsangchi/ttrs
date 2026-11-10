@@ -1,0 +1,27 @@
+# 幣別維護（TipTop aooi050；specs/features/aoo/currency_maintenance.feature）
+currency-breadcrumb = 整體管理 / Currency Maintenance
+currency-title = 幣別維護
+currency-list-title = 幣別
+currency-field-code = 幣別
+currency-field-name = 說明
+currency-field-price-decimals = 單價小數位數
+currency-field-amount-decimals = 金額小數位數
+currency-field-total-decimals = 小計總計小數位數
+currency-field-rate-decimals = 匯率小數位數
+currency-field-rate-method = 計算方式
+currency-rate-multiply = 乘
+currency-rate-divide = 除
+currency-action-activate = 啟用
+currency-action-deactivate = 停用
+currency-dialog-new = 新增幣別
+currency-dialog-edit = 修改幣別 { $code }
+currency-msg-saved = 幣別 { $code } 已儲存
+currency-msg-deleted = 幣別 { $code } 已刪除
+currency-msg-activated = 幣別 { $code } 已啟用
+currency-msg-deactivated = 幣別 { $code } 已停用
+currency-msg-confirmed = 已確認幣別 { $code }
+currency-msg-unconfirmed = 已取消確認幣別 { $code }
+currency-msg-copied = 已將幣別 { $from } 複製為 { $to }
+currency-field-copy-as = 複製為
+currency-hint-decimals = 單價、金額、小計總計小數位數 0 到 6，匯率小數位數 0 到 10；幣別建立後不可修改。
+currency-hint-rate-method = 1 乘、2 除
