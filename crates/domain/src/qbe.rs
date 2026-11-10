@@ -16,6 +16,7 @@
 use std::cmp::Ordering;
 
 use chrono::NaiveDate;
+use rust_decimal::Decimal;
 
 use crate::DomainError;
 
@@ -24,6 +25,8 @@ use crate::DomainError;
 pub enum FieldType {
     Text,
     Integer,
+    /// 數量、金額（rust_decimal，以數值比較）
+    Decimal,
     Date,
     /// Y/N 旗標；只允許等於、不等於、空值
     Flag,
@@ -34,6 +37,7 @@ pub enum FieldType {
 pub enum QbeValue {
     Text(String),
     Integer(i64),
+    Decimal(Decimal),
     Date(NaiveDate),
     Flag(bool),
 }
@@ -43,6 +47,7 @@ impl QbeValue {
         match (self, other) {
             (Self::Text(a), Self::Text(b)) => Some(a.as_bytes().cmp(b.as_bytes())),
             (Self::Integer(a), Self::Integer(b)) => Some(a.cmp(b)),
+            (Self::Decimal(a), Self::Decimal(b)) => Some(a.cmp(b)),
             (Self::Date(a), Self::Date(b)) => Some(a.cmp(b)),
             (Self::Flag(a), Self::Flag(b)) => Some(a.cmp(b)),
             _ => None,
@@ -150,7 +155,9 @@ fn parse_term(
     if has_unescaped_wildcard(alt) {
         return match ty {
             FieldType::Text => Ok(QbeTerm::Like(pattern(alt))),
-            FieldType::Integer => Err(DomainError::QbeInvalidNumber(alt.to_owned())),
+            FieldType::Integer | FieldType::Decimal => {
+                Err(DomainError::QbeInvalidNumber(alt.to_owned()))
+            }
             FieldType::Date => Err(DomainError::QbeInvalidDate(alt.to_owned())),
             FieldType::Flag => Err(syntax()),
         };
@@ -164,6 +171,10 @@ fn typed(ty: FieldType, raw: &str) -> Result<QbeValue, DomainError> {
         FieldType::Integer => raw
             .parse()
             .map(QbeValue::Integer)
+            .map_err(|_| DomainError::QbeInvalidNumber(raw.to_owned())),
+        FieldType::Decimal => raw
+            .parse::<Decimal>()
+            .map(QbeValue::Decimal)
             .map_err(|_| DomainError::QbeInvalidNumber(raw.to_owned())),
         // QBE3：接受 2026/10/29 與 2026-10-29
         FieldType::Date => NaiveDate::parse_from_str(raw, "%Y/%m/%d")
@@ -378,6 +389,17 @@ mod tests {
         assert!(text("<>modify").matches_set(&[]));
         assert!(text("=").matches_set(&[]));
         assert!(!text("=").matches_set(&actions));
+    }
+
+    #[test]
+    fn decimal_compares_by_value() {
+        let f = parse("f", FieldType::Decimal, ">=50", str::to_owned)
+            .unwrap()
+            .unwrap();
+        assert!(f.matches(Some(&QbeValue::Decimal(Decimal::from(100)))));
+        assert!(!f.matches(Some(&QbeValue::Decimal(Decimal::from(20)))));
+        let bad = parse("f", FieldType::Decimal, "abc", str::to_owned);
+        assert_eq!(bad, Err(DomainError::QbeInvalidNumber("abc".into())));
     }
 
     #[test]

@@ -516,6 +516,33 @@ impl ItemRepository for InMemoryStore {
         Ok(self.lock().items.get(&(plant.clone(), no.clone())).cloned())
     }
 
+    async fn query_items(
+        &self,
+        plant: &PlantId,
+        filters: &[QbeFilter],
+        scope: &DataScope,
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Item>, u64), RepoError> {
+        let s = self.lock();
+        let hits = s
+            .items
+            .iter()
+            .filter(|((p, _), i)| p == plant && scope.includes(&i.created_by, &i.created_dept))
+            .filter(|((_, no), i)| {
+                let texts: Vec<ItemText> = s
+                    .item_texts
+                    .iter()
+                    .filter(|((p, n, _), _)| p == plant && n == no)
+                    .map(|(_, t)| t.clone())
+                    .collect();
+                query::matches_all(filters, |f| query::item::value(i, &texts, f))
+            })
+            .map(|(_, i)| i.clone())
+            .collect();
+        Ok(page_of(hits, offset, limit))
+    }
+
     async fn insert_item(&self, plant: &PlantId, item: &Item) -> Result<(), RepoError> {
         let mut s = self.lock();
         let key = (plant.clone(), item.no.clone());
@@ -2913,6 +2940,28 @@ impl ItemGroupRepository for InMemoryStore {
             .item_groups
             .get(&(plant.clone(), code.as_str().to_owned()))
             .cloned())
+    }
+
+    async fn query_item_groups(
+        &self,
+        plant: &PlantId,
+        filters: &[QbeFilter],
+        scope: &DataScope,
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<ItemGroup>, u64), RepoError> {
+        let hits = self
+            .lock()
+            .item_groups
+            .iter()
+            .filter(|((p, _), g)| {
+                p == plant
+                    && scope.includes(&g.created_by, &g.created_dept)
+                    && query::matches_all(filters, |f| query::item_group::value(g, f))
+            })
+            .map(|(_, g)| g.clone())
+            .collect();
+        Ok(page_of(hits, offset, limit))
     }
 
     async fn insert_item_group(&self, plant: &PlantId, g: &ItemGroup) -> Result<(), RepoError> {

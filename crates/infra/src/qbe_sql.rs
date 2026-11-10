@@ -17,6 +17,14 @@ pub(crate) enum Column {
     Scalar(&'static str, bool),
     /// 文字陣列，逐一比對每個值（允許執行功能，YQ4）
     TextArray(&'static str),
+    /// 多語系文字（料件品名、規格，IQ3）：繁中欄位或任一語系翻譯符合即符合；空值只看繁中。
+    /// `exists` 為到 `AND ` 為止的子查詢開頭（如 `EXISTS (SELECT 1 FROM item_text t WHERE t.item_no = i.item_no AND `），
+    /// `text` 為子查詢中的翻譯欄位
+    Translated {
+        base: &'static str,
+        exists: &'static str,
+        text: &'static str,
+    },
 }
 
 /// 每個篩選加上 ` AND (…)`；條件之間 OR
@@ -36,6 +44,17 @@ pub(crate) fn push_filters(
             match col {
                 Column::Scalar(c, is_text) => push_term(qb, c, is_text, term),
                 Column::TextArray(c) => push_set_term(qb, c, term),
+                Column::Translated { base, exists, text } => {
+                    if *term == QbeTerm::IsNull {
+                        push_term(qb, base, true, term);
+                    } else {
+                        qb.push("(");
+                        push_term(qb, base, true, term);
+                        qb.push(" OR ").push(exists);
+                        push_term(qb, text, true, term);
+                        qb.push("))");
+                    }
+                }
             }
         }
         qb.push(")");
@@ -113,6 +132,7 @@ fn push_value(qb: &mut QueryBuilder<Postgres>, v: &QbeValue) {
     match v {
         QbeValue::Text(s) => qb.push_bind(s.clone()),
         QbeValue::Integer(n) => qb.push_bind(*n),
+        QbeValue::Decimal(d) => qb.push_bind(*d),
         QbeValue::Date(d) => qb.push_bind(*d),
         QbeValue::Flag(b) => qb.push_bind(*b),
     };

@@ -5,7 +5,7 @@
 
 use ttrs_domain::{
     DomainError,
-    qbe::{self, FieldType, QbeFilter, QbeValue},
+    qbe::{self, FieldType, QbeFilter, QbeTerm, QbeValue},
 };
 use ttrs_shared::{QbeCondition, QueryRequest};
 
@@ -102,6 +102,8 @@ pub enum FieldValue {
     One(Option<QbeValue>),
     /// 多值欄位（允許執行功能，YQ4）
     Set(Vec<QbeValue>),
+    /// 多語系欄位（料件品名、規格，IQ3）：繁中本身＋各語系翻譯；任一語系符合即符合，空值只看繁中
+    Translated(Option<QbeValue>, Vec<QbeValue>),
 }
 
 /// 記憶體版：全部篩選都符合（AND）
@@ -109,6 +111,13 @@ pub fn matches_all(filters: &[QbeFilter], value: impl Fn(&str) -> FieldValue) ->
     filters.iter().all(|f| match value(f.field) {
         FieldValue::One(v) => f.matches(v.as_ref()),
         FieldValue::Set(vs) => f.matches_set(&vs),
+        FieldValue::Translated(base, texts) => f.terms.iter().any(|t| match t {
+            QbeTerm::IsNull => t.matches(
+                base.as_ref()
+                    .filter(|v| !matches!(v, QbeValue::Text(s) if s.is_empty())),
+            ),
+            _ => base.iter().chain(texts.iter()).any(|v| t.matches(Some(v))),
+        }),
     })
 }
 
@@ -126,6 +135,14 @@ fn flag(v: bool) -> FieldValue {
 
 fn date(v: Option<chrono::NaiveDate>) -> FieldValue {
     FieldValue::One(v.map(QbeValue::Date))
+}
+
+fn opt_dec(v: Option<rust_decimal::Decimal>) -> FieldValue {
+    FieldValue::One(v.map(QbeValue::Decimal))
+}
+
+fn opt_int(v: Option<i32>) -> FieldValue {
+    FieldValue::One(v.map(|n| QbeValue::Integer(i64::from(n))))
 }
 
 fn int(v: i32) -> FieldValue {
@@ -577,6 +594,329 @@ pub mod employee {
                 e.updated_by.as_deref(),
                 e.updated_on,
                 e.stamp.version,
+            )
+            .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
+/// 料件基本資料維護（aimi100 i100_curs，topcust/cim/4gl/aimi100.4gl:354-656；IQ1–IQ10）
+pub mod item {
+    use ttrs_domain::{
+        item::{Item, ItemText},
+        qbe::{FieldType, QbeValue},
+    };
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    /// CONSTRUCT 中有 TTRS 對應的欄位＋「狀態」頁籤（IQ1）；多屬性、批號序號、自訂欄位不在其中（IQ10）。
+    /// 料件編號區分大小寫（IQ2）
+    pub const FIELDS: &[Field] = &[
+        field("item_no", FieldType::Text),
+        field("name", FieldType::Text),
+        field("spec", FieldType::Text),
+        field("group_code", FieldType::Text),
+        field("source_code", FieldType::Text),
+        field("configurable_item_no", FieldType::Text),
+        field("current_version", FieldType::Text),
+        field("catalog_ref", FieldType::Text),
+        field("supplier_control", FieldType::Text),
+        field("product_class", FieldType::Text),
+        field("drawing_no", FieldType::Text),
+        field("apply_dept", FieldType::Text),
+        field("software", FieldType::Flag),
+        field("engineering", FieldType::Flag),
+        field("insert_position", FieldType::Flag),
+        field("insert_qpa_check", FieldType::Flag),
+        field("material_category", FieldType::Text),
+        field("coproduct", FieldType::Flag),
+        field("inspection", FieldType::Flag),
+        field("repetitive", FieldType::Flag),
+        field("pcn", FieldType::Text),
+        field("abc_code", FieldType::Text),
+        field("consumable", FieldType::Flag),
+        field("replenish_policy", FieldType::Text),
+        field("economic_order_qty", FieldType::Decimal),
+        field("average_order_qty", FieldType::Decimal),
+        field("safety_stock", FieldType::Decimal),
+        field("safety_period", FieldType::Decimal),
+        field("max_stock_qty", FieldType::Decimal),
+        field("shelf_life_days", FieldType::Integer),
+        field("stock_unit", FieldType::Text),
+        field("warehouse", FieldType::Text),
+        field("location", FieldType::Text),
+        field("stock_keeper", FieldType::Text),
+        field("second_unit", FieldType::Text),
+        field("pricing_unit", FieldType::Text),
+        field("other_group1", FieldType::Text),
+        field("other_group2", FieldType::Text),
+        field("other_group3", FieldType::Text),
+        field("other_group4", FieldType::Text),
+        field("account", FieldType::Text),
+        field("account2", FieldType::Text),
+        field("bonded", FieldType::Flag),
+        field("full_name", FieldType::Text),
+        field("english_name", FieldType::Text),
+        field("planned_discontinue_on", FieldType::Date),
+        field("life_cycle", FieldType::Text),
+        field("carton_barcode", FieldType::Text),
+        field("active_code", FieldType::Text),
+        field("status_code", FieldType::Text),
+        field("order_invalid", FieldType::Flag),
+        field("phase_out", FieldType::Flag),
+        field("low_level_code", FieldType::Integer),
+        field("bom_changed", FieldType::Text),
+        field("coproduct_this_month", FieldType::Flag),
+        field("new_part_status", FieldType::Text),
+        field("data_source", FieldType::Text),
+        field("item_created_on", FieldType::Date),
+        field("first_shipped_on", FieldType::Date),
+        field("first_received_on", FieldType::Date),
+        field("slow_moving_on", FieldType::Date),
+        field("last_period_purchase_on", FieldType::Date),
+        field("last_received_on", FieldType::Date),
+        field("last_issued_on", FieldType::Date),
+        field("last_txn_on", FieldType::Date),
+        field("last_count_on", FieldType::Date),
+        // 狀態頁籤（ADR 0012 §9）
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    fn translated(
+        base: Option<&str>,
+        texts: &[ItemText],
+        pick: fn(&ItemText) -> Option<&str>,
+    ) -> FieldValue {
+        FieldValue::Translated(
+            base.map(|s| QbeValue::Text(s.to_owned())),
+            texts
+                .iter()
+                .filter_map(pick)
+                .map(|s| QbeValue::Text(s.to_owned()))
+                .collect(),
+        )
+    }
+
+    /// 記憶體版比對用；`texts` 為各語系品名、規格（IQ3）
+    pub fn value(i: &Item, texts: &[ItemText], field: &str) -> FieldValue {
+        let a = &i.attrs;
+        let s = &i.system;
+        let t = |v: &Option<String>| opt_text(v.as_deref());
+        match field {
+            "item_no" => text(i.no.as_str()),
+            "name" => translated(a.name.as_deref(), texts, |x| x.name.as_deref()),
+            "spec" => translated(a.spec.as_deref(), texts, |x| x.spec.as_deref()),
+            "group_code" => t(&a.group_code),
+            "source_code" => t(&a.source_code),
+            "configurable_item_no" => t(&a.configurable_item_no),
+            "current_version" => t(&a.current_version),
+            "catalog_ref" => t(&a.catalog_ref),
+            "supplier_control" => t(&a.supplier_control),
+            "product_class" => t(&a.product_class),
+            "drawing_no" => t(&a.drawing_no),
+            "apply_dept" => t(&a.apply_dept),
+            "software" => flag(a.software),
+            "engineering" => flag(a.engineering),
+            "insert_position" => flag(a.insert_position),
+            "insert_qpa_check" => flag(a.insert_qpa_check),
+            "material_category" => t(&a.material_category),
+            "coproduct" => flag(a.coproduct),
+            "inspection" => flag(a.inspection),
+            "repetitive" => flag(a.repetitive),
+            "pcn" => t(&a.pcn),
+            "abc_code" => t(&a.abc_code),
+            "consumable" => flag(a.consumable),
+            "replenish_policy" => t(&a.replenish_policy),
+            "economic_order_qty" => opt_dec(a.economic_order_qty),
+            "average_order_qty" => opt_dec(a.average_order_qty),
+            "safety_stock" => opt_dec(a.safety_stock),
+            "safety_period" => opt_dec(a.safety_period),
+            "max_stock_qty" => opt_dec(a.max_stock_qty),
+            "shelf_life_days" => opt_int(a.shelf_life_days),
+            "stock_unit" => t(&a.stock_unit),
+            "warehouse" => t(&a.warehouse),
+            "location" => t(&a.location),
+            "stock_keeper" => t(&a.stock_keeper),
+            "second_unit" => t(&a.second_unit),
+            "pricing_unit" => t(&a.pricing_unit),
+            "other_group1" => t(&a.other_groups[0]),
+            "other_group2" => t(&a.other_groups[1]),
+            "other_group3" => t(&a.other_groups[2]),
+            "other_group4" => t(&a.other_groups[3]),
+            "account" => t(&a.account),
+            "account2" => t(&a.account2),
+            "bonded" => flag(a.bonded),
+            "full_name" => t(&a.full_name),
+            "english_name" => t(&a.english_name),
+            "planned_discontinue_on" => date(a.planned_discontinue_on),
+            "life_cycle" => t(&a.life_cycle),
+            "carton_barcode" => t(&a.carton_barcode),
+            "active_code" => text(i.active_code.code()),
+            "status_code" => text(i.status_code.code()),
+            "order_invalid" => flag(i.order_invalid),
+            "phase_out" => flag(s.phase_out),
+            "low_level_code" => int(s.low_level_code),
+            "bom_changed" => t(&s.bom_changed),
+            "coproduct_this_month" => flag(s.coproduct_this_month),
+            "new_part_status" => text(&s.new_part_status),
+            "data_source" => text(&s.data_source),
+            "item_created_on" => date(Some(s.item_created_on)),
+            "first_shipped_on" => date(s.first_shipped_on),
+            "first_received_on" => date(s.first_received_on),
+            "slow_moving_on" => date(s.slow_moving_on),
+            "last_period_purchase_on" => date(s.last_period_purchase_on),
+            "last_received_on" => date(s.last_received_on),
+            "last_issued_on" => date(s.last_issued_on),
+            "last_txn_on" => date(s.last_txn_on),
+            "last_count_on" => date(s.last_count_on),
+            other => status_value(
+                other,
+                Some(i.active()),
+                &i.created_by,
+                &i.created_dept,
+                Some(i.created_on),
+                i.updated_by.as_deref(),
+                i.updated_on,
+                i.stamp.version,
+            )
+            .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
+/// 料件分群維護（aimi110_curs，tiptop/aim/4gl/aimi110.4gl:194-230；GQ1–GQ3）
+pub mod item_group {
+    use ttrs_domain::{item_group::ItemGroup, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    /// CONSTRUCT 中有 TTRS 對應的欄位＋「狀態」頁籤（GQ1）；ICD、批號序號、單位使用方式、自訂欄位不在其中（GQ3）
+    pub const FIELDS: &[Field] = &[
+        field("group_code", FieldType::Text),
+        field("description", FieldType::Text),
+        field("source_code", FieldType::Text),
+        field("stock_unit", FieldType::Text),
+        field("catalog_ref", FieldType::Text),
+        field("supplier_control", FieldType::Text),
+        field("drawing_no", FieldType::Text),
+        field("software", FieldType::Flag),
+        field("engineering", FieldType::Flag),
+        field("insert_qpa_check", FieldType::Flag),
+        field("insert_position", FieldType::Flag),
+        field("material_category", FieldType::Text),
+        field("coproduct", FieldType::Flag),
+        field("inspection", FieldType::Flag),
+        field("repetitive", FieldType::Flag),
+        field("abc_code", FieldType::Text),
+        field("consumable", FieldType::Flag),
+        field("replenish_policy", FieldType::Text),
+        field("reorder_point", FieldType::Decimal),
+        field("reorder_qty", FieldType::Decimal),
+        field("safety_stock", FieldType::Decimal),
+        field("safety_period", FieldType::Decimal),
+        field("shelf_life_days", FieldType::Integer),
+        field("mrp_bucket_days", FieldType::Integer),
+        field("warehouse", FieldType::Text),
+        field("location", FieldType::Text),
+        field("stock_keeper", FieldType::Text),
+        field("sales_stat_unit", FieldType::Text),
+        field("second_unit", FieldType::Text),
+        field("pricing_unit", FieldType::Text),
+        field("other_group1", FieldType::Text),
+        field("other_group2", FieldType::Text),
+        field("other_group3", FieldType::Text),
+        field("other_group4", FieldType::Text),
+        field("account", FieldType::Text),
+        field("account2", FieldType::Text),
+        field("bonded", FieldType::Flag),
+        field("bonded_class", FieldType::Text),
+        field("tariff_no", FieldType::Text),
+        field("bonded_type", FieldType::Text),
+        field("product_class", FieldType::Text),
+        field("economic_order_qty", FieldType::Decimal),
+        field("average_order_qty", FieldType::Decimal),
+        // 狀態頁籤（ADR 0012 §9）
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(g: &ItemGroup, field: &str) -> FieldValue {
+        let a = &g.attrs;
+        let t = |v: &Option<String>| opt_text(v.as_deref());
+        match field {
+            "group_code" => text(g.code.as_str()),
+            "description" => t(&a.description),
+            "source_code" => t(&a.source_code),
+            "stock_unit" => t(&a.stock_unit),
+            "catalog_ref" => t(&a.catalog_ref),
+            "supplier_control" => text(&a.supplier_control),
+            "drawing_no" => t(&a.drawing_no),
+            "software" => flag(a.software),
+            "engineering" => flag(a.engineering),
+            "insert_qpa_check" => flag(a.insert_qpa_check),
+            "insert_position" => flag(a.insert_position),
+            "material_category" => t(&a.material_category),
+            "coproduct" => flag(a.coproduct),
+            "inspection" => flag(a.inspection),
+            "repetitive" => flag(a.repetitive),
+            "abc_code" => t(&a.abc_code),
+            "consumable" => flag(a.consumable),
+            "replenish_policy" => t(&a.replenish_policy),
+            "reorder_point" => opt_dec(a.reorder_point),
+            "reorder_qty" => opt_dec(a.reorder_qty),
+            "safety_stock" => opt_dec(a.safety_stock),
+            "safety_period" => opt_dec(a.safety_period),
+            "shelf_life_days" => opt_int(a.shelf_life_days),
+            "mrp_bucket_days" => opt_int(a.mrp_bucket_days),
+            "warehouse" => t(&a.warehouse),
+            "location" => t(&a.location),
+            "stock_keeper" => t(&a.stock_keeper),
+            "sales_stat_unit" => t(&a.sales_stat_unit),
+            "second_unit" => t(&a.second_unit),
+            "pricing_unit" => t(&a.pricing_unit),
+            "other_group1" => t(&a.other_groups[0]),
+            "other_group2" => t(&a.other_groups[1]),
+            "other_group3" => t(&a.other_groups[2]),
+            "other_group4" => t(&a.other_groups[3]),
+            "account" => t(&a.account),
+            "account2" => t(&a.account2),
+            "bonded" => flag(a.bonded),
+            "bonded_class" => t(&a.bonded_class),
+            "tariff_no" => t(&a.tariff_no),
+            "bonded_type" => t(&a.bonded_type),
+            "product_class" => t(&a.product_class),
+            "economic_order_qty" => opt_dec(a.economic_order_qty),
+            "average_order_qty" => opt_dec(a.average_order_qty),
+            other => status_value(
+                other,
+                Some(g.active),
+                &g.created_by,
+                &g.created_dept,
+                Some(g.created_on),
+                g.updated_by.as_deref(),
+                g.updated_on,
+                g.stamp.version,
             )
             .unwrap_or(FieldValue::One(None)),
         }

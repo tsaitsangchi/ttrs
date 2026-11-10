@@ -98,3 +98,44 @@ async fn state_change_requires_version() {
         .unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 }
+
+/// QBE 查詢（item_maintenance_query.feature）：/items/query 不被 /items/{no} 吃掉；不可查詢的欄位回 422
+#[tokio::test]
+async fn query_items_and_field_not_allowed() {
+    let app = app();
+    with_product_class(&app).await;
+    for no in ["A001", "B001"] {
+        let res = app.clone().oneshot(create(no)).await.unwrap();
+        assert_eq!(res.status(), StatusCode::CREATED);
+    }
+    let cond = |field: &str, expr: &str| serde_json::json!({ "conditions": [{ "field": field, "expr": expr }] });
+    let res = app
+        .clone()
+        .oneshot(post("/api/plants/TW01/items/query", cond("item_no", "B*")))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    let page: ttrs_shared::Page<ttrs_shared::ItemDto> =
+        serde_json::from_slice(&to_bytes(res.into_body(), usize::MAX).await.unwrap()).unwrap();
+    assert_eq!(page.total, 1);
+    assert_eq!(page.items[0].fields.item_no, "B001");
+
+    let res = app
+        .clone()
+        .oneshot(post(
+            "/api/plants/TW01/items/query",
+            cond("attribute_group", "A"),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+    let res = app
+        .oneshot(post(
+            "/api/plants/TW01/item-groups/query",
+            cond("unit_usage", "1"),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
+}

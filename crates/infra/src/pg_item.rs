@@ -3,15 +3,21 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use sqlx::FromRow;
-use ttrs_app::{error::RepoError, ports::ItemRepository};
+use ttrs_app::{error::RepoError, ports::ItemRepository, query};
 use ttrs_domain::{
+    authorization::DataScope,
     item::{ActiveCode, Item, ItemAttrs, ItemNo, ItemSystem, ItemText, StatusCode},
     lang::Lang,
     plant::PlantId,
+    qbe::{FieldType, QbeFilter},
     record::Stamp,
 };
 
-use crate::{PgStore, pg::db_err};
+use crate::{
+    PgStore,
+    pg::db_err,
+    qbe_sql::{Column, push_filters, push_scope, query_page_in},
+};
 
 #[derive(FromRow)]
 struct Row {
@@ -216,6 +222,38 @@ impl ItemRepository for PgStore {
             .map_err(db_err)?;
         tx.commit().await.map_err(db_err)?;
         row.map(Item::try_from).transpose()
+    }
+
+    async fn query_items(
+        &self,
+        plant: &PlantId,
+        filters: &[QbeFilter],
+        scope: &DataScope,
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Item>, u64), RepoError> {
+        let Some(mut tx) = self.plant_tx(plant).await? else {
+            return Ok((Vec::new(), 0));
+        };
+        let (rows, total) = query_page_in::<Row>(
+            &mut tx,
+            "SELECT COUNT(*) FROM item i WHERE TRUE",
+            select_item!("i WHERE TRUE"),
+            |qb| {
+                push_scope(qb, scope, "i.created_by", "i.created_dept");
+                push_filters(qb, filters, item_column)
+            },
+            r#" ORDER BY i.item_no COLLATE "C""#,
+            offset,
+            limit,
+        )
+        .await?;
+        tx.commit().await.map_err(db_err)?;
+        let items = rows
+            .into_iter()
+            .map(Item::try_from)
+            .collect::<Result<_, _>>()?;
+        Ok((items, total))
     }
 
     async fn insert_item(&self, plant: &PlantId, i: &Item) -> Result<(), RepoError> {
@@ -470,4 +508,27 @@ impl ItemRepository for PgStore {
         }
         tx.commit().await.map_err(db_err)
     }
+}
+
+/// 查詢鍵值 → 欄位：白名單（ttrs_app::query::item::FIELDS）的鍵值即欄位名稱；品名、規格比對各語系（IQ3）
+fn item_column(key: &str) -> Option<Column> {
+    const TEXT: &str = "EXISTS (SELECT 1 FROM item_text t WHERE t.item_no = i.item_no AND ";
+    Some(match key {
+        "name" => Column::Translated {
+            base: "i.name",
+            exists: TEXT,
+            text: "t.name",
+        },
+        "spec" => Column::Translated {
+            base: "i.spec",
+            exists: TEXT,
+            text: "t.spec",
+        },
+        // 資料有效＝資料有效碼不是 N（IM27）
+        "active" => Column::Scalar("(i.active_code <> 'N')", false),
+        _ => {
+            let f = query::item::FIELDS.iter().find(|f| f.key == key)?;
+            Column::Scalar(f.key, f.ty == FieldType::Text)
+        }
+    })
 }

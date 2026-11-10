@@ -16,7 +16,7 @@ use ttrs_domain::{
     product_class::ProductClassCode,
     unit::UnitCode,
 };
-use ttrs_shared::{ChangeDto, ItemGroupDto, ItemGroupInput};
+use ttrs_shared::{ChangeDto, ItemGroupDto, ItemGroupInput, Page, QueryRequest};
 
 use crate::{
     Actor, AppError, Authorizer,
@@ -76,15 +76,45 @@ impl ItemGroupService {
         Ok(out)
     }
 
+    /// QBE 查詢（aimi110.4gl:194-230、476-489；GQ1–GQ3）：依資料權限過濾、依分群碼排序並分頁
+    pub async fn query(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        req: QueryRequest,
+    ) -> Result<Page<ItemGroupDto>, AppError> {
+        let scope = self.authorize(actor, "query").await?.scope();
+        let plant = PlantId::parse(plant)?;
+        let filters = crate::query::item_group::filters(&req.conditions)?;
+        let p = crate::query::paging(&req);
+        let (rows, total) = self
+            .groups
+            .query_item_groups(&plant, &filters, &scope, p.offset, u64::from(p.page_size))
+            .await
+            .map_err(infra)?;
+        let mut items = Vec::with_capacity(rows.len());
+        for g in &rows {
+            items.push(self.to_dto(&plant, g).await?);
+        }
+        Ok(Page {
+            items,
+            total,
+            page: p.page,
+            page_size: p.page_size,
+        })
+    }
+
+    /// 查看單筆：被資料權限過濾掉的分群碼也不能直接查看（同 AQ6）
     pub async fn get(
         &self,
         actor: &Actor,
         plant: &str,
         code: &str,
     ) -> Result<ItemGroupDto, AppError> {
-        self.authorize(actor, "query").await?;
+        let grant = self.authorize(actor, "query").await?;
         let plant = PlantId::parse(plant)?;
         let g = self.load(&plant, code).await?;
+        grant.record(&g.created_by, &g.created_dept)?;
         self.to_dto(&plant, &g).await
     }
 

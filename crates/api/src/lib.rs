@@ -206,6 +206,8 @@ pub fn router(state: AppState) -> Router {
             "/api/plants/{plant}/items",
             get(list_items).post(create_item),
         )
+        // QBE 查詢（item_maintenance_query.feature IQ1–IQ10）
+        .route("/api/plants/{plant}/items/query", post(query_items))
         .route(
             "/api/plants/{plant}/items/{no}",
             get(get_item).put(update_item).delete(delete_item),
@@ -306,6 +308,10 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/plants/{plant}/item-groups",
             get(list_item_groups).post(create_item_group),
+        )
+        .route(
+            "/api/plants/{plant}/item-groups/query",
+            post(query_item_groups),
         )
         .route(
             "/api/plants/{plant}/item-groups/{code}",
@@ -1220,6 +1226,14 @@ async fn my_permission(
 
 // ----- Item Maintenance 料件基本資料維護（aimi100；工廠層） -----
 
+async fn query_items(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ItemDto>>> {
+    Ok(Json(s.items.query(&s.actor, &plant, req).await?))
+}
+
 async fn list_items(Ctx(s): Ctx, Path(plant): Path<String>) -> ApiResult<Json<Vec<ItemDto>>> {
     Ok(Json(s.items.list(&s.actor, &plant).await?))
 }
@@ -1875,6 +1889,14 @@ fn require_version(v: Option<i32>) -> Result<i32, HttpError> {
 }
 
 // ----- Item Group 料件分群維護（aimi110；工廠層） -----
+
+async fn query_item_groups(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::ItemGroupDto>>> {
+    Ok(Json(s.item_groups.query(&s.actor, &plant, req).await?))
+}
 
 async fn list_item_groups(
     Ctx(s): Ctx,

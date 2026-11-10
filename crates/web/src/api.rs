@@ -83,14 +83,14 @@ fn item_url(plant: &str, no: &str, suffix: &str) -> String {
     plant_part_url(plant, "items", no, suffix)
 }
 
-pub async fn list_items(plant: &str) -> Result<Vec<ItemDto>, String> {
-    get_json(item_url(plant, "", "")).await
+/// QBE 查詢（item_maintenance_query.feature）；品名、規格為繁中本身，其他語系在 `texts`
+pub async fn query_items(plant: &str, req: &QueryRequest) -> Result<Page<ItemDto>, String> {
+    post_query(item_url(plant, "query", ""), req).await
 }
 
-/// 查詢一筆；品名、規格用目前介面語系（退回繁中）
+/// 查詢一筆（維護用：品名、規格為繁中本身，其他語系在 `texts`）
 pub async fn get_item(plant: &str, no: &str) -> Result<ItemDto, String> {
-    let lang = crate::i18n::current().code();
-    get_json(format!("{}?lang={lang}", item_url(plant, no, ""))).await
+    get_json(item_url(plant, no, "")).await
 }
 
 pub async fn create_item(plant: &str, req: &ttrs_shared::ItemInput) -> Result<ItemDto, String> {
@@ -1574,8 +1574,12 @@ pub async fn product_class_history(
 
 // ----- Item Group 料件分群維護（TipTop aimi110；工廠層） -----
 
-pub async fn list_item_groups(plant: &str) -> Result<Vec<ttrs_shared::ItemGroupDto>, String> {
-    get_json(plant_part_url(plant, "item-groups", "", "")).await
+/// QBE 查詢（item_group_query.feature）
+pub async fn query_item_groups(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::ItemGroupDto>, String> {
+    post_query(plant_part_url(plant, "item-groups", "query", ""), req).await
 }
 
 pub async fn create_item_group(

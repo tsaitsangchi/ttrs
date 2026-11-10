@@ -1,11 +1,15 @@
 //! Item Maintenance 料件基本資料維護（TipTop aimi100 料件基本資料建立，以客製 topcust/cim 為準）
 //! 版面比照 topcust/cim/4fd/aimi100.4fd（IM1）：動作列＋上下筆＋單筆表單，分頁「主畫面」「工程／計劃／庫存」
 //! 「會計／狀態／分群」「料件狀態」「參考日期」「狀態」（ADR 0012 §9），下方為料件清單。
+//! 查詢（item_maintenance_query.feature）：進入時畫面空白，按「查詢」輸入條件後才載入，清單分頁（IQ6）；
+//! 網址帶 `?item_no=` 時直接查出該筆（IQ7）。
 //! 品名、規格多語言（IM7）；分群碼帶入預設值由使用者按鈕帶入（IM25）。規則在後端 ItemService。
 
 use dioxus::prelude::*;
 use rust_decimal::Decimal;
-use ttrs_shared::{CopyItemRequest, ItemDto, ItemInput, ItemTextDto, item_max_len as max_len};
+use ttrs_shared::{
+    CopyItemRequest, ItemDto, ItemInput, ItemTextDto, Page, QbeCondition, item_max_len as max_len,
+};
 
 use crate::api;
 use crate::components::history::HistoryDialog;
@@ -16,7 +20,10 @@ use crate::components::material::{
 use crate::components::multilingual::{LangField, LangValues, MultilingualDialogField};
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::plant::PlantPicker;
-use crate::components::qbe::RecordNav;
+use crate::components::qbe::{
+    HINT_DATE, HINT_FLAG, HINT_NUMBER, ListPager, Q, Qbe, RecordNav, conditions_of,
+    use_query_records_on_demand,
+};
 use crate::components::status::{HasStatus, StatusForm, TAB_STATUS};
 use crate::i18n::{UiLang, t, tf};
 
@@ -37,8 +44,164 @@ const LIFE_CYCLE: [&str; 6] = ["1", "2", "3", "4", "5", "6"];
 #[derive(Clone, Copy, PartialEq)]
 enum Mode {
     View,
+    Query,
     New,
     Edit,
+}
+
+/// 查詢模式各分頁的欄位（IQ1）：(查詢鍵值, 標籤翻譯 ID, 提示：qbe-hint-* 為翻譯 ID，其餘照原文顯示)
+type QField = (&'static str, &'static str, &'static str);
+
+const Q_MAIN: &[QField] = &[
+    ("item_no", "item-field-item-no", ""),
+    ("active_code", "item-field-active-code", "P|Y|N"),
+    ("name", "item-field-name", ""),
+    ("spec", "item-field-spec", ""),
+    ("group_code", "item-field-group", ""),
+    ("source_code", "item-field-source", "P|M"),
+    ("configurable_item_no", "item-field-configurable", ""),
+    ("current_version", "item-field-current-version", ""),
+    ("catalog_ref", "item-field-catalog-ref", ""),
+    ("supplier_control", "item-field-supplier-control", "0|1|2|3"),
+    ("product_class", "item-field-product-class", ""),
+    ("drawing_no", "item-field-drawing-no", ""),
+    ("apply_dept", "item-field-apply-dept", ""),
+    ("status_code", "item-field-status-code", "0|1"),
+    ("order_invalid", "item-field-order-invalid", HINT_FLAG),
+    ("phase_out", "item-field-phase-out", HINT_FLAG),
+    ("new_part_status", "item-field-new-part-status", ""),
+    ("data_source", "item-field-data-source", ""),
+];
+
+const Q_PLANNING: &[QField] = &[
+    ("software", "igroup-field-software", HINT_FLAG),
+    ("engineering", "igroup-field-engineering", HINT_FLAG),
+    ("insert_position", "igroup-field-insert-position", HINT_FLAG),
+    (
+        "insert_qpa_check",
+        "igroup-field-insert-qpa-check",
+        HINT_FLAG,
+    ),
+    ("coproduct", "igroup-field-coproduct", HINT_FLAG),
+    ("inspection", "igroup-field-inspection", HINT_FLAG),
+    ("repetitive", "igroup-field-repetitive", HINT_FLAG),
+    ("consumable", "igroup-field-consumable", HINT_FLAG),
+    ("material_category", "igroup-field-material-category", ""),
+    ("pcn", "item-field-pcn", ""),
+    ("abc_code", "igroup-field-abc", "A|B|C"),
+    ("replenish_policy", "igroup-field-replenish", "0:5"),
+    (
+        "economic_order_qty",
+        "item-field-economic-order-qty",
+        HINT_NUMBER,
+    ),
+    (
+        "average_order_qty",
+        "item-field-average-order-qty",
+        HINT_NUMBER,
+    ),
+    ("safety_stock", "igroup-field-safety-stock", HINT_NUMBER),
+    ("safety_period", "igroup-field-safety-period", HINT_NUMBER),
+    ("max_stock_qty", "item-field-max-stock-qty", HINT_NUMBER),
+    ("shelf_life_days", "igroup-field-shelf-life", HINT_NUMBER),
+    ("stock_unit", "igroup-field-stock-unit", ""),
+    ("warehouse", "igroup-field-warehouse", ""),
+    ("location", "igroup-field-location", ""),
+    ("stock_keeper", "igroup-field-stock-keeper", ""),
+    ("second_unit", "igroup-field-second-unit", ""),
+    ("pricing_unit", "igroup-field-pricing-unit", ""),
+];
+
+const Q_ACCOUNTING: &[QField] = &[
+    ("other_group1", "igroup-field-other-group1", ""),
+    ("other_group2", "igroup-field-other-group2", ""),
+    ("other_group3", "igroup-field-other-group3", ""),
+    ("other_group4", "igroup-field-other-group4", ""),
+    ("account", "igroup-field-account", ""),
+    ("account2", "igroup-field-account2", ""),
+    ("bonded", "igroup-field-bonded", HINT_FLAG),
+    ("bom_changed", "item-field-bom-changed", ""),
+    ("low_level_code", "item-field-low-level-code", HINT_NUMBER),
+    (
+        "coproduct_this_month",
+        "item-field-coproduct-this-month",
+        HINT_FLAG,
+    ),
+];
+
+const Q_ITEM_STATUS: &[QField] = &[
+    ("full_name", "item-field-full-name", ""),
+    ("english_name", "item-field-english-name", ""),
+    ("first_shipped_on", "item-field-first-shipped-on", HINT_DATE),
+    (
+        "first_received_on",
+        "item-field-first-received-on",
+        HINT_DATE,
+    ),
+    (
+        "planned_discontinue_on",
+        "item-field-planned-discontinue-on",
+        HINT_DATE,
+    ),
+    ("life_cycle", "item-field-life-cycle", "1:6"),
+    ("carton_barcode", "item-field-carton-barcode", ""),
+];
+
+const Q_DATES: &[QField] = &[
+    ("item_created_on", "item-field-item-created-on", HINT_DATE),
+    ("slow_moving_on", "item-field-slow-moving-on", HINT_DATE),
+    (
+        "last_period_purchase_on",
+        "item-field-last-period-purchase-on",
+        HINT_DATE,
+    ),
+    ("last_received_on", "item-field-last-received-on", HINT_DATE),
+    ("last_issued_on", "item-field-last-issued-on", HINT_DATE),
+    ("last_txn_on", "item-field-last-txn-on", HINT_DATE),
+    ("last_count_on", "item-field-last-count-on", HINT_DATE),
+];
+
+/// 查詢模式的條件輸入（一個分頁）
+#[component]
+fn QueryGrid(fields: &'static [QField], qbe: Qbe) -> Element {
+    rsx! {
+        div { class: "form-grid cols-4",
+            for (field, label, hint) in fields.iter().copied() {
+                Q {
+                    key: "{field}",
+                    field,
+                    label: t(label),
+                    hint_text: if hint.starts_with("qbe-hint") { t(hint) } else { hint.to_owned() },
+                    query: true,
+                    qbe,
+                    div {}
+                }
+            }
+        }
+    }
+}
+
+/// 清單顯示的品名、規格：目前介面語系 → 繁中（ADR 0005）
+fn shown(d: &ItemDto, pick: fn(&ItemTextDto) -> Option<String>, base: &Option<String>) -> String {
+    let lang = crate::i18n::current().code();
+    d.texts
+        .iter()
+        .find(|x| x.lang == lang)
+        .and_then(pick)
+        .or_else(|| base.clone())
+        .unwrap_or_default()
+}
+
+/// 料號當作字面值查詢：QBE 的特殊字元都加上跳脫（ttrs_domain::qbe）
+fn qbe_literal(v: &str) -> String {
+    let mut out = String::with_capacity(v.len());
+    for c in v.chars() {
+        if matches!(c, '\\' | '*' | '?' | '|' | ':' | '<' | '>' | '=' | '!') {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out
 }
 
 fn opt(v: String) -> Option<String> {
@@ -109,30 +272,32 @@ fn text_values(d: &ItemDto) -> LangValues {
 }
 
 #[component]
-pub fn ItemMaintenance() -> Element {
+pub fn ItemMaintenance(item_no: String) -> Element {
     rsx! {
-        ProgramGate { program: PROGRAM, ItemPage {} }
+        ProgramGate { program: PROGRAM, ItemPage { item_no } }
     }
 }
 
 #[component]
-fn ItemPage() -> Element {
+fn ItemPage(item_no: String) -> Element {
     let perm = use_context::<Perm>();
     let plant = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
-    let mut items = use_resource(move || {
+    let mut rec = use_query_records_on_demand(move |req| {
         let p = plant();
         async move {
             if p.is_empty() {
-                return Ok(Vec::new());
+                return Ok(Page {
+                    items: Vec::new(),
+                    total: 0,
+                    page: 1,
+                    page_size: crate::components::qbe::PAGE_SIZE,
+                });
             }
-            api::list_items(&p).await
+            api::query_items(&p, &req).await
         }
     });
-    let mut selected = use_signal(|| None::<String>);
-    // 目前這一筆的完整資料（含各語系品名）
-    let mut detail = use_signal(|| None::<ItemDto>);
     let mut mode = use_signal(|| Mode::View);
     let mut form = use_signal(ItemInput::default);
     let mut texts = use_signal(LangValues::default);
@@ -143,51 +308,73 @@ fn ItemPage() -> Element {
     let mut copy_name = use_signal(String::new);
     let mut copy_error = use_signal(|| None::<String>);
     let mut history = use_signal(|| None::<(String, Vec<ttrs_shared::ChangeDto>)>);
+    // 網址帶入的料號，選定營運中心後查一次（IQ7）
+    let mut pending_no = use_signal(move || Some(item_no).filter(|v| !v.is_empty()));
 
-    let list: Vec<ItemDto> = items
-        .read()
-        .as_ref()
-        .and_then(|r| r.as_ref().ok())
-        .cloned()
-        .unwrap_or_default();
-    let pos = selected()
-        .and_then(|c| list.iter().position(|x| x.fields.item_no == c))
-        .or(if list.is_empty() { None } else { Some(0) });
-    let cur_no = pos.map(|i| list[i].fields.item_no.clone());
-
-    // 選到的料件改變時載入完整資料（各語系品名）
-    use_effect(move || {
+    // 執行查詢：先試查第 1 頁，條件有誤時留在查詢模式顯示錯誤
+    let start_query = move |conds: Vec<QbeCondition>| {
         let p = plant();
-        let no = selected().or_else(|| {
-            items
-                .read()
-                .as_ref()
-                .and_then(|r| r.as_ref().ok())
-                .and_then(|l| l.first().map(|i| i.fields.item_no.clone()))
-        });
-        let _ = items.read();
+        let req = rec.request(conds.clone(), 1);
         spawn(async move {
-            let Some(no) = no.filter(|_| !p.is_empty()) else {
-                detail.set(None);
-                return;
-            };
-            match api::get_item(&p, &no).await {
-                Ok(d) => {
-                    let v = text_values(&d);
-                    texts.set(v.clone());
-                    loaded_texts.set(v);
-                    detail.set(Some(d));
+            match api::query_items(&p, &req).await {
+                Ok(page) => {
+                    error.set(None);
+                    mode.set(Mode::View);
+                    rec.apply(conds, page.total);
+                    message.set(Some(if page.total == 0 {
+                        t("query-msg-none")
+                    } else {
+                        tf(
+                            "query-msg-matched",
+                            &[("count", page.total.to_string().as_str())],
+                        )
+                    }));
                 }
                 Err(e) => error.set(Some(e)),
             }
         });
+    };
+
+    // 換營運中心：回到空白畫面；網址帶料號時直接查該筆（選擇器可能重設同一個營運中心，值沒變時不清空）
+    let mut shown_plant = use_signal(String::new);
+    use_effect(move || {
+        let p = plant();
+        if p.is_empty() || *shown_plant.peek() == p {
+            return;
+        }
+        let changed = !shown_plant.peek().is_empty();
+        shown_plant.set(p);
+        if changed {
+            mode.set(Mode::View);
+            rec.reset(true);
+        }
+        if let Some(no) = pending_no.take() {
+            start_query(vec![QbeCondition {
+                field: "item_no".into(),
+                expr: qbe_literal(&no),
+            }]);
+        }
     });
 
-    let cur: Option<ItemDto> = detail().filter(|d| Some(&d.fields.item_no) == cur_no.as_ref());
+    // 換筆時各語系品名跟著目前這一筆
+    use_effect(move || {
+        let c = rec.current.read().clone();
+        if *mode.peek() == Mode::View {
+            let v = c.as_ref().map(text_values).unwrap_or_default();
+            texts.set(v.clone());
+            loaded_texts.set(v);
+        }
+    });
+
+    let cur: Option<ItemDto> = rec.current.read().clone();
     let no_cur = cur.is_none();
-    let total = list.len() as u64;
+    let (total, pages) = rec.totals();
+    let offset = rec.offset();
+    let queried = (rec.active)();
     let m = mode();
-    let ro = m == Mode::View;
+    let q = m == Mode::Query;
+    let ro = matches!(m, Mode::View | Mode::Query);
+    let qbe = rec.qbe;
     let v = if ro {
         cur.as_ref().map(|c| c.fields.clone()).unwrap_or_default()
     } else {
@@ -200,12 +387,28 @@ fn ItemPage() -> Element {
     let confirmed = active_code == "Y";
     let invalid = active_code == "N";
 
+    // 存檔或其他異動後：重新讀出該筆（含各語系品名）顯示，並重新載入清單
     let mut done = move |msg: String, no: Option<String>| {
         error.set(None);
         message.set(Some(msg));
         mode.set(Mode::View);
-        selected.set(no);
-        items.restart();
+        let Some(no) = no else {
+            rec.pos.set(None);
+            rec.show(None);
+            return;
+        };
+        let p = plant();
+        spawn(async move {
+            match api::get_item(&p, &no).await {
+                Ok(d) => {
+                    let v = text_values(&d);
+                    texts.set(v.clone());
+                    loaded_texts.set(v);
+                    rec.show(Some(d));
+                }
+                Err(e) => error.set(Some(e)),
+            }
+        });
     };
 
     let save = move |_| {
@@ -279,7 +482,9 @@ fn ItemPage() -> Element {
     };
 
     let act = move |action: &'static str, ok_id: &'static str| {
-        let Some(c) = detail() else { return };
+        let Some(c) = rec.current.peek().clone() else {
+            return;
+        };
         let p = plant();
         spawn(async move {
             match api::item_action(&p, &c.fields.item_no, action, c.version).await {
@@ -322,7 +527,6 @@ fn ItemPage() -> Element {
     let cur_copy = cur.clone();
     let cur_delete = cur.clone();
     let cur_history = cur.clone();
-    let list_rows = list.clone();
 
     rsx! {
         div { class: "page",
@@ -333,7 +537,27 @@ fn ItemPage() -> Element {
             PlantPicker { plant }
 
             div { class: "action-bar",
-                if ro {
+                if q {
+                    Button { icon: icons::CHECK, tone: Tone::Success, onclick: move |_| start_query(conditions_of(&rec.qbe.read())), {t("common-action-ok")} }
+                    Button {
+                        icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text,
+                        onclick: move |_| { error.set(None); mode.set(Mode::View); },
+                        {t("common-action-cancel")}
+                    }
+                } else if ro {
+                    if perm.can("query") {
+                        Button {
+                            icon: icons::SEARCH, tone: Tone::Primary,
+                            variant: ButtonVariant::Tonal,
+                            onclick: move |_| {
+                                message.set(None);
+                                error.set(None);
+                                rec.qbe.set(Default::default());
+                                mode.set(Mode::Query);
+                            },
+                            {t("common-action-query")}
+                        }
+                    }
                     if perm.can("insert") {
                         Button {
                             icon: icons::ADD, tone: Tone::Success,
@@ -466,21 +690,12 @@ fn ItemPage() -> Element {
                 }
             }
 
-            if ro && total > 0 {
-                RecordNav {
-                    total,
-                    pos: pos.map(|p| p as u64),
-                    ongo: {
-                        let nos: Vec<String> = list.iter().map(|i| i.fields.item_no.clone()).collect();
-                        move |i: u64| {
-                            if let Some(n) = nos.get(i as usize) {
-                                message.set(None);
-                                selected.set(Some(n.clone()));
-                            }
-                        }
-                    },
-                    onerror: move |e| error.set(Some(e)),
-                }
+            if q {
+                p { class: "query-hint", {t("query-hint")} }
+            }
+
+            if m == Mode::View && total > 0 {
+                RecordNav { total, pos: (rec.pos)(), ongo: move |i| { message.set(None); rec.go(i); }, onerror: move |e| error.set(Some(e)) }
             }
 
             if let Some(msg) = error() {
@@ -505,6 +720,11 @@ fn ItemPage() -> Element {
                 }
                 div { class: "card-body",
                   match tab() {
+                    0 if q => rsx! { QueryGrid { fields: Q_MAIN, qbe } },
+                    1 if q => rsx! { QueryGrid { fields: Q_PLANNING, qbe } },
+                    2 if q => rsx! { QueryGrid { fields: Q_ACCOUNTING, qbe } },
+                    3 if q => rsx! { QueryGrid { fields: Q_ITEM_STATUS, qbe } },
+                    4 if q => rsx! { QueryGrid { fields: Q_DATES, qbe } },
                     0 => rsx! {
                         div { class: "form-grid",
                             TextField { id: "ima01", label: t("item-field-item-no"), maxlength: max_len::ITEM_NO, value: v.item_no.clone(), readonly: m != Mode::New, oninput: move |x| form.write().item_no = x }
@@ -512,7 +732,7 @@ fn ItemPage() -> Element {
                                 id: "imaacti",
                                 label: t("item-field-active-code"),
                                 readonly: true,
-                                value: if m == Mode::New { t("item-active-processing") } else { t(active_id(&active_code)) },
+                                value: if m == Mode::New { t("item-active-processing") } else if no_cur { String::new() } else { t(active_id(&active_code)) },
                             }
                             MultilingualDialogField {
                                 id: "ima02",
@@ -630,17 +850,21 @@ fn ItemPage() -> Element {
                         p { class: "muted", {t("item-hint-dates")} }
                     },
                     _ => rsx! {
-                        StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|c| c.status()), query: false, qbe: None, prefix: "ima" }
+                        StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|c| c.status()), queryable: crate::components::status::ALL, query: q, qbe, prefix: "ima" }
                     },
                   }
                 }
             }
 
-            // ----- 料件清單 -----
+            // ----- 料件清單（目前這一頁，IQ6） -----
             Card {
                 div { class: "table-header",
                     h3 { {t("item-list-title")} }
-                    p { {tf("list-count-all", &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
+                    if queried {
+                        p { {tf("list-count-filtered", &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
+                    } else {
+                        p { class: "muted", {t("list-msg-not-queried")} }
+                    }
                 }
                 div { class: "table-scroll",
                     table { class: "md-table",
@@ -650,23 +874,20 @@ fn ItemPage() -> Element {
                             }
                         } }
                         tbody {
-                            match &*items.read() {
+                            match &*rec.list.read() {
                                 None => rsx! { tr { td { colspan: 7, {t("common-msg-loading")} } } },
                                 Some(Err(e)) => rsx! { tr { td { colspan: 7, "{e}" } } },
-                                Some(Ok(_)) if list_rows.is_empty() => rsx! { tr { td { colspan: 7, class: "muted", {t("common-msg-no-data")} } } },
-                                Some(Ok(_)) => rsx! {
-                                    for i in list_rows.iter().cloned() {
+                                Some(Ok(page)) if page.items.is_empty() => rsx! { tr { td { colspan: 7, class: "muted", {t("common-msg-no-data")} } } },
+                                Some(Ok(page)) => rsx! {
+                                    for (k, i) in page.items.iter().cloned().enumerate() {
                                         tr {
                                             key: "{i.fields.item_no}",
                                             class: "md-table__row--clickable",
-                                            class: if cur_no.as_ref() == Some(&i.fields.item_no) { "md-table__row--selected" },
-                                            onclick: {
-                                                let no = i.fields.item_no.clone();
-                                                move |_| if mode() == Mode::View { message.set(None); error.set(None); selected.set(Some(no.clone())); }
-                                            },
+                                            class: if cur.as_ref().is_some_and(|c| c.fields.item_no == i.fields.item_no) { "md-table__row--selected" },
+                                            onclick: move |_| if mode() == Mode::View { message.set(None); error.set(None); rec.go(offset + k as u64); },
                                             td { class: "mono", "{i.fields.item_no}" }
-                                            td { {txt(&i.fields.name)} }
-                                            td { {txt(&i.fields.spec)} }
+                                            td { {shown(&i, |x| x.name.clone(), &i.fields.name)} }
+                                            td { {shown(&i, |x| x.spec.clone(), &i.fields.spec)} }
                                             td { class: "mono", {txt(&i.fields.group_code)} }
                                             td { class: "mono", {txt(&i.fields.source_code)} }
                                             td { class: "mono", {txt(&i.fields.stock_unit)} }
@@ -679,6 +900,9 @@ fn ItemPage() -> Element {
                             }
                         }
                     }
+                }
+                if queried {
+                    ListPager { page: rec.page, pages }
                 }
             }
 

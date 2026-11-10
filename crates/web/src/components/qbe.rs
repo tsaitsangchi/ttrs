@@ -176,6 +176,8 @@ pub struct QueryRecords<T: 'static> {
     pub current: Signal<Option<T>>,
     /// 換頁後要在該頁載入完成時顯示 `pos` 那一筆
     sync: Signal<bool>,
+    /// 是否已查詢：進入作業時不自動查詢的作業（IQ6）在按「查詢」前為 false，清單為空
+    pub active: Signal<bool>,
 }
 
 impl<T> Clone for QueryRecords<T> {
@@ -209,6 +211,7 @@ impl<T: Clone + 'static> QueryRecords<T> {
     pub fn apply(mut self, conditions: Vec<QbeCondition>, total: u64) {
         // 清掉舊條件的結果，避免新結果載入前誤取舊清單的第一筆
         self.list.clear();
+        self.active.set(true);
         self.conditions.set(conditions);
         self.page.set(1);
         if total == 0 {
@@ -217,6 +220,16 @@ impl<T: Clone + 'static> QueryRecords<T> {
         } else {
             self.go(0);
         }
+    }
+
+    /// 回到尚未查詢的空白畫面（換營運中心時）；預設查全部的作業則重新查全部
+    pub fn reset(mut self, on_demand: bool) {
+        self.list.clear();
+        self.active.set(!on_demand);
+        self.conditions.set(Vec::new());
+        self.page.set(1);
+        self.pos.set(None);
+        self.current.set(None);
     }
 
     /// 存檔等異動後：顯示指定資料並重新載入清單
@@ -247,9 +260,31 @@ impl<T: Clone + 'static> QueryRecords<T> {
     }
 }
 
-/// 建立查詢狀態：`fetch` 以查詢請求取一頁資料；首次載入有資料時停在第一筆
+/// 建立查詢狀態：`fetch` 以查詢請求取一頁資料；首次載入有資料時停在第一筆（QBE4 預設查全部）
 pub fn use_query_records<T, F>(
     fetch: impl Fn(QueryRequest) -> F + Copy + 'static,
+) -> QueryRecords<T>
+where
+    T: Clone + PartialEq + 'static,
+    F: Future<Output = Result<Page<T>, String>> + 'static,
+{
+    query_records(fetch, true)
+}
+
+/// 同 [`use_query_records`]，但進入作業時不查詢、畫面空白，按「查詢」後才載入（TipTop 做法，IQ6）
+pub fn use_query_records_on_demand<T, F>(
+    fetch: impl Fn(QueryRequest) -> F + Copy + 'static,
+) -> QueryRecords<T>
+where
+    T: Clone + PartialEq + 'static,
+    F: Future<Output = Result<Page<T>, String>> + 'static,
+{
+    query_records(fetch, false)
+}
+
+fn query_records<T, F>(
+    fetch: impl Fn(QueryRequest) -> F + Copy + 'static,
+    initially_active: bool,
 ) -> QueryRecords<T>
 where
     T: Clone + PartialEq + 'static,
@@ -258,13 +293,28 @@ where
     let qbe: Qbe = use_signal(BTreeMap::new);
     let conditions = use_signal(Vec::<QbeCondition>::new);
     let page = use_signal(|| 1u32);
+    let active = use_signal(|| initially_active);
     let list = use_resource(move || {
-        fetch(QueryRequest {
+        let on = active();
+        let page_no = page();
+        let fut = fetch(QueryRequest {
             conditions: conditions(),
-            page: Some(page()),
+            page: Some(page_no),
             page_size: Some(PAGE_SIZE),
             lang: None,
-        })
+        });
+        async move {
+            if on {
+                fut.await
+            } else {
+                Ok(Page {
+                    items: Vec::new(),
+                    total: 0,
+                    page: 1,
+                    page_size: PAGE_SIZE,
+                })
+            }
+        }
     });
     let mut pos = use_signal(|| None::<u64>);
     let mut current = use_signal(|| None::<T>);
@@ -303,5 +353,6 @@ where
         pos,
         current,
         sync,
+        active,
     }
 }

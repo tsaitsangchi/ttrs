@@ -2,10 +2,11 @@
 //! 版面比照 tiptop/aim/4fd/aimi110.4fd（IG1）：動作列＋上下筆＋單筆表單，分頁「主畫面」「工程／計劃／庫存」
 //! 「會計／狀態／分群」「狀態」（ADR 0012 §9），下方為分群清單。第一階段 41 欄（IG3）。
 //! 工廠層：用登入的營運中心（IG2）。規則在後端 ItemGroupService。
+//! 查詢（item_group_query.feature）：進入時畫面空白，按「查詢」輸入條件後才載入，清單分頁（GQ2）。
 
 use dioxus::prelude::*;
 use rust_decimal::Decimal;
-use ttrs_shared::{ItemGroupDto, ItemGroupInput};
+use ttrs_shared::{ItemGroupDto, ItemGroupInput, Page};
 
 use crate::api;
 use crate::components::history::HistoryDialog;
@@ -15,7 +16,10 @@ use crate::components::material::{
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::plant::PlantPicker;
-use crate::components::qbe::RecordNav;
+use crate::components::qbe::{
+    HINT_FLAG, HINT_NUMBER, ListPager, Q, Qbe, RecordNav, conditions_of,
+    use_query_records_on_demand,
+};
 use crate::components::status::{HasStatus, StatusForm, TAB_STATUS};
 use crate::i18n::{t, tf};
 
@@ -34,8 +38,100 @@ const BONDED_TYPES: [&str; 3] = ["1", "2", "3"];
 #[derive(Clone, Copy, PartialEq)]
 enum Mode {
     View,
+    Query,
     New,
     Edit,
+}
+
+/// 查詢模式各分頁的欄位（GQ1）：(查詢鍵值, 標籤翻譯 ID, 提示：qbe-hint-* 為翻譯 ID，其餘照原文顯示)
+type QField = (&'static str, &'static str, &'static str);
+
+const Q_MAIN: &[QField] = &[
+    ("group_code", "igroup-field-code", ""),
+    ("description", "igroup-field-description", ""),
+    ("source_code", "igroup-field-source", "P|M"),
+    ("stock_unit", "igroup-field-stock-unit", ""),
+    ("catalog_ref", "igroup-field-catalog-ref", ""),
+    (
+        "supplier_control",
+        "igroup-field-supplier-control",
+        "0|1|2|3",
+    ),
+    ("drawing_no", "igroup-field-drawing-no", ""),
+    ("product_class", "item-field-product-class", ""),
+];
+
+const Q_PLANNING: &[QField] = &[
+    ("software", "igroup-field-software", HINT_FLAG),
+    ("engineering", "igroup-field-engineering", HINT_FLAG),
+    (
+        "insert_qpa_check",
+        "igroup-field-insert-qpa-check",
+        HINT_FLAG,
+    ),
+    ("insert_position", "igroup-field-insert-position", HINT_FLAG),
+    ("coproduct", "igroup-field-coproduct", HINT_FLAG),
+    ("inspection", "igroup-field-inspection", HINT_FLAG),
+    ("repetitive", "igroup-field-repetitive", HINT_FLAG),
+    ("consumable", "igroup-field-consumable", HINT_FLAG),
+    ("material_category", "igroup-field-material-category", ""),
+    ("abc_code", "igroup-field-abc", "A|B|C"),
+    ("replenish_policy", "igroup-field-replenish", "0:5"),
+    ("reorder_point", "igroup-field-reorder-point", HINT_NUMBER),
+    ("reorder_qty", "igroup-field-reorder-qty", HINT_NUMBER),
+    (
+        "economic_order_qty",
+        "item-field-economic-order-qty",
+        HINT_NUMBER,
+    ),
+    (
+        "average_order_qty",
+        "item-field-average-order-qty",
+        HINT_NUMBER,
+    ),
+    ("safety_stock", "igroup-field-safety-stock", HINT_NUMBER),
+    ("safety_period", "igroup-field-safety-period", HINT_NUMBER),
+    ("shelf_life_days", "igroup-field-shelf-life", HINT_NUMBER),
+    ("mrp_bucket_days", "igroup-field-mrp-bucket", HINT_NUMBER),
+    ("warehouse", "igroup-field-warehouse", ""),
+    ("location", "igroup-field-location", ""),
+    ("stock_keeper", "igroup-field-stock-keeper", ""),
+    ("sales_stat_unit", "igroup-field-sales-stat-unit", ""),
+    ("second_unit", "igroup-field-second-unit", ""),
+    ("pricing_unit", "igroup-field-pricing-unit", ""),
+];
+
+const Q_ACCOUNTING: &[QField] = &[
+    ("other_group1", "igroup-field-other-group1", ""),
+    ("other_group2", "igroup-field-other-group2", ""),
+    ("other_group3", "igroup-field-other-group3", ""),
+    ("other_group4", "igroup-field-other-group4", ""),
+    ("account", "igroup-field-account", ""),
+    ("account2", "igroup-field-account2", ""),
+    ("bonded", "igroup-field-bonded", HINT_FLAG),
+    ("bonded_class", "igroup-field-bonded-class", ""),
+    ("tariff_no", "igroup-field-tariff-no", ""),
+    ("bonded_type", "igroup-field-bonded-type", "1|2|3"),
+];
+
+/// 查詢模式的條件輸入（一個分頁）
+#[component]
+fn QueryGrid(fields: &'static [QField], qbe: Qbe) -> Element {
+    rsx! {
+        div { class: "form-grid cols-4",
+            for (field, label, hint) in fields.iter().copied() {
+                Q {
+                    key: "{field}",
+                    field,
+                    label: t(label),
+                    hint_text: if hint.starts_with("qbe-hint") { t(hint) } else { hint.to_owned() },
+                    query: true,
+                    qbe,
+                    div {}
+                }
+            }
+        }
+    }
 }
 
 fn opt(v: String) -> Option<String> {
@@ -79,16 +175,20 @@ fn ItemGroupPage() -> Element {
     let plant = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
-    let mut groups = use_resource(move || {
+    let mut rec = use_query_records_on_demand(move |req| {
         let p = plant();
         async move {
             if p.is_empty() {
-                return Ok(Vec::new());
+                return Ok(Page {
+                    items: Vec::new(),
+                    total: 0,
+                    page: 1,
+                    page_size: crate::components::qbe::PAGE_SIZE,
+                });
             }
-            api::list_item_groups(&p).await
+            api::query_item_groups(&p, &req).await
         }
     });
-    let mut selected = use_signal(|| None::<String>);
     let mut mode = use_signal(|| Mode::View);
     let mut form = use_signal(ItemGroupInput::default);
     let tab = use_signal(|| 0usize);
@@ -97,20 +197,49 @@ fn ItemGroupPage() -> Element {
     let mut copy_error = use_signal(|| None::<String>);
     let mut history = use_signal(|| None::<(String, Vec<ttrs_shared::ChangeDto>)>);
 
-    let list: Vec<ItemGroupDto> = groups
-        .read()
-        .as_ref()
-        .and_then(|r| r.as_ref().ok())
-        .cloned()
-        .unwrap_or_default();
-    let pos = selected()
-        .and_then(|c| list.iter().position(|x| x.fields.group_code == c))
-        .or(if list.is_empty() { None } else { Some(0) });
-    let cur: Option<ItemGroupDto> = pos.map(|i| list[i].clone());
+    // 換營運中心：回到空白畫面（GQ2）
+    use_effect(move || {
+        if plant().is_empty() {
+            return;
+        }
+        mode.set(Mode::View);
+        rec.reset(true);
+    });
+
+    // 執行查詢：先試查第 1 頁，條件有誤時留在查詢模式顯示錯誤
+    let run_query = move |_| {
+        let p = plant();
+        let conds = conditions_of(&rec.qbe.read());
+        let req = rec.request(conds.clone(), 1);
+        spawn(async move {
+            match api::query_item_groups(&p, &req).await {
+                Ok(page) => {
+                    error.set(None);
+                    mode.set(Mode::View);
+                    rec.apply(conds, page.total);
+                    message.set(Some(if page.total == 0 {
+                        t("query-msg-none")
+                    } else {
+                        tf(
+                            "query-msg-matched",
+                            &[("count", page.total.to_string().as_str())],
+                        )
+                    }));
+                }
+                Err(e) => error.set(Some(e)),
+            }
+        });
+    };
+
+    let cur: Option<ItemGroupDto> = rec.current.read().clone();
     let no_cur = cur.is_none();
-    let total = list.len() as u64;
+    let (total, pages) = rec.totals();
+    let offset = rec.offset();
+    let queried = (rec.active)();
+    let qbe = rec.qbe;
     let m = mode();
-    let ro = m == Mode::View;
+    let q = m == Mode::Query;
+    let ro = matches!(m, Mode::View | Mode::Query);
     let v = if ro {
         cur.as_ref().map(|c| c.fields.clone()).unwrap_or_default()
     } else {
@@ -118,12 +247,15 @@ fn ItemGroupPage() -> Element {
     };
     let inactive = cur.as_ref().is_some_and(|c| !c.active);
 
-    let mut done = move |msg: String, code: Option<String>| {
+    // 存檔或其他異動後：顯示該筆並重新載入清單
+    let mut done = move |msg: String, g: Option<ItemGroupDto>| {
         error.set(None);
         message.set(Some(msg));
         mode.set(Mode::View);
-        selected.set(code);
-        groups.restart();
+        if g.is_none() {
+            rec.pos.set(None);
+        }
+        rec.show(g);
     };
 
     let save = move |_| {
@@ -139,10 +271,7 @@ fn ItemGroupPage() -> Element {
             match result {
                 Ok(g) => {
                     let code = g.fields.group_code.clone();
-                    done(
-                        tf("igroup-msg-saved", &[("code", code.as_str())]),
-                        Some(code),
-                    );
+                    done(tf("igroup-msg-saved", &[("code", code.as_str())]), Some(g));
                 }
                 Err(e) => error.set(Some(e)),
             }
@@ -164,7 +293,7 @@ fn ItemGroupPage() -> Element {
                             "igroup-msg-copied",
                             &[("from", from.as_str()), ("to", code.as_str())],
                         ),
-                        Some(code),
+                        Some(g),
                     );
                 }
                 Err(e) => copy_error.set(Some(e)),
@@ -177,7 +306,6 @@ fn ItemGroupPage() -> Element {
     let cur_delete = cur.clone();
     let cur_history = cur.clone();
     let cur_toggle = cur.clone();
-    let list_rows = list.clone();
     let units_hint = t("igroup-hint-unit");
 
     rsx! {
@@ -189,7 +317,27 @@ fn ItemGroupPage() -> Element {
             PlantPicker { plant }
 
             div { class: "action-bar",
-                if ro {
+                if q {
+                    Button { icon: icons::CHECK, tone: Tone::Success, onclick: run_query, {t("common-action-ok")} }
+                    Button {
+                        icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text,
+                        onclick: move |_| { error.set(None); mode.set(Mode::View); },
+                        {t("common-action-cancel")}
+                    }
+                } else if ro {
+                    if perm.can("query") {
+                        Button {
+                            icon: icons::SEARCH, tone: Tone::Primary,
+                            variant: ButtonVariant::Tonal,
+                            onclick: move |_| {
+                                message.set(None);
+                                error.set(None);
+                                rec.qbe.set(Default::default());
+                                mode.set(Mode::Query);
+                            },
+                            {t("common-action-query")}
+                        }
+                    }
                     if perm.can("insert") {
                         Button {
                             icon: icons::ADD, tone: Tone::Success,
@@ -268,7 +416,7 @@ fn ItemGroupPage() -> Element {
                                         Ok(r) => {
                                             let id = if r.active { "igroup-msg-activated" } else { "igroup-msg-deactivated" };
                                             let code = r.fields.group_code.clone();
-                                            done(tf(id, &[("code", code.as_str())]), Some(code));
+                                            done(tf(id, &[("code", code.as_str())]), Some(r));
                                         }
                                         Err(e) => error.set(Some(e)),
                                     }
@@ -306,21 +454,12 @@ fn ItemGroupPage() -> Element {
                 }
             }
 
-            if ro && total > 0 {
-                RecordNav {
-                    total,
-                    pos: pos.map(|p| p as u64),
-                    ongo: {
-                        let codes: Vec<String> = list.iter().map(|g| g.fields.group_code.clone()).collect();
-                        move |i: u64| {
-                            if let Some(c) = codes.get(i as usize) {
-                                message.set(None);
-                                selected.set(Some(c.clone()));
-                            }
-                        }
-                    },
-                    onerror: move |e| error.set(Some(e)),
-                }
+            if q {
+                p { class: "query-hint", {t("query-hint")} }
+            }
+
+            if m == Mode::View && total > 0 {
+                RecordNav { total, pos: (rec.pos)(), ongo: move |i| { message.set(None); rec.go(i); }, onerror: move |e| error.set(Some(e)) }
             }
 
             if let Some(msg) = error() {
@@ -335,6 +474,9 @@ fn ItemGroupPage() -> Element {
                 Tabs { tabs: vec![t("igroup-tab-main"), t("igroup-tab-planning"), t("igroup-tab-accounting"), t(TAB_STATUS)], active: tab }
                 div { class: "card-body",
                   match tab() {
+                    0 if q => rsx! { QueryGrid { fields: Q_MAIN, qbe } },
+                    1 if q => rsx! { QueryGrid { fields: Q_PLANNING, qbe } },
+                    2 if q => rsx! { QueryGrid { fields: Q_ACCOUNTING, qbe } },
                     0 => rsx! {
                         div { class: "form-grid",
                             TextField { id: "imz01", label: t("igroup-field-code"), maxlength: 10usize, value: v.group_code.clone(), readonly: m != Mode::New, oninput: move |x| form.write().group_code = x }
@@ -397,7 +539,7 @@ fn ItemGroupPage() -> Element {
                         p { class: "muted", {t("igroup-hint-accounting")} }
                     },
                     _ => rsx! {
-                        StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|c| c.status()), query: false, qbe: None, prefix: "imz" }
+                        StatusForm { status: cur.as_ref().filter(|_| m != Mode::New).map(|c| c.status()), queryable: crate::components::status::ALL, query: q, qbe, prefix: "imz" }
                     },
                   }
                 }
@@ -407,7 +549,11 @@ fn ItemGroupPage() -> Element {
             Card {
                 div { class: "table-header",
                     h3 { {t("igroup-list-title")} }
-                    p { {tf("list-count-all", &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
+                    if queried {
+                        p { {tf("list-count-filtered", &[("total", total.to_string().as_str())])} {t("list-hint-click")} }
+                    } else {
+                        p { class: "muted", {t("list-msg-not-queried")} }
+                    }
                 }
                 div { class: "table-scroll",
                     table { class: "md-table",
@@ -417,20 +563,17 @@ fn ItemGroupPage() -> Element {
                             }
                         } }
                         tbody {
-                            match &*groups.read() {
+                            match &*rec.list.read() {
                                 None => rsx! { tr { td { colspan: 5, {t("common-msg-loading")} } } },
                                 Some(Err(e)) => rsx! { tr { td { colspan: 5, "{e}" } } },
-                                Some(Ok(_)) if list_rows.is_empty() => rsx! { tr { td { colspan: 5, class: "muted", {t("common-msg-no-data")} } } },
-                                Some(Ok(_)) => rsx! {
-                                    for g in list_rows.iter().cloned() {
+                                Some(Ok(page)) if page.items.is_empty() => rsx! { tr { td { colspan: 5, class: "muted", {t("common-msg-no-data")} } } },
+                                Some(Ok(page)) => rsx! {
+                                    for (k, g) in page.items.iter().cloned().enumerate() {
                                         tr {
                                             key: "{g.fields.group_code}",
                                             class: "md-table__row--clickable",
                                             class: if cur.as_ref().is_some_and(|c| c.fields.group_code == g.fields.group_code) { "md-table__row--selected" },
-                                            onclick: {
-                                                let code = g.fields.group_code.clone();
-                                                move |_| if mode() == Mode::View { message.set(None); error.set(None); selected.set(Some(code.clone())); }
-                                            },
+                                            onclick: move |_| if mode() == Mode::View { message.set(None); error.set(None); rec.go(offset + k as u64); },
                                             td { class: "mono", "{g.fields.group_code}" }
                                             td { {txt(&g.fields.description)} }
                                             td { class: "mono", {txt(&g.fields.source_code)} }
@@ -444,6 +587,9 @@ fn ItemGroupPage() -> Element {
                             }
                         }
                     }
+                }
+                if queried {
+                    ListPager { page: rec.page, pages }
                 }
             }
 

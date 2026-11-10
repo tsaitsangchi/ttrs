@@ -284,7 +284,11 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["刪除", id, "的全部特殊權限"] => w.special.remove_all(a, id).await.map(drop),
         ["複製", id, "的特殊權限"] => w.special.copy(a, id, "u002").await.map(drop),
         // aimi100 料件維護
-        ["查詢料件"] => w.items.list(a, "TW01").await.map(drop),
+        ["查詢料件"] => w
+            .items
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
         ["新增料件", no] => {
             let req = ttrs_shared::ItemInput {
                 item_no: (*no).into(),
@@ -510,7 +514,11 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .await
             .map(drop),
         // aimi110 料件分群維護（工廠層，營運中心 TW01）
-        ["查詢料件分群"] => w.item_groups.list(a, "TW01").await.map(drop),
+        ["查詢料件分群"] => w
+            .item_groups
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
         ["新增料件分群", code] => {
             let req = ttrs_shared::ItemGroupInput {
                 group_code: (*code).into(),

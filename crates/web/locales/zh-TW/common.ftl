@@ -31,6 +31,7 @@ nav-record-count = 共 { $total } 筆
 nav-jump-invalid = 請輸入 1 到 { $total } 之間的筆數
 list-count-filtered = 依查詢條件共 { $total } 筆
 list-count-all = 全部共 { $total } 筆
+list-msg-not-queried = 尚未查詢：按「查詢」輸入條件後載入資料（不輸入條件即查全部）
 list-hint-click = ，點選一筆以檢視或修改
 common-msg-no-data = 查無資料
 list-page-position = 第 { $page } / { $pages } 頁

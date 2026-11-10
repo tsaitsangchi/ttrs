@@ -3,14 +3,20 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use sqlx::FromRow;
-use ttrs_app::{error::RepoError, ports::ItemGroupRepository};
+use ttrs_app::{error::RepoError, ports::ItemGroupRepository, query};
 use ttrs_domain::{
+    authorization::DataScope,
     item_group::{ItemGroup, ItemGroupAttrs, ItemGroupCode},
     plant::PlantId,
+    qbe::{FieldType, QbeFilter},
     record::Stamp,
 };
 
-use crate::{PgStore, pg::db_err};
+use crate::{
+    PgStore,
+    pg::db_err,
+    qbe_sql::{Column, push_filters, push_scope, query_page_in},
+};
 
 #[derive(FromRow)]
 struct Row {
@@ -173,6 +179,38 @@ impl ItemGroupRepository for PgStore {
         row.map(ItemGroup::try_from).transpose()
     }
 
+    async fn query_item_groups(
+        &self,
+        plant: &PlantId,
+        filters: &[QbeFilter],
+        scope: &DataScope,
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<ItemGroup>, u64), RepoError> {
+        let Some(mut tx) = self.plant_tx(plant).await? else {
+            return Ok((Vec::new(), 0));
+        };
+        let (rows, total) = query_page_in::<Row>(
+            &mut tx,
+            "SELECT COUNT(*) FROM item_group g WHERE TRUE",
+            select_group!("g WHERE TRUE"),
+            |qb| {
+                push_scope(qb, scope, "g.created_by", "g.created_dept");
+                push_filters(qb, filters, group_column)
+            },
+            r#" ORDER BY g.group_code COLLATE "C""#,
+            offset,
+            limit,
+        )
+        .await?;
+        tx.commit().await.map_err(db_err)?;
+        let groups = rows
+            .into_iter()
+            .map(ItemGroup::try_from)
+            .collect::<Result<_, _>>()?;
+        Ok((groups, total))
+    }
+
     async fn insert_item_group(&self, plant: &PlantId, g: &ItemGroup) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
         let a = &g.attrs;
@@ -312,4 +350,10 @@ impl ItemGroupRepository for PgStore {
         tx.commit().await.map_err(db_err)?;
         Ok(n > 0)
     }
+}
+
+/// 查詢鍵值 → 欄位：白名單（ttrs_app::query::item_group::FIELDS）的鍵值即欄位名稱
+fn group_column(key: &str) -> Option<Column> {
+    let f = query::item_group::FIELDS.iter().find(|f| f.key == key)?;
+    Some(Column::Scalar(f.key, f.ty == FieldType::Text))
 }

@@ -19,7 +19,9 @@ use ttrs_domain::{
     product_class::ProductClassCode,
     unit::UnitCode,
 };
-use ttrs_shared::{ChangeDto, CopyItemRequest, ItemDto, ItemInput, ItemTextDto};
+use ttrs_shared::{
+    ChangeDto, CopyItemRequest, ItemDto, ItemInput, ItemTextDto, Page, QueryRequest,
+};
 
 use crate::{
     Actor, AppError, Authorizer,
@@ -86,11 +88,44 @@ impl ItemService {
         no: &str,
         lang: Option<&str>,
     ) -> Result<ItemDto, AppError> {
-        self.authorize(actor, "query").await?;
+        let grant = self.authorize(actor, "query").await?;
         let plant = PlantId::parse(plant)?;
         let lang = lang.map(Lang::parse).transpose()?;
         let i = self.load(&plant, no).await?;
+        // 被資料權限過濾掉的料件也不能直接查看（IQ4，同 AQ6）
+        grant.record(&i.created_by, &i.created_dept)?;
         self.to_dto(&plant, &i, lang.as_ref()).await
+    }
+
+    /// QBE 查詢（i100_curs、i100_declare_curs，aimi100.4gl:354-730；IQ1–IQ10）：
+    /// 依資料權限過濾、依料號排序並分頁；結果的品名、規格依 `req.lang` 顯示（IQ3）
+    pub async fn query(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        req: QueryRequest,
+    ) -> Result<Page<ItemDto>, AppError> {
+        let scope = self.authorize(actor, "query").await?.scope();
+        let plant = PlantId::parse(plant)?;
+        let lang = req.lang.as_deref().map(Lang::parse).transpose()?;
+        let filters = crate::query::item::filters(&req.conditions)?;
+        let p = crate::query::paging(&req);
+        let (rows, total) = self
+            .repos
+            .items
+            .query_items(&plant, &filters, &scope, p.offset, u64::from(p.page_size))
+            .await
+            .map_err(infra)?;
+        let mut items = Vec::with_capacity(rows.len());
+        for i in &rows {
+            items.push(self.to_dto(&plant, i, lang.as_ref()).await?);
+        }
+        Ok(Page {
+            items,
+            total,
+            page: p.page,
+            page_size: p.page_size,
+        })
     }
 
     /// 分群碼的預設值（i100_set_rel_ima06；IM25）：畫面詢問後填入表單，後端不自動覆蓋

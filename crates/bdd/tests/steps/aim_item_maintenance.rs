@@ -21,11 +21,11 @@ fn base(no: &str) -> ItemInput {
     }
 }
 
-fn opt(v: &str) -> Option<String> {
+pub(crate) fn opt(v: &str) -> Option<String> {
     Some(v.to_owned()).filter(|s| !s.is_empty())
 }
 
-fn dec(v: &str) -> Option<Decimal> {
+pub(crate) fn dec(v: &str) -> Option<Decimal> {
     Some(v.parse().unwrap_or_else(|_| panic!("數字：{v}")))
 }
 
@@ -122,7 +122,7 @@ async fn create(w: &mut ErpWorld, plant: &str, req: ItemInput) {
     w.last = Some(r.map(drop));
 }
 
-async fn must_create(w: &mut ErpWorld, plant: &str, req: ItemInput) {
+pub(crate) async fn must_create(w: &mut ErpWorld, plant: &str, req: ItemInput) {
     let no = req.item_no.clone();
     if let Err(e) = w.items.create(&w.actor, plant, req).await {
         panic!("建立料件 {no} 失敗：{e}");
@@ -141,7 +141,7 @@ async fn version(w: &ErpWorld, no: &str) -> Option<i32> {
 }
 
 /// 建立料件並轉到指定狀態
-async fn existing(w: &mut ErpWorld, plant: &str, no: &str, state: &str, req: ItemInput) {
+pub(crate) async fn existing(w: &mut ErpWorld, plant: &str, no: &str, state: &str, req: ItemInput) {
     must_create(w, plant, req).await;
     let v = Some(1);
     let r = match state {

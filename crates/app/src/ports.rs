@@ -25,6 +25,16 @@ pub trait ItemRepository: Send + Sync {
     /// 全部料件，依料號排序
     async fn list_items(&self, plant: &PlantId) -> Result<Vec<Item>, RepoError>;
     async fn get_item(&self, plant: &PlantId, no: &ItemNo) -> Result<Option<Item>, RepoError>;
+    /// QBE 查詢（aimi100.4gl:703-730）：符合全部篩選且在資料範圍內（imauser、imagrup）者，
+    /// 依料號（位元組順序）排序，回傳指定範圍與總筆數；品名、規格比對任一語系（IQ3）
+    async fn query_items(
+        &self,
+        plant: &PlantId,
+        filters: &[QbeFilter],
+        scope: &DataScope,
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<Item>, u64), RepoError>;
     /// 料號重複回 `Conflict`
     async fn insert_item(&self, plant: &PlantId, item: &Item) -> Result<(), RepoError>;
     /// 版本不符回 `Stale`（ADR 0012 §4）
@@ -602,6 +612,15 @@ pub trait ItemGroupRepository: Send + Sync {
         plant: &PlantId,
         code: &ttrs_domain::item_group::ItemGroupCode,
     ) -> Result<Option<ttrs_domain::item_group::ItemGroup>, RepoError>;
+    /// QBE 查詢（aimi110.4gl:476-489）：資料範圍 imzuser、imzgrup，依分群碼（位元組順序）排序
+    async fn query_item_groups(
+        &self,
+        plant: &PlantId,
+        filters: &[QbeFilter],
+        scope: &DataScope,
+        offset: u64,
+        limit: u64,
+    ) -> Result<(Vec<ttrs_domain::item_group::ItemGroup>, u64), RepoError>;
     /// 分群碼重複回 `Conflict`
     async fn insert_item_group(
         &self,

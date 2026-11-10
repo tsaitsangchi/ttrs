@@ -31,6 +31,7 @@ nav-record-count = { $total } records
 nav-jump-invalid = Enter a record number from 1 to { $total }
 list-count-filtered = { $total } records matching the query
 list-count-all = { $total } records in total
+list-msg-not-queried = Not queried yet: press Query and enter conditions to load data (leave blank to load all).
 list-hint-click = { " " }— click a row to view or edit
 common-msg-no-data = No data
 list-page-position = Page { $page } of { $pages }

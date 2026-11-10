@@ -41,9 +41,9 @@ enum Route {
         #[route("/")]
         Home {},
         // 網址一律 /<模組>/<程式代號>（menu_maintenance.feature MN12）；舊網址轉到新網址
-        /// aimi100 料件基本資料
-        #[route("/aim/item-maintenance")]
-        ItemMaintenance {},
+        /// aimi100 料件基本資料；`?item_no=` 由其他作業帶入料號（IQ7）
+        #[route("/aim/item-maintenance?:item_no")]
+        ItemMaintenance { item_no: String },
         /// Item Group Maintenance 料件分群維護（TipTop aimi110）
         #[route("/aim/item-group-maintenance")]
         ItemGroupMaintenance {},
@@ -91,7 +91,7 @@ enum Route {
         #[route("/azz/menu-maintenance")]
         MenuMaintenance {},
     #[end_layout]
-    #[redirect("/aim/items", || Route::ItemMaintenance {})]
+    #[redirect("/aim/items", || Route::ItemMaintenance { item_no: String::new() })]
     #[redirect("/aoo/classification-codes", || Route::ClassificationCodeMaintenance {})]
     #[redirect("/azz/user-permissions", || Route::UserPermissions {})]
     #[redirect("/azz/user-permissions/:user", |user: String| Route::UserPermissionsFor { user })]
@@ -137,7 +137,13 @@ fn NavIcon(path: &'static str, tone: Tone) -> Element {
 /// 程式代號 → 畫面、圖示、色調（MN12、MN13）。不在此表的程式（尚未移植）不顯示
 fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
     Some(match program {
-        "item-maintenance" => (Route::ItemMaintenance {}, icons::CATEGORY, Tone::Tertiary),
+        "item-maintenance" => (
+            Route::ItemMaintenance {
+                item_no: String::new(),
+            },
+            icons::CATEGORY,
+            Tone::Tertiary,
+        ),
         "item-group-maintenance" => (
             Route::ItemGroupMaintenance {},
             icons::INVENTORY,
