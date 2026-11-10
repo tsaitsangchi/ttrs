@@ -1,4 +1,4 @@
-.PHONY: test bdd bdd-pg api web desktop bundle check fmt db-create legacy-catalog
+.PHONY: test bdd bdd-pg api api-memory web desktop bundle check fmt db-create legacy-catalog
 
 # 本機 8080 常被占用，可用 make web WEB_PORT=xxxx 覆寫
 WEB_PORT ?= 8765
@@ -13,8 +13,14 @@ bdd-pg:
 	@test -n "$(TTRS_BDD_DATABASE_URL)" || (echo "請設定 TTRS_BDD_DATABASE_URL"; exit 1)
 	cargo test -p ttrs-bdd --test acceptance
 
+# 有 .env 時先載入（DATABASE_URL、TTRS_API_ADDR…），連開發資料庫；沒有 .env 時用記憶體資料。
+# 要強制用記憶體資料：make api-memory
 api:
-	cargo run -p ttrs-api
+	@if [ -f .env ]; then echo "載入 .env"; fi
+	set -a; if [ -f .env ]; then . ./.env; fi; set +a; cargo run -p ttrs-api
+
+api-memory:
+	env -u DATABASE_URL cargo run -p ttrs-api
 
 web:
 	cd crates/web && dx serve --platform web --port $(WEB_PORT)

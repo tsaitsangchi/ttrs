@@ -105,7 +105,8 @@ bdd：驗收測試，執行 specs/features/**/*.feature
 make test        # 全部測試（單元 + API 契約 + BDD，記憶體後端）
 make bdd         # 只跑 BDD
 make bdd-pg      # 對 PostgreSQL 跑 BDD（需 TTRS_BDD_DATABASE_URL）
-make api         # 啟動 API（無 DATABASE_URL 時用記憶體資料）
+make api         # 啟動 API（有 .env 時自動載入、連開發資料庫；沒有 .env 時用記憶體資料）
+make api-memory  # 強制用記憶體資料啟動 API
 make web         # dx serve 前端（需先 cargo install dioxus-cli）
 make check       # fmt + clippy + test
 ```
