@@ -22,6 +22,9 @@ struct Row {
     revenue_account: Option<String>,
     revenue_account2: Option<String>,
     active: bool,
+    confirmed: bool,
+    confirmed_by: Option<String>,
+    confirmed_at: Option<DateTime<Utc>>,
     created_by: String,
     created_dept: String,
     created_on: NaiveDate,
@@ -36,7 +39,7 @@ macro_rules! select_class {
     ($rest:literal) => {
         concat!(
             "SELECT class_code, name, period_format, periods, cost_center, revenue_account, revenue_account2, ",
-            "active, created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at ",
+            "active, confirmed, confirmed_by, confirmed_at, created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at ",
             "FROM product_class ",
             $rest
         )
@@ -65,6 +68,11 @@ impl TryFrom<Row> for ProductClass {
                 revenue_account2: r.revenue_account2,
             },
             active: r.active,
+            confirmation: ttrs_domain::confirmation::Confirmation {
+                confirmed: r.confirmed,
+                by: r.confirmed_by,
+                at: r.confirmed_at,
+            },
             created_by: r.created_by,
             created_dept: r.created_dept,
             created_on: r.created_on,
@@ -119,8 +127,8 @@ impl ProductClassRepository for PgStore {
         let a = &c.attrs;
         sqlx::query(
             "INSERT INTO product_class (class_code, name, period_format, periods, cost_center, revenue_account,
-                 revenue_account2, active, created_by, created_dept, created_on)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+                 revenue_account2, active, created_by, created_dept, created_on, confirmed, confirmed_by, confirmed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
         )
         .bind(c.code.as_str())
         .bind(&a.name)
@@ -133,6 +141,9 @@ impl ProductClassRepository for PgStore {
         .bind(&c.created_by)
         .bind(&c.created_dept)
         .bind(c.created_on)
+        .bind(c.confirmation.confirmed)
+        .bind(&c.confirmation.by)
+        .bind(c.confirmation.at)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
@@ -148,7 +159,8 @@ impl ProductClassRepository for PgStore {
         let a = &c.attrs;
         let n = sqlx::query(
             "UPDATE product_class SET name = $2, period_format = $3, periods = $4, cost_center = $5,
-                 revenue_account = $6, revenue_account2 = $7, active = $8, updated_by = $9, updated_on = $10
+                 revenue_account = $6, revenue_account2 = $7, active = $8, updated_by = $9, updated_on = $10,
+                 confirmed = $12, confirmed_by = $13, confirmed_at = $14
              WHERE class_code = $1 AND version = $11",
         )
         .bind(c.code.as_str())
@@ -162,6 +174,9 @@ impl ProductClassRepository for PgStore {
         .bind(&c.updated_by)
         .bind(c.updated_on)
         .bind(c.stamp.version)
+        .bind(c.confirmation.confirmed)
+        .bind(&c.confirmation.by)
+        .bind(c.confirmation.at)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?

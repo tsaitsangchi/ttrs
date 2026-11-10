@@ -64,6 +64,8 @@ pub struct Unit {
     pub attrs: UnitAttrs,
     /// gfeacti 資料有效碼
     pub active: bool,
+    /// 確認狀態（TTRS 標準確認欄位，ADR 0013 SA9；gfe_file 無此欄）
+    pub confirmation: crate::confirmation::Confirmation,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -79,6 +81,7 @@ impl Unit {
             code,
             attrs,
             active: true,
+            confirmation: crate::confirmation::Confirmation::default(),
             created_by: user.to_owned(),
             created_dept: dept.to_owned(),
             created_on: today,
@@ -96,6 +99,27 @@ impl Unit {
     pub fn set_active(&mut self, active: bool, user: &str, today: NaiveDate) {
         self.active = active;
         self.touch(user, today);
+    }
+
+    /// 複製（ADR 0013 SA5；aooi101 原本沒有）：新單位代碼，說明與小數位數帶入；資料所有者為目前使用者、未確認
+    pub fn copy_as(&self, code: UnitCode, user: &str, dept: &str, today: NaiveDate) -> Self {
+        Self::new(code, self.attrs.clone(), user, dept, today)
+    }
+
+    /// 確認／取消確認（ADR 0013 SA9）
+    pub fn set_confirmed(
+        &mut self,
+        confirm: bool,
+        user: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(), DomainError> {
+        if confirm {
+            self.confirmation.confirm(user, now)?;
+        } else {
+            self.confirmation.unconfirm()?;
+        }
+        self.touch(user, now.date_naive());
+        Ok(())
     }
 
     fn touch(&mut self, user: &str, today: NaiveDate) {

@@ -92,6 +92,26 @@ TipTop 的做法（萃取）：有確認流程的作業以功能 confirm（確�
   轉入的既有資料一律視為已確認。若您要「未確認不可引用」，各作業的檢查另案逐支加入。
 - **SA9-4. 不適用的例外。** 建議與 SA4 失效的例外相同：程式執行權限、使用者特殊權限、資料字典、程式 不做確認。
 
+## 實作進度（2026-11-10）
+
+| 作業 | 查詢 | 複製 | 確認 | 失效 | 上下筆 | 列印／匯出 Excel | 規格 |
+|---|---|---|---|---|---|---|---|
+| 料件 aimi100 | Y | Y | Y（TipTop 原有） | Y | Y | Y | item_maintenance_report.feature |
+| 料件分群 aimi110 | Y | Y | Y | Y | Y | Y | item_group_report.feature、item_group_confirm.feature |
+| 營運中心 aooi901 | Y | Y | Y | Y | Y | Y | plant_maintenance_standard_actions.feature |
+| 使用者 p_zx | Y | Y | Y | Y | Y | Y | user_maintenance_standard_actions.feature |
+| 權限類別 p_zw | Y | Y | Y | Y | Y（選取列） | Y | permission_class_maintenance_standard_actions.feature |
+| 部門 aooi030、員工 aooi040 | Y | Y | Y | Y | Y（選取列） | Y | department_employee_standard_actions.feature |
+| 單位 aooi101 | Y | Y | Y | Y | Y（選取列） | Y | unit_maintenance_standard_actions.feature |
+| 產品分類 axmi110 | Y | Y | Y | Y | Y（選取列） | Y | product_classification_standard_actions.feature |
+| 分類碼 aooi300 | Y | Y | Y | Y | Y（選取列） | Y | classification_code_standard_actions.feature |
+| 程式 p_zz | Y | Y | 例外 | 例外 | Y | Y | program_maintenance_standard_actions.feature |
+| 程式執行權限 p_zy | Y | Y | 例外 | 例外 | Y | Y | 同上 |
+| 使用者特殊權限 p_zxw | Y（有特殊權限的使用者） | Y | 例外 | 例外 | Y（使用者） | Y | 同上 |
+| 資料字典 p_zta | Y | 例外 | 例外 | 例外 | 未做 | Y（PDF、XLSX；CSV 保留） | 同上 |
+
+單位、產品分類、分類碼資料量小，查詢在 app 層對完整清單過濾（`query::page_in_memory`），兩種後端共用比對規則。
+
 ## 影響
 
 - 每支作業都需要補 output、exporttoexcel 的 use case 與 API；app 層新增通用的「清單報表」資料結構。

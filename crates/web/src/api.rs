@@ -1229,8 +1229,45 @@ fn code_url(plant: &str, kind: &str, code: &str, suffix: &str) -> String {
     )
 }
 
-pub async fn list_codes(plant: &str, kind: &str) -> Result<Vec<ClassificationCodeDto>, String> {
-    get_json(code_url(plant, kind, "", "")).await
+/// QBE 查詢（ADR 0013 SA1）：同一類別內
+pub async fn query_codes(
+    plant: &str,
+    kind: &str,
+    req: &QueryRequest,
+) -> Result<Page<ClassificationCodeDto>, String> {
+    post_query(code_url(plant, kind, "query", ""), req).await
+}
+
+/// 複製（ADR 0013 SA5）
+pub async fn copy_code(
+    plant: &str,
+    kind: &str,
+    code: &str,
+    new_code: &str,
+) -> Result<ClassificationCodeDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        code_url(plant, kind, code, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+/// 確認或取消確認（ADR 0013 SA9）
+pub async fn confirm_code(
+    plant: &str,
+    kind: &str,
+    code: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<ClassificationCodeDto, String> {
+    let suffix = if confirm { "/confirm" } else { "/unconfirm" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!("{}?version={version}", code_url(plant, kind, code, suffix)),
+        None,
+    )
+    .await
 }
 
 pub async fn create_code(
@@ -1331,6 +1368,103 @@ pub async fn set_department_accounting(
         Some(req),
     )
     .await
+}
+
+/// 工廠層作業的複製（ADR 0013 SA5）：`part` 為 API 路徑中的作業資料（departments、employees…）
+async fn copy_plant_part<T: serde::de::DeserializeOwned>(
+    plant: &str,
+    part: &str,
+    key: &str,
+    new_code: &str,
+) -> Result<T, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, part, key, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+/// 工廠層作業的確認或取消確認（ADR 0013 SA9）
+async fn confirm_plant_part<T: serde::de::DeserializeOwned>(
+    plant: &str,
+    part: &str,
+    key: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<T, String> {
+    let suffix = if confirm { "/confirm" } else { "/unconfirm" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, part, key, suffix)
+        ),
+        None,
+    )
+    .await
+}
+
+/// QBE 查詢（ADR 0013 SA1）
+pub async fn query_product_classes(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::ProductClassDto>, String> {
+    post_query(plant_part_url(plant, "product-classes", "query", ""), req).await
+}
+
+pub async fn copy_product_class(
+    plant: &str,
+    code: &str,
+    new_code: &str,
+) -> Result<ttrs_shared::ProductClassDto, String> {
+    copy_plant_part(plant, "product-classes", code, new_code).await
+}
+
+pub async fn confirm_product_class(
+    plant: &str,
+    code: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<ttrs_shared::ProductClassDto, String> {
+    confirm_plant_part(plant, "product-classes", code, confirm, version).await
+}
+
+/// 使用者特殊權限查詢（ADR 0013 SA1）：有特殊權限且符合條件的使用者
+pub async fn query_user_permissions(
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::SpecialPermissionUserDto>, String> {
+    post_query(url("/api/user-permissions/query"), req).await
+}
+
+pub async fn copy_department(
+    plant: &str,
+    code: &str,
+    new_code: &str,
+) -> Result<DepartmentDto, String> {
+    copy_plant_part(plant, "departments", code, new_code).await
+}
+
+pub async fn confirm_department(
+    plant: &str,
+    code: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<DepartmentDto, String> {
+    confirm_plant_part(plant, "departments", code, confirm, version).await
+}
+
+pub async fn copy_employee(plant: &str, id: &str, new_id: &str) -> Result<EmployeeDto, String> {
+    copy_plant_part(plant, "employees", id, new_id).await
+}
+
+pub async fn confirm_employee(
+    plant: &str,
+    id: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<EmployeeDto, String> {
+    confirm_plant_part(plant, "employees", id, confirm, version).await
 }
 
 pub async fn set_department_active(
@@ -1545,8 +1679,34 @@ fn unit_url(code: &str, suffix: &str) -> String {
     }
 }
 
-pub async fn list_units() -> Result<Vec<ttrs_shared::UnitDto>, String> {
-    get_json(unit_url("", "")).await
+/// QBE 查詢（ADR 0013 SA1）
+pub async fn query_units(req: &QueryRequest) -> Result<Page<ttrs_shared::UnitDto>, String> {
+    post_query(unit_url("", "/query"), req).await
+}
+
+/// 複製（ADR 0013 SA5）
+pub async fn copy_unit(code: &str, new_code: &str) -> Result<ttrs_shared::UnitDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        unit_url(code, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+/// 確認或取消確認（ADR 0013 SA9）
+pub async fn confirm_unit(
+    code: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<ttrs_shared::UnitDto, String> {
+    let suffix = if confirm { "/confirm" } else { "/unconfirm" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!("{}?version={version}", unit_url(code, suffix)),
+        None,
+    )
+    .await
 }
 
 pub async fn create_unit(req: &ttrs_shared::UnitInput) -> Result<ttrs_shared::UnitDto, String> {
@@ -1584,12 +1744,6 @@ pub async fn delete_unit(code: &str, version: i32) -> Result<(), String> {
 }
 
 // ----- Product Classification 產品分類維護（TipTop axmi110；工廠層） -----
-
-pub async fn list_product_classes(
-    plant: &str,
-) -> Result<Vec<ttrs_shared::ProductClassDto>, String> {
-    get_json(plant_part_url(plant, "product-classes", "", "")).await
-}
 
 pub async fn create_product_class(
     plant: &str,

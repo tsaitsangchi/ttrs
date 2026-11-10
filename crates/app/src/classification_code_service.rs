@@ -12,14 +12,30 @@ use ttrs_domain::{
     classification::{ClassificationCode, Code, CodeAttrs, CodeKind},
     plant::PlantId,
 };
-use ttrs_shared::{ChangeDto, ClassificationCodeDto, ClassificationCodeInput};
+use ttrs_shared::{
+    ChangeDto, ClassificationCodeDto, ClassificationCodeInput, Page, QbeCondition, QueryRequest,
+};
 
 use crate::{
     Actor, AppError, Authorizer,
     authorization::Grant,
     change_log::HistoryReader,
     error::RepoError,
+    list_report::{ListReporter, ListSpec},
     ports::{ClassificationCodeRepository, MasterDataRepository},
+    query,
+    report::{self, ReportData, ReportFormat},
+};
+
+/// 清單報表（ADR 0013 SA3；classification_code_standard_actions.feature）
+const REPORT: ListSpec = ListSpec {
+    program: PROGRAM,
+    title: "code-report-title",
+    columns: &[
+        ("code", "code-col-code"),
+        ("description", "code-col-description"),
+        ("active", "code-col-active"),
+    ],
 };
 
 /// 權限檢查用的程式代號（CC1：一支作業，以類別切換）
@@ -31,6 +47,8 @@ pub struct ClassificationCodeService {
     codes: Arc<dyn ClassificationCodeRepository>,
     master: Arc<dyn MasterDataRepository>,
     history: HistoryReader,
+    /// 列印、匯出 Excel（ADR 0013 SA3）
+    reports: ListReporter,
 }
 
 impl ClassificationCodeService {
@@ -39,13 +57,142 @@ impl ClassificationCodeService {
         codes: Arc<dyn ClassificationCodeRepository>,
         master: Arc<dyn MasterDataRepository>,
         history: HistoryReader,
+        reports: ListReporter,
     ) -> Self {
         Self {
             authz,
             codes,
             master,
             history,
+            reports,
         }
+    }
+
+    /// QBE 查詢（ADR 0013 SA1）：同一類別內，依代號排序並分頁
+    pub async fn query(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        kind: &str,
+        req: QueryRequest,
+    ) -> Result<Page<ClassificationCodeDto>, AppError> {
+        self.authorize(actor, "query").await?;
+        let plant = PlantId::parse(plant)?;
+        let kind = CodeKind::parse(kind)?;
+        let filters = query::classification::filters(&req.conditions)?;
+        let p = query::paging(&req);
+        let all = self.codes.list_codes(&plant, kind).await.map_err(infra)?;
+        let (rows, total) = query::page_in_memory(&all, &filters, query::classification::value, p);
+        Ok(Page {
+            items: rows.iter().map(to_dto).collect(),
+            total,
+            page: p.page,
+            page_size: p.page_size,
+        })
+    }
+
+    /// 列印 output、匯出 Excel exporttoexcel（ADR 0013 SA3；aooi300 原本沒有）：同一類別內
+    #[allow(clippy::too_many_arguments)]
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        kind: &str,
+        conditions: Vec<QbeCondition>,
+        format: ReportFormat,
+        lang: &ttrs_domain::lang::Lang,
+    ) -> Result<ReportData, AppError> {
+        self.authorize(actor, format.action()).await?;
+        let plant = PlantId::parse(plant)?;
+        let kind = CodeKind::parse(kind)?;
+        let filters = query::classification::filters(&conditions)?;
+        let all = self.codes.list_codes(&plant, kind).await.map_err(infra)?;
+        let p = query::Paging {
+            page: 1,
+            page_size: u32::try_from(self.reports.fetch_limit()).unwrap_or(u32::MAX),
+            offset: 0,
+        };
+        let (rows, total) = query::page_in_memory(&all, &filters, query::classification::value, p);
+        self.reports.check(total)?;
+        let t = |id: &str| report::text(lang, id);
+        let lines = rows
+            .iter()
+            .map(|c| {
+                vec![
+                    c.code.as_str().to_owned(),
+                    c.attrs.description.clone().unwrap_or_default(),
+                    t(if c.active {
+                        "report-active"
+                    } else {
+                        "report-inactive"
+                    }),
+                ]
+            })
+            .collect();
+        self.reports
+            .build(
+                actor,
+                Some(&plant),
+                &REPORT,
+                lines,
+                &conditions,
+                format,
+                lang,
+            )
+            .await
+    }
+
+    /// 測試用：調整同步產生報表的筆數上限
+    pub fn with_report_limit(mut self, limit: u64) -> Self {
+        self.reports.limit = limit;
+        self
+    }
+
+    /// 複製（ADR 0013 SA5；aooi300 原本沒有）：同一類別的新代號
+    pub async fn copy(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        kind: &str,
+        code: &str,
+        new_code: &str,
+    ) -> Result<ClassificationCodeDto, AppError> {
+        crate::change_log::run(actor, PROGRAM, "reproduce", async {
+            self.authorize(actor, "reproduce").await?;
+            let plant = PlantId::parse(plant)?;
+            let source = self.load(&plant, kind, code).await?;
+            let c = source.copy_as(Code::parse(new_code)?, &actor.user_id, &actor.dept, today());
+            match self.codes.insert_code(&plant, &c).await {
+                Ok(()) => Ok(to_dto(
+                    &self.load(&plant, c.kind.code(), c.code.as_str()).await?,
+                )),
+                Err(RepoError::Conflict) => Err(DomainError::CodeAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
+    }
+
+    /// 確認（confirm）／取消確認（notconfirm）（ADR 0013 SA9）
+    pub async fn confirm(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        kind: &str,
+        code: &str,
+        confirm: bool,
+        version: Option<i32>,
+    ) -> Result<ClassificationCodeDto, AppError> {
+        let action = if confirm { "confirm" } else { "notconfirm" };
+        crate::change_log::run(actor, PROGRAM, action, async {
+            self.authorize(actor, action).await?;
+            let plant = PlantId::parse(plant)?;
+            let mut c = self.load(&plant, kind, code).await?;
+            c.stamp.check(version)?;
+            c.set_confirmed(confirm, &actor.user_id, chrono::Utc::now())?;
+            self.save(&plant, &c).await
+        })
+        .await
     }
 
     /// 該類別的全部分類碼（TipTop 單身），依代號排序
@@ -149,6 +296,8 @@ impl ClassificationCodeService {
             let plant = PlantId::parse(plant)?;
             let c = self.load(&plant, kind, code).await?;
             c.stamp.check(version)?;
+            // 已確認不可刪除，須先取消確認（ADR 0013 SA9-2）
+            c.confirmation.check_deletable()?;
             let (kind, code) = (c.kind, c.code);
             match self.codes.delete_code(&plant, kind, &code).await {
                 Ok(true) => Ok(()),
@@ -237,6 +386,9 @@ fn to_dto(c: &ClassificationCode) -> ClassificationCodeDto {
         variance_account2: c.attrs.variance_account2.clone(),
         cost_nature: c.attrs.cost_nature,
         active: c.active,
+        confirmed: c.confirmation.confirmed,
+        confirmed_by: c.confirmation.by.clone(),
+        confirmed_at: c.confirmation.at,
         created_by: c.created_by.clone(),
         created_dept: c.created_dept.clone(),
         created_on: c.created_on,

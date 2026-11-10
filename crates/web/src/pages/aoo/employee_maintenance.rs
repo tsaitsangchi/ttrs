@@ -16,10 +16,12 @@ use crate::components::material::{
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::plant::PlantPicker;
-use crate::components::qbe::{ListPager, PAGE_SIZE, Qbe, conditions_of};
+use crate::components::qbe::{ListPager, PAGE_SIZE, Qbe, RecordNav, conditions_of, use_row_nav};
 use crate::components::status::{
-    self, HasStatus, StatusCells, StatusHeaders, StatusQbeCells, TAB_DATA, TAB_STATUS,
+    self, ConfirmCells, ConfirmHeaders, ConfirmQbeCells, HasStatus, StatusCells, StatusHeaders,
+    StatusQbeCells, TAB_DATA, TAB_STATUS,
 };
+use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{t, tf};
 
 /// 表格欄位（aooi040.4fd s_gen 順序）：（標題翻譯 ID, 查詢欄位鍵值, 查詢提示翻譯 ID）
@@ -103,6 +105,15 @@ fn EmployeeMaintenancePage() -> Element {
         }
     });
     let mut selected = use_signal(|| None::<String>);
+    let mut copy_id = use_signal(String::new);
+    let nav = use_row_nav(page, selected, move || {
+        employees
+            .read()
+            .as_ref()
+            .and_then(|r| r.as_ref().ok())
+            .map(|p| p.items.iter().map(|e| e.employee_id.clone()).collect())
+            .unwrap_or_default()
+    });
     let mut editor = use_signal(|| None::<Editor>);
     let mut form = use_signal(EmployeeInput::default);
     let mut dialog_error = use_signal(|| None::<String>);
@@ -111,7 +122,7 @@ fn EmployeeMaintenancePage() -> Element {
     let col_tab = use_signal(|| 0usize);
     let status_tab = col_tab() == 1;
     let cols = if status_tab {
-        KEY_COLUMNS + status::ALL.len()
+        KEY_COLUMNS + status::ALL.len() + 2
     } else {
         COLUMNS.len()
     };
@@ -200,6 +211,29 @@ fn EmployeeMaintenancePage() -> Element {
     let cur_delete = cur.clone();
     let cur_history = cur.clone();
     let cur_toggle = cur.clone();
+    let cur_copy = cur.clone();
+    let cur_confirm = cur.clone();
+    let confirmed = cur.as_ref().is_some_and(|e| e.confirmed);
+    let keys: Vec<String> = list.iter().map(|e| e.employee_id.clone()).collect();
+    let report = move |format: api::ReportFormat| {
+        let tab = api::ReportTab::open(format);
+        let p = plant();
+        let conds = conditions();
+        spawn(async move {
+            if let Err(e) = api::list_report(
+                &p,
+                "employees",
+                format,
+                &conds,
+                crate::i18n::current().code(),
+                tab,
+            )
+            .await
+            {
+                error.set(Some(e));
+            }
+        });
+    };
     let v = form();
     let current_dept = v.dept_code.clone().unwrap_or_default();
     let dept_options: Vec<(String, String)> =
@@ -234,98 +268,110 @@ fn EmployeeMaintenancePage() -> Element {
                 p { class: "query-hint", {t("query-hint")} }
             } else {
                 div { class: "action-bar",
-                    if perm.can("query") {
-                        Button {
-                            icon: icons::SEARCH, tone: Tone::Primary,
-                            variant: ButtonVariant::Tonal,
-                            onclick: move |_| { message.set(None); error.set(None); qbe.set(Default::default()); querying.set(true); },
-                            {t("common-action-query")}
-                        }
-                    }
-                    if perm.add_row() {
-                        Button {
-                            icon: icons::ADD, tone: Tone::Success,
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                dialog_error.set(None);
-                                form.set(EmployeeInput::default());
-                                editor.set(Some(Editor::New));
-                            },
-                            {t("common-action-new")}
-                        }
-                    }
-                    if perm.can("detail") {
-                        Button {
-                            icon: icons::EDIT, tone: Tone::Tertiary,
-                            variant: ButtonVariant::Tonal,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(e) = cur_edit.clone() else { return };
-                                dialog_error.set(None);
-                                form.set(e.to_input());
-                                editor.set(Some(Editor::Edit(e.employee_id)));
-                            },
-                            {t("common-action-edit")}
-                        }
-                    }
-                    if perm.can("history") {
-                        Button {
-                            icon: icons::HISTORY, tone: Tone::Primary,
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(e) = cur_history.clone() else { return };
-                                let p = plant();
-                                spawn(async move {
-                                    match api::history(&p, "employees", &e.employee_id).await {
-                                        Ok(h) => history.set(Some((e.employee_id.clone(), h))),
-                                        Err(e) => error.set(Some(e)),
+                    MaintenanceToolbar {
+                        query: Act::new(true, move |_| { message.set(None); error.set(None); qbe.set(Default::default()); querying.set(true); }),
+                        // aooi040 是單身式作業：新增、修改、刪除、停用都用 detail
+                        detail_action: "detail",
+                        insert: if perm.add_row() { Act::new(true, move |_| {
+                            message.set(None);
+                            error.set(None);
+                            dialog_error.set(None);
+                            form.set(EmployeeInput::default());
+                            editor.set(Some(Editor::New));
+                        }) } else { None },
+                        modify: Act::new(!no_cur, move |_| {
+                            let Some(e) = cur_edit.clone() else { return };
+                            dialog_error.set(None);
+                            form.set(e.to_input());
+                            editor.set(Some(Editor::Edit(e.employee_id)));
+                        }),
+                        // 複製（ADR 0013 SA5）：新員工編號輸入在功能列後方
+                        copy: Act::new(!no_cur && !copy_id().trim().is_empty(), move |_| {
+                            let Some(e) = cur_copy.clone() else { return };
+                            let p = plant();
+                            let new_id = copy_id();
+                            spawn(async move {
+                                match api::copy_employee(&p, &e.employee_id, new_id.trim()).await {
+                                    Ok(r) => {
+                                        copy_id.set(String::new());
+                                        done(tf("emp-msg-copied", &[("from", e.employee_id.as_str()), ("to", r.employee_id.as_str())]), Some(r.employee_id));
                                     }
-                                });
-                            },
-                            {t("common-action-history")}
-                        }
-                    }
-                    if perm.delete_row() {
-                        Button {
-                            icon: icons::DELETE, tone: Tone::Error,
-                            variant: ButtonVariant::Error,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(e) = cur_delete.clone() else { return };
-                                let p = plant();
-                                spawn(async move {
-                                    match api::delete_employee(&p, &e.employee_id, e.version).await {
-                                        Ok(()) => done(tf("emp-msg-deleted", &[("id", e.employee_id.as_str())]), None),
-                                        Err(err) => error.set(Some(err)),
+                                    Err(err) => error.set(Some(err)),
+                                }
+                            });
+                        }),
+                        // 已確認不可刪除（ADR 0013 SA9-2）
+                        delete: if perm.delete_row() { Act::new(!no_cur && !confirmed, move |_| {
+                            let Some(e) = cur_delete.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                match api::delete_employee(&p, &e.employee_id, e.version).await {
+                                    Ok(()) => done(tf("emp-msg-deleted", &[("id", e.employee_id.as_str())]), None),
+                                    Err(err) => error.set(Some(err)),
+                                }
+                            });
+                        }) } else { None },
+                        // 確認／取消確認（ADR 0013 SA9）
+                        confirm: Act::new(!no_cur, move |_| {
+                            let Some(e) = cur_confirm.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                match api::confirm_employee(&p, &e.employee_id, !e.confirmed, e.version).await {
+                                    Ok(r) => {
+                                        let id = if r.confirmed { "emp-msg-confirmed" } else { "emp-msg-unconfirmed" };
+                                        done(tf(id, &[("id", r.employee_id.as_str())]), Some(r.employee_id));
                                     }
-                                });
-                            },
-                            {t("common-action-delete")}
-                        }
-                    }
-                    if perm.can("detail") {
-                        Button {
-                            icon: if cur.as_ref().is_some_and(|e| !e.active) { icons::CHECK_CIRCLE } else { icons::BLOCK }, tone: if cur.as_ref().is_some_and(|e| !e.active) { Tone::Success } else { Tone::Error },
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(e) = cur_toggle.clone() else { return };
-                                let p = plant();
-                                spawn(async move {
-                                    match api::set_employee_active(&p, &e.employee_id, !e.active, e.version).await {
-                                        Ok(r) => {
-                                            let id = if r.active { "emp-msg-activated" } else { "emp-msg-deactivated" };
-                                            done(tf(id, &[("id", r.employee_id.as_str())]), Some(r.employee_id));
-                                        }
-                                        Err(err) => error.set(Some(err)),
+                                    Err(err) => error.set(Some(err)),
+                                }
+                            });
+                        }),
+                        confirmed,
+                        invalid: Act::new(!no_cur, move |_| {
+                            let Some(e) = cur_toggle.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                match api::set_employee_active(&p, &e.employee_id, !e.active, e.version).await {
+                                    Ok(r) => {
+                                        let id = if r.active { "emp-msg-activated" } else { "emp-msg-deactivated" };
+                                        done(tf(id, &[("id", r.employee_id.as_str())]), Some(r.employee_id));
                                     }
-                                });
-                            },
-                            if cur.as_ref().is_some_and(|e| !e.active) { {t("emp-action-activate")} } else { {t("emp-action-deactivate")} }
+                                    Err(err) => error.set(Some(err)),
+                                }
+                            });
+                        }),
+                        invalid_action: "detail",
+                        inactive: cur.as_ref().is_some_and(|e| !e.active),
+                        invalid_label: Some(("emp-action-deactivate", "emp-action-activate")),
+                        // 列印、匯出 Excel（ADR 0013 SA3）：依目前的查詢條件
+                        print: Act::new(true, move |_| report(api::ReportFormat::Pdf)),
+                        export: Act::new(true, move |_| report(api::ReportFormat::Excel)),
+                        history: Act::new(!no_cur, move |_| {
+                            let Some(e) = cur_history.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                match api::history(&p, "employees", &e.employee_id).await {
+                                    Ok(h) => history.set(Some((e.employee_id.clone(), h))),
+                                    Err(err) => error.set(Some(err)),
+                                }
+                            });
+                        }),
+                        if perm.can("reproduce") {
+                            TextField { id: "copy-id", label: t("emp-field-copy-as"), value: copy_id(), disabled: no_cur, oninput: move |v| copy_id.set(v) }
                         }
                     }
+                }
+            }
+
+            // 上下筆：移動選取列，跨頁自動換頁（ADR 0013 SA2）
+            if !querying() && total > 0 {
+                RecordNav {
+                    total,
+                    pos: nav.pos(&keys, cur.as_ref().map(|e| e.employee_id.as_str())),
+                    ongo: {
+                        let keys = keys.clone();
+                        move |i| { message.set(None); nav.go(i, &keys); }
+                    },
+                    onerror: move |e| error.set(Some(e)),
                 }
             }
 
@@ -350,7 +396,7 @@ fn EmployeeMaintenancePage() -> Element {
                                 for (id, _, _) in COLUMNS.iter().take(if status_tab { KEY_COLUMNS } else { COLUMNS.len() }) {
                                     th { key: "{id}", {t(id)} }
                                 }
-                                if status_tab { StatusHeaders {} }
+                                if status_tab { StatusHeaders {} ConfirmHeaders {} }
                             }
                             if querying() {
                                 tr {
@@ -365,7 +411,7 @@ fn EmployeeMaintenancePage() -> Element {
                                             }
                                         }
                                     }
-                                    if status_tab { StatusQbeCells { queryable: status::ALL, qbe } }
+                                    if status_tab { StatusQbeCells { queryable: status::ALL, qbe } ConfirmQbeCells { qbe } }
                                 }
                             }
                         }
@@ -388,6 +434,7 @@ fn EmployeeMaintenancePage() -> Element {
                                             td { "{e.name}" }
                                             if status_tab {
                                                 StatusCells { status: e.status() }
+                                                ConfirmCells { confirmed: e.confirmed, by: e.confirmed_by.clone() }
                                             } else {
                                             td { {e.dept_code.clone().map(|d| format!("{d} {}", e.dept_name.clone().unwrap_or_default())).unwrap_or_default()} }
                                             td { {e.title.clone().unwrap_or_default()} }

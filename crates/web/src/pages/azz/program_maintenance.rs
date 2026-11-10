@@ -30,6 +30,7 @@ use crate::components::qbe::{
     HINT_DATE, HINT_FLAG, HINT_NUMBER, ListPager, PAGE_SIZE, Q, Qbe, RecordNav, conditions_of,
 };
 use crate::components::status::{self, HasStatus, StatusForm};
+use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{self, UiLang, t, tf};
 
 const LEDGER_MODULES: [&str; 4] = ["AGL", "CGL", "GGL", "CGGL"];
@@ -221,6 +222,26 @@ fn ProgramMaintenancePage() -> Element {
         });
     };
 
+    // 列印、匯出 Excel（ADR 0013 SA3）：依目前生效的查詢條件
+    let report = move |format: api::ReportFormat| {
+        let conds = conditions.read().clone();
+        let tab = api::ReportTab::open(format);
+        spawn(async move {
+            if let Err(e) = api::system_list_report(
+                "/api/programs",
+                "programs",
+                format,
+                &conds,
+                crate::i18n::current().code(),
+                tab,
+            )
+            .await
+            {
+                error.set(Some(e));
+            }
+        });
+    };
+
     let delete = move |_| {
         let Some(p) = current() else { return };
         spawn(async move {
@@ -332,72 +353,43 @@ fn ProgramMaintenancePage() -> Element {
                         }
                     },
                     Mode::View => rsx! {
-                        if perm.can("query") {
-                            Button {
-                                icon: icons::SEARCH, tone: Tone::Primary,
-                                variant: ButtonVariant::Tonal,
-                                onclick: move |_| {
-                                    message.set(None);
-                                    error.set(None);
-                                    qbe.set(BTreeMap::new());
-                                    mode.set(Mode::Query);
-                                    upper_tab.set(0);
-                                },
-                                {t("common-action-query")}
+                        MaintenanceToolbar {
+                            query: Act::new(true, move |_| {
+                                message.set(None);
+                                error.set(None);
+                                qbe.set(BTreeMap::new());
+                                mode.set(Mode::Query);
+                                upper_tab.set(0);
+                            }),
+                            insert: Act::new(true, move |_| {
+                                message.set(None);
+                                error.set(None);
+                                form.set(ProgramInput::default());
+                                names.set(LangValues::default());
+                                loaded_names.set(LangValues::default());
+                                mode.set(Mode::New);
+                                upper_tab.set(0);
+                            }),
+                            modify: Act::new(!no_cur, move |_| mode.set(Mode::Edit)),
+                            // 複製：新程式代號輸入在功能列後方
+                            copy: Act::new(!no_cur && !new_no().trim().is_empty(), copy),
+                            delete: Act::new(!no_cur, delete),
+                            // 失效、確認不適用（zz_file 沒有有效碼；ADR 0013 SA4、SA9-4）
+                            // 列印、匯出 Excel（ADR 0013 SA3）：依目前生效的查詢條件
+                            print: Act::new(true, move |_| report(api::ReportFormat::Pdf)),
+                            export: Act::new(true, move |_| report(api::ReportFormat::Excel)),
+                            // 異動記錄（ADR 0012 §8，功能 history）
+                            if perm.can("history") {
+                                HistoryButton { program: PROGRAM, record: cur.as_ref().map(|p| p.program_no.clone()) }
                             }
-                        }
-                        if perm.can("insert") {
-                            Button {
-                                icon: icons::ADD, tone: Tone::Success,
-                                onclick: move |_| {
-                                    message.set(None);
-                                    error.set(None);
-                                    form.set(ProgramInput::default());
-                                    names.set(LangValues::default());
-                                    loaded_names.set(LangValues::default());
-                                    mode.set(Mode::New);
-                                    upper_tab.set(0);
-                                },
-                                {t("common-action-new")}
-                            }
-                        }
-                        if perm.can("modify") {
-                            Button {
-                                icon: icons::EDIT, tone: Tone::Tertiary,
-                                variant: ButtonVariant::Tonal,
-                                disabled: no_cur,
-                                onclick: move |_| mode.set(Mode::Edit),
-                                {t("common-action-edit")}
-                            }
-                        }
-                        // 異動記錄（ADR 0012 §8，功能 history）
-                        if perm.can("history") {
-                            HistoryButton { program: PROGRAM, record: cur.as_ref().map(|p| p.program_no.clone()) }
-                        }
-                        if perm.can("delete") {
-                            Button {
-                                icon: icons::DELETE, tone: Tone::Error,
-                                variant: ButtonVariant::Error,
-                                disabled: no_cur,
-                                onclick: delete,
-                                {t("common-action-delete")}
-                            }
-                        }
-                        div { class: "spacer" }
-                        if perm.can("reproduce") {
-                            TextField {
-                                id: "new-no",
-                                label: t("program-field-copy-as"),
-                                value: new_no(),
-                                disabled: no_cur,
-                                oninput: move |v| new_no.set(v),
-                            }
-                            Button {
-                                icon: icons::COPY, tone: Tone::Tertiary,
-                                variant: ButtonVariant::Outlined,
-                                disabled: no_cur,
-                                onclick: copy,
-                                {t("common-action-copy")}
+                            if perm.can("reproduce") {
+                                TextField {
+                                    id: "new-no",
+                                    label: t("program-field-copy-as"),
+                                    value: new_no(),
+                                    disabled: no_cur,
+                                    oninput: move |v| new_no.set(v),
+                                }
                             }
                         }
                     },

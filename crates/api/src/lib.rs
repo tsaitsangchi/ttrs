@@ -230,6 +230,21 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/programs", get(list_programs).post(create_program))
         .route("/api/programs/query", post(query_programs))
+        // 列印、匯出 Excel（ADR 0013；program_maintenance_standard_actions.feature）
+        .route("/api/programs/report.{format}", get(program_report))
+        .route(
+            "/api/program-permissions/report.{format}",
+            get(program_permission_report),
+        )
+        .route("/api/user-permissions/query", post(query_user_permissions))
+        .route(
+            "/api/user-permissions/report.{format}",
+            get(user_permission_report),
+        )
+        .route(
+            "/api/dictionary/tables/{table}/report.{format}",
+            get(dictionary_report),
+        )
         .route(
             "/api/programs/{no}",
             get(get_program).put(update_program).delete(delete_program),
@@ -349,6 +364,19 @@ pub fn router(state: AppState) -> Router {
             "/api/plants/{plant}/product-classes",
             get(list_product_classes).post(create_product_class),
         )
+        // 查詢、複製、列印、匯出 Excel（ADR 0013；product_classification_standard_actions.feature）
+        .route(
+            "/api/plants/{plant}/product-classes/query",
+            post(query_product_classes),
+        )
+        .route(
+            "/api/plants/{plant}/product-classes/report.{format}",
+            get(product_class_report),
+        )
+        .route(
+            "/api/plants/{plant}/product-classes/{code}/copy",
+            post(copy_product_class),
+        )
         .route(
             "/api/plants/{plant}/product-classes/{code}",
             get(get_product_class)
@@ -365,6 +393,10 @@ pub fn router(state: AppState) -> Router {
         )
         // Unit Maintenance 單位維護（TipTop aooi101；共用）
         .route("/api/units", get(list_units).post(create_unit))
+        // 查詢、複製、列印、匯出 Excel（ADR 0013；unit_maintenance_standard_actions.feature）
+        .route("/api/units/query", post(query_units))
+        .route("/api/units/report.{format}", get(unit_report))
+        .route("/api/units/{code}/copy", post(copy_unit))
         .route(
             "/api/units/{code}",
             get(get_unit).put(update_unit).delete(delete_unit),
@@ -408,6 +440,27 @@ pub fn router(state: AppState) -> Router {
             "/api/plants/{plant}/classification-codes/{kind}/{code}/activate",
             post(activate_code),
         )
+        // 查詢、複製、確認／取消確認、列印、匯出 Excel（ADR 0013；classification_code_standard_actions.feature）
+        .route(
+            "/api/plants/{plant}/classification-codes/{kind}/query",
+            post(query_codes),
+        )
+        .route(
+            "/api/plants/{plant}/classification-codes/{kind}/report.{format}",
+            get(code_report),
+        )
+        .route(
+            "/api/plants/{plant}/classification-codes/{kind}/{code}/copy",
+            post(copy_code),
+        )
+        .route(
+            "/api/plants/{plant}/classification-codes/{kind}/{code}/confirm",
+            post(confirm_code),
+        )
+        .route(
+            "/api/plants/{plant}/classification-codes/{kind}/{code}/unconfirm",
+            post(unconfirm_code),
+        )
         .route(
             "/api/plants/{plant}/classification-codes/{kind}/{code}/history",
             get(code_history),
@@ -440,6 +493,15 @@ pub fn router(state: AppState) -> Router {
             "/api/plants/{plant}/departments/{code}/activate",
             post(activate_department),
         )
+        // 複製、確認／取消確認（ADR 0013；department_employee_standard_actions.feature）
+        .route(
+            "/api/plants/{plant}/departments/{code}/copy",
+            post(copy_department),
+        )
+        .route(
+            "/api/plants/{plant}/departments/{code}/{state}",
+            post(confirm_department),
+        )
         .route(
             "/api/plants/{plant}/departments/{code}/history",
             get(department_history),
@@ -460,6 +522,19 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/plants/{plant}/employees/{id}/activate",
             post(activate_employee),
+        )
+        // 複製、確認／取消確認、列印、匯出 Excel（ADR 0013）
+        .route(
+            "/api/plants/{plant}/employees/{id}/copy",
+            post(copy_employee),
+        )
+        .route(
+            "/api/plants/{plant}/employees/{id}/{state}",
+            post(confirm_employee),
+        )
+        .route(
+            "/api/plants/{plant}/employees/report.{format}",
+            get(employee_report),
         )
         .route(
             "/api/plants/{plant}/employees/{id}/history",
@@ -1696,6 +1771,73 @@ struct LangQuery {
 }
 
 /// 匯出 CSV（D6）；開頭加 UTF-8 BOM，Excel 才會以 UTF-8 開啟中文
+async fn program_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .programs
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn program_permission_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .permissions
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn query_user_permissions(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::SpecialPermissionUserDto>>> {
+    Ok(Json(s.special.query(&s.actor, req).await?))
+}
+
+async fn user_permission_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .special
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn dictionary_report(
+    Ctx(s): Ctx,
+    Path((table, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, _, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .dictionary
+        .report_in(&s.actor, &table, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
 async fn export_dictionary(
     Ctx(s): Ctx,
     Path(table): Path<String>,
@@ -1789,6 +1931,69 @@ async fn deactivate_code(
             .set_active(&s.actor, &plant, &kind, &code, false, version)
             .await?,
     ))
+}
+
+async fn query_codes(
+    Ctx(s): Ctx,
+    Path((plant, kind)): Path<(String, String)>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ClassificationCodeDto>>> {
+    Ok(Json(
+        s.classification.query(&s.actor, &plant, &kind, req).await?,
+    ))
+}
+
+async fn copy_code(
+    Ctx(s): Ctx,
+    Path((plant, kind, code)): Path<(String, String, String)>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<ClassificationCodeDto>)> {
+    let c = s
+        .classification
+        .copy(&s.actor, &plant, &kind, &code, &req.new_code)
+        .await?;
+    Ok((StatusCode::CREATED, Json(c)))
+}
+
+async fn confirm_code(
+    Ctx(s): Ctx,
+    Path((plant, kind, code)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<ClassificationCodeDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.classification
+            .confirm(&s.actor, &plant, &kind, &code, true, version)
+            .await?,
+    ))
+}
+
+async fn unconfirm_code(
+    Ctx(s): Ctx,
+    Path((plant, kind, code)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<ClassificationCodeDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.classification
+            .confirm(&s.actor, &plant, &kind, &code, false, version)
+            .await?,
+    ))
+}
+
+async fn code_report(
+    Ctx(s): Ctx,
+    Path((plant, kind, format)): Path<(String, String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .classification
+        .report_in(&s.actor, &plant, &kind, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 async fn activate_code(
@@ -1972,6 +2177,91 @@ async fn deactivate_department(
             .deactivate(&s.actor, &plant, &code, version)
             .await?,
     ))
+}
+
+#[derive(Deserialize)]
+struct NewCode {
+    new_code: String,
+}
+
+/// 確認 confirm、取消確認 unconfirm（ADR 0013 SA9）
+fn confirm_state(state: &str) -> Option<bool> {
+    match state {
+        "confirm" => Some(true),
+        "unconfirm" => Some(false),
+        _ => None,
+    }
+}
+
+async fn copy_department(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<DepartmentDto>)> {
+    let d = s
+        .departments
+        .copy(&s.actor, &plant, &code, &req.new_code)
+        .await?;
+    Ok((StatusCode::CREATED, Json(d)))
+}
+
+async fn confirm_department(
+    Ctx(s): Ctx,
+    Path((plant, code, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let Some(confirm) = confirm_state(&state) else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let version = Some(require_version(v.version)?);
+    let d = s
+        .departments
+        .confirm(&s.actor, &plant, &code, confirm, version)
+        .await?;
+    Ok(Json(d).into_response())
+}
+
+async fn copy_employee(
+    Ctx(s): Ctx,
+    Path((plant, id)): Path<(String, String)>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<EmployeeDto>)> {
+    let e = s
+        .employees
+        .copy(&s.actor, &plant, &id, &req.new_code)
+        .await?;
+    Ok((StatusCode::CREATED, Json(e)))
+}
+
+async fn confirm_employee(
+    Ctx(s): Ctx,
+    Path((plant, id, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let Some(confirm) = confirm_state(&state) else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let version = Some(require_version(v.version)?);
+    let e = s
+        .employees
+        .confirm(&s.actor, &plant, &id, confirm, version)
+        .await?;
+    Ok(Json(e).into_response())
+}
+
+async fn employee_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .employees
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 async fn activate_department(
@@ -2238,18 +2528,55 @@ async fn set_product_class_active(
     Path((plant, code, state)): Path<(String, String, String)>,
     Query(v): Query<VersionQuery>,
 ) -> ApiResult<Response> {
-    let active = match state.as_str() {
-        "activate" => true,
-        "deactivate" => false,
+    let version = Some(require_version(v.version)?);
+    let c = &s.product_classes;
+    let dto = match state.as_str() {
+        "activate" => c.set_active(&s.actor, &plant, &code, true, version).await?,
+        "deactivate" => {
+            c.set_active(&s.actor, &plant, &code, false, version)
+                .await?
+        }
+        // 確認／取消確認（ADR 0013 SA9）
+        "confirm" => c.confirm(&s.actor, &plant, &code, true, version).await?,
+        "unconfirm" => c.confirm(&s.actor, &plant, &code, false, version).await?,
         _ => return Ok(StatusCode::NOT_FOUND.into_response()),
     };
-    let version = Some(require_version(v.version)?);
-    Ok(Json(
-        s.product_classes
-            .set_active(&s.actor, &plant, &code, active, version)
-            .await?,
-    )
-    .into_response())
+    Ok(Json(dto).into_response())
+}
+
+async fn query_product_classes(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::ProductClassDto>>> {
+    Ok(Json(s.product_classes.query(&s.actor, &plant, req).await?))
+}
+
+async fn copy_product_class(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::ProductClassDto>)> {
+    let c = s
+        .product_classes
+        .copy(&s.actor, &plant, &code, &req.new_code)
+        .await?;
+    Ok((StatusCode::CREATED, Json(c)))
+}
+
+async fn product_class_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .product_classes
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 async fn delete_product_class(
@@ -2311,13 +2638,48 @@ async fn set_unit_active(
     Path((code, state)): Path<(String, String)>,
     Query(v): Query<VersionQuery>,
 ) -> ApiResult<Response> {
-    let active = match state.as_str() {
-        "activate" => true,
-        "deactivate" => false,
+    let version = Some(require_version(v.version)?);
+    let u = &s.units;
+    let dto = match state.as_str() {
+        "activate" => u.set_active(&s.actor, &code, true, version).await?,
+        "deactivate" => u.set_active(&s.actor, &code, false, version).await?,
+        // 確認／取消確認（ADR 0013 SA9）
+        "confirm" => u.confirm(&s.actor, &code, true, version).await?,
+        "unconfirm" => u.confirm(&s.actor, &code, false, version).await?,
         _ => return Ok(StatusCode::NOT_FOUND.into_response()),
     };
-    let version = Some(require_version(v.version)?);
-    Ok(Json(s.units.set_active(&s.actor, &code, active, version).await?).into_response())
+    Ok(Json(dto).into_response())
+}
+
+async fn query_units(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::UnitDto>>> {
+    Ok(Json(s.units.query(&s.actor, req).await?))
+}
+
+async fn copy_unit(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::UnitDto>)> {
+    let u = s.units.copy(&s.actor, &code, &req.new_code).await?;
+    Ok((StatusCode::CREATED, Json(u)))
+}
+
+async fn unit_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .units
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 async fn delete_unit(

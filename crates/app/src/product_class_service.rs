@@ -12,14 +12,32 @@ use ttrs_domain::{
     plant::PlantId,
     product_class::{ProductClass, ProductClassAttrs, ProductClassCode},
 };
-use ttrs_shared::{ChangeDto, ProductClassDto, ProductClassInput};
+use ttrs_shared::{
+    ChangeDto, Page, ProductClassDto, ProductClassInput, QbeCondition, QueryRequest,
+};
 
 use crate::{
     Actor, AppError, Authorizer,
     authorization::Grant,
     change_log::HistoryReader,
     error::RepoError,
+    list_report::{ListReporter, ListSpec},
     ports::{DepartmentRepository, MasterDataRepository, ProductClassRepository},
+    query,
+    report::{self, ReportData, ReportFormat},
+};
+
+/// 清單報表（ADR 0013 SA3；product_classification_standard_actions.feature）
+const REPORT: ListSpec = ListSpec {
+    program: PROGRAM,
+    title: "pclass-report-title",
+    columns: &[
+        ("class_code", "pclass-col-code"),
+        ("name", "pclass-col-name"),
+        ("cost_center", "pclass-col-cost-center"),
+        ("revenue_account", "pclass-col-account"),
+        ("active", "pclass-col-active"),
+    ],
 };
 
 /// 權限檢查用的程式代號
@@ -32,6 +50,8 @@ pub struct ProductClassService {
     depts: Arc<dyn DepartmentRepository>,
     master: Arc<dyn MasterDataRepository>,
     history: HistoryReader,
+    /// 列印、匯出 Excel（ADR 0013 SA3）
+    reports: ListReporter,
 }
 
 impl ProductClassService {
@@ -41,6 +61,7 @@ impl ProductClassService {
         depts: Arc<dyn DepartmentRepository>,
         master: Arc<dyn MasterDataRepository>,
         history: HistoryReader,
+        reports: ListReporter,
     ) -> Self {
         Self {
             authz,
@@ -48,7 +69,152 @@ impl ProductClassService {
             depts,
             master,
             history,
+            reports,
         }
+    }
+
+    /// QBE 查詢（axmi110.4gl:477-541；ADR 0013 SA1）：依分類碼排序並分頁
+    pub async fn query(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        req: QueryRequest,
+    ) -> Result<Page<ProductClassDto>, AppError> {
+        self.authorize(actor, "query").await?;
+        let plant = PlantId::parse(plant)?;
+        let filters = query::product_class::filters(&req.conditions)?;
+        let p = query::paging(&req);
+        let all = self
+            .classes
+            .list_product_classes(&plant)
+            .await
+            .map_err(infra)?;
+        let (rows, total) = query::page_in_memory(&all, &filters, query::product_class::value, p);
+        let mut items = Vec::with_capacity(rows.len());
+        for c in &rows {
+            items.push(self.to_dto(&plant, c).await?);
+        }
+        Ok(Page {
+            items,
+            total,
+            page: p.page,
+            page_size: p.page_size,
+        })
+    }
+
+    /// 列印 output、匯出 Excel exporttoexcel（axmi110.4gl:110-153；ADR 0013 SA3 通用清單報表）
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        conditions: Vec<QbeCondition>,
+        format: ReportFormat,
+        lang: &ttrs_domain::lang::Lang,
+    ) -> Result<ReportData, AppError> {
+        self.authorize(actor, format.action()).await?;
+        let plant = PlantId::parse(plant)?;
+        let filters = query::product_class::filters(&conditions)?;
+        let all = self
+            .classes
+            .list_product_classes(&plant)
+            .await
+            .map_err(infra)?;
+        let p = query::Paging {
+            page: 1,
+            page_size: u32::try_from(self.reports.fetch_limit()).unwrap_or(u32::MAX),
+            offset: 0,
+        };
+        let (rows, total) = query::page_in_memory(&all, &filters, query::product_class::value, p);
+        self.reports.check(total)?;
+        let t = |id: &str| report::text(lang, id);
+        let lines = rows
+            .iter()
+            .map(|c| {
+                let a = &c.attrs;
+                vec![
+                    c.code.as_str().to_owned(),
+                    a.name.clone().unwrap_or_default(),
+                    a.cost_center
+                        .as_ref()
+                        .map(|d| d.as_str().to_owned())
+                        .unwrap_or_default(),
+                    a.revenue_account.clone().unwrap_or_default(),
+                    t(if c.active {
+                        "report-active"
+                    } else {
+                        "report-inactive"
+                    }),
+                ]
+            })
+            .collect();
+        self.reports
+            .build(
+                actor,
+                Some(&plant),
+                &REPORT,
+                lines,
+                &conditions,
+                format,
+                lang,
+            )
+            .await
+    }
+
+    /// 測試用：調整同步產生報表的筆數上限
+    pub fn with_report_limit(mut self, limit: u64) -> Self {
+        self.reports.limit = limit;
+        self
+    }
+
+    /// 複製（ADR 0013 SA5；axmi110 原本沒有）
+    pub async fn copy(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        code: &str,
+        new_code: &str,
+    ) -> Result<ProductClassDto, AppError> {
+        crate::change_log::run(actor, PROGRAM, "reproduce", async {
+            self.authorize(actor, "reproduce").await?;
+            let plant = PlantId::parse(plant)?;
+            let source = self.load(&plant, code).await?;
+            let c = source.copy_as(
+                ProductClassCode::parse(new_code)?,
+                &actor.user_id,
+                &actor.dept,
+                today(),
+            );
+            match self.classes.insert_product_class(&plant, &c).await {
+                Ok(()) => {
+                    let saved = self.load(&plant, c.code.as_str()).await?;
+                    self.to_dto(&plant, &saved).await
+                }
+                Err(RepoError::Conflict) => Err(DomainError::ProductClassAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
+    }
+
+    /// 確認（confirm）／取消確認（notconfirm）（ADR 0013 SA9）
+    pub async fn confirm(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        code: &str,
+        confirm: bool,
+        version: Option<i32>,
+    ) -> Result<ProductClassDto, AppError> {
+        let action = if confirm { "confirm" } else { "notconfirm" };
+        crate::change_log::run(actor, PROGRAM, action, async {
+            self.authorize(actor, action).await?;
+            let plant = PlantId::parse(plant)?;
+            let mut c = self.load(&plant, code).await?;
+            c.stamp.check(version)?;
+            c.set_confirmed(confirm, &actor.user_id, chrono::Utc::now())?;
+            self.save(&plant, &c).await
+        })
+        .await
     }
 
     pub async fn list(&self, actor: &Actor, plant: &str) -> Result<Vec<ProductClassDto>, AppError> {
@@ -160,6 +326,8 @@ impl ProductClassService {
             let plant = PlantId::parse(plant)?;
             let c = self.load(&plant, code).await?;
             c.stamp.check(version)?;
+            // 已確認不可刪除，須先取消確認（ADR 0013 SA9-2）
+            c.confirmation.check_deletable()?;
             match self.classes.delete_product_class(&plant, &c.code).await {
                 Ok(true) => Ok(()),
                 Ok(false) => Err(DomainError::ProductClassNotFound.into()),
@@ -259,6 +427,9 @@ impl ProductClassService {
             revenue_account: a.revenue_account.clone(),
             revenue_account2: a.revenue_account2.clone(),
             active: c.active,
+            confirmed: c.confirmation.confirmed,
+            confirmed_by: c.confirmation.by.clone(),
+            confirmed_at: c.confirmation.at,
             created_by: c.created_by.clone(),
             created_dept: c.created_dept.clone(),
             created_on: c.created_on,

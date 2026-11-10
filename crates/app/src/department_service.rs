@@ -377,6 +377,53 @@ impl DepartmentService {
         .await
     }
 
+    /// 複製（ADR 0013 SA5；aooi030 原本沒有，部門維護是單身式作業）：新部門編號，名稱與會計資料帶入
+    pub async fn copy(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        code: &str,
+        new_code: &str,
+    ) -> Result<DepartmentDto, AppError> {
+        crate::change_log::run(actor, PROGRAM, "reproduce", async {
+            self.authorize(actor, "reproduce").await?;
+            let plant = PlantId::parse(plant)?;
+            let source = self.load(&plant, code).await?;
+            let new_code = DeptCode::parse(new_code)?;
+            let dept = source.copy_as(new_code, &actor.user_id, &actor.dept, today());
+            match self.depts.insert(&plant, &dept).await {
+                Ok(()) => {
+                    let saved = self.load(&plant, dept.code.as_str()).await?;
+                    self.to_dto(&plant, &saved).await
+                }
+                Err(RepoError::Conflict) => Err(DomainError::DepartmentAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
+    }
+
+    /// 確認（confirm）／取消確認（notconfirm）（ADR 0013 SA9）
+    pub async fn confirm(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        code: &str,
+        confirm: bool,
+        version: Option<i32>,
+    ) -> Result<DepartmentDto, AppError> {
+        let action = if confirm { "confirm" } else { "notconfirm" };
+        crate::change_log::run(actor, PROGRAM, action, async {
+            self.authorize(actor, action).await?;
+            let plant = PlantId::parse(plant)?;
+            let mut dept = self.load(&plant, code).await?;
+            dept.stamp.check(version)?;
+            dept.set_confirmed(confirm, &actor.user_id, chrono::Utc::now())?;
+            self.save(&plant, &dept).await
+        })
+        .await
+    }
+
     /// 刪除：還有員工時拒絕（aoo-105，DQ5）；TipTop 在單身刪除列，需 detail 與單身刪除權限
     pub async fn delete(
         &self,
@@ -390,6 +437,8 @@ impl DepartmentService {
             let plant = PlantId::parse(plant)?;
             let dept = self.load(&plant, code).await?;
             dept.stamp.check(version)?;
+            // 已確認不可刪除，須先取消確認（ADR 0013 SA9-2）
+            dept.confirmation.check_deletable()?;
             let code = dept.code;
             match self.depts.delete(&plant, &code).await {
                 Ok(true) => Ok(()),
@@ -486,6 +535,9 @@ impl DepartmentService {
             cost_center: a.cost_center.as_ref().map(|c| c.as_str().to_owned()),
             cost_center_name,
             active: d.active,
+            confirmed: d.confirmation.confirmed,
+            confirmed_by: d.confirmation.by.clone(),
+            confirmed_at: d.confirmation.at,
             created_by: d.created_by.clone(),
             created_dept: d.created_dept.clone(),
             created_on: d.created_on,

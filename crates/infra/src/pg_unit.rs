@@ -16,6 +16,9 @@ struct UnitRow {
     name: Option<String>,
     decimals: i16,
     active: bool,
+    confirmed: bool,
+    confirmed_by: Option<String>,
+    confirmed_at: Option<DateTime<Utc>>,
     created_by: String,
     created_dept: String,
     created_on: NaiveDate,
@@ -29,7 +32,7 @@ struct UnitRow {
 macro_rules! select_unit {
     ($rest:literal) => {
         concat!(
-            "SELECT unit_code, name, decimals, active, created_by, created_dept, created_on, ",
+            "SELECT unit_code, name, decimals, active, confirmed, confirmed_by, confirmed_at, created_by, created_dept, created_on, ",
             "updated_by, updated_on, version, created_at, updated_at FROM unit ",
             $rest
         )
@@ -48,6 +51,11 @@ impl TryFrom<UnitRow> for Unit {
                 decimals: r.decimals,
             },
             active: r.active,
+            confirmation: ttrs_domain::confirmation::Confirmation {
+                confirmed: r.confirmed,
+                by: r.confirmed_by,
+                at: r.confirmed_at,
+            },
             created_by: r.created_by,
             created_dept: r.created_dept,
             created_on: r.created_on,
@@ -86,8 +94,9 @@ impl UnitRepository for PgStore {
 
     async fn insert_unit(&self, u: &Unit) -> Result<(), RepoError> {
         sqlx::query(
-            "INSERT INTO unit (unit_code, name, decimals, active, created_by, created_dept, created_on)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            "INSERT INTO unit (unit_code, name, decimals, active, created_by, created_dept, created_on,
+                 confirmed, confirmed_by, confirmed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
         )
         .bind(u.code.as_str())
         .bind(&u.attrs.name)
@@ -96,6 +105,9 @@ impl UnitRepository for PgStore {
         .bind(&u.created_by)
         .bind(&u.created_dept)
         .bind(u.created_on)
+        .bind(u.confirmation.confirmed)
+        .bind(&u.confirmation.by)
+        .bind(u.confirmation.at)
         .execute(&self.pool)
         .await
         .map_err(db_err)?;
@@ -104,7 +116,8 @@ impl UnitRepository for PgStore {
 
     async fn update_unit(&self, u: &Unit) -> Result<(), RepoError> {
         let n = sqlx::query(
-            "UPDATE unit SET name = $2, decimals = $3, active = $4, updated_by = $5, updated_on = $6
+            "UPDATE unit SET name = $2, decimals = $3, active = $4, updated_by = $5, updated_on = $6,
+                 confirmed = $8, confirmed_by = $9, confirmed_at = $10
              WHERE unit_code = $1 AND version = $7",
         )
         .bind(u.code.as_str())
@@ -114,6 +127,9 @@ impl UnitRepository for PgStore {
         .bind(&u.updated_by)
         .bind(u.updated_on)
         .bind(u.stamp.version)
+        .bind(u.confirmation.confirmed)
+        .bind(&u.confirmation.by)
+        .bind(u.confirmation.at)
         .execute(&self.pool)
         .await
         .map_err(db_err)?

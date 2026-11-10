@@ -20,3 +20,7 @@ emp-msg-saved = Employee { $id } saved
 emp-msg-deleted = Employee { $id } deleted
 emp-msg-activated = Employee { $id } activated
 emp-msg-deactivated = Employee { $id } deactivated
+emp-msg-confirmed = Employee { $id } confirmed
+emp-msg-unconfirmed = Employee { $id } unconfirmed
+emp-msg-copied = Employee { $from } copied to { $to }
+emp-field-copy-as = Copy as

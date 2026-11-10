@@ -87,6 +87,8 @@ pub struct Employee {
     pub id: EmployeeId,
     pub attrs: EmployeeAttrs,
     pub active: bool,
+    /// 確認狀態（TTRS 標準確認欄位，ADR 0013 SA9；gen_file 無此欄）
+    pub confirmation: crate::confirmation::Confirmation,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -109,6 +111,7 @@ impl Employee {
             id,
             attrs,
             active: true,
+            confirmation: crate::confirmation::Confirmation::default(),
             created_by: actor.to_owned(),
             created_dept: actor_dept.to_owned(),
             created_on: today,
@@ -126,6 +129,27 @@ impl Employee {
     pub fn set_active(&mut self, active: bool, actor: &str, today: NaiveDate) {
         self.active = active;
         self.touch(actor, today);
+    }
+
+    /// 複製（ADR 0013 SA5；aooi040 原本沒有）：新員工編號，其餘欄位帶入；資料所有者為目前使用者、未確認
+    pub fn copy_as(&self, id: EmployeeId, actor: &str, actor_dept: &str, today: NaiveDate) -> Self {
+        Self::new(id, self.attrs.clone(), actor, actor_dept, today)
+    }
+
+    /// 確認／取消確認（ADR 0013 SA9）
+    pub fn set_confirmed(
+        &mut self,
+        confirm: bool,
+        actor: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(), crate::DomainError> {
+        if confirm {
+            self.confirmation.confirm(actor, now)?;
+        } else {
+            self.confirmation.unconfirm()?;
+        }
+        self.touch(actor, now.date_naive());
+        Ok(())
     }
 
     fn touch(&mut self, actor: &str, today: NaiveDate) {

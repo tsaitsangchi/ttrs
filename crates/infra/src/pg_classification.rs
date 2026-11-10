@@ -22,6 +22,9 @@ struct CodeRow {
     variance_account2: Option<String>,
     cost_nature: Option<i32>,
     active: bool,
+    confirmed: bool,
+    confirmed_by: Option<String>,
+    confirmed_at: Option<DateTime<Utc>>,
     created_by: String,
     created_dept: String,
     created_on: NaiveDate,
@@ -36,7 +39,7 @@ macro_rules! select_code {
     ($rest:literal) => {
         concat!(
             "SELECT kind, code, description, variance_account, variance_account2, cost_nature, ",
-            "active, created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at ",
+            "active, confirmed, confirmed_by, confirmed_at, created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at ",
             "FROM classification_code ",
             $rest
         )
@@ -61,6 +64,11 @@ impl TryFrom<CodeRow> for ClassificationCode {
                 cost_nature: r.cost_nature,
             },
             active: r.active,
+            confirmation: ttrs_domain::confirmation::Confirmation {
+                confirmed: r.confirmed,
+                by: r.confirmed_by,
+                at: r.confirmed_at,
+            },
             created_by: r.created_by,
             created_dept: r.created_dept,
             created_on: r.created_on,
@@ -118,8 +126,9 @@ impl ClassificationCodeRepository for PgStore {
         let mut tx = self.required_plant_tx(plant).await?;
         sqlx::query(
             "INSERT INTO classification_code (kind, code, description, variance_account, variance_account2,
-                 cost_nature, active, created_by, created_dept, created_on, updated_by, updated_on)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+                 cost_nature, active, created_by, created_dept, created_on, updated_by, updated_on,
+                 confirmed, confirmed_by, confirmed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
         )
         .bind(c.kind.code())
         .bind(c.code.as_str())
@@ -133,6 +142,9 @@ impl ClassificationCodeRepository for PgStore {
         .bind(c.created_on)
         .bind(&c.updated_by)
         .bind(c.updated_on)
+        .bind(c.confirmation.confirmed)
+        .bind(&c.confirmation.by)
+        .bind(c.confirmation.at)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
@@ -143,7 +155,8 @@ impl ClassificationCodeRepository for PgStore {
         let mut tx = self.required_plant_tx(plant).await?;
         let n = sqlx::query(
             "UPDATE classification_code SET description = $3, variance_account = $4, variance_account2 = $5,
-                 cost_nature = $6, active = $7, updated_by = $8, updated_on = $9
+                 cost_nature = $6, active = $7, updated_by = $8, updated_on = $9,
+                 confirmed = $11, confirmed_by = $12, confirmed_at = $13
              WHERE kind = $1 AND code = $2 AND version = $10",
         )
         .bind(c.kind.code())
@@ -156,6 +169,9 @@ impl ClassificationCodeRepository for PgStore {
         .bind(&c.updated_by)
         .bind(c.updated_on)
         .bind(c.stamp.version)
+        .bind(c.confirmation.confirmed)
+        .bind(&c.confirmation.by)
+        .bind(c.confirmation.at)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?

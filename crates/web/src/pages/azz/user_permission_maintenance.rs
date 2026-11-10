@@ -5,7 +5,10 @@
 //! 有特殊權限的使用者只用特殊權限；規則在後端 UserPermissionService，實際檢查見 ADR 0006。
 
 use dioxus::prelude::*;
-use ttrs_shared::{SpecialPermissionKindDto, UserDto, UserPermissionDto, UserPermissionInput};
+use ttrs_shared::{
+    QbeCondition, QueryRequest, SpecialPermissionKindDto, UserDto, UserPermissionDto,
+    UserPermissionInput,
+};
 
 use super::program_permission_maintenance::{
     DEPT_LEVELS, DETAIL_LEVELS, USER_LEVELS, action_label, level_label, level_options,
@@ -20,6 +23,7 @@ use crate::components::permission::{Perm, ProgramGate};
 use crate::components::status::{
     self, HasStatus, StatusCells, StatusHeaders, TAB_DATA, TAB_STATUS,
 };
+use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{t, tf};
 
 /// 目前開啟的小視窗
@@ -94,6 +98,11 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
     });
     let mut form = use_signal(UserPermissionInput::default);
     let mut target_user = use_signal(String::new);
+    // 查詢（ADR 0013 SA1）：依使用者代號條件找出有特殊權限的使用者，上下筆只在這些使用者之間切換
+    let mut querying = use_signal(|| false);
+    let mut q_user = use_signal(String::new);
+    let mut conditions = use_signal(Vec::<QbeCondition>::new);
+    let mut matched = use_signal(|| None::<Vec<String>>);
 
     let all_users: Vec<UserDto> = users
         .read()
@@ -101,6 +110,13 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
         .and_then(|r| r.as_ref().ok())
         .cloned()
         .unwrap_or_default();
+    let all_users: Vec<UserDto> = match matched() {
+        Some(ids) => all_users
+            .into_iter()
+            .filter(|u| ids.contains(&u.user_id))
+            .collect(),
+        None => all_users,
+    };
     // 未指定使用者時停在第一位
     use_effect(move || {
         if user.peek().is_none()
@@ -151,6 +167,66 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
         }
     };
 
+    let run_query = move |_| {
+        let expr = q_user();
+        let conds: Vec<QbeCondition> = if expr.trim().is_empty() {
+            Vec::new()
+        } else {
+            vec![QbeCondition {
+                field: "user_id".into(),
+                expr,
+            }]
+        };
+        let req = QueryRequest {
+            conditions: conds.clone(),
+            page: Some(1),
+            page_size: Some(500),
+            lang: None,
+        };
+        spawn(async move {
+            match api::query_user_permissions(&req).await {
+                Ok(page) => {
+                    error.set(None);
+                    querying.set(false);
+                    conditions.set(conds);
+                    let ids: Vec<String> = page.items.iter().map(|u| u.user_id.clone()).collect();
+                    selected.set(None);
+                    user.set(ids.first().cloned());
+                    matched.set(Some(ids));
+                    message.set(Some(if page.total == 0 {
+                        t("query-msg-none")
+                    } else {
+                        tf(
+                            "query-msg-matched",
+                            &[("count", page.total.to_string().as_str())],
+                        )
+                    }));
+                }
+                Err(e) => error.set(Some(e)),
+            }
+        });
+    };
+
+    // 列印、匯出 Excel（ADR 0013 SA3）：依目前生效的查詢條件，每列為一位使用者的一筆特殊權限
+    let report = move |format: api::ReportFormat| {
+        let conds = conditions.read().clone();
+        let tab = api::ReportTab::open(format);
+        spawn(async move {
+            if let Err(e) = api::system_list_report(
+                "/api/user-permissions",
+                "user-permissions",
+                format,
+                &conds,
+                crate::i18n::current().code(),
+                tab,
+            )
+            .await
+            {
+                error.set(Some(e));
+            }
+        });
+    };
+
     let user_options: Vec<(String, String)> = all_users
         .iter()
         .map(|u| {
@@ -191,7 +267,27 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
             }
 
             // ----- 動作列 -----
+            if querying() {
+                div { class: "action-bar",
+                    Button { icon: icons::CHECK, tone: Tone::Success, onclick: run_query, {t("common-action-ok")} }
+                    Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| { error.set(None); querying.set(false); }, {t("common-action-cancel")} }
+                }
+                p { class: "query-hint", {t("query-hint")} }
+                div { class: "form-grid",
+                    TextField {
+                        id: "q-user_id",
+                        label: t("uperm-field-user"),
+                        value: q_user(),
+                        oninput: move |v| q_user.set(v),
+                    }
+                }
+            } else {
             div { class: "action-bar",
+                MaintenanceToolbar {
+                    query: Act::new(true, move |_| { message.set(None); error.set(None); querying.set(true); }),
+                    print: Act::new(true, move |_| report(api::ReportFormat::Pdf)),
+                    export: Act::new(true, move |_| report(api::ReportFormat::Excel)),
+                }
                 if perm.add_row() {
                     Button {
                         icon: icons::ADD, tone: Tone::Success,
@@ -249,6 +345,7 @@ fn UserPermissionMain(initial: Option<String>) -> Element {
                 if perm.can("reproduce") {
                     Button { icon: icons::COPY, tone: Tone::Tertiary, variant: ButtonVariant::Outlined, disabled: no_user, onclick: move |_| { message.set(None); target_user.set(String::new()); open.set(Some(Open::Copy)); }, {t("common-action-copy")} }
                 }
+            }
             }
 
             // ----- 使用者切換 -----

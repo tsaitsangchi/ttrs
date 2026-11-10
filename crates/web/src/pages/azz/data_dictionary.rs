@@ -24,6 +24,7 @@ use crate::components::multilingual::{
     LangField, LangValues, MultilingualDialogField, MultilingualField,
 };
 use crate::components::permission::{Perm, ProgramGate};
+use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{self, UiLang, tf};
 use crate::pages::azz::legacy_catalog::{LegacyCatalog, LegacyMappingTab};
 
@@ -395,6 +396,33 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                                 svg { class: "md-button__icon md-icon--primary", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::DOWNLOAD } }
                                 {i18n::t("dictionary-action-export")}
                             }
+                        }
+                        // 列印（PDF）、匯出 Excel（XLSX）：資料表的欄位字典（ADR 0013 SA3）
+                        MaintenanceToolbar {
+                            print: Act::new(!no_cur, {
+                                let table = table.clone();
+                                move |_| {
+                                    let tab = api::ReportTab::open(api::ReportFormat::Pdf);
+                                    let table = table.clone();
+                                    spawn(async move {
+                                        if let Err(e) = api::system_list_report(&format!("/api/dictionary/tables/{table}"), &table, api::ReportFormat::Pdf, &[], i18n::current().code(), tab).await {
+                                            error.set(Some(e));
+                                        }
+                                    });
+                                }
+                            }),
+                            export: Act::new(!no_cur, {
+                                let table = table.clone();
+                                move |_| {
+                                    let tab = api::ReportTab::open(api::ReportFormat::Excel);
+                                    let table = table.clone();
+                                    spawn(async move {
+                                        if let Err(e) = api::system_list_report(&format!("/api/dictionary/tables/{table}"), &table, api::ReportFormat::Excel, &[], i18n::current().code(), tab).await {
+                                            error.set(Some(e));
+                                        }
+                                    });
+                                }
+                            }),
                         }
                     },
                 }

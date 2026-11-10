@@ -41,7 +41,23 @@ pub struct ProgramPermissionService {
     perms: Arc<dyn ProgramPermissionRepository>,
     programs: Arc<dyn ProgramRepository>,
     classes: Arc<dyn PermissionClassRepository>,
+    /// 列印、匯出 Excel（ADR 0013 SA3）
+    reports: crate::list_report::ListReporter,
 }
+
+/// 清單報表（ADR 0013 SA3；program_maintenance_standard_actions.feature）：每一列為一個權限類別的一支程式
+const REPORT: crate::list_report::ListSpec = crate::list_report::ListSpec {
+    program: PROGRAM,
+    title: "perm-report-title",
+    columns: &[
+        ("class_code", "perm-col-class"),
+        ("program_no", "perm-col-program"),
+        ("actions", "perm-col-actions"),
+        ("other_user_data", "perm-col-other-user"),
+        ("other_dept_data", "perm-col-other-dept"),
+        ("detail_rows", "perm-col-detail"),
+    ],
+};
 
 impl ProgramPermissionService {
     pub fn new(
@@ -49,13 +65,56 @@ impl ProgramPermissionService {
         perms: Arc<dyn ProgramPermissionRepository>,
         programs: Arc<dyn ProgramRepository>,
         classes: Arc<dyn PermissionClassRepository>,
+        reports: crate::list_report::ListReporter,
     ) -> Self {
         Self {
             authz,
             perms,
             programs,
             classes,
+            reports,
         }
+    }
+
+    /// 列印 output、匯出 Excel exporttoexcel（ADR 0013 SA3；p_zy 原本沒有）：符合查詢條件的權限類別與程式列，
+    /// 依權限類別、程式代號排序；超過上限 → REPORT_TOO_LARGE
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        conditions: Vec<ttrs_shared::QbeCondition>,
+        format: crate::report::ReportFormat,
+        lang: &Lang,
+    ) -> Result<crate::report::ReportData, AppError> {
+        self.authorize(actor, format.action()).await?;
+        let (header, detail) = query::program_permission::filters(&conditions)?;
+        let (classes, _) = self
+            .perms
+            .query_classes(&header, &detail, 0, u64::MAX)
+            .await
+            .map_err(infra)?;
+        let mut lines = Vec::new();
+        for c in &classes {
+            for i in self.perms.list(&c.code).await.map_err(infra)? {
+                if !query::matches_all(&detail, |f| {
+                    query::program_permission::value(&i.permission, f)
+                }) {
+                    continue;
+                }
+                let a = &i.permission.attrs;
+                lines.push(vec![
+                    c.code.as_str().to_owned(),
+                    i.permission.program.as_str().to_owned(),
+                    a.actions.join(", "),
+                    a.other_user.code().to_owned(),
+                    a.other_dept.code().to_owned(),
+                    a.detail.code().to_owned(),
+                ]);
+            }
+        }
+        self.reports.check(lines.len() as u64)?;
+        self.reports
+            .build(actor, None, &REPORT, lines, &conditions, format, lang)
+            .await
     }
 
     /// QBE 查詢（p_zy_curs，p_zy.4gl:143-203）：符合條件的權限類別（單頭）；欄位見

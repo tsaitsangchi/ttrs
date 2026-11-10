@@ -2187,6 +2187,8 @@ fn dept_row(d: &Department) -> Row {
             "cost_center",
             a.cost_center.as_ref().map(|c| c.as_str().to_owned()),
         ),
+        ("confirmed", text::b(d.confirmation.confirmed)),
+        ("confirmed_by", text::opt(d.confirmation.by.as_deref())),
     ];
     cols.extend(audit_cols(
         d.active,
@@ -2216,6 +2218,8 @@ fn employee_row(e: &Employee) -> Row {
         ("title", text::opt(a.title.as_deref())),
         ("extension", text::opt(a.extension.as_deref())),
         ("email", text::opt(a.email.as_deref())),
+        ("confirmed", text::b(e.confirmation.confirmed)),
+        ("confirmed_by", text::opt(e.confirmation.by.as_deref())),
     ];
     cols.extend(audit_cols(
         e.active,
@@ -2248,6 +2252,8 @@ fn class_row(c: &ClassificationCode) -> Row {
             text::opt(a.variance_account2.as_deref()),
         ),
         ("cost_nature", a.cost_nature.map(|n| n.to_string())),
+        ("confirmed", text::b(c.confirmation.confirmed)),
+        ("confirmed_by", text::opt(c.confirmation.by.as_deref())),
     ];
     cols.extend(audit_cols(
         c.active,
@@ -2775,6 +2781,8 @@ fn unit_row(u: &Unit) -> Row {
         ("unit_code", text::s(u.code.as_str())),
         ("name", text::opt(u.attrs.name.as_deref())),
         ("decimals", text::int(i64::from(u.attrs.decimals))),
+        ("confirmed", text::b(u.confirmation.confirmed)),
+        ("confirmed_by", text::opt(u.confirmation.by.as_deref())),
     ];
     cols.extend(audit_cols(
         u.active,
@@ -2918,6 +2926,8 @@ fn pclass_row(c: &ProductClass) -> Row {
         ),
         ("revenue_account", text::opt(a.revenue_account.as_deref())),
         ("revenue_account2", text::opt(a.revenue_account2.as_deref())),
+        ("confirmed", text::b(c.confirmation.confirmed)),
+        ("confirmed_by", text::opt(c.confirmation.by.as_deref())),
     ];
     cols.extend(audit_cols(
         c.active,

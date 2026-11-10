@@ -140,12 +140,13 @@ impl Services {
         };
         Self {
             items: ItemService::new(a.clone(), item_repos.clone(), history.clone()),
-            programs: ProgramService::new(a.clone(), store.clone()),
+            programs: ProgramService::new(a.clone(), store.clone(), reports.clone()),
             dictionary: DataDictionaryService::new(
                 a.clone(),
                 store.clone(),
                 store.clone(),
                 store.clone(),
+                reports.clone(),
             ),
             legacy: LegacyCatalogService::new(a.clone(), store.clone()),
             users: UserService::new(
@@ -174,6 +175,7 @@ impl Services {
                 store.clone(),
                 store.clone(),
                 store.clone(),
+                reports.clone(),
             ),
             departments: DepartmentService::new(
                 a.clone(),
@@ -199,21 +201,24 @@ impl Services {
                 store.clone(),
                 store.clone(),
                 history.clone(),
+                reports.clone(),
             ),
             classification: ClassificationCodeService::new(
                 a.clone(),
                 store.clone(),
                 store.clone(),
                 history.clone(),
+                reports.clone(),
             ),
             history: ChangeHistoryService::new(a.clone(), history.clone()),
-            units: UnitService::new(a.clone(), store.clone()),
+            units: UnitService::new(a.clone(), store.clone(), reports.clone()),
             product_classes: ProductClassService::new(
                 a.clone(),
                 store.clone(),
                 store.clone(),
                 store.clone(),
                 history.clone(),
+                reports.clone(),
             ),
             item_groups: ItemGroupService::new(a.clone(), item_repos, history.clone()),
             menus: MenuService::new(
@@ -229,6 +234,7 @@ impl Services {
                 store.clone(),
                 store.clone(),
                 store,
+                reports,
             ),
             authorizer,
         }

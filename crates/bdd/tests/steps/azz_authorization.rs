@@ -155,6 +155,51 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         }
         ["刪除程式", no] => w.programs.delete(a, no, None).await,
         ["複製程式", no] => w.programs.copy(a, no, "item-lot").await.map(drop),
+        ["列印程式"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.programs
+                .report_in(a, Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["匯出程式為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.programs
+                .report_in(a, Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["列印程式執行權限"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.permissions
+                .report_in(a, Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["匯出程式執行權限為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.permissions
+                .report_in(a, Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["查詢使用者特殊權限"] => {
+            w.special.query(a, QueryRequest::default()).await.map(drop)
+        }
+        ["列印使用者特殊權限"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.special.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
+        ["匯出使用者特殊權限為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.special.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
         ["授權程式", no, "給", class] => w.programs.grant(a, no, class).await,
         // p_zta 資料字典維護（含 TipTop 對照目錄）
         ["查詢資料字典"] => w.dictionary.list(a).await.map(drop),
@@ -187,6 +232,16 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             w.dictionary.set_column_text(a, table, text).await
         }
         ["匯出資料字典", table] => w.dictionary.export_csv(a, table, "zh-TW").await.map(drop),
+        ["匯出資料字典", table, "為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.dictionary.report_in(a, table, f, &lang).await.map(drop)
+        }
+        ["列印資料字典", table] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.dictionary.report_in(a, table, f, &lang).await.map(drop)
+        }
         ["查詢", "TipTop", "對照目錄"] => w.legacy.search(a, "").await.map(drop),
         ["匯入", "TipTop", "對照目錄"] => w.legacy.import(a, Vec::new()).await.map(drop),
         // p_zx 使用者維護
@@ -418,6 +473,19 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
                 .map(drop)
         }
         ["刪除部門", code] => w.departments.delete(a, "TW01", code, None).await,
+        ["複製部門", code] => w.departments.copy(a, "TW01", code, "D99").await.map(drop),
+        ["確認部門", code] => w
+            .departments
+            .confirm(a, "TW01", code, true, None)
+            .await
+            .map(drop),
+        ["取消確認部門", code] => {
+            let _ = unchecked!(w, w.departments.confirm(a, "TW01", code, true, None));
+            w.departments
+                .confirm(a, "TW01", code, false, None)
+                .await
+                .map(drop)
+        }
         // p_zm 選單維護（menu_maintenance.feature）
         ["查詢選單目錄"] => w.menus.menus(a, "zh-TW").await.map(drop),
         ["在目錄", menu, "加入程式", program] => w
@@ -520,8 +588,77 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             w.employees.create(a, "TW01", req).await.map(drop)
         }
         ["刪除員工", id] => w.employees.delete(a, "TW01", id, None).await,
+        ["複製員工", id] => w.employees.copy(a, "TW01", id, "E99").await.map(drop),
+        ["確認員工", id] => w
+            .employees
+            .confirm(a, "TW01", id, true, None)
+            .await
+            .map(drop),
+        ["取消確認員工", id] => {
+            let _ = unchecked!(w, w.employees.confirm(a, "TW01", id, true, None));
+            w.employees
+                .confirm(a, "TW01", id, false, None)
+                .await
+                .map(drop)
+        }
+        ["列印員工"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.employees
+                .report_in(a, "TW01", Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["匯出員工為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.employees
+                .report_in(a, "TW01", Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
         // aooi300 分類碼維護（工廠層，營運中心 TW01）
-        ["查詢分類碼", kind] => w.classification.list(a, "TW01", kind).await.map(drop),
+        ["查詢分類碼", kind] => w
+            .classification
+            .query(a, "TW01", kind, QueryRequest::default())
+            .await
+            .map(drop),
+        ["複製分類碼", kind, code] => w
+            .classification
+            .copy(a, "TW01", kind, code, "X99")
+            .await
+            .map(drop),
+        ["確認分類碼", kind, code] => w
+            .classification
+            .confirm(a, "TW01", kind, code, true, None)
+            .await
+            .map(drop),
+        ["取消確認分類碼", kind, code] => {
+            let _ = unchecked!(
+                w,
+                w.classification.confirm(a, "TW01", kind, code, true, None)
+            );
+            w.classification
+                .confirm(a, "TW01", kind, code, false, None)
+                .await
+                .map(drop)
+        }
+        ["列印分類碼", kind] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.classification
+                .report_in(a, "TW01", kind, Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["匯出分類碼", kind, "為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.classification
+                .report_in(a, "TW01", kind, Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
         ["新增分類碼", kind, code] => {
             let req = ttrs_shared::ClassificationCodeInput {
                 code: (*code).into(),
@@ -553,7 +690,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             w.classification.delete(a, "TW01", kind, code, None).await
         }
         // aooi101 單位維護（共用層）
-        ["查詢單位"] => w.units.list(a).await.map(drop),
+        ["查詢單位"] => w.units.query(a, QueryRequest::default()).await.map(drop),
         ["新增單位", code] => {
             let req = ttrs_shared::UnitInput {
                 unit_code: (*code).into(),
@@ -572,8 +709,28 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         }
         ["停用單位", code] => w.units.set_active(a, code, false, None).await.map(drop),
         ["刪除單位", code] => w.units.delete(a, code, None).await,
+        ["複製單位", code] => w.units.copy(a, code, "EA").await.map(drop),
+        ["確認單位", code] => w.units.confirm(a, code, true, None).await.map(drop),
+        ["取消確認單位", code] => {
+            let _ = unchecked!(w, w.units.confirm(a, code, true, None));
+            w.units.confirm(a, code, false, None).await.map(drop)
+        }
+        ["列印單位"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.units.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
+        ["匯出單位為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.units.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
         // axmi110 產品分類維護（工廠層，營運中心 TW01）
-        ["查詢產品分類"] => w.product_classes.list(a, "TW01").await.map(drop),
+        ["查詢產品分類"] => w
+            .product_classes
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
         ["新增產品分類", code] => {
             let req = ttrs_shared::ProductClassInput {
                 class_code: (*code).into(),
@@ -599,6 +756,39 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .await
             .map(drop),
         ["刪除產品分類", code] => w.product_classes.delete(a, "TW01", code, None).await,
+        ["複製產品分類", code] => w
+            .product_classes
+            .copy(a, "TW01", code, "P99")
+            .await
+            .map(drop),
+        ["確認產品分類", code] => w
+            .product_classes
+            .confirm(a, "TW01", code, true, None)
+            .await
+            .map(drop),
+        ["取消確認產品分類", code] => {
+            let _ = unchecked!(w, w.product_classes.confirm(a, "TW01", code, true, None));
+            w.product_classes
+                .confirm(a, "TW01", code, false, None)
+                .await
+                .map(drop)
+        }
+        ["列印產品分類"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Pdf;
+            w.product_classes
+                .report_in(a, "TW01", Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["匯出產品分類為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = ttrs_app::report::ReportFormat::Excel;
+            w.product_classes
+                .report_in(a, "TW01", Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
         ["查詢產品分類", code, "的異動記錄"] => w
             .product_classes
             .history(a, "TW01", code, None)

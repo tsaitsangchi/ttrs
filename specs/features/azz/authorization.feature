@@ -276,6 +276,8 @@
       | program-maintenance    | delete                     | 刪除程式 item-master           |
       | program-maintenance    | reproduce                  | 複製程式 item-master           |
       | program-maintenance    | authorization              | 授權程式 item-master 給 MGR    |
+      | program-maintenance    | output                     | 列印程式                   |
+      | program-maintenance    | exporttoexcel              | 匯出程式為 Excel           |
       | program-maintenance | history | 查詢作業 program-maintenance u001 的異動記錄 |
       | data-dictionary   | query                      | 查詢資料字典               |
       | data-dictionary   | query                      | 查看資料表 item 的欄位     |
@@ -285,6 +287,8 @@
       | data-dictionary   | maintain_table_description | 設定資料表 item 的說明     |
       | data-dictionary   | maintain_field_description | 設定欄位 item.name 的說明  |
       | data-dictionary   | exporttoexcel              | 匯出資料字典 item          |
+      | data-dictionary   | exporttoexcel              | 匯出資料字典 item 為 Excel |
+      | data-dictionary   | output                     | 列印資料字典 item          |
       | data-dictionary   | query                      | 查詢 TipTop 對照目錄       |
       | data-dictionary   | zta_import                 | 匯入 TipTop 對照目錄       |
       | data-dictionary | history | 查詢作業 data-dictionary item 的異動記錄 |
@@ -337,8 +341,13 @@
       | program-permission-maintenance    | batch_gen_by_prog          | 依程式產生 MGR 的權限      |
       | program-permission-maintenance    | batch_gen_by_menu          | 依選單產生 MGR 的權限      |
       | program-permission-maintenance    | batch_del_by_menu          | 依選單刪除 MGR 的權限      |
+      | program-permission-maintenance    | output                     | 列印程式執行權限           |
+      | program-permission-maintenance    | exporttoexcel              | 匯出程式執行權限為 Excel   |
       | program-permission-maintenance | history | 查詢作業 program-permission-maintenance MGR 的異動記錄 |
       | user-permission-maintenance   | query                      | 查看使用者 u001 的特殊權限 |
+      | user-permission-maintenance   | query                      | 查詢使用者特殊權限         |
+      | user-permission-maintenance   | output                     | 列印使用者特殊權限         |
+      | user-permission-maintenance   | exporttoexcel              | 匯出使用者特殊權限為 Excel |
       | user-permission-maintenance   | detail                     | 新增 u001 的特殊權限列     |
       | user-permission-maintenance   | detail                     | 修改 u001 的特殊權限程式列 |
       | user-permission-maintenance   | detail                     | 移除 u001 的特殊權限列     |
@@ -365,16 +374,29 @@
       | department-maintenance | detail                     | 刪除部門 D01               |
       | department-maintenance | output                     | 列印部門                   |
       | department-maintenance | exporttoexcel              | 匯出部門為 Excel           |
+      | department-maintenance | reproduce                  | 複製部門 D01               |
+      | department-maintenance | confirm                    | 確認部門 D01               |
+      | department-maintenance | notconfirm                 | 取消確認部門 D01           |
       | department-maintenance | history                    | 查詢部門 D01 的異動記錄    |
       | employee-maintenance | query                      | 查詢員工                   |
       | employee-maintenance | detail                     | 新增員工 E01               |
       | employee-maintenance | detail                     | 刪除員工 E01               |
+      | employee-maintenance | reproduce                  | 複製員工 E01               |
+      | employee-maintenance | confirm                    | 確認員工 E01               |
+      | employee-maintenance | notconfirm                 | 取消確認員工 E01           |
+      | employee-maintenance | output                     | 列印員工                   |
+      | employee-maintenance | exporttoexcel              | 匯出員工為 Excel           |
       | employee-maintenance | history                    | 查詢員工 E01 的異動記錄    |
       | classification-code-maintenance | query           | 查詢分類碼 D               |
       | classification-code-maintenance | detail          | 新增分類碼 D X01           |
       | classification-code-maintenance | detail          | 修改分類碼 D X01           |
       | classification-code-maintenance | detail          | 停用分類碼 D X01           |
       | classification-code-maintenance | detail          | 刪除分類碼 D X01           |
+      | classification-code-maintenance | reproduce       | 複製分類碼 D X01           |
+      | classification-code-maintenance | confirm         | 確認分類碼 D X01           |
+      | classification-code-maintenance | notconfirm      | 取消確認分類碼 D X01       |
+      | classification-code-maintenance | output          | 列印分類碼 D               |
+      | classification-code-maintenance | exporttoexcel   | 匯出分類碼 D 為 Excel      |
       | classification-code-maintenance | history         | 查詢分類碼 D X01 的異動記錄 |
       | menu-maintenance | query                      | 查詢選單目錄               |
       | menu-maintenance | detail                     | 在目錄 menu-a 加入程式 plant-maintenance |
@@ -386,12 +408,22 @@
       | unit-maintenance | detail                     | 修改單位 KG                |
       | unit-maintenance | detail                     | 停用單位 KG                |
       | unit-maintenance | detail                     | 刪除單位 KG                |
+      | unit-maintenance | reproduce                  | 複製單位 KG                |
+      | unit-maintenance | confirm                    | 確認單位 KG                |
+      | unit-maintenance | notconfirm                 | 取消確認單位 KG            |
+      | unit-maintenance | output                     | 列印單位                   |
+      | unit-maintenance | exporttoexcel              | 匯出單位為 Excel           |
       | unit-maintenance | history                    | 查詢作業 unit-maintenance KG 的異動記錄 |
       | product-classification-maintenance | query    | 查詢產品分類               |
       | product-classification-maintenance | detail   | 新增產品分類 P01           |
       | product-classification-maintenance | detail   | 修改產品分類 P01           |
       | product-classification-maintenance | detail   | 停用產品分類 P01           |
       | product-classification-maintenance | detail   | 刪除產品分類 P01           |
+      | product-classification-maintenance | reproduce | 複製產品分類 P01          |
+      | product-classification-maintenance | confirm  | 確認產品分類 P01           |
+      | product-classification-maintenance | notconfirm | 取消確認產品分類 P01     |
+      | product-classification-maintenance | output   | 列印產品分類               |
+      | product-classification-maintenance | exporttoexcel | 匯出產品分類為 Excel  |
       | product-classification-maintenance | history  | 查詢產品分類 P01 的異動記錄 |
       | item-group-maintenance | query                | 查詢料件分群               |
       | item-group-maintenance | insert               | 新增料件分群 G01           |

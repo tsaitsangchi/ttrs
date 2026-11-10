@@ -4,6 +4,7 @@
 //! 工廠層：每個操作都指定營運中心，資料在該營運中心的工廠 schema（docs/adr/0007-multi-plant.md）。
 //! TipTop 沒有設定資料所有者，不檢查資料權限（EQ5）。
 
+use crate::list_report::{ListReporter, ListSpec};
 use std::sync::Arc;
 
 use chrono::NaiveDate;
@@ -34,7 +35,24 @@ pub struct EmployeeService {
     depts: Arc<dyn DepartmentRepository>,
     master: Arc<dyn MasterDataRepository>,
     history: HistoryReader,
+    /// 列印、匯出 Excel（ADR 0013 SA3）
+    reports: ListReporter,
 }
+
+/// 清單報表（ADR 0013 SA3；employee_maintenance_standard_actions.feature）
+const REPORT: ListSpec = ListSpec {
+    program: PROGRAM,
+    title: "emp-report-title",
+    columns: &[
+        ("employee_id", "emp-col-id"),
+        ("name", "emp-col-name"),
+        ("dept_code", "emp-col-dept"),
+        ("title", "emp-col-title"),
+        ("extension", "emp-col-extension"),
+        ("email", "emp-col-email"),
+        ("active", "emp-col-active"),
+    ],
+};
 
 impl EmployeeService {
     pub fn new(
@@ -43,6 +61,7 @@ impl EmployeeService {
         depts: Arc<dyn DepartmentRepository>,
         master: Arc<dyn MasterDataRepository>,
         history: HistoryReader,
+        reports: ListReporter,
     ) -> Self {
         Self {
             authz,
@@ -50,7 +69,115 @@ impl EmployeeService {
             depts,
             master,
             history,
+            reports,
         }
+    }
+
+    /// 測試用：調整同步產生報表的筆數上限
+    pub fn with_report_limit(mut self, limit: u64) -> Self {
+        self.reports.limit = limit;
+        self
+    }
+
+    /// 列印 output、匯出 Excel exporttoexcel（ADR 0013 SA3；aooi040 原本沒有）：依查詢條件、員工編號排序
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        conditions: Vec<ttrs_shared::QbeCondition>,
+        format: crate::report::ReportFormat,
+        lang: &ttrs_domain::lang::Lang,
+    ) -> Result<crate::report::ReportData, AppError> {
+        self.authorize(actor, format.action()).await?;
+        let plant = PlantId::parse(plant)?;
+        let filters = crate::query::employee::filters(&conditions)?;
+        let (rows, total) = self
+            .employees
+            .query_employees(&plant, &filters, 0, self.reports.fetch_limit())
+            .await
+            .map_err(infra)?;
+        self.reports.check(total)?;
+        let t = |id: &str| crate::report::text(lang, id);
+        let lines = rows
+            .iter()
+            .map(|e| {
+                let a = &e.attrs;
+                vec![
+                    e.id.as_str().to_owned(),
+                    a.name.clone(),
+                    a.dept_code
+                        .as_ref()
+                        .map(|d| d.as_str().to_owned())
+                        .unwrap_or_default(),
+                    a.title.clone().unwrap_or_default(),
+                    a.extension.clone().unwrap_or_default(),
+                    a.email.clone().unwrap_or_default(),
+                    t(if e.active {
+                        "report-active"
+                    } else {
+                        "report-inactive"
+                    }),
+                ]
+            })
+            .collect();
+        self.reports
+            .build(
+                actor,
+                Some(&plant),
+                &REPORT,
+                lines,
+                &conditions,
+                format,
+                lang,
+            )
+            .await
+    }
+
+    /// 複製（ADR 0013 SA5；aooi040 原本沒有，員工維護是單身式作業）：新員工編號，其餘欄位帶入
+    pub async fn copy(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        id: &str,
+        new_id: &str,
+    ) -> Result<EmployeeDto, AppError> {
+        crate::change_log::run(actor, PROGRAM, "reproduce", async {
+            self.authorize(actor, "reproduce").await?;
+            let plant = PlantId::parse(plant)?;
+            let source = self.load(&plant, id).await?;
+            let new_id = EmployeeId::parse(new_id)?;
+            let e = source.copy_as(new_id, &actor.user_id, &actor.dept, today());
+            match self.employees.insert(&plant, &e).await {
+                Ok(()) => {
+                    let saved = self.load(&plant, e.id.as_str()).await?;
+                    self.to_dto(&plant, &saved).await
+                }
+                Err(RepoError::Conflict) => Err(DomainError::EmployeeAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
+    }
+
+    /// 確認（confirm）／取消確認（notconfirm）（ADR 0013 SA9）
+    pub async fn confirm(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        id: &str,
+        confirm: bool,
+        version: Option<i32>,
+    ) -> Result<EmployeeDto, AppError> {
+        let action = if confirm { "confirm" } else { "notconfirm" };
+        crate::change_log::run(actor, PROGRAM, action, async {
+            self.authorize(actor, action).await?;
+            let plant = PlantId::parse(plant)?;
+            let mut e = self.load(&plant, id).await?;
+            e.stamp.check(version)?;
+            e.set_confirmed(confirm, &actor.user_id, chrono::Utc::now())?;
+            self.save(&plant, &e).await
+        })
+        .await
     }
 
     /// QBE 查詢（EQ8）；依員工編號排序並分頁
@@ -180,6 +307,8 @@ impl EmployeeService {
             let plant = PlantId::parse(plant)?;
             let employee = self.load(&plant, id).await?;
             employee.stamp.check(version)?;
+            // 已確認不可刪除，須先取消確認（ADR 0013 SA9-2）
+            employee.confirmation.check_deletable()?;
             let id = employee.id;
             if self.employees.delete(&plant, &id).await.map_err(infra)? {
                 Ok(())
@@ -299,6 +428,9 @@ impl EmployeeService {
             extension: a.extension.clone(),
             email: a.email.clone(),
             active: e.active,
+            confirmed: e.confirmation.confirmed,
+            confirmed_by: e.confirmation.by.clone(),
+            confirmed_at: e.confirmation.at,
             created_by: e.created_by.clone(),
             created_dept: e.created_dept.clone(),
             created_on: e.created_on,

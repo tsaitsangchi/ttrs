@@ -109,6 +109,10 @@ fn report_limit(w: &mut ErpWorld, limit: u64) {
     w.departments = w.departments.clone().with_report_limit(limit);
     w.items = w.items.clone().with_report_limit(limit);
     w.item_groups = w.item_groups.clone().with_report_limit(limit);
+    w.employees = w.employees.clone().with_report_limit(limit);
+    w.units = w.units.clone().with_report_limit(limit);
+    w.product_classes = w.product_classes.clone().with_report_limit(limit);
+    w.classification = w.classification.clone().with_report_limit(limit);
 }
 
 // ----- 當 -----

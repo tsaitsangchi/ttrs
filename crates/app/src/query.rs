@@ -514,7 +514,7 @@ pub mod department {
 
     use super::*;
 
-    pub const FIELDS: [Field; 14] = [
+    pub const FIELDS: [Field; 16] = [
         cased("dept_code", Case::Upper),
         field("name", FieldType::Text),
         field("full_name", FieldType::Text),
@@ -522,6 +522,9 @@ pub mod department {
         cased("expense_type", Case::Upper),
         field("control_type", FieldType::Text),
         cased("cost_center", Case::Upper),
+        // 確認（ADR 0013 SA9）
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
         field("active", FieldType::Flag),
         field("created_by", FieldType::Text),
         field("created_dept", FieldType::Text),
@@ -545,6 +548,8 @@ pub mod department {
             "expense_type" => opt_text(a.expense_type.map(|e| e.code())),
             "control_type" => text(a.control_type.code()),
             "cost_center" => opt_text(a.cost_center.as_ref().map(|c| c.as_str())),
+            "confirmed" => flag(d.confirmation.confirmed),
+            "confirmed_by" => opt_text(d.confirmation.by.as_deref()),
             "active" => flag(d.active),
             // 狀態頁籤的欄位（ADR 0012 §9）
             other => status_value(
@@ -569,13 +574,16 @@ pub mod employee {
 
     use super::*;
 
-    pub const FIELDS: [Field; 13] = [
+    pub const FIELDS: [Field; 15] = [
         cased("employee_id", Case::Upper),
         field("name", FieldType::Text),
         cased("dept_code", Case::Upper),
         field("title", FieldType::Text),
         field("extension", FieldType::Text),
         field("email", FieldType::Text),
+        // 確認（ADR 0013 SA9）
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
         field("active", FieldType::Flag),
         field("created_by", FieldType::Text),
         field("created_dept", FieldType::Text),
@@ -598,6 +606,8 @@ pub mod employee {
             "title" => opt_text(a.title.as_deref()),
             "extension" => opt_text(a.extension.as_deref()),
             "email" => opt_text(a.email.as_deref()),
+            "confirmed" => flag(e.confirmation.confirmed),
+            "confirmed_by" => opt_text(e.confirmation.by.as_deref()),
             "active" => flag(e.active),
             // 狀態頁籤的欄位（ADR 0012 §9）
             other => status_value(
@@ -939,6 +949,198 @@ pub mod item_group {
                 g.stamp.version,
             )
             .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
+/// 資料量小的作業（單位、產品分類、分類碼）在 app 層對完整清單做 QBE 過濾與分頁（ADR 0013 SA1）：
+/// 記憶體與 PostgreSQL 兩種後端共用同一份比對規則。`items` 須已依鍵值（位元組順序）排序
+pub fn page_in_memory<T: Clone>(
+    items: &[T],
+    filters: &[QbeFilter],
+    value: impl Fn(&T, &str) -> FieldValue,
+    p: Paging,
+) -> (Vec<T>, u64) {
+    let hits: Vec<T> = items
+        .iter()
+        .filter(|x| matches_all(filters, |f| value(x, f)))
+        .cloned()
+        .collect();
+    let total = hits.len() as u64;
+    let rows = hits
+        .into_iter()
+        .skip(usize::try_from(p.offset).unwrap_or(usize::MAX))
+        .take(p.page_size as usize)
+        .collect();
+    (rows, total)
+}
+
+/// 確認欄位的值（ADR 0013 SA9）；不是確認欄位時為 None
+fn confirm_value(field: &str, c: &ttrs_domain::confirmation::Confirmation) -> Option<FieldValue> {
+    Some(match field {
+        "confirmed" => flag(c.confirmed),
+        "confirmed_by" => opt_text(c.by.as_deref()),
+        _ => return None,
+    })
+}
+
+/// 單位維護（aooi101.4gl CONSTRUCT gfe01–gfe03、gfeacti；ADR 0013 SA1）
+pub mod unit {
+    use ttrs_domain::{qbe::FieldType, unit::Unit};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("unit_code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("decimals", FieldType::Integer),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(u: &Unit, field: &str) -> FieldValue {
+        match field {
+            "unit_code" => text(u.code.as_str()),
+            "name" => opt_text(u.attrs.name.as_deref()),
+            "decimals" => int(i32::from(u.attrs.decimals)),
+            other => confirm_value(other, &u.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(u.active),
+                        &u.created_by,
+                        &u.created_dept,
+                        Some(u.created_on),
+                        u.updated_by.as_deref(),
+                        u.updated_on,
+                        u.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
+/// 產品分類維護（axmi110.4gl:477-541 CONSTRUCT oba01、oba02、oba10、oba11、oba111；ADR 0013 SA1 擴及全部欄位）
+pub mod product_class {
+    use ttrs_domain::{product_class::ProductClass, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("class_code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("period_format", FieldType::Text),
+        field("periods", FieldType::Integer),
+        field("cost_center", FieldType::Text),
+        field("revenue_account", FieldType::Text),
+        field("revenue_account2", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(c: &ProductClass, field: &str) -> FieldValue {
+        let a = &c.attrs;
+        match field {
+            "class_code" => text(c.code.as_str()),
+            "name" => opt_text(a.name.as_deref()),
+            "period_format" => opt_text(a.period_format.as_deref()),
+            "periods" => opt_int(a.periods),
+            "cost_center" => opt_text(a.cost_center.as_ref().map(|d| d.as_str())),
+            "revenue_account" => opt_text(a.revenue_account.as_deref()),
+            "revenue_account2" => opt_text(a.revenue_account2.as_deref()),
+            other => confirm_value(other, &c.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(c.active),
+                        &c.created_by,
+                        &c.created_dept,
+                        Some(c.created_on),
+                        c.updated_by.as_deref(),
+                        c.updated_on,
+                        c.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
+/// 分類碼維護（aooi300 CONSTRUCT azf01、azf03、azf05、azf051、azf06、azfacti；ADR 0013 SA1）：同一類別內查詢
+pub mod classification {
+    use ttrs_domain::{classification::ClassificationCode, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("code", FieldType::Text),
+        field("description", FieldType::Text),
+        field("variance_account", FieldType::Text),
+        field("variance_account2", FieldType::Text),
+        field("cost_nature", FieldType::Integer),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(c: &ClassificationCode, field: &str) -> FieldValue {
+        let a = &c.attrs;
+        match field {
+            "code" => text(c.code.as_str()),
+            "description" => opt_text(a.description.as_deref()),
+            "variance_account" => opt_text(a.variance_account.as_deref()),
+            "variance_account2" => opt_text(a.variance_account2.as_deref()),
+            "cost_nature" => opt_int(a.cost_nature),
+            other => confirm_value(other, &c.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(c.active),
+                        &c.created_by,
+                        &c.created_dept,
+                        Some(c.created_on),
+                        c.updated_by.as_deref(),
+                        c.updated_on,
+                        c.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
         }
     }
 }

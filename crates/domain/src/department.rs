@@ -128,6 +128,8 @@ pub struct Department {
     pub attrs: DepartmentAttrs,
     pub accounting: Accounting,
     pub active: bool,
+    /// 確認狀態（TTRS 標準確認欄位，ADR 0013 SA9；gem_file 無此欄）
+    pub confirmation: crate::confirmation::Confirmation,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -151,6 +153,7 @@ impl Department {
             attrs,
             accounting: Accounting::defaults(),
             active: true,
+            confirmation: crate::confirmation::Confirmation::default(),
             created_by: actor.to_owned(),
             created_dept: actor_dept.to_owned(),
             created_on: today,
@@ -173,6 +176,34 @@ impl Department {
     pub fn set_active(&mut self, active: bool, actor: &str, today: NaiveDate) {
         self.active = active;
         self.touch(actor, today);
+    }
+
+    /// 複製（ADR 0013 SA5；aooi030 原本沒有）：新部門編號，名稱與會計資料帶入；
+    /// 對應成本中心是來源部門本身時改為新部門。資料所有者為目前使用者、未確認
+    pub fn copy_as(&self, code: DeptCode, actor: &str, actor_dept: &str, today: NaiveDate) -> Self {
+        let mut accounting = self.accounting.clone();
+        if accounting.cost_center.as_ref() == Some(&self.code) {
+            accounting.cost_center = Some(code.clone());
+        }
+        let mut d = Self::new(code, self.attrs.clone(), actor, actor_dept, today);
+        d.accounting = accounting;
+        d
+    }
+
+    /// 確認／取消確認（ADR 0013 SA9）
+    pub fn set_confirmed(
+        &mut self,
+        confirm: bool,
+        actor: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<(), crate::DomainError> {
+        if confirm {
+            self.confirmation.confirm(actor, now)?;
+        } else {
+            self.confirmation.unconfirm()?;
+        }
+        self.touch(actor, now.date_naive());
+        Ok(())
     }
 
     fn touch(&mut self, actor: &str, today: NaiveDate) {

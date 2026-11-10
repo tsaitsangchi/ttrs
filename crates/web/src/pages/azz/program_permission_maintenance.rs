@@ -23,6 +23,7 @@ use crate::components::qbe::{Qbe, conditions_of};
 use crate::components::status::{
     self, HasStatus, StatusCells, StatusForm, StatusHeaders, TAB_DATA, TAB_STATUS,
 };
+use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{self, t, tf};
 
 /// 查詢結果的權限類別一次取回（數量有限；每頁上限同後端 500 筆）
@@ -311,6 +312,26 @@ fn PermissionMain(initial: Option<String>) -> Element {
     let cur_remove = cur.clone();
     let v = form();
 
+    // 列印、匯出 Excel（ADR 0013 SA3）
+    let report = move |format: api::ReportFormat| {
+        let conds = conditions.read().clone();
+        let tab = api::ReportTab::open(format);
+        spawn(async move {
+            if let Err(e) = api::system_list_report(
+                "/api/program-permissions",
+                "program-permissions",
+                format,
+                &conds,
+                crate::i18n::current().code(),
+                tab,
+            )
+            .await
+            {
+                error.set(Some(e));
+            }
+        });
+    };
+
     rsx! {
         div { class: "page",
             div { class: "page-header",
@@ -426,6 +447,11 @@ fn PermissionMain(initial: Option<String>) -> Element {
                         },
                         {t("perm-action-remove")}
                     }
+                }
+                // 列印、匯出 Excel（ADR 0013 SA3）：依目前生效的查詢條件，每列為一個權限類別的一支程式
+                MaintenanceToolbar {
+                    print: Act::new(true, move |_| report(api::ReportFormat::Pdf)),
+                    export: Act::new(true, move |_| report(api::ReportFormat::Excel)),
                 }
                 // 異動記錄（ADR 0012 §8，功能 history）
                 if perm.can("history") {

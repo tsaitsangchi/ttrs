@@ -40,7 +40,24 @@ pub struct UserPermissionService {
     users: Arc<dyn UserRepository>,
     programs: Arc<dyn ProgramRepository>,
     classes: Arc<dyn PermissionClassRepository>,
+    /// 列印、匯出 Excel（ADR 0013 SA3）
+    reports: crate::list_report::ListReporter,
 }
+
+/// 清單報表（ADR 0013 SA3；program_maintenance_standard_actions.feature）：每一列為一位使用者的一筆特殊權限
+const REPORT: crate::list_report::ListSpec = crate::list_report::ListSpec {
+    program: PROGRAM,
+    title: "special-report-title",
+    columns: &[
+        ("user_id", "special-col-user"),
+        ("line_no", "special-col-line"),
+        ("kind", "special-col-kind"),
+        ("target", "special-col-target"),
+        ("actions", "special-col-actions"),
+        ("other_user_data", "special-col-other-user"),
+        ("other_dept_data", "special-col-other-dept"),
+    ],
+};
 
 impl UserPermissionService {
     pub fn new(
@@ -49,6 +66,7 @@ impl UserPermissionService {
         users: Arc<dyn UserRepository>,
         programs: Arc<dyn ProgramRepository>,
         classes: Arc<dyn PermissionClassRepository>,
+        reports: crate::list_report::ListReporter,
     ) -> Self {
         Self {
             authz,
@@ -56,7 +74,102 @@ impl UserPermissionService {
             users,
             programs,
             classes,
+            reports,
         }
+    }
+
+    /// 有特殊權限且符合使用者條件的使用者（依使用者代號排序）
+    async fn matched_users(
+        &self,
+        conditions: &[ttrs_shared::QbeCondition],
+    ) -> Result<
+        Vec<(
+            ttrs_domain::user::User,
+            Vec<crate::ports::UserPermissionItem>,
+        )>,
+        AppError,
+    > {
+        let filters = crate::query::user::filters(conditions)?;
+        let scope = ttrs_domain::authorization::DataScope::unrestricted();
+        let (users, _) = self
+            .users
+            .query(&filters, &scope, 0, u64::MAX)
+            .await
+            .map_err(infra)?;
+        let mut out = Vec::new();
+        for u in users {
+            let items = self.perms.list(&u.user_id).await.map_err(infra)?;
+            if !items.is_empty() {
+                out.push((u, items));
+            }
+        }
+        Ok(out)
+    }
+
+    /// QBE 查詢（ADR 0013 SA1；p_zxw 單頭為使用者）：有特殊權限的使用者，條件為使用者維護的查詢欄位
+    pub async fn query(
+        &self,
+        actor: &Actor,
+        req: ttrs_shared::QueryRequest,
+    ) -> Result<ttrs_shared::Page<ttrs_shared::SpecialPermissionUserDto>, AppError> {
+        self.authorize(actor, "query").await?;
+        let p = crate::query::paging(&req);
+        let all = self.matched_users(&req.conditions).await?;
+        let total = all.len() as u64;
+        let items = all
+            .into_iter()
+            .skip(usize::try_from(p.offset).unwrap_or(usize::MAX))
+            .take(p.page_size as usize)
+            .map(|(u, items)| ttrs_shared::SpecialPermissionUserDto {
+                user_id: u.user_id.as_str().to_owned(),
+                name: u.attrs.name.clone(),
+                count: items.len() as u64,
+            })
+            .collect();
+        Ok(ttrs_shared::Page {
+            items,
+            total,
+            page: p.page,
+            page_size: p.page_size,
+        })
+    }
+
+    /// 列印 output、匯出 Excel exporttoexcel（ADR 0013 SA3；p_zxw 原本沒有）
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        conditions: Vec<ttrs_shared::QbeCondition>,
+        format: crate::report::ReportFormat,
+        lang: &Lang,
+    ) -> Result<crate::report::ReportData, AppError> {
+        self.authorize(actor, format.action()).await?;
+        let mut lines = Vec::new();
+        for (u, items) in self.matched_users(&conditions).await? {
+            for i in &items {
+                let d = to_dto(i, lang);
+                lines.push(vec![
+                    u.user_id.as_str().to_owned(),
+                    d.line_no.to_string(),
+                    crate::report::text(
+                        lang,
+                        match d.kind {
+                            ttrs_shared::SpecialPermissionKindDto::Class => "special-kind-class",
+                            ttrs_shared::SpecialPermissionKindDto::Program => {
+                                "special-kind-program"
+                            }
+                        },
+                    ),
+                    d.target.clone(),
+                    d.actions.join(", "),
+                    d.other_user_data.clone().unwrap_or_default(),
+                    d.other_dept_data.clone().unwrap_or_default(),
+                ]);
+            }
+        }
+        self.reports.check(lines.len() as u64)?;
+        self.reports
+            .build(actor, None, &REPORT, lines, &conditions, format, lang)
+            .await
     }
 
     /// 使用者的特殊權限（依項次），程式名稱依 `lang` 顯示

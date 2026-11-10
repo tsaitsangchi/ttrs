@@ -38,11 +38,67 @@ const PROGRAM: &str = "program-maintenance";
 pub struct ProgramService {
     authz: Arc<dyn Authorizer>,
     repo: Arc<dyn ProgramRepository>,
+    /// 列印、匯出 Excel（ADR 0013 SA3）
+    reports: crate::list_report::ListReporter,
 }
 
+/// 清單報表（ADR 0013 SA3；program_maintenance_standard_actions.feature）
+const REPORT: crate::list_report::ListSpec = crate::list_report::ListSpec {
+    program: PROGRAM,
+    title: "program-report-title",
+    columns: &[
+        ("program_no", "program-col-no"),
+        ("name", "program-col-name"),
+        ("module_code", "program-col-module"),
+        ("program_type", "program-col-type"),
+        ("tiptop_program_no", "program-col-tiptop"),
+    ],
+};
+
 impl ProgramService {
-    pub fn new(authz: Arc<dyn Authorizer>, repo: Arc<dyn ProgramRepository>) -> Self {
-        Self { authz, repo }
+    pub fn new(
+        authz: Arc<dyn Authorizer>,
+        repo: Arc<dyn ProgramRepository>,
+        reports: crate::list_report::ListReporter,
+    ) -> Self {
+        Self {
+            authz,
+            repo,
+            reports,
+        }
+    }
+
+    /// 列印 output、匯出 Excel exporttoexcel（ADR 0013 SA3；p_zz 原本沒有）：依查詢條件、程式代號排序；
+    /// 名稱依報表語系
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        conditions: Vec<ttrs_shared::QbeCondition>,
+        format: crate::report::ReportFormat,
+        lang: &Lang,
+    ) -> Result<crate::report::ReportData, AppError> {
+        self.authorize(actor, format.action()).await?;
+        let filters = crate::program_query::filters(&conditions)?;
+        let (programs, total) = self
+            .repo
+            .query(&filters, 0, self.reports.fetch_limit())
+            .await
+            .map_err(infra)?;
+        self.reports.check(total)?;
+        let mut lines = Vec::with_capacity(programs.len());
+        for p in &programs {
+            let d = self.to_dto_in(p, lang).await?;
+            lines.push(vec![
+                d.program_no,
+                d.name.unwrap_or_default(),
+                d.module_code,
+                d.program_type.unwrap_or_default(),
+                d.tiptop_program_no.unwrap_or_default(),
+            ]);
+        }
+        self.reports
+            .build(actor, None, &REPORT, lines, &conditions, format, lang)
+            .await
     }
 
     /// 新增程式，並自動授權給建立者的權限類別（p_zz.4gl:851 p_zz_gen）

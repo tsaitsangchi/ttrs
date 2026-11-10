@@ -39,6 +39,8 @@ fn dept_column(field: &str) -> Option<Column> {
         "control_type" => Column::Scalar("d.control_type", true),
         "cost_center" => Column::Scalar("d.cost_center", true),
         "active" => Column::Scalar("d.active", false),
+        "confirmed" => Column::Scalar("d.confirmed", false),
+        "confirmed_by" => Column::Scalar("d.confirmed_by", true),
         "created_by" => Column::Scalar("d.created_by", true),
         "created_dept" => Column::Scalar("d.created_dept", true),
         "created_on" => Column::Scalar("d.created_on", false),
@@ -59,6 +61,9 @@ struct DeptRow {
     control_type: String,
     cost_center: Option<String>,
     active: bool,
+    confirmed: bool,
+    confirmed_by: Option<String>,
+    confirmed_at: Option<DateTime<Utc>>,
     created_by: String,
     created_dept: String,
     created_on: NaiveDate,
@@ -73,7 +78,7 @@ macro_rules! select_dept {
     ($rest:literal) => {
         concat!(
             "SELECT dept_code, name, full_name, accounting_dept, expense_type, control_type, cost_center, ",
-            "active, created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at ",
+            "active, confirmed, confirmed_by, confirmed_at, created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at ",
             "FROM department ",
             $rest
         )
@@ -104,6 +109,11 @@ impl TryFrom<DeptRow> for Department {
                 },
             },
             active: r.active,
+            confirmation: ttrs_domain::confirmation::Confirmation {
+                confirmed: r.confirmed,
+                by: r.confirmed_by,
+                at: r.confirmed_at,
+            },
             created_by: r.created_by,
             created_dept: r.created_dept,
             created_on: r.created_on,
@@ -165,8 +175,9 @@ impl DepartmentRepository for PgStore {
         let a = &d.accounting;
         sqlx::query(
             "INSERT INTO department (dept_code, name, full_name, accounting_dept, expense_type, control_type,
-                 cost_center, active, created_by, created_dept, created_on, updated_by, updated_on)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
+                 cost_center, active, created_by, created_dept, created_on, updated_by, updated_on,
+                 confirmed, confirmed_by, confirmed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
         )
         .bind(d.code.as_str())
         .bind(&d.attrs.name)
@@ -181,6 +192,9 @@ impl DepartmentRepository for PgStore {
         .bind(d.created_on)
         .bind(&d.updated_by)
         .bind(d.updated_on)
+        .bind(d.confirmation.confirmed)
+        .bind(&d.confirmation.by)
+        .bind(d.confirmation.at)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
@@ -192,7 +206,8 @@ impl DepartmentRepository for PgStore {
         let a = &d.accounting;
         let n = sqlx::query(
             "UPDATE department SET name = $2, full_name = $3, accounting_dept = $4, expense_type = $5,
-                 control_type = $6, cost_center = $7, active = $8, updated_by = $9, updated_on = $10
+                 control_type = $6, cost_center = $7, active = $8, updated_by = $9, updated_on = $10,
+                 confirmed = $12, confirmed_by = $13, confirmed_at = $14
              WHERE dept_code = $1 AND version = $11",
         )
         .bind(d.code.as_str())
@@ -206,6 +221,9 @@ impl DepartmentRepository for PgStore {
         .bind(&d.updated_by)
         .bind(d.updated_on)
         .bind(d.stamp.version)
+        .bind(d.confirmation.confirmed)
+        .bind(&d.confirmation.by)
+        .bind(d.confirmation.at)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?
@@ -243,6 +261,8 @@ fn employee_column(field: &str) -> Option<Column> {
         "extension" => Column::Scalar("e.extension", true),
         "email" => Column::Scalar("e.email", true),
         "active" => Column::Scalar("e.active", false),
+        "confirmed" => Column::Scalar("e.confirmed", false),
+        "confirmed_by" => Column::Scalar("e.confirmed_by", true),
         "created_by" => Column::Scalar("e.created_by", true),
         "created_dept" => Column::Scalar("e.created_dept", true),
         "created_on" => Column::Scalar("e.created_on", false),
@@ -262,6 +282,9 @@ struct EmployeeRow {
     extension: Option<String>,
     email: Option<String>,
     active: bool,
+    confirmed: bool,
+    confirmed_by: Option<String>,
+    confirmed_at: Option<DateTime<Utc>>,
     created_by: String,
     created_dept: String,
     created_on: NaiveDate,
@@ -275,7 +298,7 @@ struct EmployeeRow {
 macro_rules! select_employee {
     ($rest:literal) => {
         concat!(
-            "SELECT employee_id, name, dept_code, title, extension, email, active, ",
+            "SELECT employee_id, name, dept_code, title, extension, email, active, confirmed, confirmed_by, confirmed_at, ",
             "created_by, created_dept, created_on, updated_by, updated_on, version, created_at, updated_at ",
             "FROM employee ",
             $rest
@@ -300,6 +323,11 @@ impl TryFrom<EmployeeRow> for Employee {
                 email: r.email,
             },
             active: r.active,
+            confirmation: ttrs_domain::confirmation::Confirmation {
+                confirmed: r.confirmed,
+                by: r.confirmed_by,
+                at: r.confirmed_at,
+            },
             created_by: r.created_by,
             created_dept: r.created_dept,
             created_on: r.created_on,
@@ -361,8 +389,8 @@ impl EmployeeRepository for PgStore {
         let a = &e.attrs;
         sqlx::query(
             "INSERT INTO employee (employee_id, name, dept_code, title, extension, email, active,
-                 created_by, created_dept, created_on, updated_by, updated_on)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+                 created_by, created_dept, created_on, updated_by, updated_on, confirmed, confirmed_by, confirmed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
         )
         .bind(e.id.as_str())
         .bind(&a.name)
@@ -376,6 +404,9 @@ impl EmployeeRepository for PgStore {
         .bind(e.created_on)
         .bind(&e.updated_by)
         .bind(e.updated_on)
+        .bind(e.confirmation.confirmed)
+        .bind(&e.confirmation.by)
+        .bind(e.confirmation.at)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
@@ -387,7 +418,8 @@ impl EmployeeRepository for PgStore {
         let a = &e.attrs;
         let n = sqlx::query(
             "UPDATE employee SET name = $2, dept_code = $3, title = $4, extension = $5, email = $6,
-                 active = $7, updated_by = $8, updated_on = $9
+                 active = $7, updated_by = $8, updated_on = $9,
+                 confirmed = $11, confirmed_by = $12, confirmed_at = $13
              WHERE employee_id = $1 AND version = $10",
         )
         .bind(e.id.as_str())
@@ -400,6 +432,9 @@ impl EmployeeRepository for PgStore {
         .bind(&e.updated_by)
         .bind(e.updated_on)
         .bind(e.stamp.version)
+        .bind(e.confirmation.confirmed)
+        .bind(&e.confirmation.by)
+        .bind(e.confirmation.at)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?

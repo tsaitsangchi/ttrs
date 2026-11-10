@@ -10,10 +10,28 @@ use ttrs_domain::{
     DomainError,
     unit::{Unit, UnitAttrs, UnitCode},
 };
-use ttrs_shared::{UnitDto, UnitInput};
+use ttrs_shared::{Page, QbeCondition, QueryRequest, UnitDto, UnitInput};
 
 use crate::{
-    Actor, AppError, Authorizer, authorization::Grant, error::RepoError, ports::UnitRepository,
+    Actor, AppError, Authorizer,
+    authorization::Grant,
+    error::RepoError,
+    list_report::{ListReporter, ListSpec},
+    ports::UnitRepository,
+    query,
+    report::{self, ReportData, ReportFormat},
+};
+
+/// 清單報表（ADR 0013 SA3；unit_maintenance_standard_actions.feature）
+const REPORT: ListSpec = ListSpec {
+    program: PROGRAM,
+    title: "unit-report-title",
+    columns: &[
+        ("unit_code", "unit-col-code"),
+        ("name", "unit-col-name"),
+        ("decimals", "unit-col-decimals"),
+        ("active", "unit-col-active"),
+    ],
 };
 
 /// 權限檢查用的程式代號
@@ -23,11 +41,124 @@ pub const PROGRAM: &str = "unit-maintenance";
 pub struct UnitService {
     authz: Arc<dyn Authorizer>,
     units: Arc<dyn UnitRepository>,
+    reports: ListReporter,
 }
 
 impl UnitService {
-    pub fn new(authz: Arc<dyn Authorizer>, units: Arc<dyn UnitRepository>) -> Self {
-        Self { authz, units }
+    pub fn new(
+        authz: Arc<dyn Authorizer>,
+        units: Arc<dyn UnitRepository>,
+        reports: ListReporter,
+    ) -> Self {
+        Self {
+            authz,
+            units,
+            reports,
+        }
+    }
+
+    /// QBE 查詢（ADR 0013 SA1；aooi101 CONSTRUCT）：依單位代碼排序並分頁
+    pub async fn query(&self, actor: &Actor, req: QueryRequest) -> Result<Page<UnitDto>, AppError> {
+        self.authorize(actor, "query").await?;
+        let filters = query::unit::filters(&req.conditions)?;
+        let p = query::paging(&req);
+        let all = self.units.list_units().await.map_err(infra)?;
+        let (rows, total) = query::page_in_memory(&all, &filters, query::unit::value, p);
+        Ok(Page {
+            items: rows.iter().map(to_dto).collect(),
+            total,
+            page: p.page,
+            page_size: p.page_size,
+        })
+    }
+
+    /// 列印 output、匯出 Excel exporttoexcel（ADR 0013 SA3；aooi101 原本沒有）
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        conditions: Vec<QbeCondition>,
+        format: ReportFormat,
+        lang: &ttrs_domain::lang::Lang,
+    ) -> Result<ReportData, AppError> {
+        self.authorize(actor, format.action()).await?;
+        let filters = query::unit::filters(&conditions)?;
+        let all = self.units.list_units().await.map_err(infra)?;
+        let p = query::Paging {
+            page: 1,
+            page_size: u32::try_from(self.reports.fetch_limit()).unwrap_or(u32::MAX),
+            offset: 0,
+        };
+        let (rows, total) = query::page_in_memory(&all, &filters, query::unit::value, p);
+        self.reports.check(total)?;
+        let t = |id: &str| report::text(lang, id);
+        let lines = rows
+            .iter()
+            .map(|u| {
+                vec![
+                    u.code.as_str().to_owned(),
+                    u.attrs.name.clone().unwrap_or_default(),
+                    u.attrs.decimals.to_string(),
+                    t(if u.active {
+                        "report-active"
+                    } else {
+                        "report-inactive"
+                    }),
+                ]
+            })
+            .collect();
+        self.reports
+            .build(actor, None, &REPORT, lines, &conditions, format, lang)
+            .await
+    }
+
+    /// 測試用：調整同步產生報表的筆數上限
+    pub fn with_report_limit(mut self, limit: u64) -> Self {
+        self.reports.limit = limit;
+        self
+    }
+
+    /// 複製（ADR 0013 SA5；aooi101 原本沒有）
+    pub async fn copy(
+        &self,
+        actor: &Actor,
+        code: &str,
+        new_code: &str,
+    ) -> Result<UnitDto, AppError> {
+        crate::change_log::run(actor, PROGRAM, "reproduce", async {
+            self.authorize(actor, "reproduce").await?;
+            let source = self.load(code).await?;
+            let unit = source.copy_as(
+                UnitCode::parse(new_code)?,
+                &actor.user_id,
+                &actor.dept,
+                today(),
+            );
+            match self.units.insert_unit(&unit).await {
+                Ok(()) => Ok(to_dto(&self.load(unit.code.as_str()).await?)),
+                Err(RepoError::Conflict) => Err(DomainError::UnitAlreadyExists.into()),
+                Err(e) => Err(infra(e)),
+            }
+        })
+        .await
+    }
+
+    /// 確認（confirm）／取消確認（notconfirm）（ADR 0013 SA9）
+    pub async fn confirm(
+        &self,
+        actor: &Actor,
+        code: &str,
+        confirm: bool,
+        version: Option<i32>,
+    ) -> Result<UnitDto, AppError> {
+        let action = if confirm { "confirm" } else { "notconfirm" };
+        crate::change_log::run(actor, PROGRAM, action, async {
+            self.authorize(actor, action).await?;
+            let mut unit = self.load(code).await?;
+            unit.stamp.check(version)?;
+            unit.set_confirmed(confirm, &actor.user_id, chrono::Utc::now())?;
+            self.save(&unit).await
+        })
+        .await
     }
 
     /// 全部單位，依代碼排序
@@ -115,6 +246,8 @@ impl UnitService {
             self.authorize(actor, "detail").await?.delete_row()?;
             let unit = self.load(code).await?;
             unit.stamp.check(version)?;
+            // 已確認不可刪除，須先取消確認（ADR 0013 SA9-2）
+            unit.confirmation.check_deletable()?;
             match self.units.delete_unit(&unit.code).await {
                 Ok(true) => Ok(()),
                 Ok(false) => Err(DomainError::UnitNotFound.into()),
@@ -150,6 +283,9 @@ fn to_dto(u: &Unit) -> UnitDto {
         name: u.attrs.name.clone(),
         decimals: u.attrs.decimals,
         active: u.active,
+        confirmed: u.confirmation.confirmed,
+        confirmed_by: u.confirmation.by.clone(),
+        confirmed_at: u.confirmation.at,
         created_by: u.created_by.clone(),
         created_dept: u.created_dept.clone(),
         created_on: u.created_on,

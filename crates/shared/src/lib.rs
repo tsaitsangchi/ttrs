@@ -1238,6 +1238,15 @@ pub struct UserPermissionInput {
     pub version: Option<i32>,
 }
 
+/// 使用者特殊權限查詢的一筆結果（ADR 0013 SA1）：有特殊權限的使用者
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SpecialPermissionUserDto {
+    pub user_id: String,
+    pub name: Option<String>,
+    /// 特殊權限筆數
+    pub count: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserPermissionDto {
     pub user_id: String,
@@ -1330,6 +1339,13 @@ pub struct DepartmentDto {
     /// 對應成本中心的部門簡稱
     pub cost_center_name: Option<String>,
     pub active: bool,
+    /// 確認狀態（ADR 0013 SA9）：已確認否、確認人、確認時間
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -1392,6 +1408,13 @@ pub struct ClassificationCodeDto {
     /// azf06 成本性質（類別 G）
     pub cost_nature: Option<i32>,
     pub active: bool,
+    /// 確認狀態（ADR 0013 SA9）：已確認否、確認人、確認時間
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -1468,6 +1491,13 @@ pub struct EmployeeDto {
     pub extension: Option<String>,
     pub email: Option<String>,
     pub active: bool,
+    /// 確認狀態（ADR 0013 SA9）：已確認否、確認人、確認時間
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -1605,6 +1635,13 @@ pub struct UnitDto {
     pub name: Option<String>,
     pub decimals: i16,
     pub active: bool,
+    /// 確認狀態（ADR 0013 SA9）：已確認否、確認人、確認時間
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -1662,6 +1699,13 @@ pub struct ProductClassDto {
     pub revenue_account: Option<String>,
     pub revenue_account2: Option<String>,
     pub active: bool,
+    /// 確認狀態（ADR 0013 SA9）：已確認否、確認人、確認時間
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,

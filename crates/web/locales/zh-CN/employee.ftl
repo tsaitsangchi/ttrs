@@ -20,3 +20,7 @@ emp-msg-saved = 员工 { $id } 已保存
 emp-msg-deleted = 员工 { $id } 已删除
 emp-msg-activated = 员工 { $id } 已启用
 emp-msg-deactivated = 员工 { $id } 已停用
+emp-msg-confirmed = 已确认员工 { $id }
+emp-msg-unconfirmed = 已取消确认员工 { $id }
+emp-msg-copied = 已将员工 { $from } 复制为 { $to }
+emp-field-copy-as = 复制为

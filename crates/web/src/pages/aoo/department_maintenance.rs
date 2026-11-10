@@ -17,10 +17,14 @@ use crate::components::material::{
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::components::plant::PlantPicker;
-use crate::components::qbe::{HINT_FLAG, ListPager, PAGE_SIZE, Qbe, conditions_of};
-use crate::components::status::{
-    self, HasStatus, StatusCells, StatusHeaders, StatusQbeCells, TAB_DATA, TAB_STATUS,
+use crate::components::qbe::{
+    HINT_FLAG, ListPager, PAGE_SIZE, Qbe, RecordNav, conditions_of, use_row_nav,
 };
+use crate::components::status::{
+    self, ConfirmCells, ConfirmHeaders, ConfirmQbeCells, HasStatus, StatusCells, StatusHeaders,
+    StatusQbeCells, TAB_DATA, TAB_STATUS,
+};
+use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{t, tf};
 
 /// 表格欄位（aooi030.4fd s_gem 順序）：（標題翻譯 ID, 查詢欄位鍵值, 查詢提示翻譯 ID）
@@ -119,6 +123,15 @@ fn DepartmentMaintenancePage() -> Element {
         }
     });
     let mut selected = use_signal(|| None::<String>);
+    let mut copy_code = use_signal(String::new);
+    let nav = use_row_nav(page, selected, move || {
+        depts
+            .read()
+            .as_ref()
+            .and_then(|r| r.as_ref().ok())
+            .map(|p| p.items.iter().map(|d| d.dept_code.clone()).collect())
+            .unwrap_or_default()
+    });
     let mut editor = use_signal(|| None::<Editor>);
     let mut form = use_signal(DepartmentInput::default);
     let mut acct = use_signal(DepartmentAccountingInput::default);
@@ -128,7 +141,7 @@ fn DepartmentMaintenancePage() -> Element {
     let col_tab = use_signal(|| 0usize);
     let status_tab = col_tab() == 1;
     let cols = if status_tab {
-        KEY_COLUMNS + status::ALL.len()
+        KEY_COLUMNS + status::ALL.len() + 2
     } else {
         COLUMNS.len()
     };
@@ -218,6 +231,22 @@ fn DepartmentMaintenancePage() -> Element {
     let cur_delete = cur.clone();
     let cur_history = cur.clone();
     let cur_toggle = cur.clone();
+    let cur_copy = cur.clone();
+    let cur_confirm = cur.clone();
+    let confirmed = cur.as_ref().is_some_and(|d| d.confirmed);
+    let keys: Vec<String> = list.iter().map(|d| d.dept_code.clone()).collect();
+    let report = move |format: api::ReportFormat| {
+        let tab = api::ReportTab::open(format);
+        let p = plant();
+        let conds = conditions();
+        spawn(async move {
+            if let Err(e) =
+                api::department_report(&p, format, &conds, crate::i18n::current().code(), tab).await
+            {
+                error.set(Some(e));
+            }
+        });
+    };
     let v = form();
     let av = acct();
     let center = av.control_type != "3";
@@ -250,147 +279,124 @@ fn DepartmentMaintenancePage() -> Element {
                 p { class: "query-hint", {t("query-hint")} }
             } else {
                 div { class: "action-bar",
-                    if perm.can("query") {
-                        Button {
-                            icon: icons::SEARCH, tone: Tone::Primary,
-                            variant: ButtonVariant::Tonal,
-                            onclick: move |_| { message.set(None); error.set(None); qbe.set(Default::default()); querying.set(true); },
-                            {t("common-action-query")}
-                        }
-                    }
-                    if perm.add_row() {
-                        Button {
-                            icon: icons::ADD, tone: Tone::Success,
-                            onclick: move |_| {
-                                message.set(None);
-                                error.set(None);
-                                dialog_error.set(None);
-                                form.set(DepartmentInput::default());
-                                editor.set(Some(Editor::New));
-                            },
-                            {t("common-action-new")}
-                        }
-                    }
-                    if perm.can("detail") {
-                        Button {
-                            icon: icons::EDIT, tone: Tone::Tertiary,
-                            variant: ButtonVariant::Tonal,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(d) = cur_edit.clone() else { return };
-                                dialog_error.set(None);
-                                form.set(d.to_input());
-                                editor.set(Some(Editor::Edit(d.dept_code)));
-                            },
-                            {t("common-action-edit")}
-                        }
-                    }
-                    if perm.can("history") {
-                        Button {
-                            icon: icons::HISTORY, tone: Tone::Primary,
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(d) = cur_history.clone() else { return };
-                                let p = plant();
-                                spawn(async move {
-                                    match api::history(&p, "departments", &d.dept_code).await {
-                                        Ok(h) => history.set(Some((d.dept_code.clone(), h))),
-                                        Err(e) => error.set(Some(e)),
+                    MaintenanceToolbar {
+                        query: Act::new(true, move |_| { message.set(None); error.set(None); qbe.set(Default::default()); querying.set(true); }),
+                        // aooi030 是單身式作業：新增、修改、刪除、停用都用 detail
+                        detail_action: "detail",
+                        insert: if perm.add_row() { Act::new(true, move |_| {
+                            message.set(None);
+                            error.set(None);
+                            dialog_error.set(None);
+                            form.set(DepartmentInput::default());
+                            editor.set(Some(Editor::New));
+                        }) } else { None },
+                        modify: Act::new(!no_cur, move |_| {
+                            let Some(d) = cur_edit.clone() else { return };
+                            dialog_error.set(None);
+                            form.set(d.to_input());
+                            editor.set(Some(Editor::Edit(d.dept_code)));
+                        }),
+                        // 複製（ADR 0013 SA5）：新部門編號輸入在功能列後方
+                        copy: Act::new(!no_cur && !copy_code().trim().is_empty(), move |_| {
+                            let Some(d) = cur_copy.clone() else { return };
+                            let p = plant();
+                            let new_code = copy_code();
+                            spawn(async move {
+                                match api::copy_department(&p, &d.dept_code, new_code.trim()).await {
+                                    Ok(r) => {
+                                        copy_code.set(String::new());
+                                        done(tf("dept-msg-copied", &[("from", d.dept_code.as_str()), ("to", r.dept_code.as_str())]), Some(r.dept_code));
                                     }
-                                });
-                            },
-                            {t("common-action-history")}
-                        }
-                    }
-                    if perm.delete_row() {
-                        Button {
-                            icon: icons::DELETE, tone: Tone::Error,
-                            variant: ButtonVariant::Error,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(d) = cur_delete.clone() else { return };
-                                let p = plant();
-                                spawn(async move {
-                                    match api::delete_department(&p, &d.dept_code, d.version).await {
-                                        Ok(()) => done(tf("dept-msg-deleted", &[("code", d.dept_code.as_str())]), None),
-                                        Err(e) => error.set(Some(e)),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        }),
+                        // 已確認不可刪除（ADR 0013 SA9-2）
+                        delete: if perm.delete_row() { Act::new(!no_cur && !confirmed, move |_| {
+                            let Some(d) = cur_delete.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                match api::delete_department(&p, &d.dept_code, d.version).await {
+                                    Ok(()) => done(tf("dept-msg-deleted", &[("code", d.dept_code.as_str())]), None),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        }) } else { None },
+                        // 確認／取消確認（ADR 0013 SA9）
+                        confirm: Act::new(!no_cur, move |_| {
+                            let Some(d) = cur_confirm.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                match api::confirm_department(&p, &d.dept_code, !d.confirmed, d.version).await {
+                                    Ok(r) => {
+                                        let id = if r.confirmed { "dept-msg-confirmed" } else { "dept-msg-unconfirmed" };
+                                        done(tf(id, &[("code", r.dept_code.as_str())]), Some(r.dept_code));
                                     }
-                                });
-                            },
-                            {t("common-action-delete")}
-                        }
-                    }
-                    if perm.can("detail") {
-                        Button {
-                            icon: if cur.as_ref().is_some_and(|d| !d.active) { icons::CHECK_CIRCLE } else { icons::BLOCK }, tone: if cur.as_ref().is_some_and(|d| !d.active) { Tone::Success } else { Tone::Error },
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(d) = cur_toggle.clone() else { return };
-                                let p = plant();
-                                spawn(async move {
-                                    match api::set_department_active(&p, &d.dept_code, !d.active, d.version).await {
-                                        Ok(r) => {
-                                            let id = if r.active { "dept-msg-activated" } else { "dept-msg-deactivated" };
-                                            done(tf(id, &[("code", r.dept_code.as_str())]), Some(r.dept_code));
-                                        }
-                                        Err(e) => error.set(Some(e)),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        }),
+                        confirmed,
+                        invalid: Act::new(!no_cur, move |_| {
+                            let Some(d) = cur_toggle.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                match api::set_department_active(&p, &d.dept_code, !d.active, d.version).await {
+                                    Ok(r) => {
+                                        let id = if r.active { "dept-msg-activated" } else { "dept-msg-deactivated" };
+                                        done(tf(id, &[("code", r.dept_code.as_str())]), Some(r.dept_code));
                                     }
-                                });
-                            },
-                            if cur.as_ref().is_some_and(|d| !d.active) { {t("dept-action-activate")} } else { {t("dept-action-deactivate")} }
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        }),
+                        invalid_action: "detail",
+                        inactive: cur.as_ref().is_some_and(|d| !d.active),
+                        invalid_label: Some(("dept-action-deactivate", "dept-action-activate")),
+                        // 列印、匯出 Excel（aooi030 output／exporttoexcel；department_report.feature）：依目前的查詢條件
+                        print: Act::new(true, move |_| report(api::ReportFormat::Pdf)),
+                        export: Act::new(true, move |_| report(api::ReportFormat::Excel)),
+                        history: Act::new(!no_cur, move |_| {
+                            let Some(d) = cur_history.clone() else { return };
+                            let p = plant();
+                            spawn(async move {
+                                match api::history(&p, "departments", &d.dept_code).await {
+                                    Ok(h) => history.set(Some((d.dept_code.clone(), h))),
+                                    Err(e) => error.set(Some(e)),
+                                }
+                            });
+                        }),
+                        if perm.can("account") {
+                            Button {
+                                icon: icons::ACCOUNT_BALANCE, tone: Tone::Tertiary,
+                                variant: ButtonVariant::Outlined,
+                                disabled: no_cur,
+                                onclick: move |_| {
+                                    let Some(d) = cur_acct.clone() else { return };
+                                    dialog_error.set(None);
+                                    acct.set(d.to_accounting());
+                                    editor.set(Some(Editor::Accounting(d.dept_code)));
+                                },
+                                {t("dept-action-accounting")}
+                            }
+                        }
+                        if perm.can("reproduce") {
+                            TextField { id: "copy-code", label: t("dept-field-copy-as"), value: copy_code(), disabled: no_cur, oninput: move |v| copy_code.set(v) }
                         }
                     }
-                    // 列印、匯出 Excel（aooi030 output／exporttoexcel；department_report.feature）：依目前的查詢條件
-                    if perm.can("output") {
-                        Button {
-                            icon: icons::PRINT, tone: Tone::Primary,
-                            variant: ButtonVariant::Outlined,
-                            onclick: move |_| {
-                                let tab = api::ReportTab::open(api::ReportFormat::Pdf);
-                                let p = plant();
-                                let conds = conditions();
-                                spawn(async move {
-                                    if let Err(e) = api::department_report(&p, api::ReportFormat::Pdf, &conds, crate::i18n::current().code(), tab).await {
-                                        error.set(Some(e));
-                                    }
-                                });
-                            },
-                            {t("common-action-print")}
-                        }
-                    }
-                    if perm.can("exporttoexcel") {
-                        Button {
-                            icon: icons::DOWNLOAD, tone: Tone::Primary,
-                            variant: ButtonVariant::Outlined,
-                            onclick: move |_| {
-                                let tab = api::ReportTab::open(api::ReportFormat::Excel);
-                                let p = plant();
-                                let conds = conditions();
-                                spawn(async move {
-                                    if let Err(e) = api::department_report(&p, api::ReportFormat::Excel, &conds, crate::i18n::current().code(), tab).await {
-                                        error.set(Some(e));
-                                    }
-                                });
-                            },
-                            {t("common-action-export-excel")}
-                        }
-                    }
-                    if perm.can("account") {
-                        Button {
-                            icon: icons::ACCOUNT_BALANCE, tone: Tone::Tertiary,
-                            variant: ButtonVariant::Outlined,
-                            disabled: no_cur,
-                            onclick: move |_| {
-                                let Some(d) = cur_acct.clone() else { return };
-                                dialog_error.set(None);
-                                acct.set(d.to_accounting());
-                                editor.set(Some(Editor::Accounting(d.dept_code)));
-                            },
-                            {t("dept-action-accounting")}
-                        }
-                    }
+                }
+            }
+
+            // 上下筆：移動選取列，跨頁自動換頁（ADR 0013 SA2）
+            if !querying() && total > 0 {
+                RecordNav {
+                    total,
+                    pos: nav.pos(&keys, cur.as_ref().map(|d| d.dept_code.as_str())),
+                    ongo: {
+                        let keys = keys.clone();
+                        move |i| { message.set(None); nav.go(i, &keys); }
+                    },
+                    onerror: move |e| error.set(Some(e)),
                 }
             }
 
@@ -415,7 +421,7 @@ fn DepartmentMaintenancePage() -> Element {
                                 for (id, _, _) in COLUMNS.iter().take(if status_tab { KEY_COLUMNS } else { COLUMNS.len() }) {
                                     th { key: "{id}", {t(id)} }
                                 }
-                                if status_tab { StatusHeaders {} }
+                                if status_tab { StatusHeaders {} ConfirmHeaders {} }
                             }
                             if querying() {
                                 tr {
@@ -430,7 +436,7 @@ fn DepartmentMaintenancePage() -> Element {
                                             }
                                         }
                                     }
-                                    if status_tab { StatusQbeCells { queryable: status::ALL, qbe } }
+                                    if status_tab { StatusQbeCells { queryable: status::ALL, qbe } ConfirmQbeCells { qbe } }
                                 }
                             }
                         }
@@ -453,6 +459,7 @@ fn DepartmentMaintenancePage() -> Element {
                                             td { "{d.name}" }
                                             if status_tab {
                                                 StatusCells { status: d.status() }
+                                                ConfirmCells { confirmed: d.confirmed, by: d.confirmed_by.clone() }
                                             } else {
                                             td { {d.full_name.clone().unwrap_or_default()} }
                                             td { if d.accounting_dept { {t("dept-opt-yes")} } else { {t("dept-opt-no")} } }

@@ -40,7 +40,21 @@ pub struct DataDictionaryService {
     schema: Arc<dyn SchemaCatalog>,
     /// TipTop 對照目錄：建立字典時帶入 .sch 說明（legacy_catalog.feature C4）
     catalog: Arc<dyn LegacyCatalogRepository>,
+    /// 列印、匯出 Excel（ADR 0013 SA3）
+    reports: crate::list_report::ListReporter,
 }
+
+/// 清單報表（ADR 0013 SA3；program_maintenance_standard_actions.feature）：一個資料表的欄位字典
+const REPORT: crate::list_report::ListSpec = crate::list_report::ListSpec {
+    program: PROGRAM,
+    title: "dict-report-title",
+    columns: &[
+        ("column_name", "dict-col-column"),
+        ("data_type", "dict-col-type"),
+        ("name", "dict-col-name"),
+        ("extra", "dict-col-extra"),
+    ],
+};
 
 impl DataDictionaryService {
     pub fn new(
@@ -48,13 +62,55 @@ impl DataDictionaryService {
         repo: Arc<dyn DictionaryRepository>,
         schema: Arc<dyn SchemaCatalog>,
         catalog: Arc<dyn LegacyCatalogRepository>,
+        reports: crate::list_report::ListReporter,
     ) -> Self {
         Self {
             authz,
             repo,
             schema,
             catalog,
+            reports,
         }
+    }
+
+    /// 列印 output（PDF）、匯出 Excel exporttoexcel（XLSX）（ADR 0013 SA3）：一個資料表的欄位字典，
+    /// 欄名與內容同 CSV 匯出；名稱、額外說明依報表語系
+    pub async fn report_in(
+        &self,
+        actor: &Actor,
+        table: &str,
+        format: crate::report::ReportFormat,
+        lang: &Lang,
+    ) -> Result<crate::report::ReportData, AppError> {
+        self.authorize(actor, format.action()).await?;
+        let columns = self.columns_in(table).await?;
+        let texts = self
+            .repo
+            .column_texts(&TableDictionary::parse_name(table)?)
+            .await
+            .map_err(infra)?;
+        let lines: Vec<Vec<String>> = columns
+            .iter()
+            .map(|c| {
+                let own: Vec<&ColumnText> =
+                    texts.iter().filter(|t| t.column_name == c.name).collect();
+                vec![
+                    c.name.clone(),
+                    c.data_type.clone(),
+                    localized(&own, lang, |t| t.name.clone()).unwrap_or_default(),
+                    localized(&own, lang, |t| t.extra.clone()).unwrap_or_default(),
+                ]
+            })
+            .collect();
+        self.reports.check(lines.len() as u64)?;
+        // 報表的條件說明：資料表
+        let conditions = vec![ttrs_shared::QbeCondition {
+            field: "table_name".into(),
+            expr: table.to_owned(),
+        }];
+        self.reports
+            .build(actor, None, &REPORT, lines, &conditions, format, lang)
+            .await
     }
 
     /// 建立資料表字典（p_zta_a）；資料表必須已存在於資料庫（D1）
