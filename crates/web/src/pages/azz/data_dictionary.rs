@@ -17,13 +17,14 @@ use ttrs_shared::{
 use crate::api;
 use crate::components::history::HistoryButton;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Dialog, IconButton, Notification, NotificationKind, Select, Tabs,
-    TextArea, TextField, Tone, icons,
+    Button, ButtonVariant, Card, Dialog, Notification, NotificationKind, Select, Tabs, TextArea,
+    TextField, Tone, icons,
 };
 use crate::components::multilingual::{
     LangField, LangValues, MultilingualDialogField, MultilingualField,
 };
 use crate::components::permission::{Perm, ProgramGate};
+use crate::components::qbe::RecordNav;
 use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{self, UiLang, tf};
 use crate::pages::azz::legacy_catalog::{LegacyCatalog, LegacyMappingTab};
@@ -432,29 +433,13 @@ fn DictionaryMain(on_catalog: EventHandler<()>) -> Element {
                 p { class: "query-hint", {i18n::t("dictionary-query-hint")} }
             }
 
-            // ----- 筆數與上下筆（4fd 底部 cnt） -----
+            // ----- 筆數與上下筆（4fd 底部 cnt；共用元件，含跳至第 N 筆，ADR 0013 §1） -----
             if m == Mode::View && total > 0 {
-                div { class: "record-nav",
-                    IconButton { label: i18n::t("nav-first"), path: icons::FIRST_PAGE, disabled: pos() == Some(0), onclick: move |_| pos.set(Some(0)) }
-                    IconButton {
-                        label: i18n::t("nav-previous"),
-                        path: icons::CHEVRON_LEFT,
-                        disabled: pos().is_none_or(|i| i == 0),
-                        onclick: move |_| pos.set(pos().map(|i| i.saturating_sub(1))),
-                    }
-                    span { class: "record-nav__count",
-                        match pos() {
-                            Some(i) => rsx! { {tf("nav-record-position", &[("pos", (i + 1).to_string().as_str()), ("total", total.to_string().as_str())])} },
-                            None => rsx! { {tf("nav-record-count", &[("total", total.to_string().as_str())])} },
-                        }
-                    }
-                    IconButton {
-                        label: i18n::t("nav-next"),
-                        path: icons::CHEVRON_RIGHT,
-                        disabled: pos().is_some_and(|i| i + 1 >= total),
-                        onclick: move |_| pos.set(Some(pos().map_or(0, |i| (i + 1).min(total - 1)))),
-                    }
-                    IconButton { label: i18n::t("nav-last"), path: icons::LAST_PAGE, disabled: pos() == Some(total - 1), onclick: move |_| pos.set(Some(total - 1)) }
+                RecordNav {
+                    total: total as u64,
+                    pos: pos().map(|i| i as u64),
+                    ongo: move |i: u64| pos.set(Some(usize::try_from(i).unwrap_or(0))),
+                    onerror: move |e| error.set(Some(e)),
                 }
             }
 

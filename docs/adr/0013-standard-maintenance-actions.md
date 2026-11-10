@@ -108,7 +108,7 @@ TipTop 的做法（萃取）：有確認流程的作業以功能 confirm（確�
 | 程式 p_zz | Y | Y | 例外 | 例外 | Y | Y | program_maintenance_standard_actions.feature |
 | 程式執行權限 p_zy | Y | Y | 例外 | 例外 | Y | Y | 同上 |
 | 使用者特殊權限 p_zxw | Y（有特殊權限的使用者） | Y | 例外 | 例外 | Y（使用者） | Y | 同上 |
-| 資料字典 p_zta | Y | 例外 | 例外 | 例外 | 未做 | Y（PDF、XLSX；CSV 保留） | 同上 |
+| 資料字典 p_zta | Y | 例外 | 例外 | 例外 | Y | Y（PDF、XLSX；CSV 保留） | 同上 |
 
 單位、產品分類、分類碼資料量小，查詢在 app 層對完整清單過濾（`query::page_in_memory`），兩種後端共用比對規則。
 
