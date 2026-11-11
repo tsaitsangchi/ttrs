@@ -219,6 +219,13 @@ error-CURRENCY_RATE_METHOD_INVALID = The calculation method must be 1 (multiply)
 error-CURRENCY_ALREADY_EXISTS = Currency already exists.
 error-CURRENCY_NOT_FOUND = Currency not found.
 error-CURRENCY_IN_USE = Currency is in use and cannot be deleted; deactivate it instead.
+error-CURRENCY_INACTIVE = Currency is inactive.
+error-EXCHANGE_RATE_ALREADY_EXISTS = An exchange rate for this currency and period already exists.
+error-EXCHANGE_RATE_NOT_FOUND = Exchange rate not found.
+error-EXCHANGE_RATE_PERIOD_INVALID = Year/month must be YYYYMM with month 01–12.
+error-EXCHANGE_RATE_NEGATIVE = Exchange rates cannot be negative.
+error-EXCHANGE_RATE_INACTIVE = The exchange rate is inactive; activate it before editing.
+error-EXCHANGE_RATE_COPY_DATE_INVALID = The fill-up date cannot be later than today.
 
 # 稅別（aooi150）
 error-TAX_CODE_EMPTY = Tax code is required.

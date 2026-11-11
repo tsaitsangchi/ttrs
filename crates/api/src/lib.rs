@@ -65,6 +65,7 @@ pub struct AppState {
     pub basic_codes: ttrs_app::BasicCodeService,
     /// 幣別維護（aooi050；共用）
     pub currencies: ttrs_app::CurrencyService,
+    pub rates: ttrs_app::ExchangeRateService,
     /// 稅別維護（aooi150；共用）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（aooi200；工廠層）
@@ -137,6 +138,7 @@ impl AppState {
             units,
             basic_codes,
             currencies,
+            rates,
             taxes,
             projects,
             product_classes,
@@ -163,6 +165,7 @@ impl AppState {
             units,
             basic_codes,
             currencies,
+            rates,
             taxes,
             projects,
             product_classes,
@@ -462,6 +465,56 @@ pub fn router(state: AppState) -> Router {
             "/api/tax-types/{code}/{direction}/{state}",
             post(set_tax_type_state),
         )
+        // 每月匯率（TipTop aooi060；共用，ER1）
+        .route("/api/monthly-rates", post(create_monthly_rate))
+        .route("/api/monthly-rates/query", post(query_monthly_rates))
+        .route(
+            "/api/monthly-rates/report.{format}",
+            get(monthly_rate_report),
+        )
+        // 月底重評價（MR7）
+        .route("/api/monthly-rates/revaluate", post(revaluate_rates))
+        .route(
+            "/api/monthly-rates/{currency}/{period}",
+            get(get_monthly_rate)
+                .put(update_monthly_rate)
+                .delete(delete_monthly_rate),
+        )
+        .route(
+            "/api/monthly-rates/{currency}/{period}/copy",
+            post(copy_monthly_rate),
+        )
+        .route(
+            "/api/monthly-rates/{currency}/{period}/{state}",
+            post(set_monthly_rate_state),
+        )
+        // 每日匯率（TipTop aooi070；共用）
+        .route("/api/daily-rates", post(create_daily_rate))
+        .route("/api/daily-rates/query", post(query_daily_rates))
+        .route("/api/daily-rates/report.{format}", get(daily_rate_report))
+        // 新增時的預設匯率（DR4）、統一匯率（DR7）
+        .route(
+            "/api/daily-rates/defaults/{currency}",
+            get(daily_rate_defaults),
+        )
+        .route("/api/daily-rates/unify", post(unify_rates))
+        .route(
+            "/api/daily-rates/{currency}/{date}",
+            get(get_daily_rate)
+                .put(update_daily_rate)
+                .delete(delete_daily_rate),
+        )
+        .route(
+            "/api/daily-rates/{currency}/{date}/copy",
+            post(copy_daily_rate),
+        )
+        .route(
+            "/api/daily-rates/{currency}/{date}/{state}",
+            post(set_daily_rate_state),
+        )
+        // 每日匯率複製（TipTop aoop010，CP1）與結果的列印、匯出 Excel
+        .route("/api/daily-rate-fill", post(fill_daily_rates))
+        .route("/api/daily-rate-fill/report.{format}", post(fill_report))
         // Currency Maintenance 幣別維護（TipTop aooi050；共用）
         .route(
             "/api/currencies",
@@ -1339,6 +1392,7 @@ impl IntoResponse for HttpError {
             | "PRODUCT_CLASS_NOT_FOUND"
             | "ITEM_GROUP_NOT_FOUND"
             | "CURRENCY_NOT_FOUND"
+            | "EXCHANGE_RATE_NOT_FOUND"
             | "TAX_TYPE_NOT_FOUND"
             | "PROJECT_NOT_FOUND"
             | "REGION_NOT_FOUND"
@@ -1374,6 +1428,7 @@ impl IntoResponse for HttpError {
             | "ITEM_GROUP_IN_USE"
             | "CURRENCY_ALREADY_EXISTS"
             | "CURRENCY_IN_USE"
+            | "EXCHANGE_RATE_ALREADY_EXISTS"
             | "TAX_TYPE_ALREADY_EXISTS"
             | "TAX_TYPE_IN_USE"
             | "PROJECT_ALREADY_EXISTS"
@@ -3039,6 +3094,274 @@ async fn delete_tax_type(
     Ok(StatusCode::NO_CONTENT)
 }
 
+// ----- 匯率：每月 aooi060、每日 aooi070、每日匯率複製 aoop010 -----
+
+use ttrs_shared::{
+    DailyRateCopyRequest, DailyRateDto, DailyRateFillLine, DailyRateFillRequest, DailyRateInput,
+    MonthlyRateCopyRequest, MonthlyRateDto, MonthlyRateInput, RateBatchResult, RatesDto,
+    RevaluationRequest, UnifyRateRequest,
+};
+
+async fn create_monthly_rate(
+    Ctx(s): Ctx,
+    Json(req): Json<MonthlyRateInput>,
+) -> ApiResult<(StatusCode, Json<MonthlyRateDto>)> {
+    let dto = s.rates.create_monthly(&s.actor, req).await?;
+    Ok((StatusCode::CREATED, Json(dto)))
+}
+
+async fn query_monthly_rates(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<MonthlyRateDto>>> {
+    Ok(Json(s.rates.query_monthly(&s.actor, req).await?))
+}
+
+async fn monthly_rate_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .rates
+        .report_monthly(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn revaluate_rates(
+    Ctx(s): Ctx,
+    Json(req): Json<RevaluationRequest>,
+) -> ApiResult<Json<RateBatchResult>> {
+    Ok(Json(s.rates.revaluate(&s.actor, req.date).await?))
+}
+
+async fn get_monthly_rate(
+    Ctx(s): Ctx,
+    Path((currency, period)): Path<(String, String)>,
+) -> ApiResult<Json<MonthlyRateDto>> {
+    Ok(Json(
+        s.rates.get_monthly(&s.actor, &currency, &period).await?,
+    ))
+}
+
+async fn update_monthly_rate(
+    Ctx(s): Ctx,
+    Path((currency, period)): Path<(String, String)>,
+    Json(req): Json<MonthlyRateInput>,
+) -> ApiResult<Json<MonthlyRateDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.rates
+            .update_monthly(&s.actor, &currency, &period, req)
+            .await?,
+    ))
+}
+
+async fn delete_monthly_rate(
+    Ctx(s): Ctx,
+    Path((currency, period)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.rates
+        .delete_monthly(&s.actor, &currency, &period, version)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn copy_monthly_rate(
+    Ctx(s): Ctx,
+    Path((currency, period)): Path<(String, String)>,
+    Json(req): Json<MonthlyRateCopyRequest>,
+) -> ApiResult<(StatusCode, Json<MonthlyRateDto>)> {
+    let dto = s
+        .rates
+        .copy_monthly(
+            &s.actor,
+            &currency,
+            &period,
+            &req.currency_code,
+            &req.period,
+        )
+        .await?;
+    Ok((StatusCode::CREATED, Json(dto)))
+}
+
+/// 停用（deactivate）、啟用（activate）、確認（confirm）、取消確認（unconfirm）
+async fn set_monthly_rate_state(
+    Ctx(s): Ctx,
+    Path((currency, period, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let (r, a) = (&s.rates, &s.actor);
+    let dto = match state.as_str() {
+        "activate" => {
+            r.set_monthly_active(a, &currency, &period, true, version)
+                .await?
+        }
+        "deactivate" => {
+            r.set_monthly_active(a, &currency, &period, false, version)
+                .await?
+        }
+        "confirm" => {
+            r.confirm_monthly(a, &currency, &period, true, version)
+                .await?
+        }
+        "unconfirm" => {
+            r.confirm_monthly(a, &currency, &period, false, version)
+                .await?
+        }
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+/// 日期路徑參數（YYYY-MM-DD）；格式錯誤視為找不到
+fn rate_date(raw: &str) -> Result<ttrs_shared::NaiveDate, HttpError> {
+    raw.parse()
+        .map_err(|_| AppError::from(ttrs_domain::DomainError::ExchangeRateNotFound).into())
+}
+
+async fn create_daily_rate(
+    Ctx(s): Ctx,
+    Json(req): Json<DailyRateInput>,
+) -> ApiResult<(StatusCode, Json<DailyRateDto>)> {
+    let dto = s.rates.create_daily(&s.actor, req).await?;
+    Ok((StatusCode::CREATED, Json(dto)))
+}
+
+async fn query_daily_rates(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<DailyRateDto>>> {
+    Ok(Json(s.rates.query_daily(&s.actor, req).await?))
+}
+
+async fn daily_rate_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .rates
+        .report_daily(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn daily_rate_defaults(
+    Ctx(s): Ctx,
+    Path(currency): Path<String>,
+) -> ApiResult<Json<RatesDto>> {
+    Ok(Json(s.rates.daily_defaults(&s.actor, &currency).await?))
+}
+
+async fn unify_rates(
+    Ctx(s): Ctx,
+    Json(req): Json<UnifyRateRequest>,
+) -> ApiResult<Json<RateBatchResult>> {
+    Ok(Json(s.rates.unify(&s.actor, req.date).await?))
+}
+
+async fn get_daily_rate(
+    Ctx(s): Ctx,
+    Path((currency, date)): Path<(String, String)>,
+) -> ApiResult<Json<DailyRateDto>> {
+    let date = rate_date(&date)?;
+    Ok(Json(s.rates.get_daily(&s.actor, &currency, date).await?))
+}
+
+async fn update_daily_rate(
+    Ctx(s): Ctx,
+    Path((currency, date)): Path<(String, String)>,
+    Json(req): Json<DailyRateInput>,
+) -> ApiResult<Json<DailyRateDto>> {
+    require_version(req.version)?;
+    let date = rate_date(&date)?;
+    Ok(Json(
+        s.rates.update_daily(&s.actor, &currency, date, req).await?,
+    ))
+}
+
+async fn delete_daily_rate(
+    Ctx(s): Ctx,
+    Path((currency, date)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    let date = rate_date(&date)?;
+    s.rates
+        .delete_daily(&s.actor, &currency, date, version)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn copy_daily_rate(
+    Ctx(s): Ctx,
+    Path((currency, date)): Path<(String, String)>,
+    Json(req): Json<DailyRateCopyRequest>,
+) -> ApiResult<(StatusCode, Json<DailyRateDto>)> {
+    let date = rate_date(&date)?;
+    let dto = s
+        .rates
+        .copy_daily(&s.actor, &currency, date, &req.currency_code, req.rate_date)
+        .await?;
+    Ok((StatusCode::CREATED, Json(dto)))
+}
+
+async fn set_daily_rate_state(
+    Ctx(s): Ctx,
+    Path((currency, date, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let date = rate_date(&date)?;
+    let (r, a) = (&s.rates, &s.actor);
+    let dto = match state.as_str() {
+        "activate" => {
+            r.set_daily_active(a, &currency, date, true, version)
+                .await?
+        }
+        "deactivate" => {
+            r.set_daily_active(a, &currency, date, false, version)
+                .await?
+        }
+        "confirm" => r.confirm_daily(a, &currency, date, true, version).await?,
+        "unconfirm" => r.confirm_daily(a, &currency, date, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn fill_daily_rates(
+    Ctx(s): Ctx,
+    Json(req): Json<DailyRateFillRequest>,
+) -> ApiResult<Json<Vec<DailyRateFillLine>>> {
+    Ok(Json(s.rates.fill(&s.actor, req.until).await?))
+}
+
+/// 每日匯率複製結果的列印、匯出 Excel：結果由畫面帶回（CP1）
+async fn fill_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+    Json(lines): Json<Vec<DailyRateFillLine>>,
+) -> ApiResult<Response> {
+    let Some((format, _, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s.rates.report_fill(&s.actor, lines, format, &lang).await?;
+    report_response(&data, format)
+}
+
 // ----- Currency Maintenance 幣別維護（aooi050） -----
 
 async fn list_currencies(Ctx(s): Ctx) -> ApiResult<Json<Vec<ttrs_shared::CurrencyDto>>> {
@@ -3115,7 +3438,7 @@ async fn currency_report(
         return Ok(StatusCode::NOT_FOUND.into_response());
     };
     let data = s
-        .units
+        .currencies
         .report_in(&s.actor, conditions, format, &lang)
         .await?;
     report_response(&data, format)

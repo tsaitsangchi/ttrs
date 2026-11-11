@@ -125,6 +125,25 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "query, detail, history, reproduce, confirm, notconfirm, output, exporttoexcel",
     ),
     (
+        "monthly-exchange-rate-maintenance",
+        "aooi060",
+        "AOO",
+        "insert, query, modify, delete, reproduce, invalid, history, confirm, notconfirm, output, exporttoexcel, re_rate",
+    ),
+    (
+        "daily-exchange-rate-maintenance",
+        "aooi070",
+        "AOO",
+        "insert, query, modify, delete, reproduce, invalid, history, confirm, notconfirm, output, exporttoexcel, unify_rate, auto_import",
+    ),
+    // 批次作業（CP7）：執行 run、列印、匯出 Excel
+    (
+        "daily-exchange-rate-copy",
+        "aoop010",
+        "AOO",
+        "run, output, exporttoexcel",
+    ),
+    (
         "region-maintenance",
         "aooi100",
         "AOO",

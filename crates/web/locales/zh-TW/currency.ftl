@@ -25,3 +25,4 @@ currency-msg-copied = 已將幣別 { $from } 複製為 { $to }
 currency-field-copy-as = 複製為
 currency-hint-decimals = 單價、金額、小計總計小數位數 0 到 6，匯率小數位數 0 到 10；幣別建立後不可修改。
 currency-hint-rate-method = 1 乘、2 除
+currency-field-import-code = 匯入代號

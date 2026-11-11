@@ -40,6 +40,17 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
     ("menu-maintenance", &["menu_item"], "menu_no"),
     ("unit-maintenance", &["unit"], "unit_code"),
     ("currency-maintenance", &["currency"], "currency_code"),
+    // 匯率以幣別查詢（各年月、各日期一併列出）
+    (
+        "monthly-exchange-rate-maintenance",
+        &["monthly_exchange_rate"],
+        "currency_code",
+    ),
+    (
+        "daily-exchange-rate-maintenance",
+        &["daily_exchange_rate"],
+        "currency_code",
+    ),
     // 稅別以稅別碼查詢（進項與銷項一併列出）
     ("tax-type-maintenance", &["tax_type"], "tax_code"),
     ("region-maintenance", &["region"], "region_code"),

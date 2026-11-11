@@ -2,6 +2,8 @@
 
 use std::sync::Arc;
 
+use crate::ports::RateFeed;
+
 use crate::change_log::HistoryReader;
 use crate::{
     Authorizer, ClassificationCodeService, DataDictionaryService, DepartmentService,
@@ -11,16 +13,17 @@ use crate::{
     ports::{
         AccountPolicyRepository, AuditLog, BasicCodeRepository, ChangeLogRepository,
         ClassificationCodeRepository, CredentialRepository, CurrencyRepository,
-        DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemGroupRepository,
-        ItemRepository, LegacyCatalogRepository, MasterDataRepository, MenuRepository,
-        PasswordResetTokenRepository, PermissionClassRepository, PlantRepository,
+        DepartmentRepository, DictionaryRepository, EmployeeRepository, ExchangeRateRepository,
+        ItemGroupRepository, ItemRepository, LegacyCatalogRepository, MasterDataRepository,
+        MenuRepository, PasswordResetTokenRepository, PermissionClassRepository, PlantRepository,
         ProductClassRepository, ProgramPermissionRepository, ProgramRepository, ProjectRepository,
-        SchemaCatalog, TaxTypeRepository, UnitRepository, UserPermissionRepository, UserRepository,
+        SchemaCatalog, SystemParameterRepository, TaxTypeRepository, UnitRepository,
+        UserPermissionRepository, UserRepository,
     },
 };
 use crate::{
-    BasicCodeService, ChangeHistoryService, CurrencyService, ItemGroupService, MenuService,
-    ProductClassService, ProjectService, TaxTypeService, UnitService,
+    BasicCodeService, ChangeHistoryService, CurrencyService, ExchangeRateService, ItemGroupService,
+    MenuService, ProductClassService, ProjectService, TaxTypeService, UnitService,
 };
 
 /// 實作全部 repository 的資料存取（ttrs_infra::PgStore、memory::InMemoryStore）
@@ -48,6 +51,9 @@ pub trait Store:
     + UnitRepository
     + BasicCodeRepository
     + CurrencyRepository
+    + ExchangeRateRepository
+    + RateFeed
+    + SystemParameterRepository
     + TaxTypeRepository
     + ProjectRepository
     + ProductClassRepository
@@ -80,6 +86,9 @@ impl<T> Store for T where
         + UnitRepository
         + BasicCodeRepository
         + CurrencyRepository
+        + ExchangeRateRepository
+        + RateFeed
+        + SystemParameterRepository
         + TaxTypeRepository
         + ProjectRepository
         + ProductClassRepository
@@ -118,6 +127,8 @@ pub struct Services {
     pub basic_codes: BasicCodeService,
     /// 幣別維護（aooi050）
     pub currencies: CurrencyService,
+    /// 匯率：每月匯率（aooi060）、每日匯率（aooi070）、每日匯率複製（aoop010）、匯率取用（s_exrate）
+    pub rates: ExchangeRateService,
     /// 稅別維護（aooi150）
     pub taxes: TaxTypeService,
     /// 專案維護（aooi200，工廠層）
@@ -232,6 +243,15 @@ impl Services {
             units: UnitService::new(a.clone(), store.clone(), reports.clone()),
             basic_codes: BasicCodeService::new(a.clone(), store.clone(), reports.clone()),
             currencies: CurrencyService::new(a.clone(), store.clone(), reports.clone()),
+            rates: ExchangeRateService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
             taxes: TaxTypeService::new(a.clone(), store.clone(), reports.clone()),
             projects: ProjectService::new(
                 a.clone(),

@@ -64,6 +64,8 @@ pub struct CurrencyAttrs {
     pub rate_decimals: i16,
     /// azi10 計算方式
     pub rate_method: RateMethod,
+    /// 匯率自動匯入的來源幣別代號（TTRS 新增，IM6；如 MCY 的匯入代號為 CNY）；空白表示與幣別代號相同
+    pub import_code: Option<String>,
 }
 
 /// 新增時的預設值（CY3、CY4；TipTop 無預設值）
@@ -125,7 +127,21 @@ impl CurrencyAttrs {
                 RATE_DECIMALS_MAX,
             )?,
             rate_method,
+            import_code: None,
         })
+    }
+
+    /// 匯入代號：去空白、最多 4 字（IM6）
+    pub fn with_import_code(mut self, raw: Option<String>) -> Result<Self, DomainError> {
+        let v = raw.map(|s| s.trim().to_owned()).filter(|s| !s.is_empty());
+        if v.as_ref().is_some_and(|c| c.chars().count() > CODE_MAX) {
+            return Err(DomainError::FieldTooLong {
+                field: "匯入代號",
+                max: CODE_MAX,
+            });
+        }
+        self.import_code = v;
+        Ok(self)
     }
 }
 

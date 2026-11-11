@@ -1852,6 +1852,9 @@ pub struct CurrencyDto {
     pub rate_decimals: i16,
     /// 計算方式：1 乘、2 除（azi10）
     pub rate_method: String,
+    /// 匯率自動匯入的來源幣別代號（IM6）
+    #[serde(default)]
+    pub import_code: Option<String>,
     pub active: bool,
     #[serde(default)]
     pub confirmed: bool,
@@ -1884,6 +1887,8 @@ pub struct CurrencyInput {
     pub rate_decimals: Option<i16>,
     /// 計算方式；空白為 1 乘（CY4）
     pub rate_method: Option<String>,
+    /// 匯入代號（IM6）
+    pub import_code: Option<String>,
     /// 修改時帶回的版本號（ADR 0012 §4）
     pub version: Option<i32>,
 }
@@ -1898,6 +1903,7 @@ impl CurrencyDto {
             total_decimals: Some(self.total_decimals),
             rate_decimals: Some(self.rate_decimals),
             rate_method: Some(self.rate_method.clone()),
+            import_code: self.import_code.clone(),
             version: Some(self.version),
         }
     }
@@ -2244,4 +2250,211 @@ mod item_group_dto_tests {
         assert_eq!(back.to_input().version, Some(3));
         assert_eq!(back, dto);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Exchange Rates 匯率（TipTop aooi060 / azj_file、aooi070 / azk_file、aoop010；exchange_rate_*.feature）
+// ---------------------------------------------------------------------------
+
+/// 六種匯率（銀行買入、賣出、中價、海關旬、海關買入、賣出）
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RatesDto {
+    pub bank_buy: rust_decimal::Decimal,
+    pub bank_sell: rust_decimal::Decimal,
+    pub bank_mid: rust_decimal::Decimal,
+    pub customs_period: rust_decimal::Decimal,
+    pub customs_buy: rust_decimal::Decimal,
+    pub customs_sell: rust_decimal::Decimal,
+}
+
+/// 每月匯率（aooi060）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MonthlyRateDto {
+    pub currency_code: String,
+    /// 幣別說明（azi02，顯示用）
+    #[serde(default)]
+    pub currency_name: Option<String>,
+    /// 年月 YYYYMM
+    pub period: String,
+    pub rates: RatesDto,
+    /// 月底重評價（azj07）
+    pub revaluation: rust_decimal::Decimal,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 新增、修改每月匯率；海關旬（月平均）只由月底重評價寫入，輸入時忽略（MR10）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MonthlyRateInput {
+    pub currency_code: String,
+    pub period: String,
+    pub rates: RatesDto,
+    pub revaluation: rust_decimal::Decimal,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+impl MonthlyRateDto {
+    pub fn key(&self) -> String {
+        format!("{} {}", self.currency_code, self.period)
+    }
+
+    pub fn to_input(&self) -> MonthlyRateInput {
+        MonthlyRateInput {
+            currency_code: self.currency_code.clone(),
+            period: self.period.clone(),
+            rates: self.rates,
+            revaluation: self.revaluation,
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 複製每月匯率：新幣別＋新年月（aooi060 reproduce）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MonthlyRateCopyRequest {
+    pub currency_code: String,
+    pub period: String,
+}
+
+/// 月底重評價（aooi060 re_rate，MR7）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RevaluationRequest {
+    pub date: NaiveDate,
+}
+
+/// 月底重評價、統一匯率的結果：處理的幣別與略過（已確認、已停用）的幣別
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RateBatchResult {
+    pub processed: Vec<String>,
+    pub skipped: Vec<String>,
+}
+
+/// 每日匯率（aooi070）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DailyRateDto {
+    pub currency_code: String,
+    #[serde(default)]
+    pub currency_name: Option<String>,
+    pub rate_date: NaiveDate,
+    pub rates: RatesDto,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DailyRateInput {
+    pub currency_code: String,
+    pub rate_date: NaiveDate,
+    #[serde(default)]
+    pub rates: RatesDto,
+    #[serde(default)]
+    pub version: Option<i32>,
+}
+
+impl DailyRateDto {
+    pub fn key(&self) -> String {
+        format!("{} {}", self.currency_code, self.rate_date)
+    }
+
+    pub fn to_input(&self) -> DailyRateInput {
+        DailyRateInput {
+            currency_code: self.currency_code.clone(),
+            rate_date: self.rate_date,
+            rates: self.rates,
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 複製每日匯率：新幣別＋新日期（aooi070 reproduce）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DailyRateCopyRequest {
+    pub currency_code: String,
+    pub rate_date: NaiveDate,
+}
+
+/// 統一匯率（aooi070 cal_rate，DR7）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UnifyRateRequest {
+    pub date: NaiveDate,
+}
+
+/// 每日匯率複製（aoop010）：補到哪一天（CP2）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DailyRateFillRequest {
+    pub until: NaiveDate,
+}
+
+/// 每日匯率複製的結果：複製出的每一筆（CP1）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DailyRateFillLine {
+    pub currency_code: String,
+    pub rate_date: NaiveDate,
+    pub rates: RatesDto,
+}
+
+/// 匯率自動匯入（aooi070 auto_import；exchange_rate_import.feature）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RateImportRequest {
+    /// 台銀牌告種類：cash 現金、spot 即期（預設，IM3）
+    pub kind: Option<String>,
+    /// 今天已有每日匯率時是否覆寫（IM5）
+    pub overwrite: bool,
+    /// 上傳的台銀 CSV 原文（IM1 備援）；空白時由伺服器下載
+    pub csv: Option<String>,
+}
+
+/// 匯入結果：匯入的幣別、略過的幣別（停用或不存在）、警告（已確認不覆寫、沒有報價…）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct RateImportResult {
+    pub imported: Vec<String>,
+    pub skipped: Vec<String>,
+    pub warnings: Vec<String>,
+}
+
+/// 每日匯率排程的一個步驟（IM8）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RateJobStep {
+    pub step: String,
+    pub ok: bool,
+    pub message: String,
 }

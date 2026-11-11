@@ -453,6 +453,8 @@ fn CurrencyPage() -> Element {
                             value: v.rate_method.clone().unwrap_or_else(|| "1".to_owned()),
                             onchange: move |x: String| form.write().rate_method = Some(x),
                         }
+                        // 匯率自動匯入的來源代號（IM6）
+                        TextField { id: "import-code", label: t("currency-field-import-code"), maxlength: max_len::CODE, value: v.import_code.clone().unwrap_or_default(), oninput: move |x: String| form.write().import_code = opt(x) }
                     }
                     p { class: "muted", {t("currency-hint-decimals")} }
                 }

@@ -16,3 +16,10 @@ mail-password-changed-body =
     使用者代號 { $user } 的 TTRS 密碼已經透過重設連結變更，原本已登入的連線都已結束。
 
     如果不是您本人操作，請立即聯絡系統管理員。
+mail-rate-job-failed-subject = TTRS 每日匯率排程失敗（{ $date }）
+mail-rate-job-failed-body =
+    { $date } 的每日匯率排程有步驟失敗：
+
+    { $detail }
+
+    請到「每日匯率維護」確認今天的匯率；台銀網站無法下載時，可在畫面上傳台銀 CSV 匯入。

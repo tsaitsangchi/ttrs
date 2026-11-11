@@ -1164,6 +1164,7 @@ pub mod currency {
         field("total_decimals", FieldType::Integer),
         field("rate_decimals", FieldType::Integer),
         field("rate_method", FieldType::Text),
+        field("import_code", FieldType::Text),
         field("confirmed", FieldType::Flag),
         field("confirmed_by", FieldType::Text),
         field("active", FieldType::Flag),
@@ -1189,6 +1190,7 @@ pub mod currency {
             "total_decimals" => int(i32::from(a.total_decimals)),
             "rate_decimals" => int(i32::from(a.rate_decimals)),
             "rate_method" => text(a.rate_method.code()),
+            "import_code" => opt_text(a.import_code.as_deref()),
             other => confirm_value(other, &c.confirmation)
                 .or_else(|| {
                     status_value(
@@ -1365,6 +1367,126 @@ pub mod classification {
                     )
                 })
                 .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
+/// 匯率的六個匯率欄位與狀態欄位（共用於每月、每日匯率）
+mod rate_fields {
+    use ttrs_domain::exchange_rate::{RateRecord, Rates};
+
+    use super::*;
+
+    pub fn rate(r: &Rates, field: &str) -> Option<FieldValue> {
+        Some(opt_dec(Some(match field {
+            "bank_buy" => r.bank_buy,
+            "bank_sell" => r.bank_sell,
+            "bank_mid" => r.bank_mid,
+            "customs_period" => r.customs_period,
+            "customs_buy" => r.customs_buy,
+            "customs_sell" => r.customs_sell,
+            _ => return None,
+        })))
+    }
+
+    pub fn record(x: &RateRecord, field: &str) -> FieldValue {
+        confirm_value(field, &x.confirmation)
+            .or_else(|| {
+                status_value(
+                    field,
+                    Some(x.active),
+                    &x.created_by,
+                    &x.created_dept,
+                    Some(x.created_on),
+                    x.updated_by.as_deref(),
+                    x.updated_on,
+                    x.stamp.version,
+                )
+            })
+            .unwrap_or(FieldValue::One(None))
+    }
+}
+
+/// 每月匯率（aooi060.4gl:201-264 CONSTRUCT azj01、azj02、azj03、azj04、azj041、azj051、azj052、azj07、azjacti 等）
+pub mod monthly_rate {
+    use ttrs_domain::{exchange_rate::MonthlyRate, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("currency_code", FieldType::Text),
+        field("period", FieldType::Text),
+        field("bank_buy", FieldType::Decimal),
+        field("bank_sell", FieldType::Decimal),
+        field("bank_mid", FieldType::Decimal),
+        field("customs_period", FieldType::Decimal),
+        field("customs_buy", FieldType::Decimal),
+        field("customs_sell", FieldType::Decimal),
+        field("revaluation", FieldType::Decimal),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(r: &MonthlyRate, field: &str) -> FieldValue {
+        match field {
+            "currency_code" => text(r.currency.as_str()),
+            "period" => text(&r.period.to_string()),
+            "revaluation" => opt_dec(Some(r.revaluation)),
+            other => rate_fields::rate(&r.rates, other)
+                .unwrap_or_else(|| rate_fields::record(&r.record, other)),
+        }
+    }
+}
+
+/// 每日匯率（aooi070.4gl:201-274 CONSTRUCT azk01、azk02、azk03、azk04、azk041、azk05、azk051、azk052）
+pub mod daily_rate {
+    use ttrs_domain::{exchange_rate::DailyRate, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("currency_code", FieldType::Text),
+        field("rate_date", FieldType::Date),
+        field("bank_buy", FieldType::Decimal),
+        field("bank_sell", FieldType::Decimal),
+        field("bank_mid", FieldType::Decimal),
+        field("customs_period", FieldType::Decimal),
+        field("customs_buy", FieldType::Decimal),
+        field("customs_sell", FieldType::Decimal),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(r: &DailyRate, field: &str) -> FieldValue {
+        match field {
+            "currency_code" => text(r.currency.as_str()),
+            "rate_date" => date(Some(r.date)),
+            other => rate_fields::rate(&r.rates, other)
+                .unwrap_or_else(|| rate_fields::record(&r.record, other)),
         }
     }
 }

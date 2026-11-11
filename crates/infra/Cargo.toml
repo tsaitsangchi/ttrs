@@ -16,6 +16,9 @@ async-trait.workspace = true
 sqlx.workspace = true
 serde_json.workspace = true
 lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "pool", "hostname", "tokio1-rustls-tls"] }
+# 匯率自動匯入（台銀、關務署，IM1）：HTTPS 用 rustls＋ring（同 lettre），不另外編譯 aws-lc
+reqwest = { workspace = true, features = ["rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 typst-as-lib = "0.17"
 typst = "0.15"
 typst-pdf = "0.15"
@@ -24,3 +27,6 @@ typst-layout = "0.15"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true }

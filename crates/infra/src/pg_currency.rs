@@ -19,6 +19,7 @@ struct CurrencyRow {
     total_decimals: i16,
     rate_decimals: i16,
     rate_method: String,
+    import_code: Option<String>,
     active: bool,
     confirmed: bool,
     confirmed_by: Option<String>,
@@ -37,7 +38,7 @@ macro_rules! select_currency {
     ($rest:literal) => {
         concat!(
             "SELECT currency_code, name, price_decimals, amount_decimals, total_decimals, rate_decimals, rate_method, ",
-            "active, confirmed, confirmed_by, confirmed_at, created_by, created_dept, created_on, ",
+            "import_code, active, confirmed, confirmed_by, confirmed_at, created_by, created_dept, created_on, ",
             "updated_by, updated_on, version, created_at, updated_at FROM currency ",
             $rest
         )
@@ -58,6 +59,7 @@ impl TryFrom<CurrencyRow> for Currency {
                 total_decimals: r.total_decimals,
                 rate_decimals: r.rate_decimals,
                 rate_method: RateMethod::parse(&r.rate_method).map_err(|_| bad(&r.rate_method))?,
+                import_code: r.import_code,
             },
             active: r.active,
             confirmation: ttrs_domain::confirmation::Confirmation {
@@ -106,8 +108,8 @@ impl CurrencyRepository for PgStore {
         sqlx::query(
             "INSERT INTO currency (currency_code, name, price_decimals, amount_decimals, total_decimals,
                  rate_decimals, rate_method, active, created_by, created_dept, created_on,
-                 confirmed, confirmed_by, confirmed_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+                 confirmed, confirmed_by, confirmed_at, import_code)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
         )
         .bind(c.code.as_str())
         .bind(&a.name)
@@ -123,6 +125,7 @@ impl CurrencyRepository for PgStore {
         .bind(c.confirmation.confirmed)
         .bind(&c.confirmation.by)
         .bind(c.confirmation.at)
+        .bind(&a.import_code)
         .execute(&self.pool)
         .await
         .map_err(db_err)?;
@@ -134,7 +137,7 @@ impl CurrencyRepository for PgStore {
         let n = sqlx::query(
             "UPDATE currency SET name = $2, price_decimals = $3, amount_decimals = $4, total_decimals = $5,
                  rate_decimals = $6, rate_method = $7, active = $8, updated_by = $9, updated_on = $10,
-                 confirmed = $12, confirmed_by = $13, confirmed_at = $14
+                 confirmed = $12, confirmed_by = $13, confirmed_at = $14, import_code = $15
              WHERE currency_code = $1 AND version = $11",
         )
         .bind(c.code.as_str())
@@ -151,6 +154,7 @@ impl CurrencyRepository for PgStore {
         .bind(c.confirmation.confirmed)
         .bind(&c.confirmation.by)
         .bind(c.confirmation.at)
+        .bind(&a.import_code)
         .execute(&self.pool)
         .await
         .map_err(db_err)?

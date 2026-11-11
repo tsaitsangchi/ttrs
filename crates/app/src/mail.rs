@@ -17,6 +17,8 @@ pub enum MailTemplate {
     PasswordReset,
     /// 密碼已透過重設連結變更（R8）
     PasswordChanged,
+    /// 每日匯率排程有步驟失敗（exchange_rate_import.feature IM8）
+    RateJobFailed,
 }
 
 impl MailTemplate {
@@ -24,6 +26,7 @@ impl MailTemplate {
         match self {
             Self::PasswordReset => "mail-password-reset",
             Self::PasswordChanged => "mail-password-changed",
+            Self::RateJobFailed => "mail-rate-job-failed",
         }
     }
 }

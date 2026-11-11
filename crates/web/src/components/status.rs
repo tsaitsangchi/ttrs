@@ -177,6 +177,8 @@ has_status!(
     ttrs_shared::UnitDto,
     ttrs_shared::BasicCodeDto,
     ttrs_shared::CurrencyDto,
+    ttrs_shared::MonthlyRateDto,
+    ttrs_shared::DailyRateDto,
     ttrs_shared::TaxTypeDto,
     ttrs_shared::ProjectDto,
     ttrs_shared::ProductClassDto,

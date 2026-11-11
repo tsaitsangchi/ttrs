@@ -278,6 +278,28 @@ pub enum DomainError {
     CurrencyNotFound,
     #[error("幣別已被使用，不可刪除；請改為停用")]
     CurrencyInUse,
+    #[error("幣別已停用")]
+    CurrencyInactive,
+
+    // 匯率（aooi060 / azj_file、aooi070 / azk_file；exchange_rate_*.feature）
+    #[error("該幣別此期間的匯率已存在")]
+    ExchangeRateAlreadyExists,
+    #[error("找不到匯率")]
+    ExchangeRateNotFound,
+    #[error("年月格式錯誤，須為 YYYYMM（月份 01–12）")]
+    ExchangeRatePeriodInvalid,
+    #[error("匯率不可小於 0：{0}")]
+    ExchangeRateNegative(&'static str),
+    #[error("匯率已停用，請先啟用再修改")]
+    ExchangeRateInactive,
+    #[error("補到日不可晚於今天")]
+    ExchangeRateCopyDateInvalid,
+    #[error("今天已有每日匯率，請確認是否覆寫")]
+    ExchangeRateImportOverwriteRequired,
+    #[error("{0}的資料格式不正確（可能是網站驗證頁），請改用上傳檔案匯入")]
+    ExchangeRateSourceInvalid(String),
+    #[error("無法取得{0}：{1}")]
+    ExchangeRateSourceUnavailable(String, String),
 
     // 單位（aooi101 / gfe_file；unit_maintenance.feature）
     #[error("單位不可空白")]
@@ -610,6 +632,16 @@ impl DomainError {
             Self::CurrencyAlreadyExists => "CURRENCY_ALREADY_EXISTS",
             Self::CurrencyNotFound => "CURRENCY_NOT_FOUND",
             Self::CurrencyInUse => "CURRENCY_IN_USE",
+            Self::CurrencyInactive => "CURRENCY_INACTIVE",
+            Self::ExchangeRateAlreadyExists => "EXCHANGE_RATE_ALREADY_EXISTS",
+            Self::ExchangeRateNotFound => "EXCHANGE_RATE_NOT_FOUND",
+            Self::ExchangeRatePeriodInvalid => "EXCHANGE_RATE_PERIOD_INVALID",
+            Self::ExchangeRateNegative(_) => "EXCHANGE_RATE_NEGATIVE",
+            Self::ExchangeRateInactive => "EXCHANGE_RATE_INACTIVE",
+            Self::ExchangeRateCopyDateInvalid => "EXCHANGE_RATE_COPY_DATE_INVALID",
+            Self::ExchangeRateImportOverwriteRequired => "EXCHANGE_RATE_IMPORT_OVERWRITE_REQUIRED",
+            Self::ExchangeRateSourceInvalid(_) => "EXCHANGE_RATE_SOURCE_INVALID",
+            Self::ExchangeRateSourceUnavailable(..) => "EXCHANGE_RATE_SOURCE_UNAVAILABLE",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",
             Self::UnitCodeTooLong { .. } => "UNIT_CODE_TOO_LONG",
             Self::UnitDecimalsInvalid { .. } => "UNIT_DECIMALS_INVALID",

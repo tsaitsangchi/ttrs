@@ -2296,3 +2296,231 @@ pub async fn project_history(
     ))
     .await
 }
+
+// ----- 匯率（aooi060 /api/monthly-rates、aooi070 /api/daily-rates、aoop010 /api/daily-rate-fill） -----
+
+use ttrs_shared::{
+    DailyRateDto, DailyRateFillLine, DailyRateInput, MonthlyRateDto, MonthlyRateInput,
+    RateBatchResult, RatesDto,
+};
+
+fn rate_url(part: &str, currency: &str, key: &str, suffix: &str) -> String {
+    if currency.is_empty() {
+        url(&format!("/api/{part}{suffix}"))
+    } else {
+        url(&format!(
+            "/api/{part}/{}/{}{suffix}",
+            urlencoding(currency),
+            urlencoding(key)
+        ))
+    }
+}
+
+pub async fn query_monthly_rates(req: &QueryRequest) -> Result<Page<MonthlyRateDto>, String> {
+    post_query(rate_url("monthly-rates", "", "", "/query"), req).await
+}
+
+pub async fn create_monthly_rate(req: &MonthlyRateInput) -> Result<MonthlyRateDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        rate_url("monthly-rates", "", "", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_monthly_rate(
+    currency: &str,
+    period: &str,
+    req: &MonthlyRateInput,
+) -> Result<MonthlyRateDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        rate_url("monthly-rates", currency, period, ""),
+        Some(req),
+    )
+    .await
+}
+
+/// 停用／啟用（activate、deactivate）、確認／取消確認（confirm、unconfirm）
+pub async fn set_monthly_rate_state(
+    currency: &str,
+    period: &str,
+    state: &str,
+    version: i32,
+) -> Result<MonthlyRateDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            rate_url("monthly-rates", currency, period, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn copy_monthly_rate(
+    currency: &str,
+    period: &str,
+    new_currency: &str,
+    new_period: &str,
+) -> Result<MonthlyRateDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        rate_url("monthly-rates", currency, period, "/copy"),
+        Some(&serde_json::json!({ "currency_code": new_currency, "period": new_period })),
+    )
+    .await
+}
+
+pub async fn delete_monthly_rate(currency: &str, period: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            rate_url("monthly-rates", currency, period, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 月底重評價（MR7）
+pub async fn revaluate_rates(date: &str) -> Result<RateBatchResult, String> {
+    send_json(
+        reqwest::Method::POST,
+        rate_url("monthly-rates", "", "", "/revaluate"),
+        Some(&serde_json::json!({ "date": date })),
+    )
+    .await
+}
+
+pub async fn query_daily_rates(req: &QueryRequest) -> Result<Page<DailyRateDto>, String> {
+    post_query(rate_url("daily-rates", "", "", "/query"), req).await
+}
+
+pub async fn create_daily_rate(req: &DailyRateInput) -> Result<DailyRateDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        rate_url("daily-rates", "", "", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_daily_rate(
+    currency: &str,
+    date: &str,
+    req: &DailyRateInput,
+) -> Result<DailyRateDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        rate_url("daily-rates", currency, date, ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn set_daily_rate_state(
+    currency: &str,
+    date: &str,
+    state: &str,
+    version: i32,
+) -> Result<DailyRateDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            rate_url("daily-rates", currency, date, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn copy_daily_rate(
+    currency: &str,
+    date: &str,
+    new_currency: &str,
+    new_date: &str,
+) -> Result<DailyRateDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        rate_url("daily-rates", currency, date, "/copy"),
+        Some(&serde_json::json!({ "currency_code": new_currency, "rate_date": new_date })),
+    )
+    .await
+}
+
+pub async fn delete_daily_rate(currency: &str, date: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            rate_url("daily-rates", currency, date, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 新增時的預設匯率（DR4）
+pub async fn daily_rate_defaults(currency: &str) -> Result<RatesDto, String> {
+    get_json(url(&format!(
+        "/api/daily-rates/defaults/{}",
+        urlencoding(currency)
+    )))
+    .await
+}
+
+/// 統一匯率（DR7）
+pub async fn unify_rates(date: &str) -> Result<RateBatchResult, String> {
+    send_json(
+        reqwest::Method::POST,
+        rate_url("daily-rates", "", "", "/unify"),
+        Some(&serde_json::json!({ "date": date })),
+    )
+    .await
+}
+
+/// 每日匯率複製（aoop010，CP1）
+pub async fn fill_daily_rates(until: &str) -> Result<Vec<DailyRateFillLine>, String> {
+    send_json(
+        reqwest::Method::POST,
+        url("/api/daily-rate-fill"),
+        Some(&serde_json::json!({ "until": until })),
+    )
+    .await
+}
+
+/// 每日匯率複製結果的列印、匯出 Excel：結果由畫面帶回
+pub async fn fill_report(
+    lines: &[DailyRateFillLine],
+    format: ReportFormat,
+    lang: &str,
+    tab: ReportTab,
+) -> Result<(), String> {
+    let u = url(&format!("/api/daily-rate-fill/report.{}", format.ext()));
+    let file = format!("daily-rate-fill.{}", format.ext());
+    let res = reqwest::Client::new()
+        .post(u)
+        .query(&[("lang", lang)])
+        .json(lines)
+        .send()
+        .await
+        .map_err(|e| e.to_string());
+    let res = match res {
+        Ok(r) if r.status().is_success() => r,
+        Ok(r) => {
+            close_tab(&tab);
+            return Err(error_message(r).await);
+        }
+        Err(e) => {
+            close_tab(&tab);
+            return Err(e);
+        }
+    };
+    let bytes = res.bytes().await.map_err(|e| e.to_string())?;
+    show_report(&bytes, format, &file, tab)
+}

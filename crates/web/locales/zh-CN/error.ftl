@@ -219,6 +219,13 @@ error-CURRENCY_RATE_METHOD_INVALID = 计算方式只能为 1（乘）或 2（除
 error-CURRENCY_ALREADY_EXISTS = 币别已存在。
 error-CURRENCY_NOT_FOUND = 币别不存在。
 error-CURRENCY_IN_USE = 币别已被使用，不可删除；请改为停用。
+error-CURRENCY_INACTIVE = 币别已停用。
+error-EXCHANGE_RATE_ALREADY_EXISTS = 该币别此期间的汇率已存在。
+error-EXCHANGE_RATE_NOT_FOUND = 找不到汇率。
+error-EXCHANGE_RATE_PERIOD_INVALID = 年月须为 YYYYMM（月份 01–12）。
+error-EXCHANGE_RATE_NEGATIVE = 汇率不可小于 0。
+error-EXCHANGE_RATE_INACTIVE = 汇率已停用，请先启用再修改。
+error-EXCHANGE_RATE_COPY_DATE_INVALID = 补到日不可晚于今天。
 
 # 稅別（aooi150）
 error-TAX_CODE_EMPTY = 税别码不可空白。

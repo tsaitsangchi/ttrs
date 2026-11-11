@@ -436,6 +436,35 @@
       | tax-type-maintenance | output | 列印稅別 |
       | tax-type-maintenance | exporttoexcel | 匯出稅別為 Excel |
       | tax-type-maintenance | history | 查詢作業 tax-type-maintenance T5 的異動記錄 |
+      | monthly-exchange-rate-maintenance | query | 查詢每月匯率 |
+      | monthly-exchange-rate-maintenance | insert | 新增每月匯率 USD 202611 |
+      | monthly-exchange-rate-maintenance | modify | 修改每月匯率 USD 202611 |
+      | monthly-exchange-rate-maintenance | invalid | 停用每月匯率 USD 202611 |
+      | monthly-exchange-rate-maintenance | delete | 刪除每月匯率 USD 202611 |
+      | monthly-exchange-rate-maintenance | reproduce | 複製每月匯率 USD 202611 |
+      | monthly-exchange-rate-maintenance | confirm | 確認每月匯率 USD 202611 |
+      | monthly-exchange-rate-maintenance | notconfirm | 取消確認每月匯率 USD 202611 |
+      | monthly-exchange-rate-maintenance | output | 列印每月匯率 |
+      | monthly-exchange-rate-maintenance | exporttoexcel | 匯出每月匯率為 Excel |
+      | monthly-exchange-rate-maintenance | history | 查詢作業 monthly-exchange-rate-maintenance USD 的異動記錄 |
+      | monthly-exchange-rate-maintenance | re_rate | 執行月底重評價 2026-11-30 |
+      | daily-exchange-rate-maintenance | query | 查詢每日匯率 |
+      | daily-exchange-rate-maintenance | insert | 新增每日匯率 USD 2026-11-02 |
+      | daily-exchange-rate-maintenance | modify | 修改每日匯率 USD 2026-11-02 |
+      | daily-exchange-rate-maintenance | invalid | 停用每日匯率 USD 2026-11-02 |
+      | daily-exchange-rate-maintenance | delete | 刪除每日匯率 USD 2026-11-02 |
+      | daily-exchange-rate-maintenance | reproduce | 複製每日匯率 USD 2026-11-02 |
+      | daily-exchange-rate-maintenance | confirm | 確認每日匯率 USD 2026-11-02 |
+      | daily-exchange-rate-maintenance | notconfirm | 取消確認每日匯率 USD 2026-11-02 |
+      | daily-exchange-rate-maintenance | output | 列印每日匯率 |
+      | daily-exchange-rate-maintenance | exporttoexcel | 匯出每日匯率為 Excel |
+      | daily-exchange-rate-maintenance | history | 查詢作業 daily-exchange-rate-maintenance USD 的異動記錄 |
+      | daily-exchange-rate-maintenance | unify_rate | 執行統一匯率 2026-11-02 |
+      | daily-exchange-rate-maintenance | auto_import | 匯入台銀匯率 |
+      | daily-exchange-rate-maintenance | auto_import | 匯入海關匯率 |
+      | daily-exchange-rate-copy | run | 執行每日匯率複製 2026-11-09 |
+      | daily-exchange-rate-copy | output | 列印每日匯率複製結果 |
+      | daily-exchange-rate-copy | exporttoexcel | 匯出每日匯率複製結果為 Excel |
       | currency-maintenance | query | 查詢幣別 |
       | currency-maintenance | detail | 新增幣別 USD |
       | currency-maintenance | detail | 修改幣別 USD |

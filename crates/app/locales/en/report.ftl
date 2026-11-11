@@ -179,3 +179,20 @@ project-col-name = Project Name
 project-col-start = Start Date
 project-col-end = End Date
 project-col-active = Active
+
+# 匯率（exchange_rate_service.rs）
+monthly-rate-report-title = Monthly Exchange Rates
+daily-rate-report-title = Daily Exchange Rates
+rate-fill-report-title = Daily Exchange Rate Copy
+rate-col-currency = Currency
+rate-col-currency-name = Description
+rate-col-period = Year/month
+rate-col-date = Date
+rate-col-bank-buy = Bank buying
+rate-col-bank-sell = Bank selling
+rate-col-bank-mid = Bank middle
+rate-col-customs-period = Customs (10-day)
+rate-col-customs-buy = Customs buying
+rate-col-customs-sell = Customs selling
+rate-col-revaluation = Month-end revaluation
+rate-col-active = Active

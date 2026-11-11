@@ -651,6 +651,98 @@ pub trait CurrencyRepository: Send + Sync {
     ) -> Result<bool, RepoError>;
 }
 
+/// 匯率（azj_file 每月、azk_file 每日；aooi060、aooi070、aoop010）；共用 schema（ER1）
+#[async_trait]
+pub trait ExchangeRateRepository: Send + Sync {
+    /// 全部每月匯率，依幣別、年月排序
+    async fn list_monthly_rates(
+        &self,
+    ) -> Result<Vec<ttrs_domain::exchange_rate::MonthlyRate>, RepoError>;
+    async fn get_monthly_rate(
+        &self,
+        currency: &ttrs_domain::currency::CurrencyCode,
+        period: ttrs_domain::exchange_rate::RatePeriod,
+    ) -> Result<Option<ttrs_domain::exchange_rate::MonthlyRate>, RepoError>;
+    /// 鍵值重複回 `Conflict`
+    async fn insert_monthly_rate(
+        &self,
+        r: &ttrs_domain::exchange_rate::MonthlyRate,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`
+    async fn update_monthly_rate(
+        &self,
+        r: &ttrs_domain::exchange_rate::MonthlyRate,
+    ) -> Result<(), RepoError>;
+    /// 回傳是否有刪到
+    async fn delete_monthly_rate(
+        &self,
+        currency: &ttrs_domain::currency::CurrencyCode,
+        period: ttrs_domain::exchange_rate::RatePeriod,
+    ) -> Result<bool, RepoError>;
+
+    /// 每日匯率，依幣別、日期排序；`currency` 有值時只取該幣別、`from..=to` 有值時只取該期間
+    async fn list_daily_rates(
+        &self,
+        currency: Option<&ttrs_domain::currency::CurrencyCode>,
+        from: Option<chrono::NaiveDate>,
+        to: Option<chrono::NaiveDate>,
+    ) -> Result<Vec<ttrs_domain::exchange_rate::DailyRate>, RepoError>;
+    async fn get_daily_rate(
+        &self,
+        currency: &ttrs_domain::currency::CurrencyCode,
+        date: chrono::NaiveDate,
+    ) -> Result<Option<ttrs_domain::exchange_rate::DailyRate>, RepoError>;
+    /// 鍵值重複回 `Conflict`
+    async fn insert_daily_rate(
+        &self,
+        r: &ttrs_domain::exchange_rate::DailyRate,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`
+    async fn update_daily_rate(
+        &self,
+        r: &ttrs_domain::exchange_rate::DailyRate,
+    ) -> Result<(), RepoError>;
+    async fn delete_daily_rate(
+        &self,
+        currency: &ttrs_domain::currency::CurrencyCode,
+        date: chrono::NaiveDate,
+    ) -> Result<bool, RepoError>;
+}
+
+/// 匯率自動匯入的來源（台銀牌告、關務署每旬報關匯率；exchange_rate_import.feature IM1）。
+/// infra 以 HTTPS 下載，記憶體後端由 BDD 步驟設定。失敗回 EXCHANGE_RATE_SOURCE_UNAVAILABLE／_INVALID
+#[async_trait]
+pub trait RateFeed: Send + Sync {
+    /// 台銀牌告匯率（現金或即期）
+    async fn bank_quotes(
+        &self,
+        kind: ttrs_domain::exchange_rate::feed::BankRateType,
+    ) -> Result<Vec<ttrs_domain::exchange_rate::feed::Quote>, ttrs_domain::DomainError>;
+    /// 關務署當旬報關匯率：起日、迄日、報價
+    async fn customs_current(
+        &self,
+    ) -> Result<
+        (
+            chrono::NaiveDate,
+            chrono::NaiveDate,
+            Vec<ttrs_domain::exchange_rate::feed::Quote>,
+        ),
+        ttrs_domain::DomainError,
+    >;
+    /// 關務署歷史報關匯率
+    async fn customs_history(
+        &self,
+    ) -> Result<Vec<ttrs_domain::exchange_rate::feed::HistoryQuote>, ttrs_domain::DomainError>;
+}
+
+/// 系統參數（aza_file 整體管理系統參數；ER2：本批只有本國幣別 aza17，維護畫面隨批次 3 aoos010）
+#[async_trait]
+pub trait SystemParameterRepository: Send + Sync {
+    /// 本國幣別（aza17）；未設定回 None
+    async fn base_currency(&self) -> Result<Option<String>, RepoError>;
+    async fn set_base_currency(&self, code: &str) -> Result<(), RepoError>;
+}
+
 /// 單位（gfe_file，aooi101）；共用 schema（UN2）
 #[async_trait]
 pub trait UnitRepository: Send + Sync {

@@ -25,3 +25,4 @@ currency-msg-copied = Copied currency { $from } to { $to }
 currency-field-copy-as = Copy as
 currency-hint-decimals = Price, amount and total decimals 0–6; rate decimals 0–10. The currency code cannot be changed after creation.
 currency-hint-rate-method = 1 multiply, 2 divide
+currency-field-import-code = Import code

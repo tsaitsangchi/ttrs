@@ -6,6 +6,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use crate::ports::RateFeed;
 use async_trait::async_trait;
 use ttrs_domain::{
     authorization::DataScope,
@@ -14,6 +15,10 @@ use ttrs_domain::{
     department::{Department, DeptCode},
     dictionary::{ColumnText, TableDictionary, TableText},
     employee::{Employee, EmployeeId},
+    exchange_rate::{
+        DailyRate, MonthlyRate, RatePeriod, RateRecord, Rates,
+        feed::{BankRateType, HistoryQuote, Quote},
+    },
     item::{Item, ItemNo, ItemText},
     item_group::{ItemGroup, ItemGroupCode},
     lang::Lang,
@@ -39,12 +44,13 @@ use crate::{
     ports::{
         AccountPolicy, AccountPolicyRepository, AuditEntry, BasicCodeRepository,
         ChangeLogRepository, Credential, CredentialRepository, CurrencyRepository,
-        DepartmentRepository, DictionaryRepository, EmployeeRepository, ItemGroupRepository,
-        ItemRepository, LegacyCatalogRepository, LegacyTableSummary, MasterDataRepository,
-        MenuRepository, MigrationSource, PermissionClassRepository, PermissionListItem,
-        PlantRepository, ProductClassRepository, ProgramName, ProgramPermissionRepository,
-        ProgramRepository, ProjectRepository, SchemaCatalog, TableSchema, TaxTypeRepository,
-        UnitRepository, UserPermissionItem, UserPermissionRepository, UserRepository,
+        DepartmentRepository, DictionaryRepository, EmployeeRepository, ExchangeRateRepository,
+        ItemGroupRepository, ItemRepository, LegacyCatalogRepository, LegacyTableSummary,
+        MasterDataRepository, MenuRepository, MigrationSource, PermissionClassRepository,
+        PermissionListItem, PlantRepository, ProductClassRepository, ProgramName,
+        ProgramPermissionRepository, ProgramRepository, ProjectRepository, SchemaCatalog,
+        SystemParameterRepository, TableSchema, TaxTypeRepository, UnitRepository,
+        UserPermissionItem, UserPermissionRepository, UserRepository,
     },
     query,
 };
@@ -91,6 +97,16 @@ struct State {
     basic_codes: BTreeMap<(BasicCodeKind, String), BasicCode>,
     /// 幣別（azi_file，共用）
     currencies: BTreeMap<String, Currency>,
+    /// (幣別, 年月) → 每月匯率（azj_file，共用）
+    monthly_rates: BTreeMap<(String, RatePeriod), MonthlyRate>,
+    /// (幣別, 日期) → 每日匯率（azk_file，共用）
+    daily_rates: BTreeMap<(String, NaiveDate), DailyRate>,
+    /// 本國幣別（aza17）；未設定時同 migration 起始資料 TWD（ER2）
+    base_currency: Option<String>,
+    /// 匯率自動匯入的來源（BDD 設定）；None 表示無法取得（IM8）
+    bank_quotes: Option<Vec<Quote>>,
+    customs_current: Option<(NaiveDate, NaiveDate, Vec<Quote>)>,
+    customs_history: Option<Vec<HistoryQuote>>,
     /// 稅別（gec_file，共用）
     tax_types: BTreeMap<TaxKey, TaxType>,
     /// (營運中心, 專案編號) → 專案（gja_file，工廠層）
@@ -179,6 +195,9 @@ impl InMemoryStore {
                     "unit-maintenance",
                     "product-classification-maintenance",
                     "currency-maintenance",
+                    "monthly-exchange-rate-maintenance",
+                    "daily-exchange-rate-maintenance",
+                    "daily-exchange-rate-copy",
                     "tax-type-maintenance",
                     "project-maintenance",
                     "region-maintenance",
@@ -231,7 +250,19 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 23] = [
+        let names: [(&str, [&str; 3]); 26] = [
+            (
+                "monthly-exchange-rate-maintenance",
+                ["每月匯率維護", "Monthly Exchange Rates", "每月汇率维护"],
+            ),
+            (
+                "daily-exchange-rate-maintenance",
+                ["每日匯率維護", "Daily Exchange Rates", "每日汇率维护"],
+            ),
+            (
+                "daily-exchange-rate-copy",
+                ["每日匯率複製", "Daily Exchange Rate Copy", "每日汇率复制"],
+            ),
             ("project-maintenance", ["專案維護", "Projects", "专案维护"]),
             (
                 "tax-type-maintenance",
@@ -3110,7 +3141,12 @@ impl CurrencyRepository for InMemoryStore {
 
     async fn delete_currency(&self, code: &CurrencyCode) -> Result<bool, RepoError> {
         let mut s = self.lock();
-        // 引用幣別的作業（匯率，批次 2）移植後再加入檢查（CY6）
+        // 已被匯率引用時不可刪除（CY6；同 PostgreSQL 外鍵）
+        let used = s.monthly_rates.keys().any(|(c, _)| c == code.as_str())
+            || s.daily_rates.keys().any(|(c, _)| c == code.as_str());
+        if used {
+            return Err(RepoError::InUse);
+        }
         let Some(old) = s.currencies.remove(code.as_str()) else {
             return Ok(false);
         };
@@ -3140,6 +3176,7 @@ fn currency_row(c: &Currency) -> Row {
         ("total_decimals", text::int(i64::from(a.total_decimals))),
         ("rate_decimals", text::int(i64::from(a.rate_decimals))),
         ("rate_method", text::s(a.rate_method.code())),
+        ("import_code", text::opt(a.import_code.as_deref())),
         ("confirmed", text::b(c.confirmation.confirmed)),
         ("confirmed_by", text::opt(c.confirmation.by.as_deref())),
     ];
@@ -3152,6 +3189,319 @@ fn currency_row(c: &Currency) -> Row {
         c.updated_on,
         &c.stamp,
     ));
+    row(cols)
+}
+
+// ----- 匯率（azj_file、azk_file；exchange_rate_service.rs） -----
+
+#[async_trait]
+impl ExchangeRateRepository for InMemoryStore {
+    async fn list_monthly_rates(&self) -> Result<Vec<MonthlyRate>, RepoError> {
+        Ok(self.lock().monthly_rates.values().cloned().collect())
+    }
+
+    async fn get_monthly_rate(
+        &self,
+        currency: &CurrencyCode,
+        period: RatePeriod,
+    ) -> Result<Option<MonthlyRate>, RepoError> {
+        Ok(self
+            .lock()
+            .monthly_rates
+            .get(&(currency.as_str().to_owned(), period))
+            .cloned())
+    }
+
+    async fn insert_monthly_rate(&self, r: &MonthlyRate) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (r.currency.as_str().to_owned(), r.period);
+        if s.monthly_rates.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut r = r.clone();
+        r.record.stamp = new_stamp();
+        s.log_change(
+            None,
+            "monthly_exchange_rate",
+            monthly_key(&r),
+            None,
+            Some(monthly_row(&r)),
+            &[],
+        );
+        s.monthly_rates.insert(key, r);
+        Ok(())
+    }
+
+    async fn update_monthly_rate(&self, r: &MonthlyRate) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (r.currency.as_str().to_owned(), r.period);
+        let Some(old) = s.monthly_rates.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut r = r.clone();
+        r.record.stamp = bumped(&old.record.stamp, &r.record.stamp)?;
+        s.log_change(
+            None,
+            "monthly_exchange_rate",
+            monthly_key(&r),
+            Some(monthly_row(&old)),
+            Some(monthly_row(&r)),
+            &[],
+        );
+        s.monthly_rates.insert(key, r);
+        Ok(())
+    }
+
+    async fn delete_monthly_rate(
+        &self,
+        currency: &CurrencyCode,
+        period: RatePeriod,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s
+            .monthly_rates
+            .remove(&(currency.as_str().to_owned(), period))
+        else {
+            return Ok(false);
+        };
+        s.log_change(
+            None,
+            "monthly_exchange_rate",
+            monthly_key(&old),
+            Some(monthly_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+
+    async fn list_daily_rates(
+        &self,
+        currency: Option<&CurrencyCode>,
+        from: Option<NaiveDate>,
+        to: Option<NaiveDate>,
+    ) -> Result<Vec<DailyRate>, RepoError> {
+        Ok(self
+            .lock()
+            .daily_rates
+            .values()
+            .filter(|r| currency.is_none_or(|c| c == &r.currency))
+            .filter(|r| from.is_none_or(|d| r.date >= d))
+            .filter(|r| to.is_none_or(|d| r.date <= d))
+            .cloned()
+            .collect())
+    }
+
+    async fn get_daily_rate(
+        &self,
+        currency: &CurrencyCode,
+        date: NaiveDate,
+    ) -> Result<Option<DailyRate>, RepoError> {
+        Ok(self
+            .lock()
+            .daily_rates
+            .get(&(currency.as_str().to_owned(), date))
+            .cloned())
+    }
+
+    async fn insert_daily_rate(&self, r: &DailyRate) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (r.currency.as_str().to_owned(), r.date);
+        if s.daily_rates.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut r = r.clone();
+        r.record.stamp = new_stamp();
+        s.log_change(
+            None,
+            "daily_exchange_rate",
+            daily_key(&r),
+            None,
+            Some(daily_row(&r)),
+            &[],
+        );
+        s.daily_rates.insert(key, r);
+        Ok(())
+    }
+
+    async fn update_daily_rate(&self, r: &DailyRate) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (r.currency.as_str().to_owned(), r.date);
+        let Some(old) = s.daily_rates.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut r = r.clone();
+        r.record.stamp = bumped(&old.record.stamp, &r.record.stamp)?;
+        s.log_change(
+            None,
+            "daily_exchange_rate",
+            daily_key(&r),
+            Some(daily_row(&old)),
+            Some(daily_row(&r)),
+            &[],
+        );
+        s.daily_rates.insert(key, r);
+        Ok(())
+    }
+
+    async fn delete_daily_rate(
+        &self,
+        currency: &CurrencyCode,
+        date: NaiveDate,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.daily_rates.remove(&(currency.as_str().to_owned(), date)) else {
+            return Ok(false);
+        };
+        s.log_change(
+            None,
+            "daily_exchange_rate",
+            daily_key(&old),
+            Some(daily_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+#[async_trait]
+impl SystemParameterRepository for InMemoryStore {
+    async fn base_currency(&self) -> Result<Option<String>, RepoError> {
+        Ok(Some(
+            self.lock()
+                .base_currency
+                .clone()
+                .unwrap_or_else(|| "TWD".to_owned()),
+        ))
+    }
+
+    async fn set_base_currency(&self, code: &str) -> Result<(), RepoError> {
+        self.lock().base_currency = Some(code.to_owned());
+        Ok(())
+    }
+}
+
+impl InMemoryStore {
+    /// BDD：台銀牌告報價；None 表示無法取得
+    pub fn set_bank_quotes(&self, quotes: Option<Vec<Quote>>) {
+        self.lock().bank_quotes = quotes;
+    }
+
+    /// BDD：關務署當旬檔；None 表示無法取得
+    pub fn set_customs_current(&self, current: Option<(NaiveDate, NaiveDate, Vec<Quote>)>) {
+        self.lock().customs_current = current;
+    }
+
+    /// BDD：關務署歷史檔（加到既有資料後面）
+    pub fn add_customs_history(&self, lines: Vec<HistoryQuote>) {
+        self.lock()
+            .customs_history
+            .get_or_insert_with(Vec::new)
+            .extend(lines);
+    }
+}
+
+fn feed_unavailable(what: &str) -> ttrs_domain::DomainError {
+    ttrs_domain::DomainError::ExchangeRateSourceUnavailable(
+        what.to_owned(),
+        "記憶體資料未設定".to_owned(),
+    )
+}
+
+#[async_trait]
+impl RateFeed for InMemoryStore {
+    async fn bank_quotes(
+        &self,
+        _kind: BankRateType,
+    ) -> Result<Vec<Quote>, ttrs_domain::DomainError> {
+        self.lock()
+            .bank_quotes
+            .clone()
+            .ok_or_else(|| feed_unavailable("台銀牌告匯率"))
+    }
+
+    async fn customs_current(
+        &self,
+    ) -> Result<(NaiveDate, NaiveDate, Vec<Quote>), ttrs_domain::DomainError> {
+        self.lock()
+            .customs_current
+            .clone()
+            .ok_or_else(|| feed_unavailable("關務署當旬報關匯率"))
+    }
+
+    async fn customs_history(&self) -> Result<Vec<HistoryQuote>, ttrs_domain::DomainError> {
+        self.lock()
+            .customs_history
+            .clone()
+            .ok_or_else(|| feed_unavailable("關務署歷史報關匯率"))
+    }
+}
+
+fn monthly_key(r: &MonthlyRate) -> Vec<(&'static str, String)> {
+    vec![
+        ("currency_code", r.currency.as_str().to_owned()),
+        ("period", r.period.to_string()),
+    ]
+}
+
+fn daily_key(r: &DailyRate) -> Vec<(&'static str, String)> {
+    vec![
+        ("currency_code", r.currency.as_str().to_owned()),
+        ("rate_date", r.date.to_string()),
+    ]
+}
+
+fn rate_cols(r: &Rates) -> Vec<(&'static str, Option<String>)> {
+    let d = |v: rust_decimal::Decimal| text::s(&v.normalize().to_string());
+    vec![
+        ("bank_buy", d(r.bank_buy)),
+        ("bank_sell", d(r.bank_sell)),
+        ("bank_mid", d(r.bank_mid)),
+        ("customs_period", d(r.customs_period)),
+        ("customs_buy", d(r.customs_buy)),
+        ("customs_sell", d(r.customs_sell)),
+    ]
+}
+
+fn record_cols(x: &RateRecord) -> Vec<(&'static str, Option<String>)> {
+    let mut cols = vec![
+        ("confirmed", text::b(x.confirmation.confirmed)),
+        ("confirmed_by", text::opt(x.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        x.active,
+        &x.created_by,
+        &x.created_dept,
+        x.created_on,
+        x.updated_by.as_deref(),
+        x.updated_on,
+        &x.stamp,
+    ));
+    cols
+}
+
+fn monthly_row(r: &MonthlyRate) -> Row {
+    let mut cols = vec![
+        ("currency_code", text::s(r.currency.as_str())),
+        ("period", text::s(&r.period.to_string())),
+    ];
+    cols.extend(rate_cols(&r.rates));
+    cols.push((
+        "revaluation",
+        text::s(&r.revaluation.normalize().to_string()),
+    ));
+    cols.extend(record_cols(&r.record));
+    row(cols)
+}
+
+fn daily_row(r: &DailyRate) -> Row {
+    let mut cols = vec![
+        ("currency_code", text::s(r.currency.as_str())),
+        ("rate_date", text::date(r.date)),
+    ];
+    cols.extend(rate_cols(&r.rates));
+    cols.extend(record_cols(&r.record));
     row(cols)
 }
 

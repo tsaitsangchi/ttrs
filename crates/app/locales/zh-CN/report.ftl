@@ -179,3 +179,20 @@ project-col-name = 专案名称
 project-col-start = 起始日期
 project-col-end = 结束日期
 project-col-active = 资料有效
+
+# 匯率（exchange_rate_service.rs）
+monthly-rate-report-title = 每月汇率
+daily-rate-report-title = 每日汇率
+rate-fill-report-title = 每日汇率复制结果
+rate-col-currency = 币别
+rate-col-currency-name = 说明
+rate-col-period = 年月
+rate-col-date = 日期
+rate-col-bank-buy = 银行买入
+rate-col-bank-sell = 银行卖出
+rate-col-bank-mid = 银行中价
+rate-col-customs-period = 海关旬
+rate-col-customs-buy = 海关买入
+rate-col-customs-sell = 海关卖出
+rate-col-revaluation = 月底重评价
+rate-col-active = 资料有效

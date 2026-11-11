@@ -259,6 +259,66 @@ tables:
       - { legacy: azi08, type: varchar2(24), sch: 採購匯兌損益會計科目, reason: "aooi050 不維護（畫面沒有）；會計科目移植（agl）時再決定（CY8）" }
       - { legacy: azi09, type: varchar2(24), sch: 銷貨匯兌損益會計科目, reason: "同 azi08（CY8）" }
 
+  - legacy: azj_file
+    target: monthly_exchange_rate
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份、以拋轉同步；TTRS 全公司共用、不移植拋轉（ER1）"
+    program: aooi060 ★（Monthly Exchange Rates 每月匯率維護）
+    spec: specs/features/aoo/exchange_rate_monthly.feature
+    columns:
+      - { legacy: azj01,   type: varchar2(4) PK NOT NULL, target: currency_code, sch: 幣別代碼, note: "外鍵 currency；須存在且有效（MR5）" }
+      - { legacy: azj02,   type: varchar2(6) PK NOT NULL, target: period, sch: 年月, note: "YYYYMM、月份 01–12（MR2）" }
+      - { legacy: azj03,   type: number(20,10), target: bank_buy, sch: 銀行買入匯率, note: "numeric(20,10)、不可小於 0；本國幣別一律 1（MR3、MR4）" }
+      - { legacy: azj04,   type: number(20,10), target: bank_sell, sch: 銀行賣出匯率 }
+      - { legacy: azj041,  type: number(20,10), target: bank_mid, sch: 銀行中價匯率 }
+      - { legacy: azj05,   type: number(20,10), target: customs_period, sch: 月底採購匯率, note: "畫面沒有；客製月底重評價寫入海關旬月平均，TTRS 移植為唯讀「海關旬（月平均）」（MR10）", verify: true }
+      - { legacy: azj051,  type: number(20,10), target: customs_buy, sch: 海關買入匯率 }
+      - { legacy: azj052,  type: number(20,10), target: customs_sell, sch: 海關賣出匯率 }
+      - { legacy: azj07,   type: number(20,10), target: revaluation, sch: 月底重評價匯率, note: "月底重評價取當天銀行中價（MR7）" }
+      - { legacy: azjacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean；停用的不可修改（MR6）" }
+      - { legacy: azjuser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: azjgrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
+      - { legacy: azjmodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
+      - { legacy: azjdate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+    not_ported:
+      - { legacy: azj06, type: number(20,10), sch: 月底銷售匯率, reason: "畫面沒有、程式只寫 0；其他模組使用處待查（MR10）", verify: true }
+      - { legacy: azj08, type: number(9,4), sch: No Use, reason: ".sch 註明不使用（MR10）" }
+      - { legacy: azj09, type: number(9,4), sch: No Use, reason: ".sch 註明不使用（MR10）" }
+      - { legacy: azj10, type: number(9,4), sch: No Use, reason: ".sch 註明不使用（MR10）" }
+
+  - legacy: azk_file
+    target: daily_exchange_rate
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份、以拋轉同步；TTRS 全公司共用、不移植拋轉（ER1）"
+    program: aooi070 ★（Daily Exchange Rates 每日匯率維護）、aoop010 ★（每日匯率複製）
+    spec: specs/features/aoo/exchange_rate_daily.feature
+    note: "azk02 = 9999/12/31 的「最近匯率」列不轉入，改為查詢最近一筆（ER4、DR8）"
+    columns:
+      - { legacy: azk01,  type: varchar2(4) PK NOT NULL, target: currency_code, sch: 幣別代碼, note: "外鍵 currency；須存在且有效" }
+      - { legacy: azk02,  type: date PK NOT NULL, target: rate_date, sch: 日期, note: "9999/12/31 最近匯率列不轉入（ER4）" }
+      - { legacy: azk03,  type: number(20,10), target: bank_buy, sch: 銀行買入匯率, note: "numeric(20,10)、不可小於 0；本國幣別一律 1（DR2）" }
+      - { legacy: azk04,  type: number(20,10), target: bank_sell, sch: 銀行賣出匯率 }
+      - { legacy: azk041, type: number(20,10), target: bank_mid, sch: 銀行中價匯率 }
+      - { legacy: azk05,  type: number(20,10), target: customs_period, sch: 海關旬匯率 }
+      - { legacy: azk051, type: number(20,10), target: customs_buy, sch: 海關買入匯率 }
+      - { legacy: azk052, type: number(20,10), target: customs_sell, sch: 海關賣出匯率 }
+      - { legacy: "(無)", target: active, note: "TTRS 新增資料有效碼（DR3）；轉入一律有效" }
+      - { legacy: "(無)", target: "created_by / created_dept / created_on / updated_by / updated_on", note: "TTRS 新增（azk_file 沒有）；轉入時填轉入帳號" }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+
+  - legacy: aza_file
+    target: system_parameter
+    scope: system
+    program: aoos010（整體管理系統參數；批次 3）
+    spec: specs/features/aoo/exchange_rate_daily.feature
+    pending: "批次 3 移植 aoos010 時逐欄萃取；批次 2 只先建表放 aza17 本國幣別（ER2）"
+    columns:
+      - { legacy: aza01, type: varchar2(1) PK NOT NULL, target: parameter_key, sch: KEY VALUE (0) }
+      - { legacy: aza17, type: varchar2(4), target: base_currency, sch: 本國幣別, note: "起始資料 TWD（ER2）" }
+
   - legacy: gec_file
     target: tax_type
     scope: system

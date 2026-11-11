@@ -179,3 +179,20 @@ project-col-name = 專案名稱
 project-col-start = 起始日期
 project-col-end = 結束日期
 project-col-active = 資料有效
+
+# 匯率（exchange_rate_service.rs）
+monthly-rate-report-title = 每月匯率
+daily-rate-report-title = 每日匯率
+rate-fill-report-title = 每日匯率複製結果
+rate-col-currency = 幣別
+rate-col-currency-name = 說明
+rate-col-period = 年月
+rate-col-date = 日期
+rate-col-bank-buy = 銀行買入
+rate-col-bank-sell = 銀行賣出
+rate-col-bank-mid = 銀行中價
+rate-col-customs-period = 海關旬
+rate-col-customs-buy = 海關買入
+rate-col-customs-sell = 海關賣出
+rate-col-revaluation = 月底重評價
+rate-col-active = 資料有效

@@ -15,9 +15,9 @@ use pages::{
     aim::{ItemGroupMaintenance, ItemMaintenance},
     aoo::{
         AreaMaintenance, ClassificationCodeMaintenance, CountryMaintenance, CurrencyMaintenance,
-        DepartmentMaintenance, EmployeeMaintenance, PlantMaintenance, ProjectMaintenance,
-        RegionMaintenance, ReportTitleMaintenance, ShippingMethodMaintenance, TaxTypeMaintenance,
-        UnitMaintenance,
+        DailyRateCopy, DailyRateMaintenance, DepartmentMaintenance, EmployeeMaintenance,
+        MonthlyRateMaintenance, PlantMaintenance, ProjectMaintenance, RegionMaintenance,
+        ReportTitleMaintenance, ShippingMethodMaintenance, TaxTypeMaintenance, UnitMaintenance,
     },
     axm::ProductClassificationMaintenance,
     azz::{
@@ -65,6 +65,15 @@ enum Route {
         /// 幣別維護（TipTop aooi050）
         #[route("/aoo/currency-maintenance")]
         CurrencyMaintenance {},
+        /// 每月匯率維護（TipTop aooi060）
+        #[route("/aoo/monthly-exchange-rate-maintenance")]
+        MonthlyRateMaintenance {},
+        /// 每日匯率維護（TipTop aooi070）
+        #[route("/aoo/daily-exchange-rate-maintenance")]
+        DailyRateMaintenance {},
+        /// 每日匯率複製（TipTop aoop010）
+        #[route("/aoo/daily-exchange-rate-copy")]
+        DailyRateCopy {},
         /// 稅別維護（TipTop aooi150）
         #[route("/aoo/tax-type-maintenance")]
         TaxTypeMaintenance {},
@@ -197,6 +206,17 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
             icons::PAYMENTS,
             Tone::Success,
         ),
+        "monthly-exchange-rate-maintenance" => (
+            Route::MonthlyRateMaintenance {},
+            icons::CALENDAR_MONTH,
+            Tone::Success,
+        ),
+        "daily-exchange-rate-maintenance" => (
+            Route::DailyRateMaintenance {},
+            icons::CURRENCY_EXCHANGE,
+            Tone::Success,
+        ),
+        "daily-exchange-rate-copy" => (Route::DailyRateCopy {}, icons::EVENT_REPEAT, Tone::Success),
         "tax-type-maintenance" => (Route::TaxTypeMaintenance {}, icons::PERCENT, Tone::Success),
         "project-maintenance" => (Route::ProjectMaintenance {}, icons::FOLDER, Tone::Success),
         "region-maintenance" => (Route::RegionMaintenance {}, icons::PUBLIC, Tone::Success),

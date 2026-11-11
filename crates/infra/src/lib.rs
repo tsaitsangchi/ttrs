@@ -10,6 +10,7 @@ mod pg_credential;
 mod pg_currency;
 mod pg_department;
 mod pg_dictionary;
+mod pg_exchange_rate;
 mod pg_item;
 mod pg_item_group;
 mod pg_legacy;

@@ -303,7 +303,8 @@ fn attrs_of(input: CurrencyInput) -> Result<CurrencyAttrs, DomainError> {
         input.total_decimals,
         input.rate_decimals,
         input.rate_method.as_deref(),
-    )
+    )?
+    .with_import_code(input.import_code)
 }
 
 fn to_dto(u: &Currency) -> CurrencyDto {
@@ -316,6 +317,7 @@ fn to_dto(u: &Currency) -> CurrencyDto {
         total_decimals: a.total_decimals,
         rate_decimals: a.rate_decimals,
         rate_method: a.rate_method.code().to_owned(),
+        import_code: a.import_code.clone(),
         active: u.active,
         confirmed: u.confirmation.confirmed,
         confirmed_by: u.confirmation.by.clone(),

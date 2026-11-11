@@ -10,6 +10,7 @@ pub mod department;
 pub mod dictionary;
 pub mod employee;
 pub mod error;
+pub mod exchange_rate;
 pub mod item;
 pub mod item_group;
 pub mod lang;

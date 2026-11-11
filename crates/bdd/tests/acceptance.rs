@@ -104,6 +104,16 @@ pub struct ErpWorld {
     pub basic_codes: ttrs_app::BasicCodeService,
     /// 幣別維護（currency_maintenance.feature）
     pub currencies: ttrs_app::CurrencyService,
+    /// 匯率（aooi060、aooi070、aoop010）
+    pub rates: ttrs_app::ExchangeRateService,
+    /// 每日匯率複製的結果、預設匯率、取用匯率（exchange_rate_*.feature）
+    pub rate_fill: Option<Vec<ttrs_shared::DailyRateFillLine>>,
+    pub rate_defaults: Option<ttrs_shared::RatesDto>,
+    pub rate_value: Option<rust_decimal::Decimal>,
+    /// 匯率自動匯入的來源（兩種後端都用記憶體來源，不連外網）與結果（exchange_rate_import.feature）
+    pub rate_feed: InMemoryStore,
+    pub rate_import: Option<ttrs_shared::RateImportResult>,
+    pub rate_job: Option<Vec<ttrs_shared::RateJobStep>>,
     /// 稅別維護（tax_type_maintenance.feature）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（project_maintenance.feature）
@@ -141,13 +151,14 @@ impl ErpWorld {
                     .expect("drop plant schemas");
                 sqlx::query("TRUNCATE change_log, user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, unit, plant, \
-                     report_title_text, report_title, area, country, region, shipping_method, currency, tax_type \
+                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
                     .expect("truncate tables");
                 // 帳號稽核原則回到起始值（migration 0020，ADR 0009 W5）
                 for sql in [
+                    "UPDATE system_parameter SET base_currency = 'TWD'",
                     "DELETE FROM account_policy",
                     "INSERT INTO account_policy (policy_key) VALUES ('0')",
                 ] {
@@ -191,12 +202,15 @@ impl ErpWorld {
             units,
             basic_codes,
             currencies,
+            rates,
             taxes,
             projects,
             product_classes,
             item_groups,
             authorizer: _,
         } = services;
+        let rate_feed = InMemoryStore::new();
+        let rates = rates.with_feed(Arc::new(rate_feed.clone()));
         Self {
             backend,
             authz,
@@ -243,6 +257,13 @@ impl ErpWorld {
             units,
             basic_codes,
             currencies,
+            rates,
+            rate_fill: None,
+            rate_defaults: None,
+            rate_value: None,
+            rate_feed,
+            rate_import: None,
+            rate_job: None,
             taxes,
             projects,
             product_classes,

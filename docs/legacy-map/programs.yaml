@@ -16,6 +16,9 @@ programs:
   - { tiptop: aooi030, english: department-maintenance,         spec: specs/features/aoo/department_maintenance.feature }
   - { tiptop: aooi040, english: employee-maintenance,           spec: specs/features/aoo/employee_maintenance.feature }
   - { tiptop: aooi050, english: currency-maintenance,           spec: specs/features/aoo/currency_maintenance.feature }
+  - { tiptop: aooi060, english: monthly-exchange-rate-maintenance, spec: specs/features/aoo/exchange_rate_monthly.feature }
+  - { tiptop: aooi070, english: daily-exchange-rate-maintenance, spec: specs/features/aoo/exchange_rate_daily.feature }
+  - { tiptop: aoop010, english: daily-exchange-rate-copy,       spec: specs/features/aoo/exchange_rate_daily_copy.feature }
   - { tiptop: aooi150, english: tax-type-maintenance,           spec: specs/features/aoo/tax_type_maintenance.feature }
   - { tiptop: aooi200, english: project-maintenance,            spec: specs/features/aoo/project_maintenance.feature }
   # 基本代碼（共用畫面 basic_code_maintenance.rs，ADR 0013 標準功能鈕）

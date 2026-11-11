@@ -219,6 +219,13 @@ error-CURRENCY_RATE_METHOD_INVALID = （使用伺服器訊息）
 error-CURRENCY_ALREADY_EXISTS = （使用伺服器訊息）
 error-CURRENCY_NOT_FOUND = （使用伺服器訊息）
 error-CURRENCY_IN_USE = （使用伺服器訊息）
+error-CURRENCY_INACTIVE = （使用伺服器訊息）
+error-EXCHANGE_RATE_ALREADY_EXISTS = （使用伺服器訊息）
+error-EXCHANGE_RATE_NOT_FOUND = （使用伺服器訊息）
+error-EXCHANGE_RATE_PERIOD_INVALID = （使用伺服器訊息）
+error-EXCHANGE_RATE_NEGATIVE = （使用伺服器訊息）
+error-EXCHANGE_RATE_INACTIVE = （使用伺服器訊息）
+error-EXCHANGE_RATE_COPY_DATE_INVALID = （使用伺服器訊息）
 
 # 稅別（aooi150）
 error-TAX_CODE_EMPTY = （使用伺服器訊息）

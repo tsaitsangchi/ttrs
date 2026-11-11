@@ -156,6 +156,10 @@ fn basic_op(verb: &str) -> Option<(&'static str, ttrs_domain::basic_code::BasicC
 }
 
 /// 「目前使用者執行 <操作>」：操作名稱 → use case（權限檢查已啟用）
+fn date(s: &str) -> chrono::NaiveDate {
+    s.parse().unwrap_or_else(|_| panic!("日期格式錯誤：{s}"))
+}
+
 async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
     let a = &w.actor;
     let words: Vec<&str> = op.split(' ').collect();
@@ -941,6 +945,139 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
                 ttrs_app::report::ReportFormat::Excel
             };
             w.taxes.report_in(a, Vec::new(), f, &lang).await.map(drop)
+        }
+        // aooi060 每月匯率、aooi070 每日匯率、aoop010 每日匯率複製（共用層）
+        ["查詢每月匯率"] => w
+            .rates
+            .query_monthly(a, QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增每月匯率", cur, period] => {
+            let req = ttrs_shared::MonthlyRateInput {
+                currency_code: (*cur).into(),
+                period: (*period).into(),
+                ..Default::default()
+            };
+            w.rates.create_monthly(a, req).await.map(drop)
+        }
+        ["修改每月匯率", cur, period] => {
+            let req = ttrs_shared::MonthlyRateInput {
+                currency_code: (*cur).into(),
+                period: (*period).into(),
+                ..Default::default()
+            };
+            w.rates.update_monthly(a, cur, period, req).await.map(drop)
+        }
+        ["停用每月匯率", cur, period] => w
+            .rates
+            .set_monthly_active(a, cur, period, false, None)
+            .await
+            .map(drop),
+        ["刪除每月匯率", cur, period] => w.rates.delete_monthly(a, cur, period, None).await,
+        ["複製每月匯率", cur, period] => w
+            .rates
+            .copy_monthly(a, cur, period, cur, "202612")
+            .await
+            .map(drop),
+        ["確認每月匯率", cur, period] => w
+            .rates
+            .confirm_monthly(a, cur, period, true, None)
+            .await
+            .map(drop),
+        ["取消確認每月匯率", cur, period] => {
+            let _ = unchecked!(w, w.rates.confirm_monthly(a, cur, period, true, None));
+            w.rates
+                .confirm_monthly(a, cur, period, false, None)
+                .await
+                .map(drop)
+        }
+        ["列印每月匯率"] | ["匯出每月匯率為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = if arg(0) == "列印每月匯率" {
+                ttrs_app::report::ReportFormat::Pdf
+            } else {
+                ttrs_app::report::ReportFormat::Excel
+            };
+            w.rates
+                .report_monthly(a, Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["執行月底重評價", d] => w.rates.revaluate(a, date(d)).await.map(drop),
+        ["查詢每日匯率"] => w
+            .rates
+            .query_daily(a, QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增每日匯率", cur, d] | ["修改每日匯率", cur, d] => {
+            let req = ttrs_shared::DailyRateInput {
+                currency_code: (*cur).into(),
+                rate_date: date(d),
+                rates: Default::default(),
+                version: None,
+            };
+            if arg(0) == "新增每日匯率" {
+                w.rates.create_daily(a, req).await.map(drop)
+            } else {
+                w.rates.update_daily(a, cur, date(d), req).await.map(drop)
+            }
+        }
+        ["停用每日匯率", cur, d] => w
+            .rates
+            .set_daily_active(a, cur, date(d), false, None)
+            .await
+            .map(drop),
+        ["刪除每日匯率", cur, d] => w.rates.delete_daily(a, cur, date(d), None).await,
+        ["複製每日匯率", cur, d] => w
+            .rates
+            .copy_daily(a, cur, date(d), cur, date("2026-11-03"))
+            .await
+            .map(drop),
+        ["確認每日匯率", cur, d] => w
+            .rates
+            .confirm_daily(a, cur, date(d), true, None)
+            .await
+            .map(drop),
+        ["取消確認每日匯率", cur, d] => {
+            let _ = unchecked!(w, w.rates.confirm_daily(a, cur, date(d), true, None));
+            w.rates
+                .confirm_daily(a, cur, date(d), false, None)
+                .await
+                .map(drop)
+        }
+        ["列印每日匯率"] | ["匯出每日匯率為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = if arg(0) == "列印每日匯率" {
+                ttrs_app::report::ReportFormat::Pdf
+            } else {
+                ttrs_app::report::ReportFormat::Excel
+            };
+            w.rates
+                .report_daily(a, Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        ["執行統一匯率", d] => w.rates.unify(a, date(d)).await.map(drop),
+        ["匯入台銀匯率"] => w
+            .rates
+            .import_bank(
+                a,
+                ttrs_domain::exchange_rate::feed::BankRateType::Spot,
+                true,
+                None,
+            )
+            .await
+            .map(drop),
+        ["匯入海關匯率"] => w.rates.import_customs(a).await.map(drop),
+        ["執行每日匯率複製", d] => w.rates.fill(a, date(d)).await.map(drop),
+        ["列印每日匯率複製結果"] | ["匯出每日匯率複製結果為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = if arg(0) == "列印每日匯率複製結果" {
+                ttrs_app::report::ReportFormat::Pdf
+            } else {
+                ttrs_app::report::ReportFormat::Excel
+            };
+            w.rates.report_fill(a, Vec::new(), f, &lang).await.map(drop)
         }
         // aooi050 幣別維護（共用層）
         ["查詢幣別"] => w
