@@ -1090,6 +1090,8 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .settings(a, "daily-exchange-rate-maintenance")
             .await
             .map(drop),
+        // EPUB 轉 TXT（工具作業）：內容不是 EPUB，有權限時應回 EPUB_INVALID 而非權限拒絕
+        ["將", "EPUB", "轉成文字"] => w.epub.convert(a, "x.epub", b"x").await.map(drop),
         // aooi102 單位換算（共用層）
         ["查詢單位換算"] => w
             .conversions

@@ -277,3 +277,8 @@ error-UNIT_CONVERSION_NOT_FOUND = （使用伺服器訊息）
 error-UNIT_CONVERSION_QUANTITY_INVALID = （使用伺服器訊息）
 error-UNIT_CONVERSION_SAME_UNIT = （使用伺服器訊息）
 error-UNIT_INACTIVE = （使用伺服器訊息）
+
+# EPUB 轉 TXT
+error-EPUB_INVALID = （使用伺服器訊息）
+error-EPUB_ENCRYPTED = （使用伺服器訊息）
+error-EPUB_TOO_LARGE = （使用伺服器訊息）

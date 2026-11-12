@@ -277,3 +277,8 @@ error-UNIT_CONVERSION_NOT_FOUND = 找不到单位换算。
 error-UNIT_CONVERSION_QUANTITY_INVALID = 换算数量须大于 0，最多 3 位小数。
 error-UNIT_CONVERSION_SAME_UNIT = 来源与目的单位不可相同。
 error-UNIT_INACTIVE = 单位已停用。
+
+# EPUB 轉 TXT
+error-EPUB_INVALID = 不是有效的 EPUB 文件。
+error-EPUB_ENCRYPTED = 这本 EPUB 有加密（DRM），无法转换。
+error-EPUB_TOO_LARGE = 文件超过 50 MB 上限。

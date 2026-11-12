@@ -143,6 +143,8 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "query, modify, history, output, exporttoexcel",
     ),
+    // 工具作業（ET7）：只有執行
+    ("epub-to-text", "", "AZZ", "run"),
     // 單位換算（UC9）：比照單位維護
     (
         "unit-conversion-maintenance",

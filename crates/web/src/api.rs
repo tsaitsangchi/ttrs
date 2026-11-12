@@ -2867,3 +2867,50 @@ pub async fn item_unit_conversion_history(
     ))
     .await
 }
+
+// ----- EPUB 轉 TXT（/api/epub-to-text；epub_to_text.feature） -----
+
+/// 上傳 EPUB 位元組，回傳書名、作者、章節數與文字（CRLF）
+pub async fn epub_to_text(name: &str, bytes: Vec<u8>) -> Result<ttrs_shared::EpubTextDto, String> {
+    let res = reqwest::Client::new()
+        .post(url(&format!(
+            "/api/epub-to-text?name={}",
+            urlencoding(name)
+        )))
+        .header("content-type", "application/epub+zip")
+        .body(bytes)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+/// 讓瀏覽器下載文字檔（UTF-8，不加 BOM，ET6）
+#[cfg(target_arch = "wasm32")]
+pub fn download_text(file: &str, text: &str) -> Result<(), String> {
+    use wasm_bindgen::JsCast;
+    let err = |e: wasm_bindgen::JsValue| format!("{e:?}");
+    let parts = js_sys::Array::new();
+    parts.push(&js_sys::Uint8Array::from(text.as_bytes()));
+    let opts = web_sys::BlobPropertyBag::new();
+    opts.set_type("text/plain;charset=utf-8");
+    let blob = web_sys::Blob::new_with_u8_array_sequence_and_options(&parts, &opts).map_err(err)?;
+    let href = web_sys::Url::create_object_url_with_blob(&blob).map_err(err)?;
+    let doc = web_sys::window()
+        .and_then(|w| w.document())
+        .ok_or("no document")?;
+    let a: web_sys::HtmlAnchorElement = doc
+        .create_element("a")
+        .map_err(err)?
+        .dyn_into()
+        .map_err(|_| "anchor".to_owned())?;
+    a.set_href(&href);
+    a.set_download(file);
+    a.click();
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn download_text(_file: &str, _text: &str) -> Result<(), String> {
+    Ok(())
+}

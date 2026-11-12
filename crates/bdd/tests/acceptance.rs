@@ -126,6 +126,12 @@ pub struct ErpWorld {
     /// 單位換算（unit_conversion.feature）
     pub conversions: ttrs_app::UnitConversionService,
     pub item_conversions: ttrs_app::ItemUnitConversionService,
+    /// EPUB 轉 TXT（epub_to_text.feature）：書（書名、作者、各章、閱讀順序）、直接給的檔案內容與結果
+    pub epub: ttrs_app::EpubService,
+    #[allow(clippy::type_complexity)]
+    pub epub_book: Option<(String, String, Vec<(String, String)>, Vec<String>)>,
+    pub epub_bytes: Option<Vec<u8>>,
+    pub epub_result: Option<ttrs_shared::EpubTextDto>,
     /// 稅別維護（tax_type_maintenance.feature）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（project_maintenance.feature）
@@ -223,6 +229,7 @@ impl ErpWorld {
             accounting_periods: periods,
             unit_conversions: conversions,
             item_unit_conversions: item_conversions,
+            epub,
             authorizer: _,
         } = services;
         let rate_feed = InMemoryStore::new();
@@ -288,6 +295,10 @@ impl ErpWorld {
             period_range: None,
             conversions,
             item_conversions,
+            epub,
+            epub_book: None,
+            epub_bytes: None,
+            epub_result: None,
             taxes,
             projects,
             product_classes,

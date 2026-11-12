@@ -1,6 +1,7 @@
 //! 系統管理模組 (TipTop azz)
 
 mod data_dictionary;
+mod epub_to_text;
 mod legacy_catalog;
 mod menu_maintenance;
 mod permission_class_maintenance;
@@ -10,6 +11,7 @@ mod user_maintenance;
 mod user_permission_maintenance;
 
 pub use data_dictionary::DataDictionary;
+pub use epub_to_text::EpubToText;
 pub use menu_maintenance::MenuMaintenance;
 pub use permission_class_maintenance::PermissionClassMaintenance;
 pub use program_maintenance::ProgramMaintenance;

@@ -343,6 +343,13 @@ pub enum DomainError {
     UnitConversionSameUnit,
     #[error("單位已停用")]
     UnitInactive,
+    // ----- EPUB 轉 TXT（epub_to_text.feature） -----
+    #[error("不是有效的 EPUB 檔案：{0}")]
+    EpubInvalid(String),
+    #[error("這本 EPUB 有加密（DRM），無法轉換")]
+    EpubEncrypted,
+    #[error("檔案超過 {max_mb} MB 上限")]
+    EpubTooLarge { max_mb: usize },
 
     // 單位（aooi101 / gfe_file；unit_maintenance.feature）
     #[error("單位不可空白")]
@@ -705,6 +712,9 @@ impl DomainError {
             Self::UnitConversionQuantityInvalid => "UNIT_CONVERSION_QUANTITY_INVALID",
             Self::UnitConversionSameUnit => "UNIT_CONVERSION_SAME_UNIT",
             Self::UnitInactive => "UNIT_INACTIVE",
+            Self::EpubInvalid(_) => "EPUB_INVALID",
+            Self::EpubEncrypted => "EPUB_ENCRYPTED",
+            Self::EpubTooLarge { .. } => "EPUB_TOO_LARGE",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",
             Self::UnitCodeTooLong { .. } => "UNIT_CODE_TOO_LONG",
             Self::UnitDecimalsInvalid { .. } => "UNIT_DECIMALS_INVALID",

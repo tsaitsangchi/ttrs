@@ -277,3 +277,8 @@ error-UNIT_CONVERSION_NOT_FOUND = Unit conversion not found.
 error-UNIT_CONVERSION_QUANTITY_INVALID = Quantities must be greater than 0 with up to 3 decimals.
 error-UNIT_CONVERSION_SAME_UNIT = The from and to units must differ.
 error-UNIT_INACTIVE = The unit is inactive.
+
+# EPUB 轉 TXT
+error-EPUB_INVALID = The file is not a valid EPUB.
+error-EPUB_ENCRYPTED = This EPUB is DRM-protected and cannot be converted.
+error-EPUB_TOO_LARGE = The file exceeds the 50 MB limit.

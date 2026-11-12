@@ -145,6 +145,8 @@ pub struct Services {
     /// 單位換算（aooi102）、料件單位換算（aooi103）
     pub unit_conversions: UnitConversionService,
     pub item_unit_conversions: ItemUnitConversionService,
+    /// EPUB 轉 TXT（工具作業）
+    pub epub: crate::EpubService,
     /// 稅別維護（aooi150）
     pub taxes: TaxTypeService,
     /// 專案維護（aooi200，工廠層）
@@ -288,6 +290,7 @@ impl Services {
                 store.clone(),
                 reports.clone(),
             ),
+            epub: crate::EpubService::new(a.clone(), store.clone()),
             item_unit_conversions: ItemUnitConversionService::new(
                 a.clone(),
                 store.clone(),

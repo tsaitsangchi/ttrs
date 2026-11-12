@@ -23,9 +23,9 @@ use pages::{
     },
     axm::ProductClassificationMaintenance,
     azz::{
-        DataDictionary, MenuMaintenance, PermissionClassMaintenance, ProgramMaintenance,
-        ProgramPermissions, ProgramPermissionsFor, UserMaintenance, UserPermissions,
-        UserPermissionsFor,
+        DataDictionary, EpubToText, MenuMaintenance, PermissionClassMaintenance,
+        ProgramMaintenance, ProgramPermissions, ProgramPermissionsFor, UserMaintenance,
+        UserPermissions, UserPermissionsFor,
     },
     home::Home,
 };
@@ -76,6 +76,9 @@ enum Route {
         /// 每日匯率複製（TipTop aoop010）
         #[route("/aoo/daily-exchange-rate-copy")]
         DailyRateCopy {},
+        /// EPUB 轉 TXT（TTRS 工具作業）
+        #[route("/azz/epub-to-text")]
+        EpubToText {},
         /// 單位換算維護（TipTop aooi102）
         #[route("/aoo/unit-conversion-maintenance")]
         UnitConversionMaintenance {},
@@ -231,6 +234,7 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
             Tone::Success,
         ),
         "daily-exchange-rate-copy" => (Route::DailyRateCopy {}, icons::EVENT_REPEAT, Tone::Success),
+        "epub-to-text" => (Route::EpubToText {}, icons::UPLOAD, Tone::Primary),
         "unit-conversion-maintenance" => (
             Route::UnitConversionMaintenance {},
             icons::STRAIGHTEN,

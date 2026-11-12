@@ -2632,3 +2632,13 @@ pub struct ItemUnitConversionDto {
     #[serde(default)]
     pub updated_at: Option<DateTime<Utc>>,
 }
+
+/// EPUB 轉 TXT 的結果（epub_to_text.feature）：下載檔名、書名、作者、章節數與文字（CRLF、UTF-8）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EpubTextDto {
+    pub file_name: String,
+    pub title: Option<String>,
+    pub author: Option<String>,
+    pub chapters: u32,
+    pub text: String,
+}

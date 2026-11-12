@@ -232,6 +232,7 @@ impl InMemoryStore {
                     "permission-class-maintenance",
                     "program-permission-maintenance",
                     "menu-maintenance",
+                    "epub-to-text",
                 ],
             ),
         ];
@@ -264,7 +265,7 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 30] = [
+        let names: [(&str, [&str; 3]); 31] = [
             (
                 "monthly-exchange-rate-maintenance",
                 ["每月匯率維護", "Monthly Exchange Rates", "每月汇率维护"],
@@ -278,6 +279,10 @@ impl InMemoryStore {
                 ["每日匯率複製", "Daily Exchange Rate Copy", "每日汇率复制"],
             ),
             ("project-maintenance", ["專案維護", "Projects", "专案维护"]),
+            (
+                "epub-to-text",
+                ["EPUB 轉 TXT", "EPUB to Text", "EPUB 转 TXT"],
+            ),
             (
                 "unit-conversion-maintenance",
                 ["單位換算維護", "Unit Conversions", "单位换算维护"],
@@ -405,7 +410,8 @@ impl InMemoryStore {
             let no = ProgramNo::parse(no).expect("程式代號");
             let attrs = ProgramAttrs {
                 program_type: Some("I".to_owned()),
-                tiptop_program_no: Some((*tiptop).to_owned()),
+                // TTRS 新增的作業（如 epub-to-text）沒有 TipTop 代號
+                tiptop_program_no: Some((*tiptop).to_owned()).filter(|t| !t.is_empty()),
                 other: OtherSettings {
                     default_actions: Some((*actions).to_owned()),
                     ..OtherSettings::default()

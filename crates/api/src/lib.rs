@@ -74,6 +74,8 @@ pub struct AppState {
     /// 單位換算（aooi102）、料件單位換算（aooi103）
     pub unit_conversions: ttrs_app::UnitConversionService,
     pub item_unit_conversions: ttrs_app::ItemUnitConversionService,
+    /// EPUB 轉 TXT（工具作業）
+    pub epub: ttrs_app::EpubService,
     /// 稅別維護（aooi150；共用）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（aooi200；工廠層）
@@ -151,6 +153,7 @@ impl AppState {
             accounting_periods,
             unit_conversions,
             item_unit_conversions,
+            epub,
             taxes,
             projects,
             product_classes,
@@ -182,6 +185,7 @@ impl AppState {
             accounting_periods,
             unit_conversions,
             item_unit_conversions,
+            epub,
             taxes,
             projects,
             product_classes,
@@ -545,6 +549,13 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/general-parameters/report.{format}",
             get(general_parameters_report),
+        )
+        // EPUB to Text（TTRS 工具作業，epub_to_text.feature）：上傳 EPUB 位元組，回傳文字；上限 50 MB（ET4）另留緩衝
+        .route(
+            "/api/epub-to-text",
+            post(epub_to_text).layer(axum::extract::DefaultBodyLimit::max(
+                (ttrs_app::epub_service::MAX_MB + 5) * 1024 * 1024,
+            )),
         )
         // Unit Conversion 單位換算（TipTop aooi102；共用）
         .route("/api/unit-conversions", post(create_unit_conversion))
@@ -1514,6 +1525,7 @@ impl IntoResponse for HttpError {
             | "SHIPPING_METHOD_NOT_FOUND"
             | "REPORT_TITLE_NOT_FOUND" => StatusCode::NOT_FOUND,
             "PASSWORD_RESET_UNAVAILABLE" => StatusCode::SERVICE_UNAVAILABLE,
+            "EPUB_TOO_LARGE" => StatusCode::PAYLOAD_TOO_LARGE,
             // 匯率來源（台銀、關務署網站）無法取得
             "EXCHANGE_RATE_SOURCE_UNAVAILABLE" => StatusCode::BAD_GATEWAY,
             "NOT_SIGNED_IN"
@@ -3509,6 +3521,23 @@ async fn fill_report(
 
 async fn list_currencies(Ctx(s): Ctx) -> ApiResult<Json<Vec<ttrs_shared::CurrencyDto>>> {
     Ok(Json(s.currencies.list(&s.actor).await?))
+}
+
+// ----- EPUB 轉 TXT（epub_to_text.feature） -----
+
+#[derive(Deserialize)]
+struct EpubQuery {
+    #[serde(default)]
+    name: Option<String>,
+}
+
+async fn epub_to_text(
+    Ctx(s): Ctx,
+    Query(q): Query<EpubQuery>,
+    body: axum::body::Bytes,
+) -> ApiResult<Json<ttrs_shared::EpubTextDto>> {
+    let name = q.name.unwrap_or_else(|| "book.epub".to_owned());
+    Ok(Json(s.epub.convert(&s.actor, &name, &body).await?))
 }
 
 // ----- 單位換算（aooi102、aooi103；unit_conversion.feature） -----

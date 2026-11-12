@@ -468,6 +468,7 @@
       | monthly-exchange-rate-maintenance | query | 查看每月匯率設定 |
       | daily-exchange-rate-maintenance | query | 查看每日匯率設定 |
       | general-management-parameters | query | 查看整體管理系統參數 |
+      | epub-to-text | run | 將 EPUB 轉成文字 |
       | unit-conversion-maintenance | query | 查詢單位換算 |
       | unit-conversion-maintenance | detail | 新增單位換算 KG G |
       | unit-conversion-maintenance | detail | 修改單位換算 KG G |
