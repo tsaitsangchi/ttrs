@@ -196,3 +196,13 @@ rate-col-customs-buy = Customs buying
 rate-col-customs-sell = Customs selling
 rate-col-revaluation = Month-end revaluation
 rate-col-active = Active
+
+# General Management Parameters (aoos010)
+general-params-report-title = General Management Parameters
+general-params-col-parameter = Parameter
+general-params-col-value = Value
+general-params-accounting-periods = Accounting periods
+general-params-base-currency = Home currency
+general-params-rate-basis = Exchange rates used
+general-params-rate-monthly = Monthly rates
+general-params-rate-daily = Daily rates

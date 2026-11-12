@@ -393,6 +393,9 @@ fn RatePage(kind: Kind) -> Element {
             .map(|p| p.items)
             .unwrap_or_default()
     });
+    // 匯率採用與本作業不同時的提示（整體管理系統參數 aza19；GP7，aoo-059／aoo-066）
+    let settings =
+        use_resource(move || async move { api::rate_settings(kind == Kind::Monthly).await.ok() });
     let mut selected = use_signal(|| None::<String>);
     let mut copy_currency = use_signal(String::new);
     let mut copy_key = use_signal(String::new);
@@ -619,6 +622,9 @@ fn RatePage(kind: Kind) -> Element {
             div { class: "page-header",
                 div { class: "program-id", {t(&kind.id("breadcrumb"))} }
                 h2 { {t(&kind.id("title"))} }
+            }
+            if let Some(h) = settings.read().clone().flatten().and_then(|s| s.hint) {
+                p { class: "query-hint", {t(&format!("rate-hint-{h}"))} }
             }
 
             if querying() {

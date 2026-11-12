@@ -252,3 +252,8 @@ error-PROJECT_DATE_RANGE_INVALID = The end date cannot be earlier than the start
 error-PROJECT_ALREADY_EXISTS = Project already exists.
 error-PROJECT_NOT_FOUND = Project not found.
 error-PROJECT_IN_USE = Project is in use and cannot be deleted; deactivate it instead.
+
+# 整體管理系統參數（aoos010）
+error-ACCOUNTING_PERIODS_INVALID = Accounting periods must be 12 or 13.
+error-RATE_BASIS_INVALID = Exchange rates used must be monthly or daily.
+error-BASE_CURRENCY_IN_USE = Monthly or daily exchange rates already exist; the home currency cannot be changed.

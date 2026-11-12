@@ -1,0 +1,16 @@
+# General Management Parameters (TipTop aoos010; general_parameters.feature)
+gp-breadcrumb = General Management / General Management Parameters
+gp-title = General Management Parameters
+gp-tab-basic = Basic Settings
+gp-field-accounting-periods = Accounting periods
+gp-periods-12 = 12 periods
+gp-periods-13 = 13 periods
+gp-field-base-currency = Home currency
+gp-field-rate-basis = Exchange rates used
+gp-rate-monthly = Monthly rates (monthly average)
+gp-rate-daily = Daily rates
+gp-hint = One set of parameters for the whole company. "Exchange rates used" decides whether documents convert with monthly or daily rates; the home currency rate is always 1.
+gp-dialog-edit = Edit General Management Parameters
+gp-dialog-hint = The home currency must be an active currency and cannot be changed once monthly or daily rates exist.
+gp-msg-saved = General management parameters saved
+gp-msg-periods-invalid = Accounting periods must be 12 or 13

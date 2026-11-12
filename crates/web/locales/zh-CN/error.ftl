@@ -252,3 +252,8 @@ error-PROJECT_DATE_RANGE_INVALID = 专案结束日期不可早于起始日期。
 error-PROJECT_ALREADY_EXISTS = 专案已存在。
 error-PROJECT_NOT_FOUND = 专案不存在。
 error-PROJECT_IN_USE = 专案已被使用，不可删除；请改为停用。
+
+# 整体管理系统参数（aoos010）
+error-ACCOUNTING_PERIODS_INVALID = 会计期间只能是 12 或 13 期。
+error-RATE_BASIS_INVALID = 汇率采用只能是每月或每日。
+error-BASE_CURRENCY_IN_USE = 已有每月或每日汇率，不可变更本国币别。

@@ -707,6 +707,8 @@ pub trait ExchangeRateRepository: Send + Sync {
         currency: &ttrs_domain::currency::CurrencyCode,
         date: chrono::NaiveDate,
     ) -> Result<bool, RepoError>;
+    /// 是否已有任何每月或每日匯率（變更本國幣別前檢查，general_parameters.feature GP5）
+    async fn has_any_rate(&self) -> Result<bool, RepoError>;
 }
 
 /// 匯率自動匯入的來源（台銀牌告、關務署每旬報關匯率；exchange_rate_import.feature IM1）。
@@ -735,12 +737,22 @@ pub trait RateFeed: Send + Sync {
     ) -> Result<Vec<ttrs_domain::exchange_rate::feed::HistoryQuote>, ttrs_domain::DomainError>;
 }
 
-/// 系統參數（aza_file 整體管理系統參數；ER2：本批只有本國幣別 aza17，維護畫面隨批次 3 aoos010）
+/// 系統參數（aza_file 整體管理系統參數；aoos010，general_parameters.feature）；共用 schema、只有一筆（GP2）
 #[async_trait]
 pub trait SystemParameterRepository: Send + Sync {
     /// 本國幣別（aza17）；未設定回 None
     async fn base_currency(&self) -> Result<Option<String>, RepoError>;
+    /// 直接設定本國幣別（測試與資料轉入用，不經 use case）
     async fn set_base_currency(&self, code: &str) -> Result<(), RepoError>;
+    /// 整體管理系統參數；沒有資料時回 None
+    async fn general_parameters(
+        &self,
+    ) -> Result<Option<ttrs_domain::general_parameter::GeneralParameters>, RepoError>;
+    /// 修改唯一的一筆；版本不符回 `Stale`
+    async fn update_general_parameters(
+        &self,
+        p: &ttrs_domain::general_parameter::GeneralParameters,
+    ) -> Result<(), RepoError>;
 }
 
 /// 單位（gfe_file，aooi101）；共用 schema（UN2）

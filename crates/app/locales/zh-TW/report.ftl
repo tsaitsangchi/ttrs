@@ -196,3 +196,13 @@ rate-col-customs-buy = 海關買入
 rate-col-customs-sell = 海關賣出
 rate-col-revaluation = 月底重評價
 rate-col-active = 資料有效
+
+# 整體管理系統參數（aoos010）
+general-params-report-title = 整體管理系統參數
+general-params-col-parameter = 參數
+general-params-col-value = 設定值
+general-params-accounting-periods = 會計期間（期數）
+general-params-base-currency = 本國幣別
+general-params-rate-basis = 匯率採用
+general-params-rate-monthly = 每月匯率
+general-params-rate-daily = 每日匯率

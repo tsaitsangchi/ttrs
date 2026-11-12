@@ -114,6 +114,11 @@ pub struct ErpWorld {
     pub rate_feed: InMemoryStore,
     pub rate_import: Option<ttrs_shared::RateImportResult>,
     pub rate_job: Option<Vec<ttrs_shared::RateJobStep>>,
+    /// 匯率維護畫面的設定與提示（general_parameters.feature GP7）
+    pub rate_settings: Option<ttrs_shared::RateSettingsDto>,
+    /// 整體管理系統參數（general_parameters.feature）與「另一位使用者修改」前的版本
+    pub general: ttrs_app::GeneralParameterService,
+    pub param_version: Option<i32>,
     /// 稅別維護（tax_type_maintenance.feature）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（project_maintenance.feature）
@@ -158,7 +163,7 @@ impl ErpWorld {
                     .expect("truncate tables");
                 // 帳號稽核原則回到起始值（migration 0020，ADR 0009 W5）
                 for sql in [
-                    "UPDATE system_parameter SET base_currency = 'TWD'",
+                    "UPDATE system_parameter SET base_currency = 'TWD', accounting_periods = 12, rate_basis = 'daily'",
                     "DELETE FROM account_policy",
                     "INSERT INTO account_policy (policy_key) VALUES ('0')",
                 ] {
@@ -207,6 +212,7 @@ impl ErpWorld {
             projects,
             product_classes,
             item_groups,
+            general_parameters: general,
             authorizer: _,
         } = services;
         let rate_feed = InMemoryStore::new();
@@ -264,6 +270,9 @@ impl ErpWorld {
             rate_feed,
             rate_import: None,
             rate_job: None,
+            rate_settings: None,
+            general,
+            param_version: None,
             taxes,
             projects,
             product_classes,

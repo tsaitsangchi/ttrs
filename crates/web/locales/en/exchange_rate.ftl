@@ -70,3 +70,5 @@ rate-fill-action-run = Run
 rate-fill-msg-none = Nothing to copy
 rate-fill-msg-done = { $count } daily rates copied
 rate-fill-list-title = Copied rates
+rate-hint-monthly-unused = Daily rates are used (General Management Parameters); documents do not use the monthly rates maintained here.
+rate-hint-daily-unused = Monthly rates are used (General Management Parameters); documents do not use the daily rates maintained here.

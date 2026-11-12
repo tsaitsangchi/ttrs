@@ -2300,8 +2300,9 @@ pub async fn project_history(
 // ----- 匯率（aooi060 /api/monthly-rates、aooi070 /api/daily-rates、aoop010 /api/daily-rate-fill） -----
 
 use ttrs_shared::{
-    DailyRateDto, DailyRateFillLine, DailyRateInput, MonthlyRateDto, MonthlyRateInput,
-    RateBatchResult, RateImportRequest, RateImportResult, RatesDto,
+    DailyRateDto, DailyRateFillLine, DailyRateInput, GeneralParametersDto, GeneralParametersInput,
+    MonthlyRateDto, MonthlyRateInput, RateBatchResult, RateImportRequest, RateImportResult,
+    RateSettingsDto, RatesDto,
 };
 
 fn rate_url(part: &str, currency: &str, key: &str, suffix: &str) -> String {
@@ -2526,6 +2527,33 @@ async fn post_with_code<T: serde::de::DeserializeOwned, B: serde::Serialize + ?S
     } else {
         Err(failure(res).await)
     }
+}
+
+/// 匯率維護畫面的設定與提示（general_parameters.feature GP7）
+pub async fn rate_settings(monthly: bool) -> Result<RateSettingsDto, String> {
+    get_json(url(if monthly {
+        "/api/monthly-rates/settings"
+    } else {
+        "/api/daily-rates/settings"
+    }))
+    .await
+}
+
+// ----- 整體管理系統參數（aoos010 /api/general-parameters） -----
+
+pub async fn get_general_parameters() -> Result<GeneralParametersDto, String> {
+    get_json(url("/api/general-parameters")).await
+}
+
+pub async fn update_general_parameters(
+    input: &GeneralParametersInput,
+) -> Result<GeneralParametersDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        url("/api/general-parameters"),
+        Some(input),
+    )
+    .await
 }
 
 /// 每日匯率複製（aoop010，CP1）

@@ -196,3 +196,13 @@ rate-col-customs-buy = 海关买入
 rate-col-customs-sell = 海关卖出
 rate-col-revaluation = 月底重评价
 rate-col-active = 资料有效
+
+# 整体管理系统参数（aoos010）
+general-params-report-title = 整体管理系统参数
+general-params-col-parameter = 参数
+general-params-col-value = 设定值
+general-params-accounting-periods = 会计期间（期数）
+general-params-base-currency = 本国币别
+general-params-rate-basis = 汇率采用
+general-params-rate-monthly = 每月汇率
+general-params-rate-daily = 每日汇率

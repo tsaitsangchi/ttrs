@@ -19,6 +19,7 @@ use ttrs_domain::{
         DailyRate, MonthlyRate, RatePeriod, RateRecord, Rates,
         feed::{BankRateType, HistoryQuote, Quote},
     },
+    general_parameter::GeneralParameters,
     item::{Item, ItemNo, ItemText},
     item_group::{ItemGroup, ItemGroupCode},
     lang::Lang,
@@ -101,8 +102,8 @@ struct State {
     monthly_rates: BTreeMap<(String, RatePeriod), MonthlyRate>,
     /// (幣別, 日期) → 每日匯率（azk_file，共用）
     daily_rates: BTreeMap<(String, NaiveDate), DailyRate>,
-    /// 本國幣別（aza17）；未設定時同 migration 起始資料 TWD（ER2）
-    base_currency: Option<String>,
+    /// 整體管理系統參數（aza_file；aoos010）；None 表示同 migration 起始資料（12 期、TWD、每日）
+    general: Option<GeneralParameters>,
     /// 匯率自動匯入的來源（BDD 設定）；None 表示無法取得（IM8）
     bank_quotes: Option<Vec<Quote>>,
     customs_current: Option<(NaiveDate, NaiveDate, Vec<Quote>)>,
@@ -205,6 +206,7 @@ impl InMemoryStore {
                     "area-maintenance",
                     "shipping-method-maintenance",
                     "report-title-maintenance",
+                    "general-management-parameters",
                 ],
             ),
             (
@@ -250,7 +252,7 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 26] = [
+        let names: [(&str, [&str; 3]); 27] = [
             (
                 "monthly-exchange-rate-maintenance",
                 ["每月匯率維護", "Monthly Exchange Rates", "每月汇率维护"],
@@ -264,6 +266,14 @@ impl InMemoryStore {
                 ["每日匯率複製", "Daily Exchange Rate Copy", "每日汇率复制"],
             ),
             ("project-maintenance", ["專案維護", "Projects", "专案维护"]),
+            (
+                "general-management-parameters",
+                [
+                    "整體管理系統參數",
+                    "General Management Parameters",
+                    "整体管理系统参数",
+                ],
+            ),
             (
                 "tax-type-maintenance",
                 ["稅別維護", "Tax Types", "税别维护"],
@@ -3363,23 +3373,78 @@ impl ExchangeRateRepository for InMemoryStore {
         );
         Ok(true)
     }
+
+    async fn has_any_rate(&self) -> Result<bool, RepoError> {
+        let s = self.lock();
+        Ok(!s.monthly_rates.is_empty() || !s.daily_rates.is_empty())
+    }
 }
 
 #[async_trait]
 impl SystemParameterRepository for InMemoryStore {
     async fn base_currency(&self) -> Result<Option<String>, RepoError> {
         Ok(Some(
-            self.lock()
-                .base_currency
-                .clone()
-                .unwrap_or_else(|| "TWD".to_owned()),
+            self.lock().general().base_currency.as_str().to_owned(),
         ))
     }
 
     async fn set_base_currency(&self, code: &str) -> Result<(), RepoError> {
-        self.lock().base_currency = Some(code.to_owned());
+        let code = CurrencyCode::parse(code).map_err(|e| RepoError::Other(e.to_string()))?;
+        let mut s = self.lock();
+        let mut p = s.general();
+        p.base_currency = code;
+        s.general = Some(p);
         Ok(())
     }
+
+    async fn general_parameters(&self) -> Result<Option<GeneralParameters>, RepoError> {
+        Ok(Some(self.lock().general()))
+    }
+
+    async fn update_general_parameters(&self, p: &GeneralParameters) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let old = s.general();
+        let mut p = p.clone();
+        p.stamp = bumped(&old.stamp, &p.stamp)?;
+        s.log_change(
+            None,
+            "system_parameter",
+            vec![("parameter_key", "0".to_owned())],
+            Some(general_row(&old)),
+            Some(general_row(&p)),
+            &[],
+        );
+        s.general = Some(p);
+        Ok(())
+    }
+}
+
+impl State {
+    /// 目前的整體管理系統參數；沒有時同 migration 0045／0047 的起始資料
+    fn general(&self) -> GeneralParameters {
+        self.general
+            .clone()
+            .unwrap_or_else(|| GeneralParameters::defaults("tiptop", "", Utc::now().date_naive()))
+    }
+}
+
+/// 異動記錄的欄位（同 system_parameter 表的欄位）
+fn general_row(p: &GeneralParameters) -> Row {
+    row(vec![
+        ("parameter_key", text::s("0")),
+        (
+            "accounting_periods",
+            text::int(i64::from(p.accounting_periods.get())),
+        ),
+        ("base_currency", text::s(p.base_currency.as_str())),
+        ("rate_basis", text::s(p.rate_basis.code())),
+        ("created_by", text::s(&p.created_by)),
+        ("created_dept", text::s(&p.created_dept)),
+        ("created_on", text::date(p.created_on)),
+        ("updated_by", text::opt(p.updated_by.as_deref())),
+        ("updated_on", text::opt_date(p.updated_on)),
+        ("version", text::int(i64::from(p.stamp.version))),
+    ])
 }
 
 impl InMemoryStore {

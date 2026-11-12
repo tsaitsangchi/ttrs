@@ -70,3 +70,5 @@ rate-fill-action-run = 执行
 rate-fill-msg-none = 没有需要复制的数据
 rate-fill-msg-done = 已复制 { $count } 笔每日汇率
 rate-fill-list-title = 复制结果
+rate-hint-monthly-unused = 汇率采用每日汇率（整体管理系统参数），本作业的每月汇率不会被单据取用。
+rate-hint-daily-unused = 汇率采用每月汇率（整体管理系统参数），本作业的每日汇率不会被单据取用。

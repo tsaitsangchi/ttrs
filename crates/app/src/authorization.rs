@@ -136,6 +136,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "insert, query, modify, delete, reproduce, invalid, history, confirm, notconfirm, output, exporttoexcel, unify_rate, auto_import",
     ),
+    // 參數作業（GP8）：只有一筆，沒有新增、刪除、複製、失效、確認
+    (
+        "general-management-parameters",
+        "aoos010",
+        "AOO",
+        "query, modify, history, output, exporttoexcel",
+    ),
     // 批次作業（CP7）：執行 run、列印、匯出 Excel
     (
         "daily-exchange-rate-copy",

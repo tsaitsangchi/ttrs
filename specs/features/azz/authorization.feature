@@ -465,6 +465,13 @@
       | daily-exchange-rate-copy | run | 執行每日匯率複製 2026-11-09 |
       | daily-exchange-rate-copy | output | 列印每日匯率複製結果 |
       | daily-exchange-rate-copy | exporttoexcel | 匯出每日匯率複製結果為 Excel |
+      | monthly-exchange-rate-maintenance | query | 查看每月匯率設定 |
+      | daily-exchange-rate-maintenance | query | 查看每日匯率設定 |
+      | general-management-parameters | query | 查看整體管理系統參數 |
+      | general-management-parameters | modify | 修改整體管理系統參數 |
+      | general-management-parameters | output | 列印整體管理系統參數 |
+      | general-management-parameters | exporttoexcel | 匯出整體管理系統參數為 Excel |
+      | general-management-parameters | history | 查詢作業 general-management-parameters 0 的異動記錄 |
       | currency-maintenance | query | 查詢幣別 |
       | currency-maintenance | detail | 新增幣別 USD |
       | currency-maintenance | detail | 修改幣別 USD |

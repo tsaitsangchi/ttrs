@@ -67,6 +67,8 @@ pub struct AppState {
     /// 幣別維護（aooi050；共用）
     pub currencies: ttrs_app::CurrencyService,
     pub rates: ttrs_app::ExchangeRateService,
+    /// 整體管理系統參數（aoos010）
+    pub general_parameters: ttrs_app::GeneralParameterService,
     /// 稅別維護（aooi150；共用）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（aooi200；工廠層）
@@ -140,6 +142,7 @@ impl AppState {
             basic_codes,
             currencies,
             rates,
+            general_parameters,
             taxes,
             projects,
             product_classes,
@@ -167,6 +170,7 @@ impl AppState {
             basic_codes,
             currencies,
             rates,
+            general_parameters,
             taxes,
             projects,
             product_classes,
@@ -522,6 +526,18 @@ pub fn router(state: AppState) -> Router {
         // 每日匯率複製（TipTop aoop010，CP1）與結果的列印、匯出 Excel
         .route("/api/daily-rate-fill", post(fill_daily_rates))
         .route("/api/daily-rate-fill/report.{format}", post(fill_report))
+        // General Management Parameters 整體管理系統參數（TipTop aoos010；共用、只有一筆）
+        .route(
+            "/api/general-parameters",
+            get(get_general_parameters).put(update_general_parameters),
+        )
+        .route(
+            "/api/general-parameters/report.{format}",
+            get(general_parameters_report),
+        )
+        // 匯率維護畫面的設定與提示（GP7）
+        .route("/api/monthly-rates/settings", get(monthly_rate_settings))
+        .route("/api/daily-rates/settings", get(daily_rate_settings))
         // Currency Maintenance 幣別維護（TipTop aooi050；共用）
         .route(
             "/api/currencies",
@@ -1439,6 +1455,7 @@ impl IntoResponse for HttpError {
             | "CURRENCY_IN_USE"
             | "EXCHANGE_RATE_ALREADY_EXISTS"
             | "EXCHANGE_RATE_IMPORT_OVERWRITE_REQUIRED"
+            | "BASE_CURRENCY_IN_USE"
             | "TAX_TYPE_ALREADY_EXISTS"
             | "TAX_TYPE_IN_USE"
             | "PROJECT_ALREADY_EXISTS"
@@ -3398,6 +3415,48 @@ async fn fill_report(
 
 async fn list_currencies(Ctx(s): Ctx) -> ApiResult<Json<Vec<ttrs_shared::CurrencyDto>>> {
     Ok(Json(s.currencies.list(&s.actor).await?))
+}
+
+// ----- 整體管理系統參數（aoos010；general_parameters.feature） -----
+
+async fn get_general_parameters(Ctx(s): Ctx) -> ApiResult<Json<ttrs_shared::GeneralParametersDto>> {
+    Ok(Json(s.general_parameters.get(&s.actor).await?))
+}
+
+async fn update_general_parameters(
+    Ctx(s): Ctx,
+    Json(req): Json<ttrs_shared::GeneralParametersInput>,
+) -> ApiResult<Json<ttrs_shared::GeneralParametersDto>> {
+    require_version(req.version)?;
+    Ok(Json(s.general_parameters.update(&s.actor, req).await?))
+}
+
+async fn general_parameters_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, _, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s.general_parameters.report(&s.actor, format, &lang).await?;
+    report_response(&data, format)
+}
+
+async fn monthly_rate_settings(Ctx(s): Ctx) -> ApiResult<Json<ttrs_shared::RateSettingsDto>> {
+    Ok(Json(
+        s.rates
+            .settings(&s.actor, ttrs_app::exchange_rate_service::MONTHLY)
+            .await?,
+    ))
+}
+
+async fn daily_rate_settings(Ctx(s): Ctx) -> ApiResult<Json<ttrs_shared::RateSettingsDto>> {
+    Ok(Json(
+        s.rates
+            .settings(&s.actor, ttrs_app::exchange_rate_service::DAILY)
+            .await?,
+    ))
 }
 
 async fn get_currency(

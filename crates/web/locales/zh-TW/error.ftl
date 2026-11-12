@@ -252,3 +252,8 @@ error-PROJECT_DATE_RANGE_INVALID = （使用伺服器訊息）
 error-PROJECT_ALREADY_EXISTS = （使用伺服器訊息）
 error-PROJECT_NOT_FOUND = （使用伺服器訊息）
 error-PROJECT_IN_USE = （使用伺服器訊息）
+
+# 整體管理系統參數（aoos010）
+error-ACCOUNTING_PERIODS_INVALID = （使用伺服器訊息）
+error-RATE_BASIS_INVALID = （使用伺服器訊息）
+error-BASE_CURRENCY_IN_USE = （使用伺服器訊息）

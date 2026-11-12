@@ -22,8 +22,9 @@ use crate::{
     },
 };
 use crate::{
-    BasicCodeService, ChangeHistoryService, CurrencyService, ExchangeRateService, ItemGroupService,
-    MenuService, ProductClassService, ProjectService, TaxTypeService, UnitService,
+    BasicCodeService, ChangeHistoryService, CurrencyService, ExchangeRateService,
+    GeneralParameterService, ItemGroupService, MenuService, ProductClassService, ProjectService,
+    TaxTypeService, UnitService,
 };
 
 /// 實作全部 repository 的資料存取（ttrs_infra::PgStore、memory::InMemoryStore）
@@ -129,6 +130,8 @@ pub struct Services {
     pub currencies: CurrencyService,
     /// 匯率：每月匯率（aooi060）、每日匯率（aooi070）、每日匯率複製（aoop010）、匯率取用（s_exrate）
     pub rates: ExchangeRateService,
+    /// 整體管理系統參數（aoos010）
+    pub general_parameters: GeneralParameterService,
     /// 稅別維護（aooi150）
     pub taxes: TaxTypeService,
     /// 專案維護（aooi200，工廠層）
@@ -247,6 +250,13 @@ impl Services {
                 a.clone(),
                 store.clone(),
                 store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
+            general_parameters: GeneralParameterService::new(
+                a.clone(),
                 store.clone(),
                 store.clone(),
                 store.clone(),

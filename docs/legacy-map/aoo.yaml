@@ -312,12 +312,108 @@ tables:
   - legacy: aza_file
     target: system_parameter
     scope: system
-    program: aoos010（整體管理系統參數；批次 3）
-    spec: specs/features/aoo/exchange_rate_daily.feature
-    pending: "批次 3 移植 aoos010 時逐欄萃取；批次 2 只先建表放 aza17 本國幣別（ER2）"
+    program: aoos010（整體管理系統參數，general-management-parameters；批次 3）
+    spec: specs/features/aoo/general_parameters.feature（GP1–GP10 依建議確認，2026-11-12）
+    note: "全公司一份（GP2）；只移植目前用到的參數（GP3），其他參數延後到用到的模組再加欄位（GP9）"
     columns:
-      - { legacy: aza01, type: varchar2(1) PK NOT NULL, target: parameter_key, sch: KEY VALUE (0) }
-      - { legacy: aza17, type: varchar2(4), target: base_currency, sch: 本國幣別, note: "起始資料 TWD（ER2）" }
+      - { legacy: aza01, type: varchar2(1) PK NOT NULL, target: parameter_key, sch: "KEY VALUE (0)" }
+      - { legacy: aza02, type: varchar2(1), target: accounting_periods, sch: "會計期間", note: "1＝12 期、2＝13 期 → 12／13（GP4）" }
+      - { legacy: aza17, type: varchar2(4), target: base_currency, sch: "本國幣別", note: "起始資料 TWD（ER2）；須為有效幣別、已有匯率時不可變更（GP5）" }
+      - { legacy: aza19, type: varchar2(1), target: rate_basis, sch: "匯率採用", note: "1 月平均 → monthly、2 每日 → daily（GP6）" }
+      - { legacy: azauser, type: varchar2(10), target: created_by, sch: "資料所有者", note: "ADR 0012" }
+      - { legacy: azagrup, type: varchar2(10), target: created_dept, sch: "資料所有群", note: "ADR 0012" }
+      - { legacy: azamodu, type: varchar2(10), target: updated_by, sch: "資料修改者", note: "ADR 0012" }
+      - { legacy: azadate, type: date, target: updated_at, sch: "最近修改日", note: "ADR 0012" }
+    not_ported:
+      - { legacy: aza03, type: varchar2(1), sch: "多營運中心環境", reason: "TipTop 已取消（MOD-580216、FUN-660132、MOD-520237）（GP10）" }
+      - { legacy: aza04, type: varchar2(1), sch: "多幣別", reason: "TipTop 已取消（MOD-580216、FUN-660132、MOD-520237）（GP10）" }
+      - { legacy: aza05, type: varchar2(1), sch: "是否使用製造管理系統", reason: "引用 0–1 支；TTRS 以程式權限與選單決定使用哪些作業（GP10）" }
+      - { legacy: aza06, type: varchar2(1), sch: "是否使用總帳管理系統", reason: "引用 0–1 支；TTRS 以程式權限與選單決定使用哪些作業（GP10）" }
+      - { legacy: aza07, type: varchar2(1), sch: "是否使用應收帳款管理系統", reason: "引用 0–1 支；TTRS 以程式權限與選單決定使用哪些作業（GP10）" }
+      - { legacy: aza08, type: varchar2(1), sch: "是否使用專案管理系統", reason: "延後：專案（apj）移植時加入（GP9）" }
+      - { legacy: aza09, type: varchar2(1), sch: "有LOTUS NOTES", reason: "No Use 或畫面沒有（GP10）" }
+      - { legacy: aza10, type: varchar2(1), sch: "是否使用售後服務分析:", reason: "引用 0–1 支；TTRS 以程式權限與選單決定使用哪些作業（GP10）" }
+      - { legacy: aza11, type: varchar2(1), sch: "是否使用條碼管理", reason: "引用 0–1 支；TTRS 以程式權限與選單決定使用哪些作業（GP10）" }
+      - { legacy: aza12, type: varchar2(1), sch: "是否使用應付帳款管理系統", reason: "引用 0–1 支；TTRS 以程式權限與選單決定使用哪些作業（GP10）" }
+      - { legacy: aza13, type: varchar2(1), sch: "是否使用決策支援管理系統", reason: "引用 0–1 支；TTRS 以程式權限與選單決定使用哪些作業（GP10）" }
+      - { legacy: aza14, type: varchar2(1), sch: "是否使用財務規劃系統", reason: "引用 0–1 支；TTRS 以程式權限與選單決定使用哪些作業（GP10）" }
+      - { legacy: aza15, type: varchar2(1), sch: "是否使用品質管理系統", reason: "引用 0–1 支；TTRS 以程式權限與選單決定使用哪些作業（GP10）" }
+      - { legacy: aza16, type: varchar2(1), sch: "是否使用固定資產管理系統", reason: "引用 0–1 支；TTRS 以程式權限與選單決定使用哪些作業（GP10）" }
+      - { legacy: aza18, type: varchar2(1), sch: "程式執行時間記錄方式", reason: "由 TTRS API 稽核紀錄取代（GP10）" }
+      - { legacy: aza20, type: varchar2(1), sch: "目前整體管理系統是否可放給", reason: "TipTop 已取消（MOD-580216、FUN-660132、MOD-520237）（GP10）" }
+      - { legacy: aza21, type: varchar2(1), sch: "是否以邏輯方式檢查營利事業", reason: "延後：客戶、供應商（axm、apm）移植時加入（GP9）" }
+      - { legacy: aza22, type: varchar2(1), sch: "是否隱藏無權限的功能按鍵", reason: "TTRS 一律隱藏無權限功能鈕（ADR 0006）；欄位隱藏是 Genero 畫面功能（GP10）" }
+      - { legacy: aza23, type: varchar2(1), sch: "簽核流程是否與EasyFlow串聯", reason: "簽核改用 TTRS 工作流（批次 8，AP5）（GP10）" }
+      - { legacy: aza24, type: varchar2(1), sch: "報表輸出至PDF-Logo位置", reason: "報表改用 ADR 0011（GP10）" }
+      - { legacy: aza25, type: varchar2(1), sch: "是否使用防偽稅控接口系統", reason: "只做台灣版（同稅別 TX3）（GP10）" }
+      - { legacy: aza26, type: varchar2(1), sch: "使用功能別", reason: "只做台灣版（同稅別 TX3）（GP10）" }
+      - { legacy: aza27, type: varchar2(1), sch: "是否使用海關合約系統", reason: "只做台灣版（同稅別 TX3）（GP10）" }
+      - { legacy: aza28, type: varchar2(1), sch: "料件編號自動編碼否", reason: "延後：批次 5 編碼規則（料件 IM15 第一階段不自動編碼）（GP9）" }
+      - { legacy: aza29, type: varchar2(1), sch: "客戶編號自動編碼否", reason: "延後：批次 5 編碼規則（料件 IM15 第一階段不自動編碼）（GP9）" }
+      - { legacy: aza30, type: varchar2(1), sch: "供應商編號自動編碼否", reason: "延後：批次 5 編碼規則（料件 IM15 第一階段不自動編碼）（GP9）" }
+      - { legacy: aza31, type: varchar2(1), sch: "固定資產編號自動編碼否", reason: "延後：批次 5 編碼規則（料件 IM15 第一階段不自動編碼）（GP9）" }
+      - { legacy: aza32, type: varchar2(1), sch: "是否顯示除錯訊息", reason: "No Use 或畫面沒有（GP10）" }
+      - { legacy: aza33, type: number(10), sch: "閒置時間幾秒", reason: "連線閒置由 ADR 0009 W11 決定；清單改為分頁（GP10）" }
+      - { legacy: aza34, type: number(10), sch: "最大單身筆數", reason: "連線閒置由 ADR 0009 W11 決定；清單改為分頁（GP10）" }
+      - { legacy: aza35, type: varchar2(1), sch: "啟動閒置處理", reason: "連線閒置由 ADR 0009 W11 決定；清單改為分頁（GP10）" }
+      - { legacy: aza36, type: varchar2(1), sch: "閒置使用者處理方式", reason: "連線閒置由 ADR 0009 W11 決定；清單改為分頁（GP10）" }
+      - { legacy: aza37, type: number(10), sch: "警告訊息停留秒數", reason: "連線閒置由 ADR 0009 W11 決定；清單改為分頁（GP10）" }
+      - { legacy: aza38, type: number(5), sch: "最大動態開窗查詢筆數", reason: "開窗改為分頁查詢（GP10）" }
+      - { legacy: aza39, type: varchar2(1), sch: "是否允許使用者隱藏單身欄位", reason: "TTRS 一律隱藏無權限功能鈕（ADR 0006）；欄位隱藏是 Genero 畫面功能（GP10）" }
+      - { legacy: aza40, type: varchar2(1), sch: "是否使用集團間銷售預測", reason: "延後：銷售／流通（axm、atm）移植時加入（GP9）" }
+      - { legacy: aza41, type: varchar2(1), sch: "單別位數設定", reason: "延後：批次 5 編碼規則／第一支單據作業（GP9）" }
+      - { legacy: aza42, type: varchar2(1), sch: "單號位數設定", reason: "延後：批次 5 編碼規則／第一支單據作業（GP9）" }
+      - { legacy: aza43, type: varchar2(1), sch: "金額欄位格式", reason: "金額依幣別小數位數顯示；多語言一律開啟、預設 zh-TW（ADR 0005）（GP10）" }
+      - { legacy: aza44, type: varchar2(1), sch: "使用多語言功能", reason: "金額依幣別小數位數顯示；多語言一律開啟、預設 zh-TW（ADR 0005）（GP10）" }
+      - { legacy: aza45, type: varchar2(1), sch: "預設語言別", reason: "金額依幣別小數位數顯示；多語言一律開啟、預設 zh-TW（ADR 0005）（GP10）" }
+      - { legacy: aza46, type: varchar2(1), sch: "是否使用進項防偽稅控接口系", reason: "只做台灣版（同稅別 TX3）（GP10）" }
+      - { legacy: aza47, type: varchar2(1), sch: "是否使用銷項防偽稅控接口系", reason: "只做台灣版（同稅別 TX3）（GP10）" }
+      - { legacy: aza48, type: varchar2(1), sch: "使用國家會計標準", reason: "只做台灣版（同稅別 TX3）（GP10）" }
+      - { legacy: aza49, type: varchar2(1), sch: "No Use", reason: "No Use 或畫面沒有（GP10）" }
+      - { legacy: aza50, type: varchar2(1), sch: "是否使用流通配銷功能", reason: "延後：銷售／流通（axm、atm）移植時加入（GP9）" }
+      - { legacy: aza51, type: varchar2(1), sch: "是否使用集團帳務中心", reason: "延後：財務模組（axr、aap、anm）與批次 7（GP9）" }
+      - { legacy: aza52, type: varchar2(1), sch: "應收系統", reason: "延後：財務模組（axr、aap、anm）與批次 7（GP9）" }
+      - { legacy: aza53, type: varchar2(1), sch: "應付系統", reason: "延後：財務模組（axr、aap、anm）與批次 7（GP9）" }
+      - { legacy: aza54, type: number(5), sch: "每一單據相關文件最大筆數", reason: "延後：TTRS 附件功能設計時（GP9）" }
+      - { legacy: aza55, type: number(10), sch: "相關文件單一夾檔允許最大 siz", reason: "延後：TTRS 附件功能設計時（GP9）" }
+      - { legacy: aza56, type: varchar2(1), sch: "Excel開啟方式", reason: "報表改用 ADR 0011（GP10）" }
+      - { legacy: aza57, type: varchar2(1), sch: "報表輸出與Express整合", reason: "報表改用 ADR 0011（GP10）" }
+      - { legacy: aza58, type: varchar2(255), sch: "TIPTOP 主機內部IP", reason: "部署設定（ADR 0002）（GP10）" }
+      - { legacy: aza59, type: varchar2(255), sch: "TIPTOP 主機外部IP", reason: "部署設定（ADR 0002）（GP10）" }
+      - { legacy: aza60, type: varchar2(1), sch: "使用料件申請作業", reason: "延後：aim、axm、apm 的申請作業移植時加入（GP9）" }
+      - { legacy: aza61, type: varchar2(1), sch: "使用客戶申請作業", reason: "延後：aim、axm、apm 的申請作業移植時加入（GP9）" }
+      - { legacy: aza62, type: varchar2(1), sch: "使用廠商申請作業", reason: "延後：aim、axm、apm 的申請作業移植時加入（GP9）" }
+      - { legacy: aza63, type: varchar2(1), sch: "使用多帳別功能", reason: "延後：總帳（agl）移植時加入；帳別 aaa_file 尚未移植（GP9）" }
+      - { legacy: aza64, type: varchar2(1), sch: "品質管制系統是否與SPC整合", reason: "TipTop 已停用（FUN-8A0130）（GP10）" }
+      - { legacy: aza65, type: varchar2(1), sch: "與SPC整合時,QC單是否自動確認", reason: "TipTop 已停用（FUN-8A0130）（GP10）" }
+      - { legacy: aza66, type: varchar2(1), sch: "報表列印資料超過預設欄位長", reason: "報表改用 ADR 0011（GP10）" }
+      - { legacy: aza67, type: varchar2(1), sch: "待辦事項與Production Portal整合", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza68, type: varchar2(255), sch: "Production Portal SOAP服務網址", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza69, type: varchar2(1), sch: "集團代收", reason: "延後：財務模組（axr、aap、anm）與批次 7（GP9）" }
+      - { legacy: aza70, type: varchar2(1), sch: "集團代付", reason: "延後：財務模組（axr、aap、anm）與批次 7（GP9）" }
+      - { legacy: aza71, type: varchar2(1), sch: "是否與GPM整合", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza72, type: varchar2(1), sch: "是否與EasyFlowGP整合('Y':是, 'N':", reason: "簽核改用 TTRS 工作流（批次 8，AP5）（GP10）" }
+      - { legacy: aza81, type: varchar2(5), sch: "主財務帳別", reason: "延後：總帳（agl）移植時加入；帳別 aaa_file 尚未移植（GP9）" }
+      - { legacy: aza82, type: varchar2(5), sch: "主管理帳別", reason: "延後：總帳（agl）移植時加入；帳別 aaa_file 尚未移植（GP9）" }
+      - { legacy: aza75, type: varchar2(1), sch: "是否與eB-Online整合", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza76, type: varchar2(30), sch: "eB-Online DB Name", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza73, type: varchar2(1), sch: "使用網絡銀行", reason: "大陸銀行接口（GP10）" }
+      - { legacy: aza74, type: varchar2(10), sch: "招商銀行接口銀行編碼", reason: "大陸銀行接口（GP10）" }
+      - { legacy: aza77, type: varchar2(1), sch: "當與eB-Online整合時,單據是否間", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza83, type: number(5), sch: "使用者執行process的最大數", reason: "伺服器資源設定（GP10）" }
+      - { legacy: aza84, type: number(5), sch: "限制報表執行的session數", reason: "伺服器資源設定（GP10）" }
+      - { legacy: aza85, type: varchar2(1), sch: "是否與 MDM 整合", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza86, type: varchar2(255), sch: "MDM SOAP 服務網址", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza78, type: varchar2(10), sch: "匯豐銀行接口銀行編碼", reason: "大陸銀行接口（GP10）" }
+      - { legacy: aza90, type: varchar2(1), sch: "是否與MES整合", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza91, type: varchar2(1), sch: "Production Portal", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza93, type: varchar2(1), sch: "使用 CR 報表資料匯入 Excel 功", reason: "報表改用 ADR 0011（GP10）" }
+      - { legacy: aza94, type: varchar2(1), sch: "總機構彙總報繳", reason: "延後：營業稅申報（amd）移植時加入（GP9）" }
+      - { legacy: aza96, type: varchar2(1), sch: "當與MES整合時,退料單是否從MES", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza97, type: varchar2(1), sch: "是否與HR整合", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza98, type: varchar2(5), sch: "應付單別", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza121, type: varchar2(1), sch: "是否與PLM整合", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
+      - { legacy: aza122, type: varchar2(1), sch: "PLM整合產品別", reason: "鼎新其他產品的整合開關；需要整合時另寫 ADR（GP10）" }
 
   - legacy: gec_file
     target: tax_type

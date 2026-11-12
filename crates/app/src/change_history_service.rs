@@ -40,6 +40,12 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
     ("menu-maintenance", &["menu_item"], "menu_no"),
     ("unit-maintenance", &["unit"], "unit_code"),
     ("currency-maintenance", &["currency"], "currency_code"),
+    // 整體管理系統參數只有一筆，鍵值固定 0
+    (
+        "general-management-parameters",
+        &["system_parameter"],
+        "parameter_key",
+    ),
     // 匯率以幣別查詢（各年月、各日期一併列出）
     (
         "monthly-exchange-rate-maintenance",

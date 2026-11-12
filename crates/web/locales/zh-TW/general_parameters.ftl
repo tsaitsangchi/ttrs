@@ -1,0 +1,16 @@
+# 整體管理系統參數（TipTop aoos010；general_parameters.feature）
+gp-breadcrumb = 整體管理 / General Management Parameters
+gp-title = 整體管理系統參數
+gp-tab-basic = 基本設定
+gp-field-accounting-periods = 會計期間
+gp-periods-12 = 12 期
+gp-periods-13 = 13 期
+gp-field-base-currency = 本國幣別
+gp-field-rate-basis = 匯率採用
+gp-rate-monthly = 每月匯率（月平均）
+gp-rate-daily = 每日匯率
+gp-hint = 全公司共用一份參數。匯率採用決定單據換算時取每月或每日匯率；本國幣別的匯率一律為 1。
+gp-dialog-edit = 修改整體管理系統參數
+gp-dialog-hint = 本國幣別須為有效的幣別；已有每月或每日匯率時不可變更本國幣別。
+gp-msg-saved = 已儲存整體管理系統參數
+gp-msg-periods-invalid = 會計期間只能是 12 或 13 期

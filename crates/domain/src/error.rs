@@ -302,6 +302,13 @@ pub enum DomainError {
     ExchangeRateSourceUnavailable(String, String),
     #[error("台銀牌告種類只能是 cash（現金）或 spot（即期）：{0}")]
     ExchangeRateKindInvalid(String),
+    // ----- 整體管理系統參數（aoos010；general_parameters.feature） -----
+    #[error("會計期間只能是 12 或 13 期：{0}")]
+    AccountingPeriodsInvalid(i16),
+    #[error("匯率採用只能是每月（monthly）或每日（daily）：{0}")]
+    RateBasisInvalid(String),
+    #[error("已有每月或每日匯率，不可變更本國幣別")]
+    BaseCurrencyInUse,
 
     // 單位（aooi101 / gfe_file；unit_maintenance.feature）
     #[error("單位不可空白")]
@@ -645,6 +652,9 @@ impl DomainError {
             Self::ExchangeRateSourceInvalid(_) => "EXCHANGE_RATE_SOURCE_INVALID",
             Self::ExchangeRateSourceUnavailable(..) => "EXCHANGE_RATE_SOURCE_UNAVAILABLE",
             Self::ExchangeRateKindInvalid(_) => "EXCHANGE_RATE_KIND_INVALID",
+            Self::AccountingPeriodsInvalid(_) => "ACCOUNTING_PERIODS_INVALID",
+            Self::RateBasisInvalid(_) => "RATE_BASIS_INVALID",
+            Self::BaseCurrencyInUse => "BASE_CURRENCY_IN_USE",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",
             Self::UnitCodeTooLong { .. } => "UNIT_CODE_TOO_LONG",
             Self::UnitDecimalsInvalid { .. } => "UNIT_DECIMALS_INVALID",

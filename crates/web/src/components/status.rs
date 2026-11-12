@@ -209,7 +209,9 @@ macro_rules! has_status_no_active {
 // 程式權限、使用者特殊權限的單身沒有資料有效碼（zy_file、zxw_file 無 acti 欄位）
 has_status_no_active!(
     ttrs_shared::ProgramPermissionDto,
-    ttrs_shared::UserPermissionDto
+    ttrs_shared::UserPermissionDto,
+    // 整體管理系統參數（aza_file 沒有資料有效碼）
+    ttrs_shared::GeneralParametersDto
 );
 
 /// 程式資料（zz_file）：沒有資料有效碼與建立日期；zzdate 為最後建立／修改日期

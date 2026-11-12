@@ -2458,3 +2458,49 @@ pub struct RateJobStep {
     pub ok: bool,
     pub message: String,
 }
+
+/// 匯率維護畫面的設定（general_parameters.feature GP7）：本國幣別、匯率採用與提示
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RateSettingsDto {
+    pub base_currency: String,
+    /// monthly 每月、daily 每日（aza19）
+    pub rate_basis: String,
+    /// 本作業的匯率不會被單據取用時的提示：monthly-unused、daily-unused；其餘為 None
+    pub hint: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// 整體管理系統參數（TipTop aoos010 / aza_file；general_parameters.feature）
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GeneralParametersDto {
+    /// 會計期間 12／13（aza02）
+    pub accounting_periods: i16,
+    /// 本國幣別（aza17）與說明
+    pub base_currency: String,
+    #[serde(default)]
+    pub base_currency_name: Option<String>,
+    /// 匯率採用：monthly 每月、daily 每日（aza19）
+    pub rate_basis: String,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GeneralParametersInput {
+    pub accounting_periods: i16,
+    pub base_currency: String,
+    pub rate_basis: String,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}

@@ -12,6 +12,7 @@ use ttrs_domain::{
     confirmation::Confirmation,
     currency::CurrencyCode,
     exchange_rate::{DailyRate, MonthlyRate, RatePeriod, RateRecord, Rates},
+    general_parameter::{AccountingPeriods, GeneralParameters, RateBasis},
     record::Stamp,
 };
 
@@ -432,6 +433,53 @@ impl ExchangeRateRepository for PgStore {
         .rows_affected();
         Ok(n > 0)
     }
+
+    async fn has_any_rate(&self) -> Result<bool, RepoError> {
+        sqlx::query_scalar(
+            "SELECT EXISTS (SELECT 1 FROM monthly_exchange_rate) OR EXISTS (SELECT 1 FROM daily_exchange_rate)",
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(db_err)
+    }
+}
+
+/// system_parameter 的一列（aza_file；general_parameters.feature）
+#[derive(FromRow)]
+struct GeneralRow {
+    accounting_periods: i16,
+    base_currency: Option<String>,
+    rate_basis: String,
+    created_by: String,
+    created_dept: String,
+    created_on: NaiveDate,
+    updated_by: Option<String>,
+    updated_on: Option<NaiveDate>,
+    version: i32,
+    created_at: Option<DateTime<Utc>>,
+    updated_at: Option<DateTime<Utc>>,
+}
+
+impl GeneralRow {
+    fn into_domain(self) -> Result<GeneralParameters, RepoError> {
+        let bad = |e: ttrs_domain::DomainError| RepoError::Other(e.to_string());
+        Ok(GeneralParameters {
+            accounting_periods: AccountingPeriods::parse(self.accounting_periods).map_err(bad)?,
+            base_currency: CurrencyCode::parse(self.base_currency.as_deref().unwrap_or("TWD"))
+                .map_err(bad)?,
+            rate_basis: RateBasis::parse(&self.rate_basis).map_err(bad)?,
+            created_by: self.created_by,
+            created_dept: self.created_dept,
+            created_on: self.created_on,
+            updated_by: self.updated_by,
+            updated_on: self.updated_on,
+            stamp: Stamp {
+                version: self.version,
+                created_at: self.created_at,
+                updated_at: self.updated_at,
+            },
+        })
+    }
 }
 
 #[async_trait]
@@ -455,6 +503,40 @@ impl SystemParameterRepository for PgStore {
         .execute(&self.pool)
         .await
         .map_err(db_err)?;
+        Ok(())
+    }
+
+    async fn general_parameters(&self) -> Result<Option<GeneralParameters>, RepoError> {
+        let row: Option<GeneralRow> = sqlx::query_as(
+            "SELECT accounting_periods, base_currency, rate_basis, created_by, created_dept, created_on,
+                    updated_by, updated_on, version, created_at, updated_at
+               FROM system_parameter WHERE parameter_key = '0'",
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(db_err)?;
+        row.map(GeneralRow::into_domain).transpose()
+    }
+
+    async fn update_general_parameters(&self, p: &GeneralParameters) -> Result<(), RepoError> {
+        let n = sqlx::query(
+            "UPDATE system_parameter SET accounting_periods = $1, base_currency = $2, rate_basis = $3,
+                    updated_by = $4, updated_on = $5
+              WHERE parameter_key = '0' AND version = $6",
+        )
+        .bind(p.accounting_periods.get())
+        .bind(p.base_currency.as_str())
+        .bind(p.rate_basis.code())
+        .bind(&p.updated_by)
+        .bind(p.updated_on)
+        .bind(p.stamp.version)
+        .execute(&self.pool)
+        .await
+        .map_err(db_err)?
+        .rows_affected();
+        if n == 0 {
+            return Err(RepoError::Stale);
+        }
         Ok(())
     }
 }

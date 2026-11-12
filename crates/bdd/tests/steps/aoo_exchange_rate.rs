@@ -127,6 +127,29 @@ async fn add_monthly(w: &mut ErpWorld, cur: &str, period: &str, rates: RatesDto,
     w.last = Some(r.map(drop));
 }
 
+/// 表格：幣別、年月與各匯率（general_parameters.feature GP-10）
+#[given(expr = "已有每月匯率:")]
+async fn has_monthly_table(w: &mut ErpWorld, step: &Step) {
+    let table = step.table.as_ref().expect("此步驟需要表格");
+    let header = table.rows[0].clone();
+    for r in rows(step) {
+        let mut cur = String::new();
+        let mut period = String::new();
+        let mut rates = RatesDto::default();
+        let mut reval = Decimal::ZERO;
+        for (label, v) in header.iter().zip(&r) {
+            match label.as_str() {
+                "幣別" => cur = v.clone(),
+                "年月" => period = v.clone(),
+                "月底重評價" => reval = dec(v),
+                other => assert!(set_rate(&mut rates, other, dec(v)), "未知欄位：{other}"),
+            }
+        }
+        add_monthly(w, &cur, &period, rates, reval).await;
+        ok(w, &format!("建立每月匯率 {cur} {period} "));
+    }
+}
+
 #[given(regex = r#"^已有每月匯率 "(\S+)" "(\S+)"$"#)]
 async fn has_monthly(w: &mut ErpWorld, cur: String, period: String) {
     let rates = RatesDto {

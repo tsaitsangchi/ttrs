@@ -16,10 +16,12 @@ use ttrs_domain::{
     DomainError,
     currency::{Currency, CurrencyCode},
     exchange_rate::{DailyRate, MonthlyRate, RateKind, RatePeriod, RateRecord, Rates, convert},
+    general_parameter::RateBasis,
 };
 use ttrs_shared::{
     DailyRateDto, DailyRateFillLine, DailyRateInput, MonthlyRateDto, MonthlyRateInput, Page,
-    QbeCondition, QueryRequest, RateBatchResult, RateImportResult, RateJobStep, RatesDto,
+    QbeCondition, QueryRequest, RateBatchResult, RateImportResult, RateJobStep, RateSettingsDto,
+    RatesDto,
 };
 
 use crate::{
@@ -1169,6 +1171,8 @@ impl ExchangeRateService {
         Ok(convert(a, b)?)
     }
 
+    /// 取一個幣別的匯率（s_curr.4gl:46-66、s_curr3.4gl:56-120）：本國幣別為 1；依整體管理系統參數的匯率採用（GP6）——
+    /// 每月取該年月、沒有時取以前最近的年月的有效每月匯率；每日取當天或以前最近一天的有效每日匯率（DR8）
     async fn latest_rate(
         &self,
         currency: &str,
@@ -1179,16 +1183,73 @@ impl ExchangeRateService {
         if self.is_base(&code).await? {
             return Ok(Decimal::ONE);
         }
-        let list = self
-            .rates
-            .list_daily_rates(Some(&code), None, Some(date))
+        let found = match self.rate_basis().await? {
+            RateBasis::Monthly => {
+                let period = RatePeriod::of(date);
+                self.rates
+                    .list_monthly_rates()
+                    .await
+                    .map_err(infra)?
+                    .into_iter()
+                    .filter(|r| r.currency == code && r.period <= period && r.record.active)
+                    .max_by_key(|r| r.period)
+                    .map(|r| r.rates.get(kind))
+            }
+            RateBasis::Daily => self
+                .rates
+                .list_daily_rates(Some(&code), None, Some(date))
+                .await
+                .map_err(infra)?
+                .iter()
+                .rev()
+                .find(|r| r.record.active)
+                .map(|r| r.rates.get(kind)),
+        };
+        found.ok_or_else(|| DomainError::ExchangeRateNotFound.into())
+    }
+
+    /// 匯率採用（aza19）；沒有參數資料時為每日（aoos010.4gl:278）
+    async fn rate_basis(&self) -> Result<RateBasis, AppError> {
+        Ok(self
+            .params
+            .general_parameters()
             .await
-            .map_err(infra)?;
-        list.iter()
-            .rev()
-            .find(|r| r.record.active)
-            .map(|r| r.rates.get(kind))
-            .ok_or_else(|| DomainError::ExchangeRateNotFound.into())
+            .map_err(infra)?
+            .map_or(RateBasis::Daily, |p| p.rate_basis))
+    }
+
+    /// 匯率維護畫面的設定（GP7；aooi060.4gl:177 aoo-066、aooi070.4gl:169 aoo-059）：本國幣別、匯率採用，
+    /// 以及本作業的匯率不會被單據取用時的提示
+    pub async fn settings(
+        &self,
+        actor: &Actor,
+        program: &str,
+    ) -> Result<RateSettingsDto, AppError> {
+        let (program, unused_when) = match program.trim() {
+            MONTHLY => (MONTHLY, RateBasis::Daily),
+            DAILY => (DAILY, RateBasis::Monthly),
+            _ => return Err(DomainError::ProgramNotFound.into()),
+        };
+        self.authorize(actor, program, "query").await?;
+        let basis = self.rate_basis().await?;
+        let base = self
+            .params
+            .base_currency()
+            .await
+            .map_err(infra)?
+            .unwrap_or_default();
+        let hint = (basis == unused_when).then(|| {
+            if program == MONTHLY {
+                "monthly-unused".to_owned()
+            } else {
+                "daily-unused".to_owned()
+            }
+        });
+        Ok(RateSettingsDto {
+            base_currency: base,
+            rate_basis: basis.code().to_owned(),
+            hint,
+        })
     }
 
     // ----- 共用 -----

@@ -70,3 +70,5 @@ rate-fill-action-run = 執行
 rate-fill-msg-none = 沒有需要複製的資料
 rate-fill-msg-done = 已複製 { $count } 筆每日匯率
 rate-fill-list-title = 複製結果
+rate-hint-monthly-unused = 匯率採用每日匯率（整體管理系統參數），本作業的每月匯率不會被單據取用。
+rate-hint-daily-unused = 匯率採用每月匯率（整體管理系統參數），本作業的每日匯率不會被單據取用。

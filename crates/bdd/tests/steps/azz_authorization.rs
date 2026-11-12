@@ -1079,6 +1079,37 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             };
             w.rates.report_fill(a, Vec::new(), f, &lang).await.map(drop)
         }
+        // 匯率維護畫面的設定與提示（general_parameters.feature GP7）
+        ["查看每月匯率設定"] => w
+            .rates
+            .settings(a, "monthly-exchange-rate-maintenance")
+            .await
+            .map(drop),
+        ["查看每日匯率設定"] => w
+            .rates
+            .settings(a, "daily-exchange-rate-maintenance")
+            .await
+            .map(drop),
+        // aoos010 整體管理系統參數（共用層，只有一筆）
+        ["查看整體管理系統參數"] => w.general.get(a).await.map(drop),
+        ["修改整體管理系統參數"] => {
+            let input = ttrs_shared::GeneralParametersInput {
+                accounting_periods: 12,
+                base_currency: "TWD".into(),
+                rate_basis: "daily".into(),
+                version: None,
+            };
+            w.general.update(a, input).await.map(drop)
+        }
+        ["列印整體管理系統參數"] | ["匯出整體管理系統參數為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = if arg(0) == "列印整體管理系統參數" {
+                ttrs_app::report::ReportFormat::Pdf
+            } else {
+                ttrs_app::report::ReportFormat::Excel
+            };
+            w.general.report(a, f, &lang).await.map(drop)
+        }
         // aooi050 幣別維護（共用層）
         ["查詢幣別"] => w
             .currencies

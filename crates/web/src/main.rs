@@ -16,8 +16,9 @@ use pages::{
     aoo::{
         AreaMaintenance, ClassificationCodeMaintenance, CountryMaintenance, CurrencyMaintenance,
         DailyRateCopy, DailyRateMaintenance, DepartmentMaintenance, EmployeeMaintenance,
-        MonthlyRateMaintenance, PlantMaintenance, ProjectMaintenance, RegionMaintenance,
-        ReportTitleMaintenance, ShippingMethodMaintenance, TaxTypeMaintenance, UnitMaintenance,
+        GeneralParameters, MonthlyRateMaintenance, PlantMaintenance, ProjectMaintenance,
+        RegionMaintenance, ReportTitleMaintenance, ShippingMethodMaintenance, TaxTypeMaintenance,
+        UnitMaintenance,
     },
     axm::ProductClassificationMaintenance,
     azz::{
@@ -74,6 +75,9 @@ enum Route {
         /// 每日匯率複製（TipTop aoop010）
         #[route("/aoo/daily-exchange-rate-copy")]
         DailyRateCopy {},
+        /// 整體管理系統參數（TipTop aoos010）
+        #[route("/aoo/general-management-parameters")]
+        GeneralParameters {},
         /// 稅別維護（TipTop aooi150）
         #[route("/aoo/tax-type-maintenance")]
         TaxTypeMaintenance {},
@@ -217,6 +221,9 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
             Tone::Success,
         ),
         "daily-exchange-rate-copy" => (Route::DailyRateCopy {}, icons::EVENT_REPEAT, Tone::Success),
+        "general-management-parameters" => {
+            (Route::GeneralParameters {}, icons::SETTINGS, Tone::Success)
+        }
         "tax-type-maintenance" => (Route::TaxTypeMaintenance {}, icons::PERCENT, Tone::Success),
         "project-maintenance" => (Route::ProjectMaintenance {}, icons::FOLDER, Tone::Success),
         "region-maintenance" => (Route::RegionMaintenance {}, icons::PUBLIC, Tone::Success),
