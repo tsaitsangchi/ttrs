@@ -143,6 +143,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "query, modify, history, output, exporttoexcel",
     ),
+    // 會計期間（PD9）：沒有失效
+    (
+        "accounting-period-maintenance",
+        "aoos020",
+        "AOO",
+        "insert, query, modify, delete, reproduce, confirm, notconfirm, output, exporttoexcel, history",
+    ),
     // 批次作業（CP7）：執行 run、列印、匯出 Excel
     (
         "daily-exchange-rate-copy",

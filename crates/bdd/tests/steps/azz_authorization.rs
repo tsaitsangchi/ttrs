@@ -1090,6 +1090,56 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .settings(a, "daily-exchange-rate-maintenance")
             .await
             .map(drop),
+        // aoos020 會計期間維護（共用層）
+        ["查詢會計年度"] => w.periods.query(a, QueryRequest::default()).await.map(drop),
+        ["查詢日期", d, "的會計期間"] => w
+            .periods
+            .locate(a, d.parse().expect("日期"))
+            .await
+            .map(drop),
+        ["新增會計年度", y] | ["修改會計年度", y] => {
+            let year: i32 = y.parse().expect("年度");
+            let start = chrono::NaiveDate::from_ymd_opt(year, 1, 1).expect("日期");
+            let periods = ttrs_domain::accounting_period::default_periods(start, 12)
+                .iter()
+                .map(|p| ttrs_shared::AccountingPeriodLine {
+                    period: p.no,
+                    start_date: p.start,
+                    end_date: p.end,
+                    quarter: p.quarter,
+                })
+                .collect();
+            let input = ttrs_shared::AccountingYearInput {
+                year,
+                periods,
+                version: None,
+            };
+            if arg(0) == "新增會計年度" {
+                w.periods.create(a, input).await.map(drop)
+            } else {
+                w.periods.update(a, year, input).await.map(drop)
+            }
+        }
+        ["刪除會計年度", y] => w.periods.delete(a, y.parse().expect("年度"), None).await,
+        ["複製會計年度", y] => w
+            .periods
+            .copy(a, y.parse().expect("年度"), 2030)
+            .await
+            .map(drop),
+        ["確認會計年度", y] | ["取消確認會計年度", y] => w
+            .periods
+            .confirm(a, y.parse().expect("年度"), arg(0) == "確認會計年度", None)
+            .await
+            .map(drop),
+        ["列印會計期間"] | ["匯出會計期間為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = if arg(0) == "列印會計期間" {
+                ttrs_app::report::ReportFormat::Pdf
+            } else {
+                ttrs_app::report::ReportFormat::Excel
+            };
+            w.periods.report(a, Vec::new(), f, &lang).await.map(drop)
+        }
         // aoos010 整體管理系統參數（共用層，只有一筆）
         ["查看整體管理系統參數"] => w.general.get(a).await.map(drop),
         ["修改整體管理系統參數"] => {

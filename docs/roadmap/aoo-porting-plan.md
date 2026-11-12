@@ -60,13 +60,13 @@
 | 程式 | 名稱 | 主要表 | 規模 | 處理 |
 |---|---|---|---|---|
 | aoos010 | 整體管理系統參數 | aza_file | L | 移植（2026-11-12 完成，`general_parameters.feature` GP1–GP10）：只移植會計期間、本國幣別、匯率採用，其餘延後或不移植 |
-| aoos020 | 會計期間參數 | azm_file | M | 移植 |
-| aoos021 | 帳套會計期間參數 | azmm_file | L | 移植 |
-| aoos030 | 週期期間產生 | azm、azn | S | 移植（批次作業） |
-| aoos031 | 帳套週期期間產生 | azmm、aznn | S | 移植（批次作業） |
-| aooq010、aooq011 | 週期期間查詢、帳套週期期間查詢 | azn、aznn | S | 合併到期間維護的查詢 |
+| aoos020 | 會計期間參數 | azm_file | M | 移植（2026-11-12 完成，`accounting_periods.feature` PD1–PD12）：以 aoos020 為維護作業，恢復新增、刪除並加修改 |
+| aoos021 | 帳套會計期間參數 | azmm_file | L | 延後：帳別版會計期間，總帳（agl）移植時再決定（PD1） |
+| aoos030 | 週期期間產生 | azm、azn | S | 取代：日期所屬年度、季、期、週改為即時計算，不另存 azn_file（PD3） |
+| aoos031 | 帳套週期期間產生 | azmm、aznn | S | 延後：同 aoos021（PD1） |
+| aooq010、aooq011 | 週期期間查詢、帳套週期期間查詢 | azn、aznn | S | aooq010 併入會計期間維護的「週期期間查詢」（PD3）；aooq011 延後同 aoos021 |
 | aooq021 | 歷年帳套 | tna_file | S | 移植 |
-| aoos900 | 多營運中心控制參數 | azz_file | S | 移植（配合 ADR 0007） |
+| aoos900 | 多營運中心控制參數 | azz_file | S | 不移植（2026-11-12 確認）：由 ADR 0007 多營運中心、登入選營運中心、營運中心時區與環境設定取代 |
 | aooi902 | 工廠使用系統關聯 | azp_file | S | 合併到營運中心維護 |
 
 ### 批次 4　單位換算（依賴料件）

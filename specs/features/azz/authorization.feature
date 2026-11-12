@@ -468,6 +468,17 @@
       | monthly-exchange-rate-maintenance | query | 查看每月匯率設定 |
       | daily-exchange-rate-maintenance | query | 查看每日匯率設定 |
       | general-management-parameters | query | 查看整體管理系統參數 |
+      | accounting-period-maintenance | query | 查詢會計年度 |
+      | accounting-period-maintenance | query | 查詢日期 2026-03-15 的會計期間 |
+      | accounting-period-maintenance | insert | 新增會計年度 2026 |
+      | accounting-period-maintenance | modify | 修改會計年度 2026 |
+      | accounting-period-maintenance | delete | 刪除會計年度 2026 |
+      | accounting-period-maintenance | reproduce | 複製會計年度 2026 |
+      | accounting-period-maintenance | confirm | 確認會計年度 2026 |
+      | accounting-period-maintenance | notconfirm | 取消確認會計年度 2026 |
+      | accounting-period-maintenance | output | 列印會計期間 |
+      | accounting-period-maintenance | exporttoexcel | 匯出會計期間為 Excel |
+      | accounting-period-maintenance | history | 查詢作業 accounting-period-maintenance 2026 的異動記錄 |
       | general-management-parameters | modify | 修改整體管理系統參數 |
       | general-management-parameters | output | 列印整體管理系統參數 |
       | general-management-parameters | exporttoexcel | 匯出整體管理系統參數為 Excel |

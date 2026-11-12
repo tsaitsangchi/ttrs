@@ -257,3 +257,16 @@ error-PROJECT_IN_USE = 专案已被使用，不可删除；请改为停用。
 error-ACCOUNTING_PERIODS_INVALID = 会计期间只能是 12 或 13 期。
 error-RATE_BASIS_INVALID = 汇率采用只能是每月或每日。
 error-BASE_CURRENCY_IN_USE = 已有每月或每日汇率，不可变更本国币别。
+
+# 會計期間（aoos020）
+error-ACCOUNTING_YEAR_ALREADY_EXISTS = 会计年度已存在。
+error-ACCOUNTING_YEAR_NOT_FOUND = 找不到会计年度。
+error-ACCOUNTING_PERIOD_COUNT_INVALID = 各期须从第 1 期起连续且每期都要有（12 期制不可有第 13 期）。
+error-ACCOUNTING_PERIOD_DATE_INVALID = 截止日不可早于起始日。
+error-ACCOUNTING_QUARTER_INVALID = 季别须为 1–4 且不可小于前一期。
+error-ACCOUNTING_PERIOD_YEAR_INVALID = 期间日期须在该年度或下一年度内。
+error-ACCOUNTING_PERIODS_NOT_CONTINUOUS = 每期的起始日须为前一期截止日的隔天。
+error-ACCOUNTING_YEAR_OVERLAP = 与其他会计年度的期间重叠。
+error-ACCOUNTING_PERIODS_IN_USE = 已有会计年度资料，不可变更会计期间的期数。
+error-ACCOUNTING_PERIOD_NOT_FOUND = 日期不在任何会计期间，或该年度没有此期。
+error-ACCOUNTING_PERIOD_DATE_RANGE_INVALID = 查询的日期区间不正确（迄日不可早于起日、最多 10 年）。

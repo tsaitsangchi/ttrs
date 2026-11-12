@@ -1,5 +1,6 @@
 //! 整體管理模組 (TipTop aoo)
 
+mod accounting_period_maintenance;
 mod basic_code_maintenance;
 mod classification_code_maintenance;
 mod currency_maintenance;
@@ -13,6 +14,7 @@ mod project_maintenance;
 mod tax_type_maintenance;
 mod unit_maintenance;
 
+pub use accounting_period_maintenance::AccountingPeriodMaintenance;
 pub use basic_code_maintenance::{
     AreaMaintenance, CountryMaintenance, RegionMaintenance, ReportTitleMaintenance,
     ShippingMethodMaintenance,

@@ -9,6 +9,7 @@ use std::{
 use crate::ports::RateFeed;
 use async_trait::async_trait;
 use ttrs_domain::{
+    accounting_period::{AccountingYear, Period},
     authorization::DataScope,
     basic_code::{BasicCode, BasicCodeKind, BasicCodeValue},
     currency::{Currency, CurrencyCode},
@@ -43,14 +44,14 @@ use crate::{
     change_log::{self, ChangeRecord, Row, text},
     error::RepoError,
     ports::{
-        AccountPolicy, AccountPolicyRepository, AuditEntry, BasicCodeRepository,
-        ChangeLogRepository, Credential, CredentialRepository, CurrencyRepository,
-        DepartmentRepository, DictionaryRepository, EmployeeRepository, ExchangeRateRepository,
-        ItemGroupRepository, ItemRepository, LegacyCatalogRepository, LegacyTableSummary,
-        MasterDataRepository, MenuRepository, MigrationSource, PermissionClassRepository,
-        PermissionListItem, PlantRepository, ProductClassRepository, ProgramName,
-        ProgramPermissionRepository, ProgramRepository, ProjectRepository, SchemaCatalog,
-        SystemParameterRepository, TableSchema, TaxTypeRepository, UnitRepository,
+        AccountPolicy, AccountPolicyRepository, AccountingPeriodRepository, AuditEntry,
+        BasicCodeRepository, ChangeLogRepository, Credential, CredentialRepository,
+        CurrencyRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
+        ExchangeRateRepository, ItemGroupRepository, ItemRepository, LegacyCatalogRepository,
+        LegacyTableSummary, MasterDataRepository, MenuRepository, MigrationSource,
+        PermissionClassRepository, PermissionListItem, PlantRepository, ProductClassRepository,
+        ProgramName, ProgramPermissionRepository, ProgramRepository, ProjectRepository,
+        SchemaCatalog, SystemParameterRepository, TableSchema, TaxTypeRepository, UnitRepository,
         UserPermissionItem, UserPermissionRepository, UserRepository,
     },
     query,
@@ -104,6 +105,8 @@ struct State {
     daily_rates: BTreeMap<(String, NaiveDate), DailyRate>,
     /// 整體管理系統參數（aza_file；aoos010）；None 表示同 migration 起始資料（12 期、TWD、每日）
     general: Option<GeneralParameters>,
+    /// 會計年度（azm_file，共用；accounting_periods.feature）
+    accounting_years: BTreeMap<i32, AccountingYear>,
     /// 匯率自動匯入的來源（BDD 設定）；None 表示無法取得（IM8）
     bank_quotes: Option<Vec<Quote>>,
     customs_current: Option<(NaiveDate, NaiveDate, Vec<Quote>)>,
@@ -207,6 +210,7 @@ impl InMemoryStore {
                     "shipping-method-maintenance",
                     "report-title-maintenance",
                     "general-management-parameters",
+                    "accounting-period-maintenance",
                 ],
             ),
             (
@@ -252,7 +256,7 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 27] = [
+        let names: [(&str, [&str; 3]); 28] = [
             (
                 "monthly-exchange-rate-maintenance",
                 ["每月匯率維護", "Monthly Exchange Rates", "每月汇率维护"],
@@ -266,6 +270,10 @@ impl InMemoryStore {
                 ["每日匯率複製", "Daily Exchange Rate Copy", "每日汇率复制"],
             ),
             ("project-maintenance", ["專案維護", "Projects", "专案维护"]),
+            (
+                "accounting-period-maintenance",
+                ["會計期間維護", "Accounting Periods", "会计期间维护"],
+            ),
             (
                 "general-management-parameters",
                 [
@@ -4028,4 +4036,143 @@ fn group_row(g: &ItemGroup) -> Row {
         &g.stamp,
     ));
     row(cols)
+}
+
+// ----- 會計期間（azm_file；accounting_period_service.rs） -----
+
+#[async_trait]
+impl AccountingPeriodRepository for InMemoryStore {
+    async fn list_accounting_years(&self) -> Result<Vec<AccountingYear>, RepoError> {
+        Ok(self.lock().accounting_years.values().cloned().collect())
+    }
+
+    async fn get_accounting_year(&self, year: i32) -> Result<Option<AccountingYear>, RepoError> {
+        Ok(self.lock().accounting_years.get(&year).cloned())
+    }
+
+    async fn insert_accounting_year(&self, y: &AccountingYear) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.accounting_years.contains_key(&y.year) {
+            return Err(RepoError::Conflict);
+        }
+        let mut y = y.clone();
+        y.stamp = new_stamp();
+        s.log_change(
+            None,
+            "accounting_year",
+            year_key(y.year),
+            None,
+            Some(year_row(&y)),
+            &[],
+        );
+        for p in &y.periods {
+            s.log_change(
+                None,
+                "accounting_period",
+                period_key(y.year, p),
+                None,
+                Some(period_row(y.year, p)),
+                &[],
+            );
+        }
+        s.accounting_years.insert(y.year, y);
+        Ok(())
+    }
+
+    async fn update_accounting_year(&self, y: &AccountingYear) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.accounting_years.get(&y.year).cloned() else {
+            return Ok(());
+        };
+        let mut y = y.clone();
+        y.stamp = bumped(&old.stamp, &y.stamp)?;
+        s.log_change(
+            None,
+            "accounting_year",
+            year_key(y.year),
+            Some(year_row(&old)),
+            Some(year_row(&y)),
+            &[],
+        );
+        for p in &y.periods {
+            let before = old.periods.iter().find(|o| o.no == p.no);
+            if before != Some(p) {
+                s.log_change(
+                    None,
+                    "accounting_period",
+                    period_key(y.year, p),
+                    before.map(|b| period_row(y.year, b)),
+                    Some(period_row(y.year, p)),
+                    &[],
+                );
+            }
+        }
+        s.accounting_years.insert(y.year, y);
+        Ok(())
+    }
+
+    async fn delete_accounting_year(&self, year: i32) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.accounting_years.remove(&year) else {
+            return Ok(false);
+        };
+        for p in &old.periods {
+            s.log_change(
+                None,
+                "accounting_period",
+                period_key(year, p),
+                Some(period_row(year, p)),
+                None,
+                &[],
+            );
+        }
+        s.log_change(
+            None,
+            "accounting_year",
+            year_key(year),
+            Some(year_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+fn year_key(year: i32) -> Vec<(&'static str, String)> {
+    vec![("year", year.to_string())]
+}
+
+fn period_key(year: i32, p: &Period) -> Vec<(&'static str, String)> {
+    vec![("year", year.to_string()), ("period_no", p.no.to_string())]
+}
+
+fn year_row(y: &AccountingYear) -> Row {
+    let mut cols = vec![
+        ("year", text::int(i64::from(y.year))),
+        ("period_count", text::int(i64::from(y.period_count))),
+        ("confirmed", text::b(y.confirmation.confirmed)),
+        ("confirmed_by", text::opt(y.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        true,
+        &y.created_by,
+        &y.created_dept,
+        y.created_on,
+        y.updated_by.as_deref(),
+        y.updated_on,
+        &y.stamp,
+    ));
+    // 會計年度沒有資料有效碼（PD9）
+    cols.retain(|(k, _)| *k != "active");
+    row(cols)
+}
+
+fn period_row(year: i32, p: &Period) -> Row {
+    row(vec![
+        ("year", text::int(i64::from(year))),
+        ("period_no", text::int(i64::from(p.no))),
+        ("start_date", text::date(p.start)),
+        ("end_date", text::date(p.end)),
+        ("quarter", text::int(i64::from(p.quarter))),
+    ])
 }

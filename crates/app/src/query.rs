@@ -1209,6 +1209,57 @@ pub mod currency {
     }
 }
 
+/// 會計年度（aoos020.4gl:105-112 的 CONSTRUCT；ADR 0013 SA1 擴及狀態欄位）。各期的日期以「期間含此日期」查詢（date）
+pub mod accounting_year {
+    use ttrs_domain::{accounting_period::AccountingYear, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("year", FieldType::Integer),
+        field("period_count", FieldType::Integer),
+        field("start_date", FieldType::Date),
+        field("end_date", FieldType::Date),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(y: &AccountingYear, field: &str) -> FieldValue {
+        let (first, last) = y.span();
+        match field {
+            "year" => int(y.year),
+            "period_count" => int(i32::from(y.period_count)),
+            "start_date" => FieldValue::One(Some(QbeValue::Date(first))),
+            "end_date" => FieldValue::One(Some(QbeValue::Date(last))),
+            other => confirm_value(other, &y.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        None,
+                        &y.created_by,
+                        &y.created_dept,
+                        Some(y.created_on),
+                        y.updated_by.as_deref(),
+                        y.updated_on,
+                        y.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
 /// 基本代碼（區域別 aooi100:353、國別 aooi090:419、地區 aooi110:399、交運方式 aooi160:355、報表抬頭 aooi210:118
 /// 的 CONSTRUCT；ADR 0013 SA1 擴及狀態欄位）。欄位：代號 code、名稱 name、隸屬 parent
 pub mod basic_code {

@@ -6,6 +6,7 @@ mod aim_item_group_query;
 mod aim_item_maintenance;
 mod aim_item_maintenance_query;
 mod aim_list_report;
+mod aoo_accounting_periods;
 mod aoo_basic_codes;
 mod aoo_classification_code;
 mod aoo_currency_maintenance;

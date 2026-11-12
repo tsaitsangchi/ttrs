@@ -257,3 +257,16 @@ error-PROJECT_IN_USE = （使用伺服器訊息）
 error-ACCOUNTING_PERIODS_INVALID = （使用伺服器訊息）
 error-RATE_BASIS_INVALID = （使用伺服器訊息）
 error-BASE_CURRENCY_IN_USE = （使用伺服器訊息）
+
+# 會計期間（aoos020）
+error-ACCOUNTING_YEAR_ALREADY_EXISTS = （使用伺服器訊息）
+error-ACCOUNTING_YEAR_NOT_FOUND = （使用伺服器訊息）
+error-ACCOUNTING_PERIOD_COUNT_INVALID = （使用伺服器訊息）
+error-ACCOUNTING_PERIOD_DATE_INVALID = （使用伺服器訊息）
+error-ACCOUNTING_QUARTER_INVALID = （使用伺服器訊息）
+error-ACCOUNTING_PERIOD_YEAR_INVALID = （使用伺服器訊息）
+error-ACCOUNTING_PERIODS_NOT_CONTINUOUS = （使用伺服器訊息）
+error-ACCOUNTING_YEAR_OVERLAP = （使用伺服器訊息）
+error-ACCOUNTING_PERIODS_IN_USE = （使用伺服器訊息）
+error-ACCOUNTING_PERIOD_NOT_FOUND = （使用伺服器訊息）
+error-ACCOUNTING_PERIOD_DATE_RANGE_INVALID = （使用伺服器訊息）

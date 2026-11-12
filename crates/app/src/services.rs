@@ -6,25 +6,26 @@ use crate::ports::RateFeed;
 
 use crate::change_log::HistoryReader;
 use crate::{
+    AccountingPeriodService, BasicCodeService, ChangeHistoryService, CurrencyService,
+    ExchangeRateService, GeneralParameterService, ItemGroupService, MenuService,
+    ProductClassService, ProjectService, TaxTypeService, UnitService,
+};
+use crate::{
     Authorizer, ClassificationCodeService, DataDictionaryService, DepartmentService,
     EmergencyService, EmployeeService, ItemService, LegacyCatalogService, PasswordResetService,
     PermissionAuthorizer, PermissionClassService, PlantService, ProgramPermissionService,
     ProgramService, SignInService, UserPermissionService, UserService,
     ports::{
-        AccountPolicyRepository, AuditLog, BasicCodeRepository, ChangeLogRepository,
-        ClassificationCodeRepository, CredentialRepository, CurrencyRepository,
-        DepartmentRepository, DictionaryRepository, EmployeeRepository, ExchangeRateRepository,
-        ItemGroupRepository, ItemRepository, LegacyCatalogRepository, MasterDataRepository,
-        MenuRepository, PasswordResetTokenRepository, PermissionClassRepository, PlantRepository,
-        ProductClassRepository, ProgramPermissionRepository, ProgramRepository, ProjectRepository,
-        SchemaCatalog, SystemParameterRepository, TaxTypeRepository, UnitRepository,
-        UserPermissionRepository, UserRepository,
+        AccountPolicyRepository, AccountingPeriodRepository, AuditLog, BasicCodeRepository,
+        ChangeLogRepository, ClassificationCodeRepository, CredentialRepository,
+        CurrencyRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
+        ExchangeRateRepository, ItemGroupRepository, ItemRepository, LegacyCatalogRepository,
+        MasterDataRepository, MenuRepository, PasswordResetTokenRepository,
+        PermissionClassRepository, PlantRepository, ProductClassRepository,
+        ProgramPermissionRepository, ProgramRepository, ProjectRepository, SchemaCatalog,
+        SystemParameterRepository, TaxTypeRepository, UnitRepository, UserPermissionRepository,
+        UserRepository,
     },
-};
-use crate::{
-    BasicCodeService, ChangeHistoryService, CurrencyService, ExchangeRateService,
-    GeneralParameterService, ItemGroupService, MenuService, ProductClassService, ProjectService,
-    TaxTypeService, UnitService,
 };
 
 /// 實作全部 repository 的資料存取（ttrs_infra::PgStore、memory::InMemoryStore）
@@ -59,6 +60,7 @@ pub trait Store:
     + ProjectRepository
     + ProductClassRepository
     + ItemGroupRepository
+    + AccountingPeriodRepository
     + 'static
 {
 }
@@ -94,6 +96,7 @@ impl<T> Store for T where
         + ProjectRepository
         + ProductClassRepository
         + ItemGroupRepository
+        + AccountingPeriodRepository
         + 'static
 {
 }
@@ -132,6 +135,8 @@ pub struct Services {
     pub rates: ExchangeRateService,
     /// 整體管理系統參數（aoos010）
     pub general_parameters: GeneralParameterService,
+    /// 會計期間維護（aoos020）
+    pub accounting_periods: AccountingPeriodService,
     /// 稅別維護（aooi150）
     pub taxes: TaxTypeService,
     /// 專案維護（aooi200，工廠層）
@@ -258,6 +263,13 @@ impl Services {
             general_parameters: GeneralParameterService::new(
                 a.clone(),
                 store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
+            accounting_periods: AccountingPeriodService::new(
+                a.clone(),
                 store.clone(),
                 store.clone(),
                 reports.clone(),

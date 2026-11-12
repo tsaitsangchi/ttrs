@@ -40,6 +40,12 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
     ("menu-maintenance", &["menu_item"], "menu_no"),
     ("unit-maintenance", &["unit"], "unit_code"),
     ("currency-maintenance", &["currency"], "currency_code"),
+    // 會計期間：表頭與各期一併列出
+    (
+        "accounting-period-maintenance",
+        &["accounting_year", "accounting_period"],
+        "year",
+    ),
     // 整體管理系統參數只有一筆，鍵值固定 0
     (
         "general-management-parameters",

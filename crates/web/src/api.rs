@@ -2596,3 +2596,93 @@ pub async fn fill_report(
     let bytes = res.bytes().await.map_err(|e| e.to_string())?;
     show_report(&bytes, format, &file, tab)
 }
+
+// ----- 會計期間（aoos020 /api/accounting-years、/api/accounting-days） -----
+
+use ttrs_shared::{AccountingDayDto, AccountingPeriodLine, AccountingYearDto, AccountingYearInput};
+
+pub async fn query_accounting_years(req: &QueryRequest) -> Result<Page<AccountingYearDto>, String> {
+    post_query(url("/api/accounting-years/query"), req).await
+}
+
+/// 新增時的預設各期（PD5）
+pub async fn accounting_year_defaults(
+    year: i32,
+    start: &str,
+) -> Result<Vec<AccountingPeriodLine>, String> {
+    get_json(url(&format!(
+        "/api/accounting-years/defaults?year={year}&start={}",
+        urlencoding(start)
+    )))
+    .await
+}
+
+pub async fn create_accounting_year(
+    input: &AccountingYearInput,
+) -> Result<AccountingYearDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        url("/api/accounting-years"),
+        Some(input),
+    )
+    .await
+}
+
+pub async fn update_accounting_year(
+    year: i32,
+    input: &AccountingYearInput,
+) -> Result<AccountingYearDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        url(&format!("/api/accounting-years/{year}")),
+        Some(input),
+    )
+    .await
+}
+
+pub async fn delete_accounting_year(year: i32, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(url(&format!(
+            "/api/accounting-years/{year}?version={version}"
+        )))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 複製為另一個年度（PD9）
+pub async fn copy_accounting_year(year: i32, to: i32) -> Result<AccountingYearDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        url(&format!("/api/accounting-years/{year}/copy")),
+        Some(&serde_json::json!({ "to": to })),
+    )
+    .await
+}
+
+/// 確認 confirm／取消確認 unconfirm
+pub async fn set_accounting_year_state(
+    year: i32,
+    state: &str,
+    version: i32,
+) -> Result<AccountingYearDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        url(&format!(
+            "/api/accounting-years/{year}/{state}?version={version}"
+        )),
+        None,
+    )
+    .await
+}
+
+/// 週期期間查詢（aooq010，PD3）
+pub async fn accounting_days(from: &str, to: &str) -> Result<Vec<AccountingDayDto>, String> {
+    get_json(url(&format!(
+        "/api/accounting-days?from={}&to={}",
+        urlencoding(from),
+        urlencoding(to)
+    )))
+    .await
+}

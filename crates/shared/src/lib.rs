@@ -2504,3 +2504,62 @@ pub struct GeneralParametersInput {
     /// 修改時帶回的版本號（ADR 0012 §4）
     pub version: Option<i32>,
 }
+
+// ---------------------------------------------------------------------------
+// 會計期間（TipTop aoos020 / azm_file；accounting_periods.feature）
+// ---------------------------------------------------------------------------
+
+/// 一期：期別、起始日、截止日、季別（azm0n1、azm0n2、azm0n3）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AccountingPeriodLine {
+    pub period: i16,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
+    pub quarter: i16,
+}
+
+/// 一個會計年度（azm_file 一列）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AccountingYearDto {
+    /// azm01 年度
+    pub year: i32,
+    /// azm02 期數 12／13
+    pub period_count: i16,
+    pub periods: Vec<AccountingPeriodLine>,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 新增、修改會計年度：各期（用預設值時先取 /api/accounting-years/defaults）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AccountingYearInput {
+    pub year: i32,
+    pub periods: Vec<AccountingPeriodLine>,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+/// 日期所屬的會計期間（azn_file 一列；s_gactpd）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AccountingDayDto {
+    pub date: NaiveDate,
+    pub year: i32,
+    pub quarter: i16,
+    pub period: i16,
+    pub week: i16,
+}

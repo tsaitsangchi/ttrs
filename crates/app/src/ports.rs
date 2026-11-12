@@ -846,3 +846,28 @@ pub trait ItemGroupRepository: Send + Sync {
         code: &ttrs_domain::item_group::ItemGroupCode,
     ) -> Result<bool, RepoError>;
 }
+
+/// 會計期間（azm_file；aoos020，accounting_periods.feature）；共用 schema（PD2）
+#[async_trait]
+pub trait AccountingPeriodRepository: Send + Sync {
+    /// 全部會計年度，依年度排序
+    async fn list_accounting_years(
+        &self,
+    ) -> Result<Vec<ttrs_domain::accounting_period::AccountingYear>, RepoError>;
+    async fn get_accounting_year(
+        &self,
+        year: i32,
+    ) -> Result<Option<ttrs_domain::accounting_period::AccountingYear>, RepoError>;
+    /// 年度重複回 `Conflict`
+    async fn insert_accounting_year(
+        &self,
+        y: &ttrs_domain::accounting_period::AccountingYear,
+    ) -> Result<(), RepoError>;
+    /// 表頭與各期一起更新；版本不符回 `Stale`
+    async fn update_accounting_year(
+        &self,
+        y: &ttrs_domain::accounting_period::AccountingYear,
+    ) -> Result<(), RepoError>;
+    /// 回傳是否有刪到
+    async fn delete_accounting_year(&self, year: i32) -> Result<bool, RepoError>;
+}

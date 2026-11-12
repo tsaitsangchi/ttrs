@@ -257,3 +257,16 @@ error-PROJECT_IN_USE = Project is in use and cannot be deleted; deactivate it in
 error-ACCOUNTING_PERIODS_INVALID = Accounting periods must be 12 or 13.
 error-RATE_BASIS_INVALID = Exchange rates used must be monthly or daily.
 error-BASE_CURRENCY_IN_USE = Monthly or daily exchange rates already exist; the home currency cannot be changed.
+
+# 會計期間（aoos020）
+error-ACCOUNTING_YEAR_ALREADY_EXISTS = This fiscal year already exists.
+error-ACCOUNTING_YEAR_NOT_FOUND = Fiscal year not found.
+error-ACCOUNTING_PERIOD_COUNT_INVALID = Every period from 1 to the number of periods is required (no period 13 for 12 periods).
+error-ACCOUNTING_PERIOD_DATE_INVALID = A period end date cannot be earlier than its start date.
+error-ACCOUNTING_QUARTER_INVALID = Quarters must be 1–4 and must not decrease.
+error-ACCOUNTING_PERIOD_YEAR_INVALID = Period dates must fall in the fiscal year or the next year.
+error-ACCOUNTING_PERIODS_NOT_CONTINUOUS = Each period must start the day after the previous period ends.
+error-ACCOUNTING_YEAR_OVERLAP = The periods overlap another fiscal year.
+error-ACCOUNTING_PERIODS_IN_USE = Fiscal years already exist; the number of accounting periods cannot be changed.
+error-ACCOUNTING_PERIOD_NOT_FOUND = The date is not in any accounting period, or the year has no such period.
+error-ACCOUNTING_PERIOD_DATE_RANGE_INVALID = The date range is invalid (end before start, or longer than 10 years).

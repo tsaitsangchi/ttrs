@@ -206,3 +206,12 @@ general-params-base-currency = Home currency
 general-params-rate-basis = Exchange rates used
 general-params-rate-monthly = Monthly rates
 general-params-rate-daily = Daily rates
+
+# 會計期間（aoos020）
+period-report-title = Accounting Periods
+period-col-year = Year
+period-col-count = Periods
+period-col-period = Period
+period-col-start = Start date
+period-col-end = End date
+period-col-quarter = Quarter

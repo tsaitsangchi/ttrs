@@ -18,7 +18,10 @@ use crate::{
     Actor, AppError, Authorizer,
     error::RepoError,
     list_report::{ListReporter, ListSpec},
-    ports::{CurrencyRepository, ExchangeRateRepository, SystemParameterRepository},
+    ports::{
+        AccountingPeriodRepository, CurrencyRepository, ExchangeRateRepository,
+        SystemParameterRepository,
+    },
     report::{self, ReportData, ReportFormat},
 };
 
@@ -41,6 +44,8 @@ pub struct GeneralParameterService {
     params: Arc<dyn SystemParameterRepository>,
     currencies: Arc<dyn CurrencyRepository>,
     rates: Arc<dyn ExchangeRateRepository>,
+    /// 已有會計年度時不可變更期數（GP4、PD6）
+    years: Arc<dyn AccountingPeriodRepository>,
     reports: ListReporter,
 }
 
@@ -50,6 +55,7 @@ impl GeneralParameterService {
         params: Arc<dyn SystemParameterRepository>,
         currencies: Arc<dyn CurrencyRepository>,
         rates: Arc<dyn ExchangeRateRepository>,
+        years: Arc<dyn AccountingPeriodRepository>,
         reports: ListReporter,
     ) -> Self {
         Self {
@@ -57,6 +63,7 @@ impl GeneralParameterService {
             params,
             currencies,
             rates,
+            years,
             reports,
         }
     }
@@ -83,15 +90,29 @@ impl GeneralParameterService {
             let basis = RateBasis::parse(&input.rate_basis)?;
             let base = CurrencyCode::parse(&input.base_currency)
                 .map_err(|_| DomainError::CurrencyNotFound)?;
-            // :875-886 本國幣別須存在；GP5 也不可為停用的幣別
-            let cur = self
-                .currencies
-                .get_currency(&base)
-                .await
-                .map_err(infra)?
-                .ok_or(DomainError::CurrencyNotFound)?;
-            if !cur.active {
-                return Err(DomainError::CurrencyInactive.into());
+            // :875-886 本國幣別須存在；GP5 也不可為停用的幣別。只在變更時檢查
+            // （幣別資料轉入前起始值 TWD 可能還不在幣別檔，不應因此無法修改其他參數）
+            if base != p.base_currency {
+                let cur = self
+                    .currencies
+                    .get_currency(&base)
+                    .await
+                    .map_err(infra)?
+                    .ok_or(DomainError::CurrencyNotFound)?;
+                if !cur.active {
+                    return Err(DomainError::CurrencyInactive.into());
+                }
+            }
+            // GP4、PD6：已有會計年度時不可變更期數
+            if periods != p.accounting_periods
+                && !self
+                    .years
+                    .list_accounting_years()
+                    .await
+                    .map_err(infra)?
+                    .is_empty()
+            {
+                return Err(DomainError::AccountingPeriodsInUse.into());
             }
             if base != p.base_currency && self.rates.has_any_rate().await.map_err(infra)? {
                 return Err(DomainError::BaseCurrencyInUse.into());

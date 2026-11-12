@@ -206,3 +206,12 @@ general-params-base-currency = 本國幣別
 general-params-rate-basis = 匯率採用
 general-params-rate-monthly = 每月匯率
 general-params-rate-daily = 每日匯率
+
+# 會計期間（aoos020）
+period-report-title = 會計期間
+period-col-year = 年度
+period-col-count = 期數
+period-col-period = 期別
+period-col-start = 起始日
+period-col-end = 截止日
+period-col-quarter = 季別

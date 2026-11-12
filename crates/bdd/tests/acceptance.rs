@@ -119,6 +119,10 @@ pub struct ErpWorld {
     /// 整體管理系統參數（general_parameters.feature）與「另一位使用者修改」前的版本
     pub general: ttrs_app::GeneralParameterService,
     pub param_version: Option<i32>,
+    /// 會計期間（accounting_periods.feature）：查詢的每日期間、起訖日
+    pub periods: ttrs_app::AccountingPeriodService,
+    pub accounting_days: Option<Vec<ttrs_shared::AccountingDayDto>>,
+    pub period_range: Option<(chrono::NaiveDate, chrono::NaiveDate)>,
     /// 稅別維護（tax_type_maintenance.feature）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（project_maintenance.feature）
@@ -156,7 +160,7 @@ impl ErpWorld {
                     .expect("drop plant schemas");
                 sqlx::query("TRUNCATE change_log, user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, unit, plant, \
-                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type \
+                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
@@ -213,6 +217,7 @@ impl ErpWorld {
             product_classes,
             item_groups,
             general_parameters: general,
+            accounting_periods: periods,
             authorizer: _,
         } = services;
         let rate_feed = InMemoryStore::new();
@@ -273,6 +278,9 @@ impl ErpWorld {
             rate_settings: None,
             general,
             param_version: None,
+            periods,
+            accounting_days: None,
+            period_range: None,
             taxes,
             projects,
             product_classes,

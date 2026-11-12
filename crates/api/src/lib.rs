@@ -69,6 +69,8 @@ pub struct AppState {
     pub rates: ttrs_app::ExchangeRateService,
     /// 整體管理系統參數（aoos010）
     pub general_parameters: ttrs_app::GeneralParameterService,
+    /// 會計期間維護（aoos020）
+    pub accounting_periods: ttrs_app::AccountingPeriodService,
     /// 稅別維護（aooi150；共用）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（aooi200；工廠層）
@@ -143,6 +145,7 @@ impl AppState {
             currencies,
             rates,
             general_parameters,
+            accounting_periods,
             taxes,
             projects,
             product_classes,
@@ -171,6 +174,7 @@ impl AppState {
             currencies,
             rates,
             general_parameters,
+            accounting_periods,
             taxes,
             projects,
             product_classes,
@@ -535,6 +539,36 @@ pub fn router(state: AppState) -> Router {
             "/api/general-parameters/report.{format}",
             get(general_parameters_report),
         )
+        // Accounting Periods 會計期間維護（TipTop aoos020；aoos030、aooq010 由即時計算取代，PD3）
+        .route("/api/accounting-years", post(create_accounting_year))
+        .route("/api/accounting-years/query", post(query_accounting_years))
+        .route(
+            "/api/accounting-years/defaults",
+            get(accounting_year_defaults),
+        )
+        .route(
+            "/api/accounting-years/report.{format}",
+            get(accounting_year_report),
+        )
+        .route(
+            "/api/accounting-years/{year}",
+            get(get_accounting_year)
+                .put(update_accounting_year)
+                .delete(delete_accounting_year),
+        )
+        .route(
+            "/api/accounting-years/{year}/copy",
+            post(copy_accounting_year),
+        )
+        .route(
+            "/api/accounting-years/{year}/periods/{period}",
+            get(accounting_period_dates),
+        )
+        .route(
+            "/api/accounting-years/{year}/{state}",
+            post(set_accounting_year_state),
+        )
+        .route("/api/accounting-days", get(accounting_days))
         // 匯率維護畫面的設定與提示（GP7）
         .route("/api/monthly-rates/settings", get(monthly_rate_settings))
         .route("/api/daily-rates/settings", get(daily_rate_settings))
@@ -1416,6 +1450,8 @@ impl IntoResponse for HttpError {
             | "ITEM_GROUP_NOT_FOUND"
             | "CURRENCY_NOT_FOUND"
             | "EXCHANGE_RATE_NOT_FOUND"
+            | "ACCOUNTING_YEAR_NOT_FOUND"
+            | "ACCOUNTING_PERIOD_NOT_FOUND"
             | "TAX_TYPE_NOT_FOUND"
             | "PROJECT_NOT_FOUND"
             | "REGION_NOT_FOUND"
@@ -1456,6 +1492,9 @@ impl IntoResponse for HttpError {
             | "EXCHANGE_RATE_ALREADY_EXISTS"
             | "EXCHANGE_RATE_IMPORT_OVERWRITE_REQUIRED"
             | "BASE_CURRENCY_IN_USE"
+            | "ACCOUNTING_YEAR_ALREADY_EXISTS"
+            | "ACCOUNTING_YEAR_OVERLAP"
+            | "ACCOUNTING_PERIODS_IN_USE"
             | "TAX_TYPE_ALREADY_EXISTS"
             | "TAX_TYPE_IN_USE"
             | "PROJECT_ALREADY_EXISTS"
@@ -3415,6 +3454,146 @@ async fn fill_report(
 
 async fn list_currencies(Ctx(s): Ctx) -> ApiResult<Json<Vec<ttrs_shared::CurrencyDto>>> {
     Ok(Json(s.currencies.list(&s.actor).await?))
+}
+
+// ----- 會計期間（aoos020；accounting_periods.feature） -----
+
+async fn query_accounting_years(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::AccountingYearDto>>> {
+    Ok(Json(s.accounting_periods.query(&s.actor, req).await?))
+}
+
+#[derive(Deserialize)]
+struct PeriodDefaultsQuery {
+    year: i32,
+    start: chrono::NaiveDate,
+}
+
+/// 新增時的預設各期（PD5）
+async fn accounting_year_defaults(
+    Ctx(s): Ctx,
+    Query(q): Query<PeriodDefaultsQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::AccountingPeriodLine>>> {
+    Ok(Json(
+        s.accounting_periods
+            .defaults(&s.actor, q.year, q.start)
+            .await?,
+    ))
+}
+
+async fn create_accounting_year(
+    Ctx(s): Ctx,
+    Json(req): Json<ttrs_shared::AccountingYearInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::AccountingYearDto>)> {
+    let dto = s.accounting_periods.create(&s.actor, req).await?;
+    Ok((StatusCode::CREATED, Json(dto)))
+}
+
+async fn get_accounting_year(
+    Ctx(s): Ctx,
+    Path(year): Path<i32>,
+) -> ApiResult<Json<ttrs_shared::AccountingYearDto>> {
+    Ok(Json(s.accounting_periods.get(&s.actor, year).await?))
+}
+
+async fn update_accounting_year(
+    Ctx(s): Ctx,
+    Path(year): Path<i32>,
+    Json(req): Json<ttrs_shared::AccountingYearInput>,
+) -> ApiResult<Json<ttrs_shared::AccountingYearDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.accounting_periods.update(&s.actor, year, req).await?,
+    ))
+}
+
+async fn delete_accounting_year(
+    Ctx(s): Ctx,
+    Path(year): Path<i32>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.accounting_periods.delete(&s.actor, year, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Deserialize)]
+struct CopyYearRequest {
+    to: i32,
+}
+
+/// 複製為另一個年度（PD9）
+async fn copy_accounting_year(
+    Ctx(s): Ctx,
+    Path(year): Path<i32>,
+    Json(req): Json<CopyYearRequest>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::AccountingYearDto>)> {
+    let dto = s.accounting_periods.copy(&s.actor, year, req.to).await?;
+    Ok((StatusCode::CREATED, Json(dto)))
+}
+
+/// 確認（confirm）、取消確認（unconfirm）
+async fn set_accounting_year_state(
+    Ctx(s): Ctx,
+    Path((year, state)): Path<(i32, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let u = &s.accounting_periods;
+    let dto = match state.as_str() {
+        "confirm" => u.confirm(&s.actor, year, true, version).await?,
+        "unconfirm" => u.confirm(&s.actor, year, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+/// 年度＋期別的起訖日（s_azm，PD11）
+async fn accounting_period_dates(
+    Ctx(s): Ctx,
+    Path((year, period)): Path<(i32, i16)>,
+) -> ApiResult<Json<ttrs_shared::AccountingPeriodLine>> {
+    Ok(Json(
+        s.accounting_periods
+            .period_dates(&s.actor, year, period)
+            .await?,
+    ))
+}
+
+#[derive(Deserialize)]
+struct AccountingDaysQuery {
+    from: chrono::NaiveDate,
+    #[serde(default)]
+    to: Option<chrono::NaiveDate>,
+}
+
+/// 日期所屬期間（s_gactpd）與週期期間查詢（aooq010，PD3）：只給 from 時回一天
+async fn accounting_days(
+    Ctx(s): Ctx,
+    Query(q): Query<AccountingDaysQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::AccountingDayDto>>> {
+    let u = &s.accounting_periods;
+    Ok(Json(match q.to {
+        Some(to) => u.days(&s.actor, q.from, to).await?,
+        None => vec![u.locate(&s.actor, q.from).await?],
+    }))
+}
+
+async fn accounting_year_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .accounting_periods
+        .report(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 // ----- 整體管理系統參數（aoos010；general_parameters.feature） -----

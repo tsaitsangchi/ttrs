@@ -309,6 +309,84 @@ tables:
       - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）" }
       - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
 
+  - legacy: azm_file
+    target: accounting_year / accounting_period
+    scope: system
+    program: aoos020（會計期間維護，accounting-period-maintenance；批次 3）
+    spec: specs/features/aoo/accounting_periods.feature（PD1–PD12 依建議確認，2026-11-12）
+    note: "一年一列 41 欄改為表頭 accounting_year＋明細 accounting_period（一期一列）；全公司一份（PD2）"
+    columns:
+      - { legacy: azm01, type: number(5), target: "accounting_year.year / accounting_period.year", sch: "年度" }
+      - { legacy: azm02, type: varchar2(1), target: "accounting_year.period_count", sch: "會計期間分類方式", note: "1 → 12、2 → 13；新增時取整體管理系統參數（PD6）" }
+      - { legacy: azm011, type: date, target: "accounting_period.start_date（period_no = 1）", sch: "第 1期起始日期" }
+      - { legacy: azm012, type: date, target: "accounting_period.end_date（period_no = 1）", sch: "第 1期截止日期" }
+      - { legacy: azm013, type: number(5), target: "accounting_period.quarter（period_no = 1）", sch: "季別" }
+      - { legacy: azm021, type: date, target: "accounting_period.start_date（period_no = 2）", sch: "第 2期起始日期" }
+      - { legacy: azm022, type: date, target: "accounting_period.end_date（period_no = 2）", sch: "第 2期截止日期" }
+      - { legacy: azm023, type: number(5), target: "accounting_period.quarter（period_no = 2）", sch: "季別" }
+      - { legacy: azm031, type: date, target: "accounting_period.start_date（period_no = 3）", sch: "第 3期起始日期" }
+      - { legacy: azm032, type: date, target: "accounting_period.end_date（period_no = 3）", sch: "第 3期截止日期" }
+      - { legacy: azm033, type: number(5), target: "accounting_period.quarter（period_no = 3）", sch: "季別" }
+      - { legacy: azm041, type: date, target: "accounting_period.start_date（period_no = 4）", sch: "第 4期起始日期" }
+      - { legacy: azm042, type: date, target: "accounting_period.end_date（period_no = 4）", sch: "第 4期截止日期" }
+      - { legacy: azm043, type: number(5), target: "accounting_period.quarter（period_no = 4）", sch: "季別" }
+      - { legacy: azm051, type: date, target: "accounting_period.start_date（period_no = 5）", sch: "第 5期起始日期" }
+      - { legacy: azm052, type: date, target: "accounting_period.end_date（period_no = 5）", sch: "第 5期截止日期" }
+      - { legacy: azm053, type: number(5), target: "accounting_period.quarter（period_no = 5）", sch: "季別" }
+      - { legacy: azm061, type: date, target: "accounting_period.start_date（period_no = 6）", sch: "第 6期起始日期" }
+      - { legacy: azm062, type: date, target: "accounting_period.end_date（period_no = 6）", sch: "第 6期截止日期" }
+      - { legacy: azm063, type: number(5), target: "accounting_period.quarter（period_no = 6）", sch: "季別" }
+      - { legacy: azm071, type: date, target: "accounting_period.start_date（period_no = 7）", sch: "第 7期起始日期" }
+      - { legacy: azm072, type: date, target: "accounting_period.end_date（period_no = 7）", sch: "第 7期截止日期" }
+      - { legacy: azm073, type: number(5), target: "accounting_period.quarter（period_no = 7）", sch: "季別" }
+      - { legacy: azm081, type: date, target: "accounting_period.start_date（period_no = 8）", sch: "第 8期起始日期" }
+      - { legacy: azm082, type: date, target: "accounting_period.end_date（period_no = 8）", sch: "第 8期截止日期" }
+      - { legacy: azm083, type: number(5), target: "accounting_period.quarter（period_no = 8）", sch: "季別" }
+      - { legacy: azm091, type: date, target: "accounting_period.start_date（period_no = 9）", sch: "第 9期起始日期" }
+      - { legacy: azm092, type: date, target: "accounting_period.end_date（period_no = 9）", sch: "第 9期截止日期" }
+      - { legacy: azm093, type: number(5), target: "accounting_period.quarter（period_no = 9）", sch: "季別" }
+      - { legacy: azm101, type: date, target: "accounting_period.start_date（period_no = 10）", sch: "第10期起始日期" }
+      - { legacy: azm102, type: date, target: "accounting_period.end_date（period_no = 10）", sch: "第10期截止日期" }
+      - { legacy: azm103, type: number(5), target: "accounting_period.quarter（period_no = 10）", sch: "季別" }
+      - { legacy: azm111, type: date, target: "accounting_period.start_date（period_no = 11）", sch: "第11期起始日期" }
+      - { legacy: azm112, type: date, target: "accounting_period.end_date（period_no = 11）", sch: "第11期截止日期" }
+      - { legacy: azm113, type: number(5), target: "accounting_period.quarter（period_no = 11）", sch: "季別" }
+      - { legacy: azm121, type: date, target: "accounting_period.start_date（period_no = 12）", sch: "第12期起始日期" }
+      - { legacy: azm122, type: date, target: "accounting_period.end_date（period_no = 12）", sch: "第12期截止日期" }
+      - { legacy: azm123, type: number(5), target: "accounting_period.quarter（period_no = 12）", sch: "季別" }
+      - { legacy: azm131, type: date, target: "accounting_period.start_date（period_no = 13）", sch: "第13期起始日期" }
+      - { legacy: azm132, type: date, target: "accounting_period.end_date（period_no = 13）", sch: "第13期截止日期" }
+      - { legacy: azm133, type: number(5), target: "accounting_period.quarter（period_no = 13）", sch: "季別" }
+
+  - legacy: azn_file
+    target: "(不移植)"
+    scope: system
+    program: aoos030、aooq010（由 TTRS 即時計算取代）
+    spec: specs/features/aoo/accounting_periods.feature（PD3）
+    reason: "每日明細由會計期間即時計算，不另存、不需產生批次（PD3）"
+    not_ported:
+      - { legacy: azn01, type: date, sch: "日期", reason: "改為由會計期間即時計算（PD3、PD12）" }
+      - { legacy: azn02, type: number(5), sch: "年度", reason: "改為由會計期間即時計算（PD3、PD12）" }
+      - { legacy: azn03, type: number(5), sch: "季別", reason: "改為由會計期間即時計算（PD3、PD12）" }
+      - { legacy: azn04, type: number(5), sch: "期別", reason: "改為由會計期間即時計算（PD3、PD12）" }
+      - { legacy: azn05, type: number(5), sch: "週別", reason: "改為由會計期間即時計算（PD3、PD12）" }
+
+  - legacy: azz_file
+    target: "(不移植)"
+    scope: system
+    program: aoos900（多營運中心控制參數；批次 3）
+    reason: "整支由 ADR 0007 多營運中心與登入選營運中心取代（Key User 確認不移植，2026-11-12）"
+    not_ported:
+      - { legacy: azz01, type: varchar2(1), sch: "KEY VALUE (0)", reason: "只有一筆的鍵值，整張表不移植" }
+      - { legacy: azz02, type: varchar2(1), sch: "是否為多營運中心環境", reason: "TTRS 一律為多營運中心（ADR 0007）" }
+      - { legacy: azz03, type: varchar2(10), sch: "若非多營運中心環境時預設營", reason: "登入時選營運中心由 sign_in.feature 處理（SQ12、SL1–SL8）" }
+      - { legacy: azz04, type: varchar2(20), sch: "若非多營運中心環境時預設資", reason: "營運中心的 schema 記在營運中心資料（ADR 0007）" }
+      - { legacy: azz05, type: varchar2(1), sch: "營運中心分散於不同時區. 啟", reason: "各營運中心的時區記在營運中心資料（.sch 註明 No Use）" }
+      - { legacy: azz06, type: varchar2(1), sch: "啟用資料庫登入帳號密碼編碼", reason: "Genero／DVM 資料庫登入密碼編碼；TTRS 資料庫連線放環境設定" }
+      - { legacy: azz07, type: varchar2(1), sch: "No Use", reason: "No Use" }
+      - { legacy: azz08, type: varchar2(1), sch: "No Use", reason: "No Use" }
+      - { legacy: azz09, type: varchar2(1), sch: "No Use", reason: "No Use" }
+      - { legacy: azz10, type: varchar2(1), sch: "No Use", reason: "No Use" }
   - legacy: aza_file
     target: system_parameter
     scope: system

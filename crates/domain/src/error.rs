@@ -309,6 +309,29 @@ pub enum DomainError {
     RateBasisInvalid(String),
     #[error("已有每月或每日匯率，不可變更本國幣別")]
     BaseCurrencyInUse,
+    // ----- 會計期間（aoos020；accounting_periods.feature） -----
+    #[error("會計年度已存在")]
+    AccountingYearAlreadyExists,
+    #[error("找不到會計年度")]
+    AccountingYearNotFound,
+    #[error("期數為 {0} 期：各期須從第 1 期起連續且每期都要有（12 期制不可有第 13 期）")]
+    AccountingPeriodCountInvalid(i16),
+    #[error("第 {0} 期的截止日不可早於起始日")]
+    AccountingPeriodDateInvalid(i16),
+    #[error("第 {0} 期的季別須為 1–4 且不可小於前一期")]
+    AccountingQuarterInvalid(i16),
+    #[error("期間日期須在該年度或下一年度內")]
+    AccountingPeriodYearInvalid,
+    #[error("第 {0} 期的起始日須為前一期截止日的隔天")]
+    AccountingPeriodsNotContinuous(i16),
+    #[error("與其他會計年度的期間重疊")]
+    AccountingYearOverlap,
+    #[error("已有會計年度資料，不可變更會計期間的期數")]
+    AccountingPeriodsInUse,
+    #[error("日期不在任何會計期間，或該年度沒有此期")]
+    AccountingPeriodNotFound,
+    #[error("查詢的日期區間不正確（迄日不可早於起日、最多 10 年）")]
+    AccountingPeriodDateRangeInvalid,
 
     // 單位（aooi101 / gfe_file；unit_maintenance.feature）
     #[error("單位不可空白")]
@@ -655,6 +678,17 @@ impl DomainError {
             Self::AccountingPeriodsInvalid(_) => "ACCOUNTING_PERIODS_INVALID",
             Self::RateBasisInvalid(_) => "RATE_BASIS_INVALID",
             Self::BaseCurrencyInUse => "BASE_CURRENCY_IN_USE",
+            Self::AccountingYearAlreadyExists => "ACCOUNTING_YEAR_ALREADY_EXISTS",
+            Self::AccountingYearNotFound => "ACCOUNTING_YEAR_NOT_FOUND",
+            Self::AccountingPeriodCountInvalid(_) => "ACCOUNTING_PERIOD_COUNT_INVALID",
+            Self::AccountingPeriodDateInvalid(_) => "ACCOUNTING_PERIOD_DATE_INVALID",
+            Self::AccountingQuarterInvalid(_) => "ACCOUNTING_QUARTER_INVALID",
+            Self::AccountingPeriodYearInvalid => "ACCOUNTING_PERIOD_YEAR_INVALID",
+            Self::AccountingPeriodsNotContinuous(_) => "ACCOUNTING_PERIODS_NOT_CONTINUOUS",
+            Self::AccountingYearOverlap => "ACCOUNTING_YEAR_OVERLAP",
+            Self::AccountingPeriodsInUse => "ACCOUNTING_PERIODS_IN_USE",
+            Self::AccountingPeriodNotFound => "ACCOUNTING_PERIOD_NOT_FOUND",
+            Self::AccountingPeriodDateRangeInvalid => "ACCOUNTING_PERIOD_DATE_RANGE_INVALID",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",
             Self::UnitCodeTooLong { .. } => "UNIT_CODE_TOO_LONG",
             Self::UnitDecimalsInvalid { .. } => "UNIT_DECIMALS_INVALID",

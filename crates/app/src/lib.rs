@@ -1,5 +1,6 @@
 //! 應用層：協調 domain 與 repository，不含 SQL、不含 HTTP。
 
+pub mod accounting_period_service;
 pub mod authorization;
 pub mod basic_code_service;
 pub mod change_history_service;
@@ -40,6 +41,7 @@ pub mod unit_service;
 pub mod user_permission_service;
 pub mod user_service;
 
+pub use accounting_period_service::AccountingPeriodService;
 pub use authorization::{Actor, ActorKind, Authorizer, PermissionAuthorizer};
 pub use basic_code_service::BasicCodeService;
 pub use change_history_service::ChangeHistoryService;
