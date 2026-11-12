@@ -226,6 +226,10 @@ error-EXCHANGE_RATE_PERIOD_INVALID = 年月须为 YYYYMM（月份 01–12）。
 error-EXCHANGE_RATE_NEGATIVE = 汇率不可小于 0。
 error-EXCHANGE_RATE_INACTIVE = 汇率已停用，请先启用再修改。
 error-EXCHANGE_RATE_COPY_DATE_INVALID = 补到日不可晚于今天。
+error-EXCHANGE_RATE_IMPORT_OVERWRITE_REQUIRED = 今天已有每日汇率，请确认是否覆写。
+error-EXCHANGE_RATE_SOURCE_INVALID = 汇率来源的数据格式不正确（可能是网站验证页），请改用上传文件导入。
+error-EXCHANGE_RATE_SOURCE_UNAVAILABLE = 无法取得汇率来源。
+error-EXCHANGE_RATE_KIND_INVALID = 台银牌告种类只能是现金（cash）或即期（spot）。
 
 # 稅別（aooi150）
 error-TAX_CODE_EMPTY = 税别码不可空白。

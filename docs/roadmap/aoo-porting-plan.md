@@ -21,7 +21,8 @@
 | ✔ | aooi901 營運中心 | 一廠一個 schema（ADR 0007） |
 | ✔ | aoos901 工廠選擇 | 以登入後切換營運中心取代（`PUT /api/session/plant`） |
 | ✔ | 批次 1：aooi050 幣別、aooi090 國別、aooi100 區域別、aooi110 地區、aooi150 稅別、aooi160 交運方式、aooi200 專案、aooi210 報表抬頭、aooi080★ 碼別 | 2026-11-10 完成；區域別、國別、地區、交運方式、報表抬頭共用「基本代碼」畫面與 use case（`basic_code_service.rs`） |
-| ✔ | 批次 2：aooi060 每月匯率、aooi070 每日匯率、aoop010 每日匯率複製 | 2026-11-11 完成；匯率放共用 schema、不移植拋轉（ER1）；本國幣別先放 `system_parameter`（ER2）；台銀／海關自動匯入待資料來源確認（IM1、IM2，規格 `exchange_rate_import.feature` 仍為 @draft） |
+| ✔ | 批次 2：aooi060 每月匯率、aooi070 每日匯率、aoop010 每日匯率複製 | 2026-11-11 完成；匯率放共用 schema、不移植拋轉（ER1）；本國幣別先放 `system_parameter.base_currency`（aza17，ER2；aoos010 移植時在同一張表補其他參數）。自動匯入見下一列 |
+| ✔ | aooi070★ 匯率自動匯入 | 2026-11-12 完成（IM1–IM9，`exchange_rate_import.feature` IM-1–IM-15）：每日匯率維護的「自動匯入」（台銀即期／現金、海關，可上傳台銀 CSV，今天已有匯率時先確認覆寫）；API `POST /api/daily-rates/import/bank`、`/import/customs`；每日排程 `TTRS_RATE_JOB_AT`（API 伺服器）或 `ttrs-admin rate-job`（cron），服務帳號 `TTRS_RATE_JOB_USER`（預設 ttrs-batch），有步驟失敗時寄信給 `TTRS_ADMIN_MAIL`。台銀網站對程式下載有機器人驗證，開發機只拿到驗證頁，上線前在公司網路再測一次 |
 
 ## 3. 程式清單與處理方式
 
@@ -52,7 +53,7 @@
 | aooi070 ★ | 每日匯率 | azk_file | L | 移植 |
 | aoop010 ★ | 每日匯率複製 | azk_file | S | 移植（批次作業） |
 | cs_aooi060_carry ★、cs_aooi070_carry ★ | 匯率拋轉 | azj、azk、zaka | S | 不移植：匯率放共用 schema，所有營運中心讀同一份（ER1，2026-11-11 確認） |
-| aooi070 ★ auto_import | 台銀、海關匯率自動匯入 | azk | M | 移植：規則已確認（IM1–IM9），資料來源網址與格式確認後實作（IM2） |
+| aooi070 ★ auto_import | 台銀、海關匯率自動匯入 | azk | M | 移植（2026-11-12 完成，IM1–IM9；含每日排程與上傳台銀 CSV） |
 
 ### 批次 3　系統參數與會計期間（其他模組的前提）
 

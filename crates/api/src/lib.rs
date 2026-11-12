@@ -1,6 +1,7 @@
 //! 路由與錯誤對應。handler 只做轉譯，業務邏輯一律在 ttrs-app。
 
 pub mod admin_cli;
+pub mod rate_job;
 pub mod session;
 
 use std::sync::Arc;
@@ -498,6 +499,12 @@ pub fn router(state: AppState) -> Router {
             get(daily_rate_defaults),
         )
         .route("/api/daily-rates/unify", post(unify_rates))
+        // 匯率自動匯入（aooi070 ★ auto_import；exchange_rate_import.feature）：台銀（可上傳 CSV）、海關
+        .route("/api/daily-rates/import/bank", post(import_bank_rates))
+        .route(
+            "/api/daily-rates/import/customs",
+            post(import_customs_rates),
+        )
         .route(
             "/api/daily-rates/{currency}/{date}",
             get(get_daily_rate)
@@ -1401,6 +1408,8 @@ impl IntoResponse for HttpError {
             | "SHIPPING_METHOD_NOT_FOUND"
             | "REPORT_TITLE_NOT_FOUND" => StatusCode::NOT_FOUND,
             "PASSWORD_RESET_UNAVAILABLE" => StatusCode::SERVICE_UNAVAILABLE,
+            // 匯率來源（台銀、關務署網站）無法取得
+            "EXCHANGE_RATE_SOURCE_UNAVAILABLE" => StatusCode::BAD_GATEWAY,
             "NOT_SIGNED_IN"
             | "SIGN_IN_FAILED"
             | "USER_LOCKED"
@@ -1429,6 +1438,7 @@ impl IntoResponse for HttpError {
             | "CURRENCY_ALREADY_EXISTS"
             | "CURRENCY_IN_USE"
             | "EXCHANGE_RATE_ALREADY_EXISTS"
+            | "EXCHANGE_RATE_IMPORT_OVERWRITE_REQUIRED"
             | "TAX_TYPE_ALREADY_EXISTS"
             | "TAX_TYPE_IN_USE"
             | "PROJECT_ALREADY_EXISTS"
@@ -3098,8 +3108,8 @@ async fn delete_tax_type(
 
 use ttrs_shared::{
     DailyRateCopyRequest, DailyRateDto, DailyRateFillLine, DailyRateFillRequest, DailyRateInput,
-    MonthlyRateCopyRequest, MonthlyRateDto, MonthlyRateInput, RateBatchResult, RatesDto,
-    RevaluationRequest, UnifyRateRequest,
+    MonthlyRateCopyRequest, MonthlyRateDto, MonthlyRateInput, RateBatchResult, RateImportRequest,
+    RateImportResult, RatesDto, RevaluationRequest, UnifyRateRequest,
 };
 
 async fn create_monthly_rate(
@@ -3269,6 +3279,28 @@ async fn unify_rates(
     Json(req): Json<UnifyRateRequest>,
 ) -> ApiResult<Json<RateBatchResult>> {
     Ok(Json(s.rates.unify(&s.actor, req.date).await?))
+}
+
+/// 匯入台銀牌告匯率（IM1–IM3）：`kind` 為 cash 現金或 spot 即期（預設）；`csv` 有值時用上傳的檔案（IM1 備援）
+async fn import_bank_rates(
+    Ctx(s): Ctx,
+    Json(req): Json<RateImportRequest>,
+) -> ApiResult<Json<RateImportResult>> {
+    let kind = ttrs_domain::exchange_rate::feed::BankRateType::parse(
+        req.kind.as_deref().unwrap_or_default(),
+    )
+    .map_err(AppError::from)?;
+    let csv = req.csv.as_deref().filter(|c| !c.trim().is_empty());
+    Ok(Json(
+        s.rates
+            .import_bank(&s.actor, kind, req.overwrite, csv)
+            .await?,
+    ))
+}
+
+/// 匯入關務署每旬報關匯率（IM4）
+async fn import_customs_rates(Ctx(s): Ctx) -> ApiResult<Json<RateImportResult>> {
+    Ok(Json(s.rates.import_customs(&s.actor).await?))
 }
 
 async fn get_daily_rate(

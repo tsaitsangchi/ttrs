@@ -300,6 +300,8 @@ pub enum DomainError {
     ExchangeRateSourceInvalid(String),
     #[error("無法取得{0}：{1}")]
     ExchangeRateSourceUnavailable(String, String),
+    #[error("台銀牌告種類只能是 cash（現金）或 spot（即期）：{0}")]
+    ExchangeRateKindInvalid(String),
 
     // 單位（aooi101 / gfe_file；unit_maintenance.feature）
     #[error("單位不可空白")]
@@ -642,6 +644,7 @@ impl DomainError {
             Self::ExchangeRateImportOverwriteRequired => "EXCHANGE_RATE_IMPORT_OVERWRITE_REQUIRED",
             Self::ExchangeRateSourceInvalid(_) => "EXCHANGE_RATE_SOURCE_INVALID",
             Self::ExchangeRateSourceUnavailable(..) => "EXCHANGE_RATE_SOURCE_UNAVAILABLE",
+            Self::ExchangeRateKindInvalid(_) => "EXCHANGE_RATE_KIND_INVALID",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",
             Self::UnitCodeTooLong { .. } => "UNIT_CODE_TOO_LONG",
             Self::UnitDecimalsInvalid { .. } => "UNIT_DECIMALS_INVALID",

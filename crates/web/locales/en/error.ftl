@@ -226,6 +226,10 @@ error-EXCHANGE_RATE_PERIOD_INVALID = Year/month must be YYYYMM with month 01–1
 error-EXCHANGE_RATE_NEGATIVE = Exchange rates cannot be negative.
 error-EXCHANGE_RATE_INACTIVE = The exchange rate is inactive; activate it before editing.
 error-EXCHANGE_RATE_COPY_DATE_INVALID = The fill-up date cannot be later than today.
+error-EXCHANGE_RATE_IMPORT_OVERWRITE_REQUIRED = Today's daily rates already exist; confirm to overwrite them.
+error-EXCHANGE_RATE_SOURCE_INVALID = The rate source returned data in an unexpected format (possibly a website verification page); import an uploaded file instead.
+error-EXCHANGE_RATE_SOURCE_UNAVAILABLE = The exchange rate source could not be reached.
+error-EXCHANGE_RATE_KIND_INVALID = The Bank of Taiwan rate type must be cash or spot.
 
 # 稅別（aooi150）
 error-TAX_CODE_EMPTY = Tax code is required.

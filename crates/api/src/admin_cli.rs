@@ -15,6 +15,10 @@ pub const USAGE: &str = "\
       --reactivate：帳號已停用或過期時同時恢復有效。
   ttrs-admin unlock <使用者代號>
       只解除鎖定（試誤次數歸零），不改密碼。
+  ttrs-admin rate-job
+      立即執行每日匯率排程（台銀即期匯入 → 海關匯入 → 每日匯率複製 → 昨天的月底重評價），
+      可由 cron 呼叫；有步驟失敗時結束碼為 1，並寄信給 TTRS_ADMIN_MAIL（需 TTRS_SMTP_*）。
+      服務帳號為 TTRS_RATE_JOB_USER（預設 ttrs-batch）。
 需要環境變數 DATABASE_URL。";
 
 /// 指令輸出

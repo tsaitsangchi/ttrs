@@ -2,7 +2,8 @@
 //! 版面比照 tiptop/aoo/4fd/aooi060.4fd、topcust/coo/4fd/aooi070.4fd（MR1、DR1）：單筆表單（幣別、年月或日期、各匯率）＋上下筆，
 //! 下方列出查詢結果供選取；新增／修改以小視窗編輯。共用 schema（ER1）。規則在後端 ExchangeRateService。
 //! 功能（ADR 0013）：insert、modify、delete、query、reproduce、invalid、output，另加匯出 Excel、異動記錄、確認／取消確認；
-//! 每月匯率另有月底重評價 re_rate（MR7），每日匯率另有統一匯率 unify_rate（DR7）與新增時的預設匯率（DR4）。
+//! 每月匯率另有月底重評價 re_rate（MR7），每日匯率另有統一匯率 unify_rate（DR7）、新增時的預設匯率（DR4）
+//! 與自動匯入 auto_import（台銀、海關，可上傳台銀 CSV；exchange_rate_import.feature IM1–IM9）。
 //! 計算方式為「除」的幣別提供匯率換算（s_rate，MR9）。
 
 use dioxus::prelude::*;
@@ -38,6 +39,11 @@ const RATES: [(&str, &str); 6] = [
     ("rate-field-customs-buy", "customs_buy"),
     ("rate-field-customs-sell", "customs_sell"),
 ];
+
+/// 自動匯入的來源（畫面選項值）
+const IMPORT_BANK_SPOT: &str = "bank-spot";
+const IMPORT_BANK_CASH: &str = "bank-cash";
+const IMPORT_CUSTOMS: &str = "customs";
 
 #[derive(Clone, Copy, PartialEq)]
 enum Kind {
@@ -405,6 +411,13 @@ fn RatePage(kind: Kind) -> Element {
     // 匯率換算（s_rate）：「1 本國幣 = ? 外幣」與要填入的欄位
     let mut convert_value = use_signal(String::new);
     let mut convert_target = use_signal(|| "bank_mid".to_owned());
+    // 自動匯入（auto_import）：來源、上傳的台銀 CSV（檔名, 內容）、是否已詢問覆寫（IM5）
+    let mut importing = use_signal(|| false);
+    let mut import_source = use_signal(|| IMPORT_BANK_SPOT.to_owned());
+    let mut import_file = use_signal(|| None::<(String, String)>);
+    let mut import_overwrite = use_signal(|| false);
+    let mut import_error = use_signal(|| None::<String>);
+    let mut import_running = use_signal(|| false);
 
     let page_data = rows.read().as_ref().and_then(|r| r.as_ref().ok()).cloned();
     let list: Vec<Row> = page_data
@@ -516,6 +529,58 @@ fn RatePage(kind: Kind) -> Element {
                     Some(r.id()),
                 ),
                 Err(e) => dialog_error.set(Some(e)),
+            }
+        });
+    };
+
+    let mut close_import = move || {
+        importing.set(false);
+        import_overwrite.set(false);
+        import_file.set(None);
+        import_error.set(None);
+    };
+
+    // 自動匯入：今天已有每日匯率時伺服器要求確認，確認後以覆寫重送（aooi070.4gl:1530，aoo-301）
+    let run_import = move |_| {
+        let source = import_source();
+        let csv = import_file().map(|(_, text)| text);
+        let overwrite = import_overwrite();
+        import_running.set(true);
+        spawn(async move {
+            let result = match source.as_str() {
+                IMPORT_CUSTOMS => api::import_customs_rates().await,
+                IMPORT_BANK_CASH => api::import_bank_rates("cash", overwrite, csv).await,
+                _ => api::import_bank_rates("spot", overwrite, csv).await,
+            };
+            import_running.set(false);
+            match result {
+                Ok(r) => {
+                    close_import();
+                    let none = t("daily-rate-import-none");
+                    let list = |v: &[String]| {
+                        if v.is_empty() {
+                            none.clone()
+                        } else {
+                            v.join(", ")
+                        }
+                    };
+                    done(
+                        tf(
+                            "daily-rate-import-msg-done",
+                            &[
+                                ("imported", list(&r.imported).as_str()),
+                                ("skipped", list(&r.skipped).as_str()),
+                                ("warnings", list(&r.warnings).as_str()),
+                            ],
+                        ),
+                        None,
+                    );
+                }
+                Err(e) if e.code == "EXCHANGE_RATE_IMPORT_OVERWRITE_REQUIRED" => {
+                    import_error.set(None);
+                    import_overwrite.set(true);
+                }
+                Err(e) => import_error.set(Some(e.message)),
             }
         });
     };
@@ -700,6 +765,21 @@ fn RatePage(kind: Kind) -> Element {
                                     });
                                 },
                                 {t("daily-rate-action-unify")}
+                            }
+                        }
+                        // 自動匯入（auto_import，IM9）
+                        if !monthly && perm.can("auto_import") {
+                            Button {
+                                icon: icons::CLOUD_DOWNLOAD,
+                                tone: Tone::Primary,
+                                variant: ButtonVariant::Tonal,
+                                onclick: move |_| {
+                                    message.set(None);
+                                    error.set(None);
+                                    close_import();
+                                    importing.set(true);
+                                },
+                                {t("daily-rate-action-import")}
                             }
                         }
                     }
@@ -919,6 +999,89 @@ fn RatePage(kind: Kind) -> Element {
                         }
                     }
                     p { class: "muted", {t(&kind.id("hint"))} }
+                }
+            }
+            if importing() {
+                Dialog {
+                    title: t("daily-rate-import-title"),
+                    oncancel: move |_| close_import(),
+                    actions: rsx! {
+                        Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| close_import(), {t("common-action-cancel")} }
+                        Button {
+                            icon: icons::CHECK,
+                            tone: if import_overwrite() { Tone::Error } else { Tone::Success },
+                            disabled: import_running(),
+                            onclick: run_import,
+                            if import_overwrite() { {t("daily-rate-import-action-overwrite")} } else { {t("daily-rate-import-action-run")} }
+                        }
+                    },
+                    if let Some(msg) = import_error() {
+                        Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| import_error.set(None) }
+                    }
+                    if import_overwrite() {
+                        Notification { kind: NotificationKind::Error, title: t("daily-rate-import-overwrite"), onclose: move |_| import_overwrite.set(false) }
+                    }
+                    div { class: "form-grid",
+                        Select {
+                            id: "import-source",
+                            label: t("daily-rate-import-field-source"),
+                            options: vec![
+                                (IMPORT_BANK_SPOT.to_owned(), t("daily-rate-import-source-bank-spot")),
+                                (IMPORT_BANK_CASH.to_owned(), t("daily-rate-import-source-bank-cash")),
+                                (IMPORT_CUSTOMS.to_owned(), t("daily-rate-import-source-customs")),
+                            ],
+                            value: import_source(),
+                            onchange: move |v| {
+                                import_source.set(v);
+                                import_overwrite.set(false);
+                                import_error.set(None);
+                            },
+                        }
+                    }
+                    // 台銀網站擋程式下載時，上傳瀏覽器下載的 CSV（IM1 備援）
+                    if import_source() != IMPORT_CUSTOMS {
+                        div { class: "action-bar",
+                            label { class: "md-button md-state md-button--outlined md-button--with-icon",
+                                svg {
+                                    class: "md-button__icon {Tone::Primary.icon_class()}",
+                                    width: "18",
+                                    height: "18",
+                                    view_box: "0 0 24 24",
+                                    fill: "currentColor",
+                                    "aria-hidden": "true",
+                                    path { d: icons::UPLOAD }
+                                }
+                                {t("daily-rate-import-action-file")}
+                                input {
+                                    id: "import-file",
+                                    r#type: "file",
+                                    accept: ".csv,text/csv",
+                                    hidden: true,
+                                    onchange: move |e: FormEvent| async move {
+                                        let Some(f) = e.files().into_iter().next() else { return };
+                                        match f.read_string().await {
+                                            Ok(text) => {
+                                                import_file.set(Some((f.name(), text)));
+                                                import_overwrite.set(false);
+                                                import_error.set(None);
+                                            }
+                                            Err(err) => import_error.set(Some(err.to_string())),
+                                        }
+                                    },
+                                }
+                            }
+                            if import_file().is_some() {
+                                Button { icon: icons::CLOSE, tone: Tone::Neutral, variant: ButtonVariant::Text, onclick: move |_| import_file.set(None), {t("daily-rate-import-action-clear-file")} }
+                            }
+                        }
+                        p { class: "muted",
+                            match import_file() {
+                                Some((name, _)) => tf("daily-rate-import-file-chosen", &[("name", name.as_str())]),
+                                None => t("daily-rate-import-file-none"),
+                            }
+                        }
+                    }
+                    p { class: "muted", {t("daily-rate-import-hint")} }
                 }
             }
         }

@@ -1,10 +1,12 @@
-//! ttrs-admin：伺服器端緊急重設（ADR 0010 §B）。只能在伺服器上以 DATABASE_URL 連線執行，沒有 HTTP API。
+//! ttrs-admin：伺服器端緊急重設（ADR 0010 §B）與每日匯率排程（exchange_rate_import.feature IM8）。
+//! 只能在伺服器上以 DATABASE_URL 連線執行，沒有 HTTP API。
 
 use std::{process::ExitCode, sync::Arc};
 
 use ttrs_api::admin_cli::{self, USAGE};
-use ttrs_app::Services;
-use ttrs_infra::PgStore;
+use ttrs_api::rate_job;
+use ttrs_app::{Services, mail::Mailer};
+use ttrs_infra::{PgStore, SmtpMailer};
 
 #[tokio::main]
 async fn main() -> ExitCode {
@@ -25,6 +27,9 @@ async fn main() -> ExitCode {
         }
     };
     let services = Services::new(Arc::new(PgStore::new(pool)));
+    if args.first().map(String::as_str) == Some("rate-job") {
+        return run_rate_job(services).await;
+    }
     // 稽核紀錄的執行者：以 sudo 執行時記錄原本的使用者
     let operator = ["SUDO_USER", "USER", "USERNAME"]
         .iter()
@@ -40,5 +45,24 @@ async fn main() -> ExitCode {
             eprintln!("{e}");
             ExitCode::FAILURE
         }
+    }
+}
+
+/// 立即執行每日匯率排程（cron 或手動）；有步驟失敗時結束碼為 1
+async fn run_rate_job(services: Services) -> ExitCode {
+    let mailer = match SmtpMailer::from_env() {
+        Ok(m) => m.map(|m| Arc::new(m) as Arc<dyn Mailer>),
+        Err(e) => {
+            eprintln!("寄信設定不正確：{e}");
+            return ExitCode::from(2);
+        }
+    };
+    let rates = rate_job::with_job_mail(services.rates, mailer);
+    let steps = rates.run_daily_job(&rate_job::job_actor()).await;
+    println!("{}", rate_job::report(&steps));
+    if steps.iter().all(|s| s.ok) {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
     }
 }

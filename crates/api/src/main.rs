@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use tracing_subscriber::EnvFilter;
-use ttrs_api::{AppState, actor_from_env, cors_from_env, router};
+use ttrs_api::{AppState, actor_from_env, cors_from_env, rate_job, router};
 use ttrs_app::{Services, mail::MailSettings, memory::InMemoryStore};
 use ttrs_infra::{PgStore, SmtpMailer};
 
@@ -31,7 +31,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    let services = with_mail(services)?;
+    let mailer = SmtpMailer::from_env()?.map(Arc::new);
+    let mut services = with_mail(services, mailer.clone())?;
+    // 每日匯率排程（exchange_rate_import.feature IM8）：失敗寄信給 TTRS_ADMIN_MAIL
+    services.rates = rate_job::with_job_mail(
+        services.rates,
+        mailer.map(|m| m as Arc<dyn ttrs_app::mail::Mailer>),
+    );
+    match rate_job::parse_job_time(std::env::var("TTRS_RATE_JOB_AT").ok().as_deref())? {
+        Some(at) => rate_job::spawn_daily(services.rates.clone(), at),
+        None => tracing::info!("TTRS_RATE_JOB_AT not set: daily exchange rate job disabled"),
+    }
 
     let addr = std::env::var("TTRS_API_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".into());
     let listener = tokio::net::TcpListener::bind(&addr).await?;
@@ -55,8 +65,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// 忘記密碼的寄信設定（ADR 0010 R4、R9）：TTRS_SMTP_* 與 TTRS_PUBLIC_URL 都設定才開放
-fn with_mail(mut services: Services) -> Result<Services, Box<dyn std::error::Error>> {
-    let Some(mailer) = SmtpMailer::from_env()? else {
+fn with_mail(
+    mut services: Services,
+    mailer: Option<Arc<SmtpMailer>>,
+) -> Result<Services, Box<dyn std::error::Error>> {
+    let Some(mailer) = mailer else {
         tracing::info!("TTRS_SMTP_HOST not set: forgot-password disabled");
         return Ok(services);
     };
@@ -65,9 +78,8 @@ fn with_mail(mut services: Services) -> Result<Services, Box<dyn std::error::Err
         .filter(|u| u.starts_with("http://") || u.starts_with("https://"))
         .ok_or("TTRS_SMTP_HOST 已設定，但 TTRS_PUBLIC_URL 未設定或不是 http(s) 網址")?;
     tracing::info!(%public_url, "forgot-password enabled");
-    services.password_reset = services.password_reset.with_mail(MailSettings {
-        mailer: Arc::new(mailer),
-        public_url,
-    });
+    services.password_reset = services
+        .password_reset
+        .with_mail(MailSettings { mailer, public_url });
     Ok(services)
 }

@@ -226,6 +226,10 @@ error-EXCHANGE_RATE_PERIOD_INVALID = （使用伺服器訊息）
 error-EXCHANGE_RATE_NEGATIVE = （使用伺服器訊息）
 error-EXCHANGE_RATE_INACTIVE = （使用伺服器訊息）
 error-EXCHANGE_RATE_COPY_DATE_INVALID = （使用伺服器訊息）
+error-EXCHANGE_RATE_IMPORT_OVERWRITE_REQUIRED = （使用伺服器訊息）
+error-EXCHANGE_RATE_SOURCE_INVALID = （使用伺服器訊息）
+error-EXCHANGE_RATE_SOURCE_UNAVAILABLE = （使用伺服器訊息）
+error-EXCHANGE_RATE_KIND_INVALID = （使用伺服器訊息）
 
 # 稅別（aooi150）
 error-TAX_CODE_EMPTY = （使用伺服器訊息）

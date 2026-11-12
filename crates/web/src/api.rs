@@ -2301,7 +2301,7 @@ pub async fn project_history(
 
 use ttrs_shared::{
     DailyRateDto, DailyRateFillLine, DailyRateInput, MonthlyRateDto, MonthlyRateInput,
-    RateBatchResult, RatesDto,
+    RateBatchResult, RateImportRequest, RateImportResult, RatesDto,
 };
 
 fn rate_url(part: &str, currency: &str, key: &str, suffix: &str) -> String {
@@ -2482,6 +2482,50 @@ pub async fn unify_rates(date: &str) -> Result<RateBatchResult, String> {
         Some(&serde_json::json!({ "date": date })),
     )
     .await
+}
+
+/// 匯率自動匯入（aooi070 ★ auto_import）：台銀牌告，`kind` 為 cash 或 spot；`csv` 有值時用上傳的檔案（IM1 備援）。
+/// 今天已有每日匯率而未同意覆寫時，錯誤代碼為 EXCHANGE_RATE_IMPORT_OVERWRITE_REQUIRED
+pub async fn import_bank_rates(
+    kind: &str,
+    overwrite: bool,
+    csv: Option<String>,
+) -> Result<RateImportResult, ApiFailure> {
+    post_with_code(
+        url("/api/daily-rates/import/bank"),
+        &RateImportRequest {
+            kind: Some(kind.to_owned()),
+            overwrite,
+            csv,
+        },
+    )
+    .await
+}
+
+/// 匯率自動匯入：關務署每旬報關匯率（IM4）
+pub async fn import_customs_rates() -> Result<RateImportResult, ApiFailure> {
+    post_with_code(
+        url("/api/daily-rates/import/customs"),
+        &serde_json::json!({}),
+    )
+    .await
+}
+
+async fn post_with_code<T: serde::de::DeserializeOwned, B: serde::Serialize + ?Sized>(
+    u: String,
+    body: &B,
+) -> Result<T, ApiFailure> {
+    let res = reqwest::Client::new()
+        .post(u)
+        .json(body)
+        .send()
+        .await
+        .map_err(network)?;
+    if res.status().is_success() {
+        res.json().await.map_err(network)
+    } else {
+        Err(failure(res).await)
+    }
 }
 
 /// 每日匯率複製（aoop010，CP1）

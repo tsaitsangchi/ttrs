@@ -529,6 +529,17 @@ pub mod feed {
         Spot,
     }
 
+    impl BankRateType {
+        /// API 代號：cash 現金、spot 即期；空白為即期（IM3）
+        pub fn parse(code: &str) -> Result<Self, DomainError> {
+            match code.trim() {
+                "" | "spot" => Ok(Self::Spot),
+                "cash" => Ok(Self::Cash),
+                other => Err(DomainError::ExchangeRateKindInvalid(other.to_owned())),
+            }
+        }
+    }
+
     /// 台銀牌告匯率 CSV（rate.bot.com.tw/xrt/flcsv/0/day）：幣別、「本行買入」、現金、即期、遠期…、「本行賣出」、現金、即期、遠期…。
     /// 以「本行賣出」的位置找賣出欄（aooi070.4gl:1620-1650 對應文字檔第 3／4、13／14 欄）。
     /// 沒有任何資料列（例如收到網站驗證頁）時回 EXCHANGE_RATE_SOURCE_INVALID
@@ -653,6 +664,17 @@ pub mod feed {
             let spot = parse_bot_csv(text, BankRateType::Spot).unwrap();
             assert_eq!((spot[0].buy, spot[0].sell), (d("32.025"), d("32.125")));
             assert!(parse_bot_csv("<!DOCTYPE html>", BankRateType::Spot).is_err());
+        }
+
+        #[test]
+        fn bank_rate_type_code() {
+            assert_eq!(BankRateType::parse(""), Ok(BankRateType::Spot));
+            assert_eq!(BankRateType::parse("spot"), Ok(BankRateType::Spot));
+            assert_eq!(BankRateType::parse(" cash "), Ok(BankRateType::Cash));
+            assert_eq!(
+                BankRateType::parse("Cash").unwrap_err().code(),
+                "EXCHANGE_RATE_KIND_INVALID"
+            );
         }
 
         #[test]
