@@ -270,3 +270,10 @@ error-ACCOUNTING_YEAR_OVERLAP = （使用伺服器訊息）
 error-ACCOUNTING_PERIODS_IN_USE = （使用伺服器訊息）
 error-ACCOUNTING_PERIOD_NOT_FOUND = （使用伺服器訊息）
 error-ACCOUNTING_PERIOD_DATE_RANGE_INVALID = （使用伺服器訊息）
+
+# 單位換算（aooi102、aooi103）
+error-UNIT_CONVERSION_ALREADY_EXISTS = （使用伺服器訊息）
+error-UNIT_CONVERSION_NOT_FOUND = （使用伺服器訊息）
+error-UNIT_CONVERSION_QUANTITY_INVALID = （使用伺服器訊息）
+error-UNIT_CONVERSION_SAME_UNIT = （使用伺服器訊息）
+error-UNIT_INACTIVE = （使用伺服器訊息）

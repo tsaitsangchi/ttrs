@@ -36,6 +36,7 @@ use ttrs_domain::{
     record::Stamp,
     tax_type::{TaxKey, TaxType},
     unit::{Unit, UnitAttrs, UnitCode},
+    unit_conversion::{Conversion, ItemUnitConversion, UnitConversion},
     user::{User, UserId},
     user_permission::{SpecialTarget, UserPermission},
 };
@@ -47,12 +48,13 @@ use crate::{
         AccountPolicy, AccountPolicyRepository, AccountingPeriodRepository, AuditEntry,
         BasicCodeRepository, ChangeLogRepository, Credential, CredentialRepository,
         CurrencyRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
-        ExchangeRateRepository, ItemGroupRepository, ItemRepository, LegacyCatalogRepository,
-        LegacyTableSummary, MasterDataRepository, MenuRepository, MigrationSource,
-        PermissionClassRepository, PermissionListItem, PlantRepository, ProductClassRepository,
-        ProgramName, ProgramPermissionRepository, ProgramRepository, ProjectRepository,
-        SchemaCatalog, SystemParameterRepository, TableSchema, TaxTypeRepository, UnitRepository,
-        UserPermissionItem, UserPermissionRepository, UserRepository,
+        ExchangeRateRepository, ItemGroupRepository, ItemRepository, ItemUnitConversionRepository,
+        LegacyCatalogRepository, LegacyTableSummary, MasterDataRepository, MenuRepository,
+        MigrationSource, PermissionClassRepository, PermissionListItem, PlantRepository,
+        ProductClassRepository, ProgramName, ProgramPermissionRepository, ProgramRepository,
+        ProjectRepository, SchemaCatalog, SystemParameterRepository, TableSchema,
+        TaxTypeRepository, UnitConversionRepository, UnitRepository, UserPermissionItem,
+        UserPermissionRepository, UserRepository,
     },
     query,
 };
@@ -107,6 +109,10 @@ struct State {
     general: Option<GeneralParameters>,
     /// 會計年度（azm_file，共用；accounting_periods.feature）
     accounting_years: BTreeMap<i32, AccountingYear>,
+    /// 一般單位換算（smc_file，共用）：(來源, 目的) → 換算
+    unit_conversions: BTreeMap<(String, String), UnitConversion>,
+    /// 料件單位換算（smd_file，工廠層）：(營運中心, 料號, 來源, 目的) → 換算
+    item_unit_conversions: BTreeMap<(PlantId, String, String, String), ItemUnitConversion>,
     /// 匯率自動匯入的來源（BDD 設定）；None 表示無法取得（IM8）
     bank_quotes: Option<Vec<Quote>>,
     customs_current: Option<(NaiveDate, NaiveDate, Vec<Quote>)>,
@@ -211,6 +217,8 @@ impl InMemoryStore {
                     "report-title-maintenance",
                     "general-management-parameters",
                     "accounting-period-maintenance",
+                    "unit-conversion-maintenance",
+                    "item-unit-conversion-maintenance",
                 ],
             ),
             (
@@ -256,7 +264,7 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 28] = [
+        let names: [(&str, [&str; 3]); 30] = [
             (
                 "monthly-exchange-rate-maintenance",
                 ["每月匯率維護", "Monthly Exchange Rates", "每月汇率维护"],
@@ -270,6 +278,18 @@ impl InMemoryStore {
                 ["每日匯率複製", "Daily Exchange Rate Copy", "每日汇率复制"],
             ),
             ("project-maintenance", ["專案維護", "Projects", "专案维护"]),
+            (
+                "unit-conversion-maintenance",
+                ["單位換算維護", "Unit Conversions", "单位换算维护"],
+            ),
+            (
+                "item-unit-conversion-maintenance",
+                [
+                    "料件單位換算維護",
+                    "Item Unit Conversions",
+                    "料件单位换算维护",
+                ],
+            ),
             (
                 "accounting-period-maintenance",
                 ["會計期間維護", "Accounting Periods", "会计期间维护"],
@@ -4175,4 +4195,235 @@ fn period_row(year: i32, p: &Period) -> Row {
         ("end_date", text::date(p.end)),
         ("quarter", text::int(i64::from(p.quarter))),
     ])
+}
+
+// ----- 單位換算（smc_file、smd_file；unit_conversion_service.rs） -----
+
+fn conv_cols(c: &Conversion) -> Vec<(&'static str, Option<String>)> {
+    vec![
+        ("from_unit", text::s(c.from_unit.as_str())),
+        ("to_unit", text::s(c.to_unit.as_str())),
+        (
+            "from_quantity",
+            Some(c.from_quantity.normalize().to_string()),
+        ),
+        ("to_quantity", Some(c.to_quantity.normalize().to_string())),
+        ("note", text::opt(c.note.as_deref())),
+    ]
+}
+
+fn unit_conv_key(c: &Conversion) -> Vec<(&'static str, String)> {
+    vec![
+        ("from_unit", c.from_unit.as_str().to_owned()),
+        ("to_unit", c.to_unit.as_str().to_owned()),
+    ]
+}
+
+fn unit_conv_row(c: &UnitConversion) -> Row {
+    let mut cols = conv_cols(&c.conversion);
+    cols.push(("confirmed", text::b(c.confirmation.confirmed)));
+    cols.push(("confirmed_by", text::opt(c.confirmation.by.as_deref())));
+    cols.extend(audit_cols(
+        c.active,
+        &c.created_by,
+        &c.created_dept,
+        c.created_on,
+        c.updated_by.as_deref(),
+        c.updated_on,
+        &c.stamp,
+    ));
+    row(cols)
+}
+
+fn item_conv_key(c: &ItemUnitConversion) -> Vec<(&'static str, String)> {
+    let mut k = vec![("item_no", c.item.as_str().to_owned())];
+    k.extend(unit_conv_key(&c.conversion));
+    k
+}
+
+fn item_conv_row(c: &ItemUnitConversion) -> Row {
+    let mut cols = vec![("item_no", text::s(c.item.as_str()))];
+    cols.extend(conv_cols(&c.conversion));
+    cols.extend(audit_cols(
+        c.active,
+        &c.created_by,
+        &c.created_dept,
+        c.created_on,
+        c.updated_by.as_deref(),
+        c.updated_on,
+        &c.stamp,
+    ));
+    row(cols)
+}
+
+fn pair(c: &Conversion) -> (String, String) {
+    (
+        c.from_unit.as_str().to_owned(),
+        c.to_unit.as_str().to_owned(),
+    )
+}
+
+#[async_trait]
+impl UnitConversionRepository for InMemoryStore {
+    async fn list_unit_conversions(&self) -> Result<Vec<UnitConversion>, RepoError> {
+        Ok(self.lock().unit_conversions.values().cloned().collect())
+    }
+
+    async fn insert_unit_conversion(&self, c: &UnitConversion) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = pair(&c.conversion);
+        if s.unit_conversions.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut c = c.clone();
+        c.stamp = new_stamp();
+        s.log_change(
+            None,
+            "unit_conversion",
+            unit_conv_key(&c.conversion),
+            None,
+            Some(unit_conv_row(&c)),
+            &[],
+        );
+        s.unit_conversions.insert(key, c);
+        Ok(())
+    }
+
+    async fn update_unit_conversion(&self, c: &UnitConversion) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = pair(&c.conversion);
+        let Some(old) = s.unit_conversions.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut c = c.clone();
+        c.stamp = bumped(&old.stamp, &c.stamp)?;
+        s.log_change(
+            None,
+            "unit_conversion",
+            unit_conv_key(&c.conversion),
+            Some(unit_conv_row(&old)),
+            Some(unit_conv_row(&c)),
+            &[],
+        );
+        s.unit_conversions.insert(key, c);
+        Ok(())
+    }
+
+    async fn delete_unit_conversion(
+        &self,
+        from: &UnitCode,
+        to: &UnitCode,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s
+            .unit_conversions
+            .remove(&(from.as_str().to_owned(), to.as_str().to_owned()))
+        else {
+            return Ok(false);
+        };
+        s.log_change(
+            None,
+            "unit_conversion",
+            unit_conv_key(&old.conversion),
+            Some(unit_conv_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+#[async_trait]
+impl ItemUnitConversionRepository for InMemoryStore {
+    async fn list_item_unit_conversions(
+        &self,
+        plant: &PlantId,
+        item: Option<&ItemNo>,
+    ) -> Result<Vec<ItemUnitConversion>, RepoError> {
+        Ok(self
+            .lock()
+            .item_unit_conversions
+            .iter()
+            .filter(|((p, i, _, _), _)| p == plant && item.is_none_or(|x| x.as_str() == i))
+            .map(|(_, c)| c.clone())
+            .collect())
+    }
+
+    async fn insert_item_unit_conversion(
+        &self,
+        plant: &PlantId,
+        c: &ItemUnitConversion,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let (f, t) = pair(&c.conversion);
+        let key = (plant.clone(), c.item.as_str().to_owned(), f, t);
+        if s.item_unit_conversions.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut c = c.clone();
+        c.stamp = new_stamp();
+        s.log_change(
+            Some(plant),
+            "item_unit_conversion",
+            item_conv_key(&c),
+            None,
+            Some(item_conv_row(&c)),
+            &[],
+        );
+        s.item_unit_conversions.insert(key, c);
+        Ok(())
+    }
+
+    async fn update_item_unit_conversion(
+        &self,
+        plant: &PlantId,
+        c: &ItemUnitConversion,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let (f, t) = pair(&c.conversion);
+        let key = (plant.clone(), c.item.as_str().to_owned(), f, t);
+        let Some(old) = s.item_unit_conversions.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut c = c.clone();
+        c.stamp = bumped(&old.stamp, &c.stamp)?;
+        s.log_change(
+            Some(plant),
+            "item_unit_conversion",
+            item_conv_key(&c),
+            Some(item_conv_row(&old)),
+            Some(item_conv_row(&c)),
+            &[],
+        );
+        s.item_unit_conversions.insert(key, c);
+        Ok(())
+    }
+
+    async fn delete_item_unit_conversion(
+        &self,
+        plant: &PlantId,
+        item: &ItemNo,
+        from: &UnitCode,
+        to: &UnitCode,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let key = (
+            plant.clone(),
+            item.as_str().to_owned(),
+            from.as_str().to_owned(),
+            to.as_str().to_owned(),
+        );
+        let Some(old) = s.item_unit_conversions.remove(&key) else {
+            return Ok(false);
+        };
+        s.log_change(
+            Some(plant),
+            "item_unit_conversion",
+            item_conv_key(&old),
+            Some(item_conv_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
 }

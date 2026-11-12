@@ -2686,3 +2686,184 @@ pub async fn accounting_days(from: &str, to: &str) -> Result<Vec<AccountingDayDt
     )))
     .await
 }
+
+// ----- 單位換算（aooi102 /api/unit-conversions、aooi103 /api/plants/{plant}/items/{no}/unit-conversions） -----
+
+use ttrs_shared::{ItemUnitConversionDto, UnitConversionDto, UnitConversionInput};
+
+fn conv_url(from: &str, to: &str, suffix: &str) -> String {
+    url(&format!(
+        "/api/unit-conversions/{}/{}{suffix}",
+        urlencoding(from),
+        urlencoding(to)
+    ))
+}
+
+pub async fn query_unit_conversions(req: &QueryRequest) -> Result<Page<UnitConversionDto>, String> {
+    post_query(url("/api/unit-conversions/query"), req).await
+}
+
+pub async fn create_unit_conversion(
+    input: &UnitConversionInput,
+) -> Result<UnitConversionDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        url("/api/unit-conversions"),
+        Some(input),
+    )
+    .await
+}
+
+pub async fn update_unit_conversion(
+    from: &str,
+    to: &str,
+    input: &UnitConversionInput,
+) -> Result<UnitConversionDto, String> {
+    send_json(reqwest::Method::PUT, conv_url(from, to, ""), Some(input)).await
+}
+
+pub async fn delete_unit_conversion(from: &str, to: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!("{}?version={version}", conv_url(from, to, "")))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 停用 deactivate／啟用 activate／確認 confirm／取消確認 unconfirm
+pub async fn set_unit_conversion_state(
+    from: &str,
+    to: &str,
+    state: &str,
+    version: i32,
+) -> Result<UnitConversionDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            conv_url(from, to, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn copy_unit_conversion(
+    from: &str,
+    to: &str,
+    new_from: &str,
+    new_to: &str,
+) -> Result<UnitConversionDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        conv_url(from, to, "/copy"),
+        Some(&serde_json::json!({ "from_unit": new_from, "to_unit": new_to })),
+    )
+    .await
+}
+
+fn item_conv_url(plant: &str, item: &str, suffix: &str) -> String {
+    url(&format!(
+        "/api/plants/{}/items/{}/unit-conversions{suffix}",
+        urlencoding(plant),
+        urlencoding(item)
+    ))
+}
+
+pub async fn list_item_unit_conversions(
+    plant: &str,
+    item: &str,
+) -> Result<Vec<ItemUnitConversionDto>, String> {
+    get_json(item_conv_url(plant, item, "")).await
+}
+
+pub async fn create_item_unit_conversion(
+    plant: &str,
+    item: &str,
+    input: &UnitConversionInput,
+) -> Result<ItemUnitConversionDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        item_conv_url(plant, item, ""),
+        Some(input),
+    )
+    .await
+}
+
+pub async fn update_item_unit_conversion(
+    plant: &str,
+    item: &str,
+    from: &str,
+    to: &str,
+    input: &UnitConversionInput,
+) -> Result<ItemUnitConversionDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        item_conv_url(
+            plant,
+            item,
+            &format!("/{}/{}", urlencoding(from), urlencoding(to)),
+        ),
+        Some(input),
+    )
+    .await
+}
+
+pub async fn delete_item_unit_conversion(
+    plant: &str,
+    item: &str,
+    from: &str,
+    to: &str,
+    version: i32,
+) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            item_conv_url(
+                plant,
+                item,
+                &format!("/{}/{}", urlencoding(from), urlencoding(to))
+            )
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 停用 deactivate／啟用 activate
+pub async fn set_item_unit_conversion_state(
+    plant: &str,
+    item: &str,
+    from: &str,
+    to: &str,
+    state: &str,
+    version: i32,
+) -> Result<ItemUnitConversionDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            item_conv_url(
+                plant,
+                item,
+                &format!("/{}/{}/{state}", urlencoding(from), urlencoding(to))
+            )
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn item_unit_conversion_history(
+    plant: &str,
+    item: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!(
+        "{}?lang={lang}",
+        item_conv_url(plant, item, "/history")
+    ))
+    .await
+}

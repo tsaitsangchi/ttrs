@@ -168,6 +168,7 @@ macro_rules! has_status {
 }
 
 has_status!(
+    ttrs_shared::UnitConversionDto,
     ttrs_shared::UserDto,
     ttrs_shared::PermissionClassDto,
     ttrs_shared::PlantDto,

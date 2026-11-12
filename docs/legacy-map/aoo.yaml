@@ -387,6 +387,34 @@ tables:
       - { legacy: azz08, type: varchar2(1), sch: "No Use", reason: "No Use" }
       - { legacy: azz09, type: varchar2(1), sch: "No Use", reason: "No Use" }
       - { legacy: azz10, type: varchar2(1), sch: "No Use", reason: "No Use" }
+
+  - legacy: smc_file
+    target: unit_conversion
+    scope: system
+    program: aooi102（單位換算維護；批次 4）
+    spec: specs/features/aoo/unit_conversion.feature（UC1–UC12 依建議確認，2026-11-12）
+    columns:
+      - { legacy: smc01, type: varchar2(4), target: from_unit, sch: "'來源'計算單位" }
+      - { legacy: smc02, type: varchar2(4), target: to_unit, sch: "'目的'計算單位", note: "A→B 與 B→A 視為同一組，只存一筆（UC3）" }
+      - { legacy: smc03, type: number(15,3), target: from_quantity, sch: "'來源單位'兌換數量", note: "> 0、3 位小數（UC4）" }
+      - { legacy: smc04, type: number(15,3), target: to_quantity, sch: "'目的單位'兌換數量", note: "> 0、3 位小數（UC4）" }
+      - { legacy: smc05, type: varchar2(80), target: note, sch: "說明" }
+      - { legacy: smcacti, type: varchar2(1), target: active, sch: "資料有效碼" }
+
+  - legacy: smd_file
+    target: item_unit_conversion
+    scope: plant
+    program: aooi103（料件單位換算維護；批次 4）
+    spec: specs/features/aoo/unit_conversion.feature（UC1–UC12 依建議確認，2026-11-12）
+    columns:
+      - { legacy: smd01, type: varchar2(40), target: item_no, sch: "料件編號" }
+      - { legacy: smd02, type: varchar2(4), target: from_unit, sch: "'來源'計算單位" }
+      - { legacy: smd03, type: varchar2(4), target: to_unit, sch: "'目的'計算單位", note: "同料件 A→B 與 B→A 視為同一組（UC3）" }
+      - { legacy: smd04, type: number(15,3), target: from_quantity, sch: "'來源單位'兌換數量", note: "> 0（UC4）" }
+      - { legacy: smd06, type: number(15,3), target: to_quantity, sch: "'目的單位'兌換數量", note: "> 0（UC4）" }
+      - { legacy: smd05, type: varchar2(80), target: note, sch: "說明" }
+      - { legacy: smdacti, type: varchar2(1), target: active, sch: "資料有效碼", note: "停用的不採用（UC7；TipTop 不看有效碼）" }
+
   - legacy: aza_file
     target: system_parameter
     scope: system

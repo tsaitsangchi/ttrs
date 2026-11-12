@@ -270,3 +270,10 @@ error-ACCOUNTING_YEAR_OVERLAP = The periods overlap another fiscal year.
 error-ACCOUNTING_PERIODS_IN_USE = Fiscal years already exist; the number of accounting periods cannot be changed.
 error-ACCOUNTING_PERIOD_NOT_FOUND = The date is not in any accounting period, or the year has no such period.
 error-ACCOUNTING_PERIOD_DATE_RANGE_INVALID = The date range is invalid (end before start, or longer than 10 years).
+
+# 單位換算（aooi102、aooi103）
+error-UNIT_CONVERSION_ALREADY_EXISTS = A conversion between these two units already exists (in either direction).
+error-UNIT_CONVERSION_NOT_FOUND = Unit conversion not found.
+error-UNIT_CONVERSION_QUANTITY_INVALID = Quantities must be greater than 0 with up to 3 decimals.
+error-UNIT_CONVERSION_SAME_UNIT = The from and to units must differ.
+error-UNIT_INACTIVE = The unit is inactive.

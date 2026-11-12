@@ -71,6 +71,9 @@ pub struct AppState {
     pub general_parameters: ttrs_app::GeneralParameterService,
     /// 會計期間維護（aoos020）
     pub accounting_periods: ttrs_app::AccountingPeriodService,
+    /// 單位換算（aooi102）、料件單位換算（aooi103）
+    pub unit_conversions: ttrs_app::UnitConversionService,
+    pub item_unit_conversions: ttrs_app::ItemUnitConversionService,
     /// 稅別維護（aooi150；共用）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（aooi200；工廠層）
@@ -146,6 +149,8 @@ impl AppState {
             rates,
             general_parameters,
             accounting_periods,
+            unit_conversions,
+            item_unit_conversions,
             taxes,
             projects,
             product_classes,
@@ -175,6 +180,8 @@ impl AppState {
             rates,
             general_parameters,
             accounting_periods,
+            unit_conversions,
+            item_unit_conversions,
             taxes,
             projects,
             product_classes,
@@ -538,6 +545,52 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/general-parameters/report.{format}",
             get(general_parameters_report),
+        )
+        // Unit Conversion 單位換算（TipTop aooi102；共用）
+        .route("/api/unit-conversions", post(create_unit_conversion))
+        .route("/api/unit-conversions/query", post(query_unit_conversions))
+        .route(
+            "/api/unit-conversions/report.{format}",
+            get(unit_conversion_report),
+        )
+        .route(
+            "/api/unit-conversions/{from}/{to}",
+            get(get_unit_conversion)
+                .put(update_unit_conversion)
+                .delete(delete_unit_conversion),
+        )
+        .route(
+            "/api/unit-conversions/{from}/{to}/copy",
+            post(copy_unit_conversion),
+        )
+        .route(
+            "/api/unit-conversions/{from}/{to}/{state}",
+            post(set_unit_conversion_state),
+        )
+        // Item Unit Conversion 料件單位換算（TipTop aooi103；工廠層）與換算率（s_umfchk）
+        .route(
+            "/api/plants/{plant}/items/{no}/unit-conversions",
+            get(list_item_unit_conversions).post(create_item_unit_conversion),
+        )
+        .route(
+            "/api/plants/{plant}/items/{no}/unit-conversions/history",
+            get(item_unit_conversion_history),
+        )
+        .route(
+            "/api/plants/{plant}/items/{no}/unit-conversions/{from}/{to}",
+            axum::routing::put(update_item_unit_conversion).delete(delete_item_unit_conversion),
+        )
+        .route(
+            "/api/plants/{plant}/items/{no}/unit-conversions/{from}/{to}/{state}",
+            post(set_item_unit_conversion_state),
+        )
+        .route(
+            "/api/plants/{plant}/item-unit-conversions/report.{format}",
+            get(item_unit_conversion_report),
+        )
+        .route(
+            "/api/plants/{plant}/unit-conversion-factor",
+            get(unit_conversion_factor),
         )
         // Accounting Periods 會計期間維護（TipTop aoos020；aoos030、aooq010 由即時計算取代，PD3）
         .route("/api/accounting-years", post(create_accounting_year))
@@ -1451,6 +1504,7 @@ impl IntoResponse for HttpError {
             | "CURRENCY_NOT_FOUND"
             | "EXCHANGE_RATE_NOT_FOUND"
             | "ACCOUNTING_YEAR_NOT_FOUND"
+            | "UNIT_CONVERSION_NOT_FOUND"
             | "ACCOUNTING_PERIOD_NOT_FOUND"
             | "TAX_TYPE_NOT_FOUND"
             | "PROJECT_NOT_FOUND"
@@ -1493,6 +1547,7 @@ impl IntoResponse for HttpError {
             | "EXCHANGE_RATE_IMPORT_OVERWRITE_REQUIRED"
             | "BASE_CURRENCY_IN_USE"
             | "ACCOUNTING_YEAR_ALREADY_EXISTS"
+            | "UNIT_CONVERSION_ALREADY_EXISTS"
             | "ACCOUNTING_YEAR_OVERLAP"
             | "ACCOUNTING_PERIODS_IN_USE"
             | "TAX_TYPE_ALREADY_EXISTS"
@@ -3454,6 +3509,232 @@ async fn fill_report(
 
 async fn list_currencies(Ctx(s): Ctx) -> ApiResult<Json<Vec<ttrs_shared::CurrencyDto>>> {
     Ok(Json(s.currencies.list(&s.actor).await?))
+}
+
+// ----- 單位換算（aooi102、aooi103；unit_conversion.feature） -----
+
+async fn query_unit_conversions(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::UnitConversionDto>>> {
+    Ok(Json(s.unit_conversions.query(&s.actor, req).await?))
+}
+
+async fn create_unit_conversion(
+    Ctx(s): Ctx,
+    Json(req): Json<ttrs_shared::UnitConversionInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::UnitConversionDto>)> {
+    let dto = s.unit_conversions.create(&s.actor, req).await?;
+    Ok((StatusCode::CREATED, Json(dto)))
+}
+
+async fn get_unit_conversion(
+    Ctx(s): Ctx,
+    Path((from, to)): Path<(String, String)>,
+) -> ApiResult<Json<ttrs_shared::UnitConversionDto>> {
+    Ok(Json(s.unit_conversions.get(&s.actor, &from, &to).await?))
+}
+
+async fn update_unit_conversion(
+    Ctx(s): Ctx,
+    Path((from, to)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::UnitConversionInput>,
+) -> ApiResult<Json<ttrs_shared::UnitConversionDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.unit_conversions.update(&s.actor, &from, &to, req).await?,
+    ))
+}
+
+async fn delete_unit_conversion(
+    Ctx(s): Ctx,
+    Path((from, to)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.unit_conversions
+        .delete(&s.actor, &from, &to, version)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Deserialize)]
+struct CopyConversionRequest {
+    from_unit: String,
+    to_unit: String,
+}
+
+async fn copy_unit_conversion(
+    Ctx(s): Ctx,
+    Path((from, to)): Path<(String, String)>,
+    Json(req): Json<CopyConversionRequest>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::UnitConversionDto>)> {
+    let dto = s
+        .unit_conversions
+        .copy(&s.actor, &from, &to, &req.from_unit, &req.to_unit)
+        .await?;
+    Ok((StatusCode::CREATED, Json(dto)))
+}
+
+/// 停用（deactivate）、啟用（activate）、確認（confirm）、取消確認（unconfirm）
+async fn set_unit_conversion_state(
+    Ctx(s): Ctx,
+    Path((from, to, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let u = &s.unit_conversions;
+    let a = &s.actor;
+    let dto = match state.as_str() {
+        "activate" => u.set_active(a, &from, &to, true, version).await?,
+        "deactivate" => u.set_active(a, &from, &to, false, version).await?,
+        "confirm" => u.confirm(a, &from, &to, true, version).await?,
+        "unconfirm" => u.confirm(a, &from, &to, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn unit_conversion_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .unit_conversions
+        .report(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn list_item_unit_conversions(
+    Ctx(s): Ctx,
+    Path((plant, item)): Path<(String, String)>,
+) -> ApiResult<Json<Vec<ttrs_shared::ItemUnitConversionDto>>> {
+    Ok(Json(
+        s.item_unit_conversions
+            .list(&s.actor, &plant, &item)
+            .await?,
+    ))
+}
+
+async fn create_item_unit_conversion(
+    Ctx(s): Ctx,
+    Path((plant, item)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::UnitConversionInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::ItemUnitConversionDto>)> {
+    let dto = s
+        .item_unit_conversions
+        .create(&s.actor, &plant, &item, req)
+        .await?;
+    Ok((StatusCode::CREATED, Json(dto)))
+}
+
+async fn update_item_unit_conversion(
+    Ctx(s): Ctx,
+    Path((plant, item, from, to)): Path<(String, String, String, String)>,
+    Json(req): Json<ttrs_shared::UnitConversionInput>,
+) -> ApiResult<Json<ttrs_shared::ItemUnitConversionDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.item_unit_conversions
+            .update(&s.actor, &plant, &item, &from, &to, req)
+            .await?,
+    ))
+}
+
+async fn delete_item_unit_conversion(
+    Ctx(s): Ctx,
+    Path((plant, item, from, to)): Path<(String, String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.item_unit_conversions
+        .delete(&s.actor, &plant, &item, &from, &to, version)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// 停用（deactivate）、啟用（activate）
+async fn set_item_unit_conversion_state(
+    Ctx(s): Ctx,
+    Path((plant, item, from, to, state)): Path<(String, String, String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let active = match state.as_str() {
+        "activate" => true,
+        "deactivate" => false,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    let dto = s
+        .item_unit_conversions
+        .set_active(&s.actor, &plant, &item, &from, &to, active, version)
+        .await?;
+    Ok(Json(dto).into_response())
+}
+
+async fn item_unit_conversion_history(
+    Ctx(s): Ctx,
+    Path((plant, item)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.item_unit_conversions
+            .history(&s.actor, &plant, &item, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+#[derive(Deserialize)]
+struct ItemReportQuery {
+    #[serde(default)]
+    item: Option<String>,
+    #[serde(default)]
+    lang: Option<String>,
+}
+
+async fn item_unit_conversion_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ItemReportQuery>,
+) -> ApiResult<Response> {
+    let rq = ReportQuery {
+        q: None,
+        lang: q.lang.clone(),
+    };
+    let Some((format, _, lang)) = report_args(&format, &rq)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let item = q.item.as_deref().filter(|i| !i.trim().is_empty());
+    let data = s
+        .item_unit_conversions
+        .report(&s.actor, &plant, item, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+#[derive(Deserialize)]
+struct FactorQuery {
+    item: String,
+    from: String,
+    to: String,
+}
+
+/// 換算率（s_umfchk，UC7）
+async fn unit_conversion_factor(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Query(q): Query<FactorQuery>,
+) -> ApiResult<Json<rust_decimal::Decimal>> {
+    Ok(Json(
+        s.item_unit_conversions
+            .factor(&s.actor, &plant, &q.item, &q.from, &q.to)
+            .await?,
+    ))
 }
 
 // ----- 會計期間（aoos020；accounting_periods.feature） -----

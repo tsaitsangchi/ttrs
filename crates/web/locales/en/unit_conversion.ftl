@@ -1,0 +1,29 @@
+# 單位換算（TipTop aooi102、aooi103；unit_conversion.feature）
+conversion-breadcrumb = General Management / Unit Conversions
+conversion-title = Unit Conversions
+conversion-field-from-unit = From unit
+conversion-field-to-unit = To unit
+conversion-field-from-quantity = From quantity
+conversion-field-to-quantity = To quantity
+conversion-field-note = Note
+conversion-field-active = Active
+conversion-field-copy-from = Copy as from unit
+conversion-field-copy-to = Copy as to unit
+conversion-field-item = Item
+conversion-field-item-name = Name
+conversion-field-item-spec = Specification
+conversion-field-stock-unit = Stock unit
+conversion-dialog-new = New Unit Conversion
+conversion-dialog-edit = Edit Unit Conversion { $key }
+conversion-dialog-hint = The from quantity in the from unit equals the to quantity in the to unit, e.g. 1 KG = 1000 G. Enter each pair of units once; the reverse direction applies automatically. Quantities must be greater than 0 with up to 3 decimals.
+conversion-msg-quantity-invalid = Quantities must be numbers
+conversion-msg-saved = Unit conversion { $key } saved
+conversion-msg-copied = Unit conversion { $from } copied to { $to }
+conversion-msg-deleted = Unit conversion { $key } deleted
+conversion-msg-confirmed = Unit conversion { $key } confirmed
+conversion-msg-unconfirmed = Unit conversion { $key } unconfirmed
+conversion-msg-activated = Unit conversion { $key } activated
+conversion-msg-deactivated = Unit conversion { $key } deactivated
+item-conversion-breadcrumb = General Management / Item Unit Conversions
+item-conversion-title = Item Unit Conversions
+item-conversion-dialog-hint = Applies to this item only and takes precedence over general unit conversions; inactive conversions are not used.

@@ -468,6 +468,24 @@
       | monthly-exchange-rate-maintenance | query | 查看每月匯率設定 |
       | daily-exchange-rate-maintenance | query | 查看每日匯率設定 |
       | general-management-parameters | query | 查看整體管理系統參數 |
+      | unit-conversion-maintenance | query | 查詢單位換算 |
+      | unit-conversion-maintenance | detail | 新增單位換算 KG G |
+      | unit-conversion-maintenance | detail | 修改單位換算 KG G |
+      | unit-conversion-maintenance | detail | 停用單位換算 KG G |
+      | unit-conversion-maintenance | detail | 刪除單位換算 KG G |
+      | unit-conversion-maintenance | reproduce | 複製單位換算 KG G |
+      | unit-conversion-maintenance | confirm | 確認單位換算 KG G |
+      | unit-conversion-maintenance | notconfirm | 取消確認單位換算 KG G |
+      | unit-conversion-maintenance | output | 列印單位換算 |
+      | unit-conversion-maintenance | exporttoexcel | 匯出單位換算為 Excel |
+      | unit-conversion-maintenance | history | 查詢作業 unit-conversion-maintenance KG 的異動記錄 |
+      | item-unit-conversion-maintenance | query | 查詢料件 A001 的單位換算 |
+      | item-unit-conversion-maintenance | query | 取用料件 A001 的換算率 |
+      | item-unit-conversion-maintenance | detail | 新增料件 A001 的單位換算 |
+      | item-unit-conversion-maintenance | detail | 刪除料件 A001 的單位換算 |
+      | item-unit-conversion-maintenance | output | 列印料件單位換算 |
+      | item-unit-conversion-maintenance | exporttoexcel | 匯出料件單位換算為 Excel |
+      | item-unit-conversion-maintenance | history | 查詢料件 A001 單位換算的異動記錄 |
       | accounting-period-maintenance | query | 查詢會計年度 |
       | accounting-period-maintenance | query | 查詢日期 2026-03-15 的會計期間 |
       | accounting-period-maintenance | insert | 新增會計年度 2026 |

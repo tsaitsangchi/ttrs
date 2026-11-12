@@ -18,6 +18,7 @@ mod aoo_plant_maintenance;
 mod aoo_plant_maintenance_query;
 mod aoo_project_maintenance;
 mod aoo_tax_type_maintenance;
+mod aoo_unit_conversion;
 mod aoo_unit_maintenance;
 mod axm_product_classification;
 mod azz_authorization;

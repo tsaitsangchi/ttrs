@@ -1260,6 +1260,60 @@ pub mod accounting_year {
     }
 }
 
+/// 單位換算（aooi102.4gl:115-178 的 CONSTRUCT；ADR 0013 SA1 擴及狀態欄位）
+pub mod unit_conversion {
+    use ttrs_domain::{qbe::FieldType, unit_conversion::UnitConversion};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("from_unit", FieldType::Text),
+        field("to_unit", FieldType::Text),
+        field("from_quantity", FieldType::Decimal),
+        field("to_quantity", FieldType::Decimal),
+        field("note", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(c: &UnitConversion, field: &str) -> FieldValue {
+        let v = &c.conversion;
+        match field {
+            "from_unit" => text(v.from_unit.as_str()),
+            "to_unit" => text(v.to_unit.as_str()),
+            "from_quantity" => opt_dec(Some(v.from_quantity)),
+            "to_quantity" => opt_dec(Some(v.to_quantity)),
+            "note" => opt_text(v.note.as_deref()),
+            other => confirm_value(other, &c.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(c.active),
+                        &c.created_by,
+                        &c.created_dept,
+                        Some(c.created_on),
+                        c.updated_by.as_deref(),
+                        c.updated_on,
+                        c.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
 /// 基本代碼（區域別 aooi100:353、國別 aooi090:419、地區 aooi110:399、交運方式 aooi160:355、報表抬頭 aooi210:118
 /// 的 CONSTRUCT；ADR 0013 SA1 擴及狀態欄位）。欄位：代號 code、名稱 name、隸屬 parent
 pub mod basic_code {

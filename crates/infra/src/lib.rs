@@ -25,6 +25,7 @@ mod pg_program;
 mod pg_project;
 mod pg_tax_type;
 mod pg_unit;
+mod pg_unit_conversion;
 mod pg_user;
 mod pg_user_permission;
 mod plant_schema;

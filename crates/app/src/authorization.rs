@@ -143,6 +143,20 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "query, modify, history, output, exporttoexcel",
     ),
+    // 單位換算（UC9）：比照單位維護
+    (
+        "unit-conversion-maintenance",
+        "aooi102",
+        "AOO",
+        "query, detail, history, reproduce, confirm, notconfirm, output, exporttoexcel",
+    ),
+    // 料件單位換算（UC9）：單頭是料件
+    (
+        "item-unit-conversion-maintenance",
+        "aooi103",
+        "AOO",
+        "query, detail, history, output, exporttoexcel",
+    ),
     // 會計期間（PD9）：沒有失效
     (
         "accounting-period-maintenance",

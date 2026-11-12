@@ -76,6 +76,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-TW/exchange_rate.ftl"),
         include_str!("../locales/zh-TW/general_parameters.ftl"),
         include_str!("../locales/zh-TW/accounting_period.ftl"),
+        include_str!("../locales/zh-TW/unit_conversion.ftl"),
         include_str!("../locales/zh-TW/tax_type.ftl"),
         include_str!("../locales/zh-TW/project.ftl"),
         include_str!("../locales/zh-TW/product_class.ftl"),
@@ -102,6 +103,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/en/exchange_rate.ftl"),
         include_str!("../locales/en/general_parameters.ftl"),
         include_str!("../locales/en/accounting_period.ftl"),
+        include_str!("../locales/en/unit_conversion.ftl"),
         include_str!("../locales/en/tax_type.ftl"),
         include_str!("../locales/en/project.ftl"),
         include_str!("../locales/en/product_class.ftl"),
@@ -128,6 +130,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-CN/exchange_rate.ftl"),
         include_str!("../locales/zh-CN/general_parameters.ftl"),
         include_str!("../locales/zh-CN/accounting_period.ftl"),
+        include_str!("../locales/zh-CN/unit_conversion.ftl"),
         include_str!("../locales/zh-CN/tax_type.ftl"),
         include_str!("../locales/zh-CN/project.ftl"),
         include_str!("../locales/zh-CN/product_class.ftl"),
@@ -324,7 +327,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 32] = [
+        const TRANSLATED: [(&str, &str); 34] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/session.rs",
@@ -382,6 +385,14 @@ mod tests {
             (
                 "pages/aoo/accounting_period_maintenance.rs",
                 include_str!("pages/aoo/accounting_period_maintenance.rs"),
+            ),
+            (
+                "pages/aoo/unit_conversion_maintenance.rs",
+                include_str!("pages/aoo/unit_conversion_maintenance.rs"),
+            ),
+            (
+                "pages/aoo/item_unit_conversion_maintenance.rs",
+                include_str!("pages/aoo/item_unit_conversion_maintenance.rs"),
             ),
             (
                 "pages/aoo/tax_type_maintenance.rs",

@@ -1090,6 +1090,90 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .settings(a, "daily-exchange-rate-maintenance")
             .await
             .map(drop),
+        // aooi102 單位換算（共用層）
+        ["查詢單位換算"] => w
+            .conversions
+            .query(a, QueryRequest::default())
+            .await
+            .map(drop),
+        [verb, f, t] if verb.ends_with("單位換算") => {
+            let c = &w.conversions;
+            let input = ttrs_shared::UnitConversionInput {
+                from_unit: (*f).into(),
+                to_unit: (*t).into(),
+                from_quantity: rust_decimal::Decimal::ONE,
+                to_quantity: rust_decimal::Decimal::from(1000),
+                note: None,
+                version: None,
+            };
+            match *verb {
+                "新增單位換算" => c.create(a, input).await.map(drop),
+                "修改單位換算" => c.update(a, f, t, input).await.map(drop),
+                "停用單位換算" => c.set_active(a, f, t, false, None).await.map(drop),
+                "刪除單位換算" => c.delete(a, f, t, None).await,
+                "複製單位換算" => c.copy(a, f, t, "BOX", "PCS").await.map(drop),
+                "確認單位換算" => c.confirm(a, f, t, true, None).await.map(drop),
+                "取消確認單位換算" => c.confirm(a, f, t, false, None).await.map(drop),
+                other => panic!("未知操作：{other}"),
+            }
+        }
+        ["列印單位換算"] | ["匯出單位換算為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = if arg(0) == "列印單位換算" {
+                ttrs_app::report::ReportFormat::Pdf
+            } else {
+                ttrs_app::report::ReportFormat::Excel
+            };
+            w.conversions
+                .report(a, Vec::new(), f, &lang)
+                .await
+                .map(drop)
+        }
+        // aooi103 料件單位換算（工廠層）
+        ["查詢料件", no, "的單位換算"] => {
+            w.item_conversions.list(a, "TW01", no).await.map(drop)
+        }
+        ["取用料件", no, "的換算率"] => w
+            .item_conversions
+            .factor(a, "TW01", no, "BOX", "PCS")
+            .await
+            .map(drop),
+        ["新增料件", no, "的單位換算"] => {
+            let input = ttrs_shared::UnitConversionInput {
+                from_unit: "BOX".into(),
+                to_unit: "PCS".into(),
+                from_quantity: rust_decimal::Decimal::ONE,
+                to_quantity: rust_decimal::Decimal::from(12),
+                note: None,
+                version: None,
+            };
+            w.item_conversions
+                .create(a, "TW01", no, input)
+                .await
+                .map(drop)
+        }
+        ["刪除料件", no, "的單位換算"] => {
+            w.item_conversions
+                .delete(a, "TW01", no, "BOX", "PCS", None)
+                .await
+        }
+        ["列印料件單位換算"] | ["匯出料件單位換算為", "Excel"] => {
+            let lang = ttrs_domain::lang::Lang::default_lang();
+            let f = if arg(0) == "列印料件單位換算" {
+                ttrs_app::report::ReportFormat::Pdf
+            } else {
+                ttrs_app::report::ReportFormat::Excel
+            };
+            w.item_conversions
+                .report(a, "TW01", None, f, &lang)
+                .await
+                .map(drop)
+        }
+        ["查詢料件", no, "單位換算的異動記錄"] => w
+            .item_conversions
+            .history(a, "TW01", no, None)
+            .await
+            .map(drop),
         // aoos020 會計期間維護（共用層）
         ["查詢會計年度"] => w.periods.query(a, QueryRequest::default()).await.map(drop),
         ["查詢日期", d, "的會計期間"] => w

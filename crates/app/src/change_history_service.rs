@@ -39,6 +39,12 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
     ("plant-maintenance", &["plant"], "plant_id"),
     ("menu-maintenance", &["menu_item"], "menu_no"),
     ("unit-maintenance", &["unit"], "unit_code"),
+    // 單位換算以來源單位查詢
+    (
+        "unit-conversion-maintenance",
+        &["unit_conversion"],
+        "from_unit",
+    ),
     ("currency-maintenance", &["currency"], "currency_code"),
     // 會計期間：表頭與各期一併列出
     (

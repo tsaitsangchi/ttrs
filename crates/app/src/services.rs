@@ -7,8 +7,9 @@ use crate::ports::RateFeed;
 use crate::change_log::HistoryReader;
 use crate::{
     AccountingPeriodService, BasicCodeService, ChangeHistoryService, CurrencyService,
-    ExchangeRateService, GeneralParameterService, ItemGroupService, MenuService,
-    ProductClassService, ProjectService, TaxTypeService, UnitService,
+    ExchangeRateService, GeneralParameterService, ItemGroupService, ItemUnitConversionService,
+    MenuService, ProductClassService, ProjectService, TaxTypeService, UnitConversionService,
+    UnitService,
 };
 use crate::{
     Authorizer, ClassificationCodeService, DataDictionaryService, DepartmentService,
@@ -19,12 +20,12 @@ use crate::{
         AccountPolicyRepository, AccountingPeriodRepository, AuditLog, BasicCodeRepository,
         ChangeLogRepository, ClassificationCodeRepository, CredentialRepository,
         CurrencyRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
-        ExchangeRateRepository, ItemGroupRepository, ItemRepository, LegacyCatalogRepository,
-        MasterDataRepository, MenuRepository, PasswordResetTokenRepository,
-        PermissionClassRepository, PlantRepository, ProductClassRepository,
-        ProgramPermissionRepository, ProgramRepository, ProjectRepository, SchemaCatalog,
-        SystemParameterRepository, TaxTypeRepository, UnitRepository, UserPermissionRepository,
-        UserRepository,
+        ExchangeRateRepository, ItemGroupRepository, ItemRepository, ItemUnitConversionRepository,
+        LegacyCatalogRepository, MasterDataRepository, MenuRepository,
+        PasswordResetTokenRepository, PermissionClassRepository, PlantRepository,
+        ProductClassRepository, ProgramPermissionRepository, ProgramRepository, ProjectRepository,
+        SchemaCatalog, SystemParameterRepository, TaxTypeRepository, UnitConversionRepository,
+        UnitRepository, UserPermissionRepository, UserRepository,
     },
 };
 
@@ -61,6 +62,8 @@ pub trait Store:
     + ProductClassRepository
     + ItemGroupRepository
     + AccountingPeriodRepository
+    + UnitConversionRepository
+    + ItemUnitConversionRepository
     + 'static
 {
 }
@@ -97,6 +100,8 @@ impl<T> Store for T where
         + ProductClassRepository
         + ItemGroupRepository
         + AccountingPeriodRepository
+        + UnitConversionRepository
+        + ItemUnitConversionRepository
         + 'static
 {
 }
@@ -137,6 +142,9 @@ pub struct Services {
     pub general_parameters: GeneralParameterService,
     /// 會計期間維護（aoos020）
     pub accounting_periods: AccountingPeriodService,
+    /// 單位換算（aooi102）、料件單位換算（aooi103）
+    pub unit_conversions: UnitConversionService,
+    pub item_unit_conversions: ItemUnitConversionService,
     /// 稅別維護（aooi150）
     pub taxes: TaxTypeService,
     /// 專案維護（aooi200，工廠層）
@@ -272,6 +280,21 @@ impl Services {
                 a.clone(),
                 store.clone(),
                 store.clone(),
+                reports.clone(),
+            ),
+            unit_conversions: UnitConversionService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
+            item_unit_conversions: ItemUnitConversionService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                history.clone(),
                 reports.clone(),
             ),
             taxes: TaxTypeService::new(a.clone(), store.clone(), reports.clone()),

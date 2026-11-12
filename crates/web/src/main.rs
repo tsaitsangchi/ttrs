@@ -16,9 +16,10 @@ use pages::{
     aoo::{
         AccountingPeriodMaintenance, AreaMaintenance, ClassificationCodeMaintenance,
         CountryMaintenance, CurrencyMaintenance, DailyRateCopy, DailyRateMaintenance,
-        DepartmentMaintenance, EmployeeMaintenance, GeneralParameters, MonthlyRateMaintenance,
-        PlantMaintenance, ProjectMaintenance, RegionMaintenance, ReportTitleMaintenance,
-        ShippingMethodMaintenance, TaxTypeMaintenance, UnitMaintenance,
+        DepartmentMaintenance, EmployeeMaintenance, GeneralParameters,
+        ItemUnitConversionMaintenance, MonthlyRateMaintenance, PlantMaintenance,
+        ProjectMaintenance, RegionMaintenance, ReportTitleMaintenance, ShippingMethodMaintenance,
+        TaxTypeMaintenance, UnitConversionMaintenance, UnitMaintenance,
     },
     axm::ProductClassificationMaintenance,
     azz::{
@@ -75,6 +76,12 @@ enum Route {
         /// 每日匯率複製（TipTop aoop010）
         #[route("/aoo/daily-exchange-rate-copy")]
         DailyRateCopy {},
+        /// 單位換算維護（TipTop aooi102）
+        #[route("/aoo/unit-conversion-maintenance")]
+        UnitConversionMaintenance {},
+        /// 料件單位換算維護（TipTop aooi103）
+        #[route("/aoo/item-unit-conversion-maintenance")]
+        ItemUnitConversionMaintenance {},
         /// 會計期間維護（TipTop aoos020）
         #[route("/aoo/accounting-period-maintenance")]
         AccountingPeriodMaintenance {},
@@ -224,6 +231,16 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
             Tone::Success,
         ),
         "daily-exchange-rate-copy" => (Route::DailyRateCopy {}, icons::EVENT_REPEAT, Tone::Success),
+        "unit-conversion-maintenance" => (
+            Route::UnitConversionMaintenance {},
+            icons::STRAIGHTEN,
+            Tone::Success,
+        ),
+        "item-unit-conversion-maintenance" => (
+            Route::ItemUnitConversionMaintenance {},
+            icons::STRAIGHTEN,
+            Tone::Success,
+        ),
         "accounting-period-maintenance" => (
             Route::AccountingPeriodMaintenance {},
             icons::CALENDAR_MONTH,

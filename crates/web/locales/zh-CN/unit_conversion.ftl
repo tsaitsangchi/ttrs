@@ -1,0 +1,29 @@
+# 單位換算（TipTop aooi102、aooi103；unit_conversion.feature）
+conversion-breadcrumb = 整体管理 / Unit Conversions
+conversion-title = 单位换算维护
+conversion-field-from-unit = 来源单位
+conversion-field-to-unit = 目的单位
+conversion-field-from-quantity = 来源数量
+conversion-field-to-quantity = 目的数量
+conversion-field-note = 说明
+conversion-field-active = 有效
+conversion-field-copy-from = 复制为来源单位
+conversion-field-copy-to = 复制为目的单位
+conversion-field-item = 料件编号
+conversion-field-item-name = 品名
+conversion-field-item-spec = 规格
+conversion-field-stock-unit = 库存单位
+conversion-dialog-new = 新增单位换算
+conversion-dialog-edit = 修改单位换算 { $key }
+conversion-dialog-hint = 来源数量的来源单位等于目的数量的目的单位，例如 1 KG = 1000 G。一组单位只建一笔，反方向自动适用；数量须大于 0，最多 3 位小数。
+conversion-msg-quantity-invalid = 数量须为数字
+conversion-msg-saved = 已保存单位换算 { $key }
+conversion-msg-copied = 已将单位换算 { $from } 复制为 { $to }
+conversion-msg-deleted = 已删除单位换算 { $key }
+conversion-msg-confirmed = 已确认单位换算 { $key }
+conversion-msg-unconfirmed = 已取消确认单位换算 { $key }
+conversion-msg-activated = 已启用单位换算 { $key }
+conversion-msg-deactivated = 已停用单位换算 { $key }
+item-conversion-breadcrumb = 整体管理 / Item Unit Conversions
+item-conversion-title = 料件单位换算维护
+item-conversion-dialog-hint = 只适用这个料件，优先于一般单位换算；停用的换算不采用。

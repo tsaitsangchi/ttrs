@@ -2563,3 +2563,72 @@ pub struct AccountingDayDto {
     pub period: i16,
     pub week: i16,
 }
+
+// ---------------------------------------------------------------------------
+// 單位換算（TipTop aooi102 / smc_file、aooi103 / smd_file；unit_conversion.feature）
+// ---------------------------------------------------------------------------
+
+/// 新增、修改換算（一般與料件共用）；修改時單位不可變更
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UnitConversionInput {
+    pub from_unit: String,
+    pub to_unit: String,
+    pub from_quantity: rust_decimal::Decimal,
+    pub to_quantity: rust_decimal::Decimal,
+    #[serde(default)]
+    pub note: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    #[serde(default)]
+    pub version: Option<i32>,
+}
+
+/// 一般換算（smc_file 一列）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UnitConversionDto {
+    pub from_unit: String,
+    pub to_unit: String,
+    pub from_quantity: rust_decimal::Decimal,
+    pub to_quantity: rust_decimal::Decimal,
+    pub note: Option<String>,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 料件換算（smd_file 一列）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemUnitConversionDto {
+    pub item_no: String,
+    pub from_unit: String,
+    pub to_unit: String,
+    pub from_quantity: rust_decimal::Decimal,
+    pub to_quantity: rust_decimal::Decimal,
+    pub note: Option<String>,
+    pub active: bool,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}

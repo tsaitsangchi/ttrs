@@ -32,6 +32,7 @@ pub mod report;
 pub mod sign_in;
 pub mod tax_type;
 pub mod unit;
+pub mod unit_conversion;
 pub mod user;
 pub mod user_permission;
 

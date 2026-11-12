@@ -332,6 +332,17 @@ pub enum DomainError {
     AccountingPeriodNotFound,
     #[error("查詢的日期區間不正確（迄日不可早於起日、最多 10 年）")]
     AccountingPeriodDateRangeInvalid,
+    // ----- 單位換算（aooi102、aooi103；unit_conversion.feature） -----
+    #[error("這組單位已有換算（不分方向）")]
+    UnitConversionAlreadyExists,
+    #[error("找不到單位換算")]
+    UnitConversionNotFound,
+    #[error("換算數量須大於 0，最多 3 位小數")]
+    UnitConversionQuantityInvalid,
+    #[error("來源與目的單位不可相同")]
+    UnitConversionSameUnit,
+    #[error("單位已停用")]
+    UnitInactive,
 
     // 單位（aooi101 / gfe_file；unit_maintenance.feature）
     #[error("單位不可空白")]
@@ -689,6 +700,11 @@ impl DomainError {
             Self::AccountingPeriodsInUse => "ACCOUNTING_PERIODS_IN_USE",
             Self::AccountingPeriodNotFound => "ACCOUNTING_PERIOD_NOT_FOUND",
             Self::AccountingPeriodDateRangeInvalid => "ACCOUNTING_PERIOD_DATE_RANGE_INVALID",
+            Self::UnitConversionAlreadyExists => "UNIT_CONVERSION_ALREADY_EXISTS",
+            Self::UnitConversionNotFound => "UNIT_CONVERSION_NOT_FOUND",
+            Self::UnitConversionQuantityInvalid => "UNIT_CONVERSION_QUANTITY_INVALID",
+            Self::UnitConversionSameUnit => "UNIT_CONVERSION_SAME_UNIT",
+            Self::UnitInactive => "UNIT_INACTIVE",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",
             Self::UnitCodeTooLong { .. } => "UNIT_CODE_TOO_LONG",
             Self::UnitDecimalsInvalid { .. } => "UNIT_DECIMALS_INVALID",

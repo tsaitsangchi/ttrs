@@ -871,3 +871,57 @@ pub trait AccountingPeriodRepository: Send + Sync {
     /// 回傳是否有刪到
     async fn delete_accounting_year(&self, year: i32) -> Result<bool, RepoError>;
 }
+
+/// 一般單位換算（smc_file；aooi102）；共用 schema（UC2）。一組單位只存一筆（UC3）
+#[async_trait]
+pub trait UnitConversionRepository: Send + Sync {
+    /// 全部，依來源、目的單位排序
+    async fn list_unit_conversions(
+        &self,
+    ) -> Result<Vec<ttrs_domain::unit_conversion::UnitConversion>, RepoError>;
+    /// 鍵值重複回 `Conflict`
+    async fn insert_unit_conversion(
+        &self,
+        c: &ttrs_domain::unit_conversion::UnitConversion,
+    ) -> Result<(), RepoError>;
+    /// 以來源、目的單位更新；版本不符回 `Stale`
+    async fn update_unit_conversion(
+        &self,
+        c: &ttrs_domain::unit_conversion::UnitConversion,
+    ) -> Result<(), RepoError>;
+    async fn delete_unit_conversion(
+        &self,
+        from: &ttrs_domain::unit::UnitCode,
+        to: &ttrs_domain::unit::UnitCode,
+    ) -> Result<bool, RepoError>;
+}
+
+/// 料件單位換算（smd_file；aooi103）；工廠 schema（UC2）
+#[async_trait]
+pub trait ItemUnitConversionRepository: Send + Sync {
+    /// 該營運中心的料件換算；`item` 有值時只取該料件
+    async fn list_item_unit_conversions(
+        &self,
+        plant: &ttrs_domain::plant::PlantId,
+        item: Option<&ttrs_domain::item::ItemNo>,
+    ) -> Result<Vec<ttrs_domain::unit_conversion::ItemUnitConversion>, RepoError>;
+    /// 鍵值重複回 `Conflict`
+    async fn insert_item_unit_conversion(
+        &self,
+        plant: &ttrs_domain::plant::PlantId,
+        c: &ttrs_domain::unit_conversion::ItemUnitConversion,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`
+    async fn update_item_unit_conversion(
+        &self,
+        plant: &ttrs_domain::plant::PlantId,
+        c: &ttrs_domain::unit_conversion::ItemUnitConversion,
+    ) -> Result<(), RepoError>;
+    async fn delete_item_unit_conversion(
+        &self,
+        plant: &ttrs_domain::plant::PlantId,
+        item: &ttrs_domain::item::ItemNo,
+        from: &ttrs_domain::unit::UnitCode,
+        to: &ttrs_domain::unit::UnitCode,
+    ) -> Result<bool, RepoError>;
+}

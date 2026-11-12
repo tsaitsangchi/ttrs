@@ -215,3 +215,14 @@ period-col-period = Period
 period-col-start = Start date
 period-col-end = End date
 period-col-quarter = Quarter
+
+# 單位換算（aooi102、aooi103）
+conversion-report-title = Unit Conversions
+item-conversion-report-title = Item Unit Conversions
+conversion-col-item = Item
+conversion-col-from-unit = From unit
+conversion-col-from-quantity = From quantity
+conversion-col-to-unit = To unit
+conversion-col-to-quantity = To quantity
+conversion-col-note = Note
+conversion-col-active = Active

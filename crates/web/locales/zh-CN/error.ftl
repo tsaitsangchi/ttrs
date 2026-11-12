@@ -270,3 +270,10 @@ error-ACCOUNTING_YEAR_OVERLAP = 与其他会计年度的期间重叠。
 error-ACCOUNTING_PERIODS_IN_USE = 已有会计年度资料，不可变更会计期间的期数。
 error-ACCOUNTING_PERIOD_NOT_FOUND = 日期不在任何会计期间，或该年度没有此期。
 error-ACCOUNTING_PERIOD_DATE_RANGE_INVALID = 查询的日期区间不正确（迄日不可早于起日、最多 10 年）。
+
+# 單位換算（aooi102、aooi103）
+error-UNIT_CONVERSION_ALREADY_EXISTS = 这组单位已有换算（不分方向）。
+error-UNIT_CONVERSION_NOT_FOUND = 找不到单位换算。
+error-UNIT_CONVERSION_QUANTITY_INVALID = 换算数量须大于 0，最多 3 位小数。
+error-UNIT_CONVERSION_SAME_UNIT = 来源与目的单位不可相同。
+error-UNIT_INACTIVE = 单位已停用。

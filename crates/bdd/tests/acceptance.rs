@@ -123,6 +123,9 @@ pub struct ErpWorld {
     pub periods: ttrs_app::AccountingPeriodService,
     pub accounting_days: Option<Vec<ttrs_shared::AccountingDayDto>>,
     pub period_range: Option<(chrono::NaiveDate, chrono::NaiveDate)>,
+    /// 單位換算（unit_conversion.feature）
+    pub conversions: ttrs_app::UnitConversionService,
+    pub item_conversions: ttrs_app::ItemUnitConversionService,
     /// 稅別維護（tax_type_maintenance.feature）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（project_maintenance.feature）
@@ -160,7 +163,7 @@ impl ErpWorld {
                     .expect("drop plant schemas");
                 sqlx::query("TRUNCATE change_log, user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, unit, plant, \
-                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year \
+                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year, unit_conversion \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
@@ -218,6 +221,8 @@ impl ErpWorld {
             item_groups,
             general_parameters: general,
             accounting_periods: periods,
+            unit_conversions: conversions,
+            item_unit_conversions: item_conversions,
             authorizer: _,
         } = services;
         let rate_feed = InMemoryStore::new();
@@ -281,6 +286,8 @@ impl ErpWorld {
             periods,
             accounting_days: None,
             period_range: None,
+            conversions,
+            item_conversions,
             taxes,
             projects,
             product_classes,

@@ -215,3 +215,14 @@ period-col-period = 期别
 period-col-start = 起始日
 period-col-end = 截止日
 period-col-quarter = 季别
+
+# 單位換算（aooi102、aooi103）
+conversion-report-title = 单位换算
+item-conversion-report-title = 料件单位换算
+conversion-col-item = 料件编号
+conversion-col-from-unit = 来源单位
+conversion-col-from-quantity = 来源数量
+conversion-col-to-unit = 目的单位
+conversion-col-to-quantity = 目的数量
+conversion-col-note = 说明
+conversion-col-active = 有效
