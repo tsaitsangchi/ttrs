@@ -64,6 +64,7 @@ pub trait Store:
     + AccountingPeriodRepository
     + UnitConversionRepository
     + ItemUnitConversionRepository
+    + crate::ports::GithubSource
     + 'static
 {
 }
@@ -102,6 +103,7 @@ impl<T> Store for T where
         + AccountingPeriodRepository
         + UnitConversionRepository
         + ItemUnitConversionRepository
+        + crate::ports::GithubSource
         + 'static
 {
 }
@@ -147,6 +149,8 @@ pub struct Services {
     pub item_unit_conversions: ItemUnitConversionService,
     /// EPUB 轉 TXT（工具作業）
     pub epub: crate::EpubService,
+    /// GitHub EPUB 搜尋（工具作業）
+    pub github_epub: crate::GithubEpubService,
     /// 稅別維護（aooi150）
     pub taxes: TaxTypeService,
     /// 專案維護（aooi200，工廠層）
@@ -291,6 +295,7 @@ impl Services {
                 reports.clone(),
             ),
             epub: crate::EpubService::new(a.clone(), store.clone()),
+            github_epub: crate::GithubEpubService::new(a.clone(), store.clone(), store.clone()),
             item_unit_conversions: ItemUnitConversionService::new(
                 a.clone(),
                 store.clone(),

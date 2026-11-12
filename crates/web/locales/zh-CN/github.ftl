@@ -1,0 +1,26 @@
+# GitHub EPUB 搜尋（github_epub_search.feature）
+github-breadcrumb = 系统管理 / GitHub EPUB Search
+github-title = GitHub EPUB 搜索
+github-hint = 以关键字搜索 GitHub 上的 repo，选一个 repo 列出里面的 EPUB，再一次转换一本成 TXT 下载。请只转换你有权使用的书；没有标示授权的 repo 请自行确认使用权利。
+github-field-keyword = 关键字
+github-field-open-only = 只看开放授权
+github-msg-busy = 查询中…
+github-repos-title = 搜索结果
+github-repos-count = 共 { $total } 个 repo，第 { $page }／{ $pages } 页（GitHub 最多返回 1000 笔）
+github-col-repo = Repo
+github-col-description = 说明
+github-col-license = 授权
+github-col-stars = 星数
+github-col-path = 路径
+github-col-size = 大小
+github-license-none = 未标示
+github-license-unknown = 未标示授权，请自行确认使用权利
+github-action-files = 列出 EPUB
+github-action-prev = 上一页
+github-action-next = 下一页
+github-action-convert = 转成 TXT
+github-files-title = { $repo } 的 EPUB
+github-files-license = 授权：{ $license }
+github-files-truncated = 这个 repo 文件太多，GitHub 没有列出全部，清单可能不完整。
+github-files-none = 这个 repo 没有 EPUB 文件
+github-msg-done = 已下载 { $file }（{ $title }，{ $chapters } 章）

@@ -1,0 +1,26 @@
+# GitHub EPUB 搜尋（github_epub_search.feature）
+github-breadcrumb = System Admin / GitHub EPUB Search
+github-title = GitHub EPUB Search
+github-hint = Search GitHub repositories by keyword, list the EPUB files in a repository, and convert one book at a time to a downloadable TXT. Only convert books you have the right to use; check the rights yourself for repositories without a license.
+github-field-keyword = Keyword
+github-field-open-only = Open licenses only
+github-msg-busy = Searching…
+github-repos-title = Results
+github-repos-count = { $total } repositories, page { $page } of { $pages } (GitHub returns at most 1000)
+github-col-repo = Repository
+github-col-description = Description
+github-col-license = License
+github-col-stars = Stars
+github-col-path = Path
+github-col-size = Size
+github-license-none = None
+github-license-unknown = No license specified; check the rights yourself
+github-action-files = List EPUBs
+github-action-prev = Previous
+github-action-next = Next
+github-action-convert = Convert to TXT
+github-files-title = EPUBs in { $repo }
+github-files-license = License: { $license }
+github-files-truncated = This repository has too many files; GitHub did not list them all, so the list may be incomplete.
+github-files-none = No EPUB files in this repository
+github-msg-done = Downloaded { $file } ({ $title }, { $chapters } chapters)

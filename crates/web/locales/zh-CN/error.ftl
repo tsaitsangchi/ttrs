@@ -282,3 +282,8 @@ error-UNIT_INACTIVE = 单位已停用。
 error-EPUB_INVALID = 不是有效的 EPUB 文件。
 error-EPUB_ENCRYPTED = 这本 EPUB 有加密（DRM），无法转换。
 error-EPUB_TOO_LARGE = 文件超过 50 MB 上限。
+
+# GitHub EPUB 搜尋
+error-GITHUB_RATE_LIMITED = GitHub 查询次数已用完，请稍后再试。
+error-GITHUB_UNAVAILABLE = 无法连接 GitHub。
+error-GITHUB_NOT_FOUND = GitHub 上找不到。

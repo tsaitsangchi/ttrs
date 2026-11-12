@@ -350,6 +350,13 @@ pub enum DomainError {
     EpubEncrypted,
     #[error("檔案超過 {max_mb} MB 上限")]
     EpubTooLarge { max_mb: usize },
+    // ----- GitHub EPUB 搜尋（github_epub_search.feature） -----
+    #[error("GitHub 查詢次數已用完，請於 {reset} 後再試")]
+    GithubRateLimited { reset: String },
+    #[error("無法連線 GitHub：{0}")]
+    GithubUnavailable(String),
+    #[error("GitHub 上找不到：{0}")]
+    GithubNotFound(String),
 
     // 單位（aooi101 / gfe_file；unit_maintenance.feature）
     #[error("單位不可空白")]
@@ -715,6 +722,9 @@ impl DomainError {
             Self::EpubInvalid(_) => "EPUB_INVALID",
             Self::EpubEncrypted => "EPUB_ENCRYPTED",
             Self::EpubTooLarge { .. } => "EPUB_TOO_LARGE",
+            Self::GithubRateLimited { .. } => "GITHUB_RATE_LIMITED",
+            Self::GithubUnavailable(_) => "GITHUB_UNAVAILABLE",
+            Self::GithubNotFound(_) => "GITHUB_NOT_FOUND",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",
             Self::UnitCodeTooLong { .. } => "UNIT_CODE_TOO_LONG",
             Self::UnitDecimalsInvalid { .. } => "UNIT_DECIMALS_INVALID",

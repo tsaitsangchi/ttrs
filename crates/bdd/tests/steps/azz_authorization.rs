@@ -1092,6 +1092,12 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .map(drop),
         // EPUB 轉 TXT（工具作業）：內容不是 EPUB，有權限時應回 EPUB_INVALID 而非權限拒絕
         ["將", "EPUB", "轉成文字"] => w.epub.convert(a, "x.epub", b"x").await.map(drop),
+        // GitHub EPUB 搜尋（工具作業；假來源沒有資料，有權限時回 GITHUB_NOT_FOUND 而非權限拒絕）
+        ["在", "GitHub", "搜尋", "EPUB"] => w.github.search(a, "epub", false, 1).await.map(drop),
+        ["列出", "GitHub", "repo", "的", "EPUB"] => w.github.files(a, "x/y").await.map(drop),
+        ["轉換", "GitHub", "上的", "EPUB"] => {
+            w.github.convert(a, "x/y", "a.epub").await.map(drop)
+        }
         // aooi102 單位換算（共用層）
         ["查詢單位換算"] => w
             .conversions

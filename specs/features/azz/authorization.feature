@@ -469,6 +469,9 @@
       | daily-exchange-rate-maintenance | query | 查看每日匯率設定 |
       | general-management-parameters | query | 查看整體管理系統參數 |
       | epub-to-text | run | 將 EPUB 轉成文字 |
+      | github-epub-search | query | 在 GitHub 搜尋 EPUB |
+      | github-epub-search | query | 列出 GitHub repo 的 EPUB |
+      | github-epub-search | run | 轉換 GitHub 上的 EPUB |
       | unit-conversion-maintenance | query | 查詢單位換算 |
       | unit-conversion-maintenance | detail | 新增單位換算 KG G |
       | unit-conversion-maintenance | detail | 修改單位換算 KG G |

@@ -2642,3 +2642,53 @@ pub struct EpubTextDto {
     pub chapters: u32,
     pub text: String,
 }
+
+// ---------------------------------------------------------------------------
+// GitHub EPUB 搜尋（github_epub_search.feature）
+// ---------------------------------------------------------------------------
+
+/// 搜尋到的 repo
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GithubRepoDto {
+    /// owner/name
+    pub full_name: String,
+    pub description: Option<String>,
+    /// SPDX 授權代碼（如 CC0-1.0）；未標示為 None
+    pub license: Option<String>,
+    /// 是否為開放授權（GE2）
+    pub open_license: bool,
+    pub stars: u32,
+    pub updated_at: Option<String>,
+    pub html_url: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GithubRepoPage {
+    pub items: Vec<GithubRepoDto>,
+    pub total: u64,
+    pub page: u32,
+}
+
+/// repo 裡的一個 EPUB
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GithubEpubFileDto {
+    pub path: String,
+    pub size: u64,
+    pub html_url: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GithubEpubListDto {
+    pub repo: String,
+    pub license: Option<String>,
+    pub files: Vec<GithubEpubFileDto>,
+    /// GitHub 檔案太多未列完（GE3）
+    pub truncated: bool,
+}
+
+/// 轉換 GitHub 上的一本 EPUB（GE4）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GithubEpubConvertRequest {
+    pub repo: String,
+    pub path: String,
+}

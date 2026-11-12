@@ -2,6 +2,7 @@
 //! 目前用執行期查詢（query_as），不需資料庫即可編譯；
 //! 資料庫環境就緒後改用 `sqlx::query!` 搭配 `cargo sqlx prepare` 做編譯期檢查。
 
+mod github;
 pub mod pg;
 mod pg_accounting_period;
 mod pg_basic_code;

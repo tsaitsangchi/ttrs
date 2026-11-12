@@ -132,6 +132,11 @@ pub struct ErpWorld {
     pub epub_book: Option<(String, String, Vec<(String, String)>, Vec<String>)>,
     pub epub_bytes: Option<Vec<u8>>,
     pub epub_result: Option<ttrs_shared::EpubTextDto>,
+    /// GitHub EPUB 搜尋（github_epub_search.feature）：兩種後端都用記憶體假來源（GE8）與結果
+    pub github: ttrs_app::GithubEpubService,
+    pub github_feed: InMemoryStore,
+    pub github_repos: Option<Vec<ttrs_shared::GithubRepoDto>>,
+    pub github_files: Option<ttrs_shared::GithubEpubListDto>,
     /// 稅別維護（tax_type_maintenance.feature）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（project_maintenance.feature）
@@ -230,10 +235,13 @@ impl ErpWorld {
             unit_conversions: conversions,
             item_unit_conversions: item_conversions,
             epub,
+            github_epub,
             authorizer: _,
         } = services;
         let rate_feed = InMemoryStore::new();
         let rates = rates.with_feed(Arc::new(rate_feed.clone()));
+        let github_feed = InMemoryStore::new();
+        let github = github_epub.with_source(Arc::new(github_feed.clone()));
         Self {
             backend,
             authz,
@@ -299,6 +307,10 @@ impl ErpWorld {
             epub_book: None,
             epub_bytes: None,
             epub_result: None,
+            github,
+            github_feed,
+            github_repos: None,
+            github_files: None,
             taxes,
             projects,
             product_classes,

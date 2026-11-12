@@ -76,6 +76,8 @@ pub struct AppState {
     pub item_unit_conversions: ttrs_app::ItemUnitConversionService,
     /// EPUB 轉 TXT（工具作業）
     pub epub: ttrs_app::EpubService,
+    /// GitHub EPUB 搜尋（工具作業）
+    pub github_epub: ttrs_app::GithubEpubService,
     /// 稅別維護（aooi150；共用）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（aooi200；工廠層）
@@ -154,6 +156,7 @@ impl AppState {
             unit_conversions,
             item_unit_conversions,
             epub,
+            github_epub,
             taxes,
             projects,
             product_classes,
@@ -186,6 +189,7 @@ impl AppState {
             unit_conversions,
             item_unit_conversions,
             epub,
+            github_epub,
             taxes,
             projects,
             product_classes,
@@ -557,6 +561,10 @@ pub fn router(state: AppState) -> Router {
                 (ttrs_app::epub_service::MAX_MB + 5) * 1024 * 1024,
             )),
         )
+        // GitHub EPUB Search（TTRS 工具作業，github_epub_search.feature）
+        .route("/api/github-epub/repos", get(github_epub_repos))
+        .route("/api/github-epub/files", get(github_epub_files))
+        .route("/api/github-epub/convert", post(github_epub_convert))
         // Unit Conversion 單位換算（TipTop aooi102；共用）
         .route("/api/unit-conversions", post(create_unit_conversion))
         .route("/api/unit-conversions/query", post(query_unit_conversions))
@@ -1526,6 +1534,9 @@ impl IntoResponse for HttpError {
             | "REPORT_TITLE_NOT_FOUND" => StatusCode::NOT_FOUND,
             "PASSWORD_RESET_UNAVAILABLE" => StatusCode::SERVICE_UNAVAILABLE,
             "EPUB_TOO_LARGE" => StatusCode::PAYLOAD_TOO_LARGE,
+            "GITHUB_RATE_LIMITED" => StatusCode::TOO_MANY_REQUESTS,
+            "GITHUB_UNAVAILABLE" => StatusCode::BAD_GATEWAY,
+            "GITHUB_NOT_FOUND" => StatusCode::NOT_FOUND,
             // 匯率來源（台銀、關務署網站）無法取得
             "EXCHANGE_RATE_SOURCE_UNAVAILABLE" => StatusCode::BAD_GATEWAY,
             "NOT_SIGNED_IN"
@@ -3538,6 +3549,51 @@ async fn epub_to_text(
 ) -> ApiResult<Json<ttrs_shared::EpubTextDto>> {
     let name = q.name.unwrap_or_else(|| "book.epub".to_owned());
     Ok(Json(s.epub.convert(&s.actor, &name, &body).await?))
+}
+
+// ----- GitHub EPUB 搜尋（github_epub_search.feature） -----
+
+#[derive(Deserialize)]
+struct GithubSearchQuery {
+    q: String,
+    #[serde(default)]
+    open: Option<bool>,
+    #[serde(default)]
+    page: Option<u32>,
+}
+
+async fn github_epub_repos(
+    Ctx(s): Ctx,
+    Query(q): Query<GithubSearchQuery>,
+) -> ApiResult<Json<ttrs_shared::GithubRepoPage>> {
+    Ok(Json(
+        s.github_epub
+            .search(&s.actor, &q.q, q.open.unwrap_or(false), q.page.unwrap_or(1))
+            .await?,
+    ))
+}
+
+#[derive(Deserialize)]
+struct GithubFilesQuery {
+    repo: String,
+}
+
+async fn github_epub_files(
+    Ctx(s): Ctx,
+    Query(q): Query<GithubFilesQuery>,
+) -> ApiResult<Json<ttrs_shared::GithubEpubListDto>> {
+    Ok(Json(s.github_epub.files(&s.actor, &q.repo).await?))
+}
+
+async fn github_epub_convert(
+    Ctx(s): Ctx,
+    Json(req): Json<ttrs_shared::GithubEpubConvertRequest>,
+) -> ApiResult<Json<ttrs_shared::EpubTextDto>> {
+    Ok(Json(
+        s.github_epub
+            .convert(&s.actor, &req.repo, &req.path)
+            .await?,
+    ))
 }
 
 // ----- 單位換算（aooi102、aooi103；unit_conversion.feature） -----

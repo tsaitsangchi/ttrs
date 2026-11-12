@@ -925,3 +925,48 @@ pub trait ItemUnitConversionRepository: Send + Sync {
         to: &ttrs_domain::unit::UnitCode,
     ) -> Result<bool, RepoError>;
 }
+
+/// GitHub 上的 repo（GET /search/repositories 的一筆）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GithubRepo {
+    pub full_name: String,
+    pub description: Option<String>,
+    pub license: Option<String>,
+    pub stars: u32,
+    pub updated_at: Option<String>,
+    pub default_branch: String,
+}
+
+/// repo 檔案樹的一個檔案
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GithubFile {
+    pub path: String,
+    pub size: u64,
+}
+
+/// GitHub 來源（github_epub_search.feature GE9）：infra 以 HTTPS 呼叫 GitHub，記憶體後端由 BDD 設定。
+/// 失敗回 GITHUB_RATE_LIMITED／GITHUB_UNAVAILABLE／GITHUB_NOT_FOUND
+#[async_trait]
+pub trait GithubSource: Send + Sync {
+    /// 關鍵字搜尋 repo：該頁結果與總筆數
+    async fn search_repos(
+        &self,
+        keyword: &str,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<GithubRepo>, u64), ttrs_domain::DomainError>;
+    async fn get_repo(&self, full_name: &str) -> Result<GithubRepo, ttrs_domain::DomainError>;
+    /// 分支的完整檔案樹：檔案與是否未列完
+    async fn tree(
+        &self,
+        full_name: &str,
+        branch: &str,
+    ) -> Result<(Vec<GithubFile>, bool), ttrs_domain::DomainError>;
+    /// 下載檔案內容
+    async fn download(
+        &self,
+        full_name: &str,
+        branch: &str,
+        path: &str,
+    ) -> Result<Vec<u8>, ttrs_domain::DomainError>;
+}

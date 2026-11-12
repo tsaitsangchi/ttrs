@@ -48,13 +48,13 @@ use crate::{
         AccountPolicy, AccountPolicyRepository, AccountingPeriodRepository, AuditEntry,
         BasicCodeRepository, ChangeLogRepository, Credential, CredentialRepository,
         CurrencyRepository, DepartmentRepository, DictionaryRepository, EmployeeRepository,
-        ExchangeRateRepository, ItemGroupRepository, ItemRepository, ItemUnitConversionRepository,
-        LegacyCatalogRepository, LegacyTableSummary, MasterDataRepository, MenuRepository,
-        MigrationSource, PermissionClassRepository, PermissionListItem, PlantRepository,
-        ProductClassRepository, ProgramName, ProgramPermissionRepository, ProgramRepository,
-        ProjectRepository, SchemaCatalog, SystemParameterRepository, TableSchema,
-        TaxTypeRepository, UnitConversionRepository, UnitRepository, UserPermissionItem,
-        UserPermissionRepository, UserRepository,
+        ExchangeRateRepository, GithubFile, GithubRepo, GithubSource, ItemGroupRepository,
+        ItemRepository, ItemUnitConversionRepository, LegacyCatalogRepository, LegacyTableSummary,
+        MasterDataRepository, MenuRepository, MigrationSource, PermissionClassRepository,
+        PermissionListItem, PlantRepository, ProductClassRepository, ProgramName,
+        ProgramPermissionRepository, ProgramRepository, ProjectRepository, SchemaCatalog,
+        SystemParameterRepository, TableSchema, TaxTypeRepository, UnitConversionRepository,
+        UnitRepository, UserPermissionItem, UserPermissionRepository, UserRepository,
     },
     query,
 };
@@ -115,6 +115,10 @@ struct State {
     item_unit_conversions: BTreeMap<(PlantId, String, String, String), ItemUnitConversion>,
     /// 匯率自動匯入的來源（BDD 設定）；None 表示無法取得（IM8）
     bank_quotes: Option<Vec<Quote>>,
+    /// GitHub 假來源（BDD；github_epub_search.feature）：repo、各 repo 的檔案（路徑、大小、內容）、查詢次數是否用完
+    github_repos: Vec<GithubRepo>,
+    github_files: BTreeMap<String, Vec<(String, u64, Vec<u8>)>>,
+    github_rate_limited: bool,
     customs_current: Option<(NaiveDate, NaiveDate, Vec<Quote>)>,
     customs_history: Option<Vec<HistoryQuote>>,
     /// 稅別（gec_file，共用）
@@ -233,6 +237,7 @@ impl InMemoryStore {
                     "program-permission-maintenance",
                     "menu-maintenance",
                     "epub-to-text",
+                    "github-epub-search",
                 ],
             ),
         ];
@@ -265,7 +270,7 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 31] = [
+        let names: [(&str, [&str; 3]); 32] = [
             (
                 "monthly-exchange-rate-maintenance",
                 ["每月匯率維護", "Monthly Exchange Rates", "每月汇率维护"],
@@ -282,6 +287,10 @@ impl InMemoryStore {
             (
                 "epub-to-text",
                 ["EPUB 轉 TXT", "EPUB to Text", "EPUB 转 TXT"],
+            ),
+            (
+                "github-epub-search",
+                ["GitHub EPUB 搜尋", "GitHub EPUB Search", "GitHub EPUB 搜索"],
             ),
             (
                 "unit-conversion-maintenance",
@@ -4431,5 +4440,109 @@ impl ItemUnitConversionRepository for InMemoryStore {
             &[],
         );
         Ok(true)
+    }
+}
+
+// ----- GitHub 假來源（github_epub_search.feature GE8） -----
+
+impl InMemoryStore {
+    /// BDD：GitHub 上的 repo
+    pub fn add_github_repo(&self, repo: GithubRepo) {
+        self.lock().github_repos.push(repo);
+    }
+
+    /// BDD：repo 的一個檔案（路徑、大小、內容）
+    pub fn add_github_file(&self, repo: &str, path: &str, size: u64, content: Vec<u8>) {
+        let mut s = self.lock();
+        let files = s.github_files.entry(repo.to_owned()).or_default();
+        files.retain(|(p, _, _)| p != path);
+        files.push((path.to_owned(), size, content));
+    }
+
+    /// BDD：查詢次數用完
+    pub fn set_github_rate_limited(&self, v: bool) {
+        self.lock().github_rate_limited = v;
+    }
+}
+
+fn github_check(s: &State) -> Result<(), ttrs_domain::DomainError> {
+    if s.github_rate_limited {
+        return Err(ttrs_domain::DomainError::GithubRateLimited {
+            reset: "2026-11-12 12:00".to_owned(),
+        });
+    }
+    Ok(())
+}
+
+#[async_trait]
+impl GithubSource for InMemoryStore {
+    /// 假來源不比對關鍵字：依星數由多到少回傳全部
+    async fn search_repos(
+        &self,
+        _keyword: &str,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<GithubRepo>, u64), ttrs_domain::DomainError> {
+        let s = self.lock();
+        github_check(&s)?;
+        let mut all = s.github_repos.clone();
+        all.sort_by_key(|a| std::cmp::Reverse(a.stars));
+        let total = all.len() as u64;
+        let skip = usize::try_from((page.max(1) - 1) * per_page).unwrap_or(usize::MAX);
+        Ok((
+            all.into_iter()
+                .skip(skip)
+                .take(usize::try_from(per_page).unwrap_or(usize::MAX))
+                .collect(),
+            total,
+        ))
+    }
+
+    async fn get_repo(&self, full_name: &str) -> Result<GithubRepo, ttrs_domain::DomainError> {
+        let s = self.lock();
+        github_check(&s)?;
+        s.github_repos
+            .iter()
+            .find(|r| r.full_name == full_name)
+            .cloned()
+            .ok_or_else(|| ttrs_domain::DomainError::GithubNotFound(full_name.to_owned()))
+    }
+
+    async fn tree(
+        &self,
+        full_name: &str,
+        _branch: &str,
+    ) -> Result<(Vec<GithubFile>, bool), ttrs_domain::DomainError> {
+        let s = self.lock();
+        github_check(&s)?;
+        Ok((
+            s.github_files
+                .get(full_name)
+                .map(|fs| {
+                    fs.iter()
+                        .map(|(path, size, _)| GithubFile {
+                            path: path.clone(),
+                            size: *size,
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+            false,
+        ))
+    }
+
+    async fn download(
+        &self,
+        full_name: &str,
+        _branch: &str,
+        path: &str,
+    ) -> Result<Vec<u8>, ttrs_domain::DomainError> {
+        let s = self.lock();
+        github_check(&s)?;
+        s.github_files
+            .get(full_name)
+            .and_then(|fs| fs.iter().find(|(p, _, _)| p == path))
+            .map(|(_, _, c)| c.clone())
+            .ok_or_else(|| ttrs_domain::DomainError::GithubNotFound(format!("{full_name}/{path}")))
     }
 }

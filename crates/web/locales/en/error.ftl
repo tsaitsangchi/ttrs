@@ -282,3 +282,8 @@ error-UNIT_INACTIVE = The unit is inactive.
 error-EPUB_INVALID = The file is not a valid EPUB.
 error-EPUB_ENCRYPTED = This EPUB is DRM-protected and cannot be converted.
 error-EPUB_TOO_LARGE = The file exceeds the 50 MB limit.
+
+# GitHub EPUB 搜尋
+error-GITHUB_RATE_LIMITED = The GitHub query limit has been reached; try again later.
+error-GITHUB_UNAVAILABLE = Cannot connect to GitHub.
+error-GITHUB_NOT_FOUND = Not found on GitHub.

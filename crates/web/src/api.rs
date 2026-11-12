@@ -2914,3 +2914,40 @@ pub fn download_text(file: &str, text: &str) -> Result<(), String> {
 pub fn download_text(_file: &str, _text: &str) -> Result<(), String> {
     Ok(())
 }
+
+// ----- GitHub EPUB 搜尋（/api/github-epub；github_epub_search.feature） -----
+
+pub async fn github_epub_repos(
+    q: &str,
+    open_only: bool,
+    page: u32,
+) -> Result<ttrs_shared::GithubRepoPage, String> {
+    get_json(url(&format!(
+        "/api/github-epub/repos?q={}&open={open_only}&page={page}",
+        urlencoding(q)
+    )))
+    .await
+}
+
+pub async fn github_epub_files(repo: &str) -> Result<ttrs_shared::GithubEpubListDto, String> {
+    get_json(url(&format!(
+        "/api/github-epub/files?repo={}",
+        urlencoding(repo)
+    )))
+    .await
+}
+
+pub async fn github_epub_convert(
+    repo: &str,
+    path: &str,
+) -> Result<ttrs_shared::EpubTextDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        url("/api/github-epub/convert"),
+        Some(&ttrs_shared::GithubEpubConvertRequest {
+            repo: repo.to_owned(),
+            path: path.to_owned(),
+        }),
+    )
+    .await
+}
