@@ -285,6 +285,14 @@ error-EPUB_TOO_LARGE = The file exceeds the 50 MB limit.
 error-EPUB_FORMAT_INVALID = The output format must be txt or pdf.
 error-PDF_FONT_MISSING = The server has no CJK font available, so the PDF cannot be created.
 error-PDF_GENERATION_FAILED = Failed to create the PDF.
+error-EPUB_NOT_ENGLISH = This book is not in English, so it cannot be translated from English.
+error-TRANSLATE_LIMIT_EXCEEDED = The book exceeds the translation limit (300,000 characters).
+error-TRANSLATE_BUSY = A translation is already running; please wait for it to finish.
+error-TRANSLATE_NOT_CONFIGURED = The translation service is not set up (the server needs Claude Code installed and signed in).
+error-TRANSLATE_QUOTA_EXHAUSTED = The Claude subscription usage limit has been reached; try again later. Translated parts are kept and resubmitting resumes.
+error-TRANSLATE_FAILED = The translation failed; please try again later.
+error-TRANSLATE_CONSENT_REQUIRED = Please confirm first: translating sends the book text to Claude.
+error-TRANSLATE_JOB_NOT_FOUND = The translation job was not found (it may have expired).
 
 # GitHub EPUB 搜尋
 error-GITHUB_RATE_LIMITED = The GitHub query limit has been reached; try again later.

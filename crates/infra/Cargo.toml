@@ -24,6 +24,7 @@ typst = "0.15"
 typst-pdf = "0.15"
 rust_xlsxwriter = "0.102"
 typst-layout = "0.15"
+tokio.workspace = true
 
 [lints]
 workspace = true

@@ -285,6 +285,14 @@ error-EPUB_TOO_LARGE = （使用伺服器訊息）
 error-EPUB_FORMAT_INVALID = （使用伺服器訊息）
 error-PDF_FONT_MISSING = （使用伺服器訊息）
 error-PDF_GENERATION_FAILED = （使用伺服器訊息）
+error-EPUB_NOT_ENGLISH = （使用伺服器訊息）
+error-TRANSLATE_LIMIT_EXCEEDED = （使用伺服器訊息）
+error-TRANSLATE_BUSY = （使用伺服器訊息）
+error-TRANSLATE_NOT_CONFIGURED = （使用伺服器訊息）
+error-TRANSLATE_QUOTA_EXHAUSTED = （使用伺服器訊息）
+error-TRANSLATE_FAILED = （使用伺服器訊息）
+error-TRANSLATE_CONSENT_REQUIRED = （使用伺服器訊息）
+error-TRANSLATE_JOB_NOT_FOUND = （使用伺服器訊息）
 
 # GitHub EPUB 搜尋
 error-GITHUB_RATE_LIMITED = （使用伺服器訊息）

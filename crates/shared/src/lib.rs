@@ -2698,3 +2698,26 @@ pub struct GithubEpubConvertRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub s2t: Option<bool>,
 }
+
+/// 翻譯工作的進度（epub_translate.feature EL4）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TranslateJobDto {
+    pub job_id: String,
+    /// queued／running／done／failed
+    pub status: String,
+    /// 已翻譯／全部的段落數（書名不計）
+    pub done_lines: u32,
+    pub total_lines: u32,
+    pub done_batches: u32,
+    pub total_batches: u32,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+    /// 完成後的下載檔名
+    pub file_name: Option<String>,
+}
+
+/// 提交翻譯工作的回應
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TranslateSubmitDto {
+    pub job_id: String,
+}

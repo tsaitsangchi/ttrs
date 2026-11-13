@@ -285,6 +285,14 @@ error-EPUB_TOO_LARGE = 文件超过 50 MB 上限。
 error-EPUB_FORMAT_INVALID = 输出格式必须是 txt 或 pdf。
 error-PDF_FONT_MISSING = 服务器找不到可用的中文字体，无法生成 PDF。
 error-PDF_GENERATION_FAILED = 生成 PDF 失败。
+error-EPUB_NOT_ENGLISH = 这本书不是英文，无法使用英文翻译。
+error-TRANSLATE_LIMIT_EXCEEDED = 字数超过翻译上限（30 万字符）。
+error-TRANSLATE_BUSY = 已有进行中的翻译工作，请等它完成。
+error-TRANSLATE_NOT_CONFIGURED = 翻译服务尚未设置好（服务器需安装并登录 Claude Code）。
+error-TRANSLATE_QUOTA_EXHAUSTED = Claude 订阅用量已达上限，请稍后再试；已翻译的部分会保留，重新提交可续翻。
+error-TRANSLATE_FAILED = 翻译失败，请稍后再试。
+error-TRANSLATE_CONSENT_REQUIRED = 请先勾选同意：翻译会把书的内容发送到 Claude。
+error-TRANSLATE_JOB_NOT_FOUND = 找不到这个翻译工作（可能已过期）。
 
 # GitHub EPUB 搜尋
 error-GITHUB_RATE_LIMITED = GitHub 查询次数已用完，请稍后再试。

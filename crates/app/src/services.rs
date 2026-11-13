@@ -65,6 +65,7 @@ pub trait Store:
     + UnitConversionRepository
     + ItemUnitConversionRepository
     + crate::ports::GithubSource
+    + crate::ports::TranslationJobRepository
     + 'static
 {
 }
@@ -104,6 +105,7 @@ impl<T> Store for T where
         + UnitConversionRepository
         + ItemUnitConversionRepository
         + crate::ports::GithubSource
+        + crate::ports::TranslationJobRepository
         + 'static
 {
 }
@@ -151,6 +153,8 @@ pub struct Services {
     pub epub: crate::EpubService,
     /// GitHub EPUB 搜尋（工具作業）
     pub github_epub: crate::GithubEpubService,
+    /// EPUB 英文翻譯成繁體中文（epub_translate.feature）
+    pub translate: crate::TranslationService,
     /// 稅別維護（aooi150）
     pub taxes: TaxTypeService,
     /// 專案維護（aooi200，工廠層）
@@ -296,6 +300,12 @@ impl Services {
             ),
             epub: crate::EpubService::new(a.clone(), store.clone()),
             github_epub: crate::GithubEpubService::new(a.clone(), store.clone(), store.clone()),
+            translate: crate::TranslationService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                Arc::new(crate::NoTranslator),
+            ),
             item_unit_conversions: ItemUnitConversionService::new(
                 a.clone(),
                 store.clone(),

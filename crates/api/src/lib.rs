@@ -78,6 +78,8 @@ pub struct AppState {
     pub epub: ttrs_app::EpubService,
     /// GitHub EPUB 搜尋（工具作業）
     pub github_epub: ttrs_app::GithubEpubService,
+    /// EPUB 英文翻譯（工具作業）
+    pub translate: ttrs_app::TranslationService,
     /// 稅別維護（aooi150；共用）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（aooi200；工廠層）
@@ -157,6 +159,7 @@ impl AppState {
             item_unit_conversions,
             epub,
             github_epub,
+            translate,
             taxes,
             projects,
             product_classes,
@@ -190,6 +193,7 @@ impl AppState {
             item_unit_conversions,
             epub,
             github_epub,
+            translate,
             taxes,
             projects,
             product_classes,
@@ -560,6 +564,18 @@ pub fn router(state: AppState) -> Router {
             post(epub_to_text).layer(axum::extract::DefaultBodyLimit::max(
                 (ttrs_app::epub_service::MAX_MB + 5) * 1024 * 1024,
             )),
+        )
+        // EPUB 英文翻譯（TTRS 工具作業，epub_translate.feature）：提交、查進度、下載
+        .route(
+            "/api/epub-translate",
+            post(epub_translate_submit).layer(axum::extract::DefaultBodyLimit::max(
+                (ttrs_app::epub_service::MAX_MB + 5) * 1024 * 1024,
+            )),
+        )
+        .route("/api/epub-translate/{id}", get(epub_translate_status))
+        .route(
+            "/api/epub-translate/{id}/download",
+            get(epub_translate_download),
         )
         // GitHub EPUB Search（TTRS 工具作業，github_epub_search.feature）
         .route("/api/github-epub/repos", get(github_epub_repos))
@@ -1534,7 +1550,14 @@ impl IntoResponse for HttpError {
             | "REPORT_TITLE_NOT_FOUND" => StatusCode::NOT_FOUND,
             "PASSWORD_RESET_UNAVAILABLE" => StatusCode::SERVICE_UNAVAILABLE,
             "EPUB_TOO_LARGE" => StatusCode::PAYLOAD_TOO_LARGE,
-            "EPUB_FORMAT_INVALID" => StatusCode::BAD_REQUEST,
+            "EPUB_FORMAT_INVALID" | "TRANSLATE_CONSENT_REQUIRED" => StatusCode::BAD_REQUEST,
+            "EPUB_NOT_ENGLISH" => StatusCode::UNPROCESSABLE_ENTITY,
+            "TRANSLATE_LIMIT_EXCEEDED" => StatusCode::PAYLOAD_TOO_LARGE,
+            "TRANSLATE_BUSY" => StatusCode::CONFLICT,
+            "TRANSLATE_NOT_CONFIGURED" => StatusCode::SERVICE_UNAVAILABLE,
+            "TRANSLATE_QUOTA_EXHAUSTED" => StatusCode::TOO_MANY_REQUESTS,
+            "TRANSLATE_FAILED" => StatusCode::BAD_GATEWAY,
+            "TRANSLATE_JOB_NOT_FOUND" => StatusCode::NOT_FOUND,
             "PDF_FONT_MISSING" => StatusCode::SERVICE_UNAVAILABLE,
             "GITHUB_RATE_LIMITED" => StatusCode::TOO_MANY_REQUESTS,
             "GITHUB_UNAVAILABLE" => StatusCode::BAD_GATEWAY,
@@ -3620,6 +3643,48 @@ async fn epub_to_text(
     Ok(epub_response(
         s.epub.convert_with(&s.actor, &name, &body, opts).await?,
     ))
+}
+
+// ----- EPUB 英文翻譯（epub_translate.feature） -----
+
+#[derive(Deserialize)]
+struct TranslateQuery {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    format: Option<String>,
+    /// 使用者已勾選「書的內容會送到 Claude」（EL3）
+    #[serde(default)]
+    consent: Option<bool>,
+}
+
+async fn epub_translate_submit(
+    Ctx(s): Ctx,
+    Query(q): Query<TranslateQuery>,
+    body: axum::body::Bytes,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::TranslateSubmitDto>)> {
+    let name = q.name.unwrap_or_else(|| "book.epub".to_owned());
+    let format = ttrs_app::Format::parse(q.format.as_deref().unwrap_or("txt"))
+        .map_err(ttrs_app::AppError::from)?;
+    let job_id = s
+        .translate
+        .submit(&s.actor, &name, &body, format, q.consent.unwrap_or(false))
+        .await?;
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(ttrs_shared::TranslateSubmitDto { job_id }),
+    ))
+}
+
+async fn epub_translate_status(
+    Ctx(s): Ctx,
+    Path(id): Path<String>,
+) -> ApiResult<Json<ttrs_shared::TranslateJobDto>> {
+    Ok(Json(s.translate.status(&s.actor, &id).await?))
+}
+
+async fn epub_translate_download(Ctx(s): Ctx, Path(id): Path<String>) -> ApiResult<Response> {
+    Ok(epub_response(s.translate.download(&s.actor, &id).await?))
 }
 
 // ----- GitHub EPUB 搜尋（github_epub_search.feature） -----

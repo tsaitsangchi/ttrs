@@ -135,6 +135,11 @@ pub struct ErpWorld {
     /// EPUB 轉 PDF（epub_to_pdf.feature）：轉換結果（TXT 或 PDF）與轉換的檔案
     pub epub_output: Option<ttrs_app::EpubOutput>,
     pub epub_file: Option<Vec<u8>>,
+    /// EPUB 英文翻譯（epub_translate.feature）：服務、假引擎、目前的工作編號與恢復前的呼叫次數
+    pub translate: ttrs_app::TranslationService,
+    pub translator: ttrs_app::memory::FakeTranslator,
+    pub translate_job: Option<String>,
+    pub translate_calls_before: usize,
     /// GitHub EPUB 搜尋（github_epub_search.feature）：兩種後端都用記憶體假來源（GE8）與結果
     pub github: ttrs_app::GithubEpubService,
     pub github_feed: InMemoryStore,
@@ -177,7 +182,7 @@ impl ErpWorld {
                     .expect("drop plant schemas");
                 sqlx::query("TRUNCATE change_log, user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, unit, plant, \
-                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year, unit_conversion \
+                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year, unit_conversion, translation_job \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
@@ -239,12 +244,15 @@ impl ErpWorld {
             item_unit_conversions: item_conversions,
             epub,
             github_epub,
+            translate,
             authorizer: _,
         } = services;
         let rate_feed = InMemoryStore::new();
         let rates = rates.with_feed(Arc::new(rate_feed.clone()));
         let github_feed = InMemoryStore::new();
         let github = github_epub.with_source(Arc::new(github_feed.clone()));
+        let translator = ttrs_app::memory::FakeTranslator::default();
+        let translate = translate.with_engine(Arc::new(translator.clone())).inline();
         Self {
             backend,
             authz,
@@ -312,6 +320,10 @@ impl ErpWorld {
             epub_result: None,
             epub_output: None,
             epub_file: None,
+            translate,
+            translator,
+            translate_job: None,
+            translate_calls_before: 0,
             github,
             github_feed,
             github_repos: None,

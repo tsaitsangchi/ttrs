@@ -970,3 +970,86 @@ pub trait GithubSource: Send + Sync {
         path: &str,
     ) -> Result<Vec<u8>, ttrs_domain::DomainError>;
 }
+
+// ---------------------------------------------------------------------------
+// EPUB 英文翻譯成繁體中文（TTRS 新增，TipTop 無對應；epub_translate.feature）
+// ---------------------------------------------------------------------------
+
+/// 一批要翻譯的段落與已知的人名地名譯名（EL5）
+#[derive(Debug, Clone, Default)]
+pub struct TranslateRequest {
+    pub lines: Vec<String>,
+    /// (英文, 中文)：前面批次累積的人名、地名對照表
+    pub glossary: Vec<(String, String)>,
+}
+
+/// 翻譯結果：與請求同樣段數的譯文、新發現的人名地名，以及用量（token 數，不是金額，EL13）
+#[derive(Debug, Clone, Default)]
+pub struct TranslateResponse {
+    pub lines: Vec<String>,
+    pub names: Vec<(String, String)>,
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+}
+
+/// 翻譯引擎（EL2）：infra 以 Claude Code `claude -p` 實作；BDD 用記憶體假引擎。
+/// 失敗回 TRANSLATE_NOT_CONFIGURED（沒裝、未登入）、TRANSLATE_QUOTA_EXHAUSTED（訂閱用量用完）、TRANSLATE_FAILED（可重試）
+#[async_trait]
+pub trait TranslationEngine: Send + Sync {
+    /// 引擎名稱（稽核紀錄用）
+    fn name(&self) -> String;
+    /// 提交前檢查引擎是否可用
+    async fn check(&self) -> Result<(), ttrs_domain::DomainError>;
+    async fn translate(
+        &self,
+        req: &TranslateRequest,
+    ) -> Result<TranslateResponse, ttrs_domain::DomainError>;
+}
+
+/// 翻譯工作（translation_job，只保留 24 小時）
+#[derive(Debug, Clone)]
+pub struct JobRecord {
+    pub job_id: String,
+    pub user_id: String,
+    pub source_sha256: String,
+    pub file_name: String,
+    /// txt／pdf
+    pub format: String,
+    /// queued／running／done／failed
+    pub status: String,
+    pub total_batches: i32,
+    pub done_batches: i32,
+    pub total_lines: i32,
+    pub done_lines: i32,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+    /// 原文、切段與已翻譯的段落（JSON，供續翻）
+    pub doc: String,
+    pub result: Option<Vec<u8>>,
+    pub result_file_name: Option<String>,
+    pub result_title: Option<String>,
+    pub result_author: Option<String>,
+    pub result_chapters: i32,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[async_trait]
+pub trait TranslationJobRepository: Send + Sync {
+    async fn create(&self, job: &JobRecord) -> Result<(), RepoError>;
+    async fn get(&self, job_id: &str) -> Result<Option<JobRecord>, RepoError>;
+    /// 整筆覆寫（每批翻完存一次進度）
+    async fn save(&self, job: &JobRecord) -> Result<(), RepoError>;
+    /// 同一位使用者、同一個檔案內容（sha256）的失敗工作，未過期時可續翻
+    async fn find_resumable(
+        &self,
+        user_id: &str,
+        source_sha256: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<Option<JobRecord>, RepoError>;
+    /// 是否有進行中（queued／running）且 `since` 之後還有更新的工作（更新太久沒動的視為已中斷）
+    async fn has_active(&self, since: chrono::DateTime<chrono::Utc>) -> Result<bool, RepoError>;
+    /// 刪除到期的工作，回刪除筆數
+    async fn purge_expired(&self, now: chrono::DateTime<chrono::Utc>) -> Result<u64, RepoError>;
+}

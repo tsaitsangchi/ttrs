@@ -2,6 +2,7 @@
 //! 目前用執行期查詢（query_as），不需資料庫即可編譯；
 //! 資料庫環境就緒後改用 `sqlx::query!` 搭配 `cargo sqlx prepare` 做編譯期檢查。
 
+mod claude_cli;
 mod github;
 pub mod pg;
 mod pg_accounting_period;
@@ -25,6 +26,7 @@ mod pg_product_class;
 mod pg_program;
 mod pg_project;
 mod pg_tax_type;
+mod pg_translation;
 mod pg_unit;
 mod pg_unit_conversion;
 mod pg_user;
@@ -34,6 +36,7 @@ mod qbe_sql;
 pub mod report;
 pub mod smtp;
 
+pub use claude_cli::ClaudeCliEngine;
 pub use pg::PgStore;
 pub use plant_schema::{
     PLANT_MIGRATOR, drop_all_plant_schemas, plant_role_exists, plant_schema_version,

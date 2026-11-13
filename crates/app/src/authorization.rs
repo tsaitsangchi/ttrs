@@ -144,7 +144,7 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "query, modify, history, output, exporttoexcel",
     ),
     // 工具作業（ET7）：只有執行
-    ("epub-to-text", "", "AZZ", "run"),
+    ("epub-to-text", "", "AZZ", "run, translate"),
     ("github-epub-search", "", "AZZ", "query, run"),
     // 單位換算（UC9）：比照單位維護
     (

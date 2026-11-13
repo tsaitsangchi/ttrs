@@ -2993,6 +2993,55 @@ pub fn download_file(_file: &str, _bytes: &[u8], _mime: &str) -> Result<(), Stri
     Ok(())
 }
 
+// ----- EPUB 英文翻譯（/api/epub-translate；epub_translate.feature） -----
+
+/// 等待一段時間（輪詢翻譯進度用；非瀏覽器環境不等待）
+#[cfg(target_arch = "wasm32")]
+pub async fn sleep_ms(ms: u32) {
+    gloo_timers::future::TimeoutFuture::new(ms).await;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn sleep_ms(_ms: u32) {}
+
+/// 提交翻譯工作（已勾選同意才會送出）：回工作編號
+pub async fn epub_translate_submit(
+    name: &str,
+    bytes: Vec<u8>,
+    format: &str,
+    consent: bool,
+) -> Result<String, String> {
+    let res = reqwest::Client::new()
+        .post(url(&format!(
+            "/api/epub-translate?name={}&format={format}&consent={consent}",
+            urlencoding(name)
+        )))
+        .header("content-type", "application/epub+zip")
+        .body(bytes)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let r: ttrs_shared::TranslateSubmitDto = into_result(res).await?;
+    Ok(r.job_id)
+}
+
+pub async fn epub_translate_status(id: &str) -> Result<ttrs_shared::TranslateJobDto, String> {
+    get_json(url(&format!("/api/epub-translate/{}", urlencoding(id)))).await
+}
+
+/// 下載翻譯結果（txt 或 pdf）
+pub async fn epub_translate_download(id: &str, format: &str) -> Result<EpubFile, String> {
+    let res = reqwest::Client::new()
+        .get(url(&format!(
+            "/api/epub-translate/{}/download",
+            urlencoding(id)
+        )))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    epub_file(res, format).await
+}
+
 // ----- GitHub EPUB 搜尋（/api/github-epub；github_epub_search.feature） -----
 
 pub async fn github_epub_repos(

@@ -357,6 +357,23 @@ pub enum DomainError {
     PdfFontMissing,
     #[error("產生 PDF 失敗：{0}")]
     PdfGenerationFailed(String),
+    // ----- EPUB 英文翻譯成繁體中文（epub_translate.feature） -----
+    #[error("這本書不是英文，不需要也不能用英文翻譯")]
+    EpubNotEnglish,
+    #[error("翻譯字數超過上限（{max_chars} 字元）")]
+    TranslateLimitExceeded { max_chars: usize },
+    #[error("目前已有進行中的翻譯工作，請等它完成再提交")]
+    TranslateBusy,
+    #[error("翻譯服務尚未設定好：{0}")]
+    TranslateNotConfigured(String),
+    #[error("訂閱用量已達上限，請於 {reset} 後再試；已翻譯的部分會保留，重新提交可續翻")]
+    TranslateQuotaExhausted { reset: String },
+    #[error("翻譯失敗：{0}")]
+    TranslateFailed(String),
+    #[error("翻譯會把書的內容送到 Claude，請先勾選同意")]
+    TranslateConsentRequired,
+    #[error("找不到這個翻譯工作（可能已過期）")]
+    TranslateJobNotFound,
     // ----- GitHub EPUB 搜尋（github_epub_search.feature） -----
     #[error("GitHub 查詢次數已用完，請於 {reset} 後再試")]
     GithubRateLimited { reset: String },
@@ -732,6 +749,14 @@ impl DomainError {
             Self::EpubFormatInvalid(_) => "EPUB_FORMAT_INVALID",
             Self::PdfFontMissing => "PDF_FONT_MISSING",
             Self::PdfGenerationFailed(_) => "PDF_GENERATION_FAILED",
+            Self::EpubNotEnglish => "EPUB_NOT_ENGLISH",
+            Self::TranslateLimitExceeded { .. } => "TRANSLATE_LIMIT_EXCEEDED",
+            Self::TranslateBusy => "TRANSLATE_BUSY",
+            Self::TranslateNotConfigured(_) => "TRANSLATE_NOT_CONFIGURED",
+            Self::TranslateQuotaExhausted { .. } => "TRANSLATE_QUOTA_EXHAUSTED",
+            Self::TranslateFailed(_) => "TRANSLATE_FAILED",
+            Self::TranslateConsentRequired => "TRANSLATE_CONSENT_REQUIRED",
+            Self::TranslateJobNotFound => "TRANSLATE_JOB_NOT_FOUND",
             Self::GithubRateLimited { .. } => "GITHUB_RATE_LIMITED",
             Self::GithubUnavailable(_) => "GITHUB_UNAVAILABLE",
             Self::GithubNotFound(_) => "GITHUB_NOT_FOUND",

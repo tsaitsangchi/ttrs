@@ -60,7 +60,10 @@ use crate::{
 };
 use crate::{
     mail::{Mail, Mailer},
-    ports::{AuditLog, PasswordResetTokenRepository, ResetToken},
+    ports::{
+        AuditLog, JobRecord, PasswordResetTokenRepository, ResetToken, TranslateRequest,
+        TranslateResponse, TranslationEngine, TranslationJobRepository,
+    },
     ports::{ClassificationCode, ClassificationCodeRepository, Code, CodeKind},
 };
 
@@ -119,6 +122,8 @@ struct State {
     github_repos: Vec<GithubRepo>,
     github_files: BTreeMap<String, Vec<(String, u64, Vec<u8>)>>,
     github_rate_limited: bool,
+    /// 翻譯工作（translation_job；epub_translate.feature）
+    translation_jobs: BTreeMap<String, JobRecord>,
     customs_current: Option<(NaiveDate, NaiveDate, Vec<Quote>)>,
     customs_history: Option<Vec<HistoryQuote>>,
     /// 稅別（gec_file，共用）
@@ -4541,5 +4546,169 @@ impl GithubSource for InMemoryStore {
             .and_then(|fs| fs.iter().find(|(p, _, _)| p == path))
             .map(|(_, _, c)| c.clone())
             .ok_or_else(|| ttrs_domain::DomainError::GithubNotFound(format!("{full_name}/{path}")))
+    }
+}
+
+// ----- EPUB 英文翻譯（epub_translate.feature） -----
+
+use ttrs_domain::DomainError;
+
+#[async_trait]
+impl TranslationJobRepository for InMemoryStore {
+    async fn create(&self, job: &JobRecord) -> Result<(), RepoError> {
+        self.lock()
+            .translation_jobs
+            .insert(job.job_id.clone(), job.clone());
+        Ok(())
+    }
+
+    async fn get(&self, job_id: &str) -> Result<Option<JobRecord>, RepoError> {
+        Ok(self.lock().translation_jobs.get(job_id).cloned())
+    }
+
+    async fn save(&self, job: &JobRecord) -> Result<(), RepoError> {
+        self.lock()
+            .translation_jobs
+            .insert(job.job_id.clone(), job.clone());
+        Ok(())
+    }
+
+    async fn find_resumable(
+        &self,
+        user_id: &str,
+        source_sha256: &str,
+        now: DateTime<Utc>,
+    ) -> Result<Option<JobRecord>, RepoError> {
+        Ok(self
+            .lock()
+            .translation_jobs
+            .values()
+            .filter(|j| {
+                j.user_id == user_id
+                    && j.source_sha256 == source_sha256
+                    && j.status == "failed"
+                    && j.expires_at > now
+            })
+            .max_by_key(|j| j.created_at)
+            .cloned())
+    }
+
+    async fn has_active(&self, since: DateTime<Utc>) -> Result<bool, RepoError> {
+        Ok(self
+            .lock()
+            .translation_jobs
+            .values()
+            .any(|j| matches!(j.status.as_str(), "queued" | "running") && j.updated_at > since))
+    }
+
+    async fn purge_expired(&self, now: DateTime<Utc>) -> Result<u64, RepoError> {
+        let mut st = self.lock();
+        let before = st.translation_jobs.len();
+        st.translation_jobs.retain(|_, j| j.expires_at > now);
+        Ok((before - st.translation_jobs.len()) as u64)
+    }
+}
+
+/// 假翻譯引擎（BDD；不連外網）：把每一段加上「【譯】」前綴，可設定失敗、額度用完等情境，並記錄每次呼叫
+#[derive(Clone, Default)]
+pub struct FakeTranslator(Arc<Mutex<FakeTranslatorState>>);
+
+/// 假引擎收到的一次呼叫
+#[derive(Debug, Clone)]
+pub struct TranslateCall {
+    /// 這次送出的段落總字元數
+    pub chars: usize,
+    /// 這次帶入的人名地名對照表
+    pub glossary: Vec<(String, String)>,
+}
+
+#[derive(Default)]
+struct FakeTranslatorState {
+    calls: Vec<TranslateCall>,
+    /// 前幾次呼叫失敗
+    fail_first: usize,
+    always_fail: bool,
+    /// 第幾次呼叫回報訂閱用量已達上限（從 1 起算）
+    quota_at: Option<usize>,
+    not_configured: bool,
+    /// 每批回報的人名
+    name: Option<(String, String)>,
+}
+
+impl FakeTranslator {
+    fn state(&self) -> std::sync::MutexGuard<'_, FakeTranslatorState> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    pub fn set_fail_first(&self, n: usize) {
+        self.state().fail_first = n;
+    }
+
+    pub fn set_always_fail(&self) {
+        self.state().always_fail = true;
+    }
+
+    pub fn set_quota_at(&self, call: Option<usize>) {
+        self.state().quota_at = call;
+    }
+
+    pub fn set_not_configured(&self) {
+        self.state().not_configured = true;
+    }
+
+    pub fn set_name(&self, english: &str, chinese: &str) {
+        self.state().name = Some((english.to_owned(), chinese.to_owned()));
+    }
+
+    pub fn calls(&self) -> Vec<TranslateCall> {
+        self.state().calls.clone()
+    }
+
+    /// 清掉呼叫紀錄與情境（模擬引擎恢復）
+    pub fn recover(&self) {
+        let mut s = self.state();
+        s.quota_at = None;
+        s.fail_first = 0;
+        s.always_fail = false;
+    }
+}
+
+#[async_trait]
+impl TranslationEngine for FakeTranslator {
+    fn name(&self) -> String {
+        "fake".to_owned()
+    }
+
+    async fn check(&self) -> Result<(), DomainError> {
+        if self.state().not_configured {
+            return Err(DomainError::TranslateNotConfigured(
+                "假引擎未設定".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    async fn translate(&self, req: &TranslateRequest) -> Result<TranslateResponse, DomainError> {
+        self.check().await?;
+        let mut s = self.state();
+        s.calls.push(TranslateCall {
+            chars: req.lines.iter().map(|l| l.chars().count()).sum(),
+            glossary: req.glossary.clone(),
+        });
+        let n = s.calls.len();
+        if s.always_fail || n <= s.fail_first {
+            return Err(DomainError::TranslateFailed("假引擎失敗".to_owned()));
+        }
+        if s.quota_at == Some(n) {
+            return Err(DomainError::TranslateQuotaExhausted {
+                reset: "稍後".to_owned(),
+            });
+        }
+        Ok(TranslateResponse {
+            lines: req.lines.iter().map(|l| format!("【譯】{l}")).collect(),
+            names: s.name.clone().into_iter().collect(),
+            input_tokens: 10,
+            output_tokens: 20,
+        })
     }
 }
