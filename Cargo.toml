@@ -43,6 +43,14 @@ unsafe_code = "forbid"
 [workspace.lints.clippy]
 float_arithmetic = "deny" # ERP 金額/數量一律用 rust_decimal
 
+# 開發版只留行號（錯誤訊息與 backtrace 仍有行號），依賴套件不留除錯資訊；
+# 完整除錯資訊讓 target/ 長到上百 GB
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
 # 密碼雜湊（ADR 0009）：debug 版也最佳化，否則 BDD 每次雜湊要數秒
 [profile.dev.package.argon2]
 opt-level = 3
