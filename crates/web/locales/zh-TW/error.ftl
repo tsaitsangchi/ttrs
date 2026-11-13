@@ -282,6 +282,9 @@ error-UNIT_INACTIVE = （使用伺服器訊息）
 error-EPUB_INVALID = （使用伺服器訊息）
 error-EPUB_ENCRYPTED = （使用伺服器訊息）
 error-EPUB_TOO_LARGE = （使用伺服器訊息）
+error-EPUB_FORMAT_INVALID = （使用伺服器訊息）
+error-PDF_FONT_MISSING = （使用伺服器訊息）
+error-PDF_GENERATION_FAILED = （使用伺服器訊息）
 
 # GitHub EPUB 搜尋
 error-GITHUB_RATE_LIMITED = （使用伺服器訊息）

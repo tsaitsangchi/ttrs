@@ -284,10 +284,7 @@ impl InMemoryStore {
                 ["每日匯率複製", "Daily Exchange Rate Copy", "每日汇率复制"],
             ),
             ("project-maintenance", ["專案維護", "Projects", "专案维护"]),
-            (
-                "epub-to-text",
-                ["EPUB 轉 TXT", "EPUB to Text", "EPUB 转 TXT"],
-            ),
+            ("epub-to-text", ["EPUB 轉換", "EPUB Converter", "EPUB 转换"]),
             (
                 "github-epub-search",
                 ["GitHub EPUB 搜尋", "GitHub EPUB Search", "GitHub EPUB 搜索"],

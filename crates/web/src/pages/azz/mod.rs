@@ -1,7 +1,7 @@
 //! 系統管理模組 (TipTop azz)
 
 mod data_dictionary;
-mod epub_to_text;
+pub mod epub_to_text;
 mod github_epub_search;
 mod legacy_catalog;
 mod menu_maintenance;

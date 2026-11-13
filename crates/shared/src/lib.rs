@@ -2691,4 +2691,10 @@ pub struct GithubEpubListDto {
 pub struct GithubEpubConvertRequest {
     pub repo: String,
     pub path: String,
+    /// 輸出格式 txt／pdf（預設 txt；epub_to_pdf.feature EP1）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
+    /// 簡體轉繁體（預設不轉；EP2）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub s2t: Option<bool>,
 }

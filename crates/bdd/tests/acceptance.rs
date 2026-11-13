@@ -132,6 +132,9 @@ pub struct ErpWorld {
     pub epub_book: Option<(String, String, Vec<(String, String)>, Vec<String>)>,
     pub epub_bytes: Option<Vec<u8>>,
     pub epub_result: Option<ttrs_shared::EpubTextDto>,
+    /// EPUB 轉 PDF（epub_to_pdf.feature）：轉換結果（TXT 或 PDF）與轉換的檔案
+    pub epub_output: Option<ttrs_app::EpubOutput>,
+    pub epub_file: Option<Vec<u8>>,
     /// GitHub EPUB 搜尋（github_epub_search.feature）：兩種後端都用記憶體假來源（GE8）與結果
     pub github: ttrs_app::GithubEpubService,
     pub github_feed: InMemoryStore,
@@ -307,6 +310,8 @@ impl ErpWorld {
             epub_book: None,
             epub_bytes: None,
             epub_result: None,
+            epub_output: None,
+            epub_file: None,
             github,
             github_feed,
             github_repos: None,
@@ -336,6 +341,8 @@ fn main() {
         }
         // @draft：規格審核中、尚未實作，不納入執行；@pg：只對 PostgreSQL 有意義（資料庫權限、觸發器，CH9）
         let pg = database_url().is_some();
+        let has_pdf_font =
+            ttrs_app::epub_pdf::PdfFonts::load(&ttrs_app::epub_pdf::SystemFonts).is_ok();
         cucumber
             .fail_on_skipped()
             .filter_run_and_exit(features, move |feature, rule, scenario| {
@@ -345,7 +352,8 @@ fn main() {
                         || rule.is_some_and(|r| has(&r.tags, tag))
                         || has(&scenario.tags, tag)
                 };
-                !(tagged("draft") || (!pg && tagged("pg")))
+                // @font：需要伺服器有中文字型才能驗證 PDF 內容，沒有字型的環境略過
+                !(tagged("draft") || (!pg && tagged("pg")) || (tagged("font") && !has_pdf_font))
             })
             .await;
     });

@@ -350,6 +350,13 @@ pub enum DomainError {
     EpubEncrypted,
     #[error("檔案超過 {max_mb} MB 上限")]
     EpubTooLarge { max_mb: usize },
+    // ----- EPUB 轉 PDF／簡轉繁（epub_to_pdf.feature） -----
+    #[error("輸出格式不正確：{0}（請用 txt 或 pdf）")]
+    EpubFormatInvalid(String),
+    #[error("伺服器找不到可用的中文字型，無法產生 PDF（請設定 TTRS_PDF_FONT）")]
+    PdfFontMissing,
+    #[error("產生 PDF 失敗：{0}")]
+    PdfGenerationFailed(String),
     // ----- GitHub EPUB 搜尋（github_epub_search.feature） -----
     #[error("GitHub 查詢次數已用完，請於 {reset} 後再試")]
     GithubRateLimited { reset: String },
@@ -722,6 +729,9 @@ impl DomainError {
             Self::EpubInvalid(_) => "EPUB_INVALID",
             Self::EpubEncrypted => "EPUB_ENCRYPTED",
             Self::EpubTooLarge { .. } => "EPUB_TOO_LARGE",
+            Self::EpubFormatInvalid(_) => "EPUB_FORMAT_INVALID",
+            Self::PdfFontMissing => "PDF_FONT_MISSING",
+            Self::PdfGenerationFailed(_) => "PDF_GENERATION_FAILED",
             Self::GithubRateLimited { .. } => "GITHUB_RATE_LIMITED",
             Self::GithubUnavailable(_) => "GITHUB_UNAVAILABLE",
             Self::GithubNotFound(_) => "GITHUB_NOT_FOUND",

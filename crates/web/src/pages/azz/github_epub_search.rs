@@ -1,5 +1,5 @@
 //! GitHub EPUB 搜尋（TTRS 工具作業；specs/features/azz/github_epub_search.feature）
-//! 關鍵字搜尋 repo（可只看開放授權）→ 選 repo 列出 .epub → 一次轉換一本並下載 TXT（GE2–GE4）。
+//! 關鍵字搜尋 repo（可只看開放授權）→ 選 repo 列出 .epub → 一次轉換一本並下載 TXT 或 PDF、可簡體轉繁體（GE2–GE4、EP11）。
 
 use dioxus::prelude::*;
 use ttrs_shared::{GithubEpubListDto, GithubRepoPage};
@@ -10,6 +10,7 @@ use crate::components::material::{
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::i18n::{t, tf};
+use crate::pages::azz::epub_to_text::EpubOptions;
 
 const PROGRAM: &str = "github-epub-search";
 
@@ -47,6 +48,8 @@ fn SearchPage() -> Element {
     let mut message = use_signal(|| None::<String>);
     // 轉換結果顯示在 EPUB 清單裡（清單在頁面下方，訊息放上方會看不到）
     let mut file_error = use_signal(|| None::<String>);
+    let format = use_signal(|| "txt".to_owned());
+    let s2t = use_signal(|| false);
 
     let mut search = move |p: u32| {
         let (q, open) = (keyword(), open_only());
@@ -92,9 +95,10 @@ fn SearchPage() -> Element {
         busy.set(true);
         message.set(None);
         file_error.set(None);
+        let (fmt, to_trad) = (format(), s2t());
         spawn(async move {
-            match api::github_epub_convert(&repo, &path).await {
-                Ok(r) => match api::download_text(&r.file_name, &r.text) {
+            match api::github_epub_convert(&repo, &path, &fmt, to_trad).await {
+                Ok(r) => match api::download_file(&r.file_name, &r.bytes, r.mime) {
                     Ok(()) => {
                         message.set(Some(tf(
                             "github-msg-done",
@@ -191,6 +195,11 @@ fn SearchPage() -> Element {
                         }} }
                         if f.truncated {
                             p { class: "query-hint", {t("github-files-truncated")} }
+                        }
+                    }
+                    if perm.can("run") {
+                        div { class: "card-body",
+                            EpubOptions { format, s2t, disabled: busy() }
                         }
                     }
                     if let Some(msg) = file_error() {

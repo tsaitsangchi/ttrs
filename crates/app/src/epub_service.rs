@@ -13,6 +13,7 @@ use ttrs_shared::EpubTextDto;
 
 use crate::{
     Actor, AppError, Authorizer,
+    epub_pdf::{self, Book, PdfFonts, SystemFonts},
     ports::{AuditEntry, AuditLog},
 };
 
@@ -21,6 +22,65 @@ pub const PROGRAM: &str = "epub-to-text";
 /// 單一檔案上限（ET4）
 pub const MAX_MB: usize = 50;
 
+/// 輸出格式（EP1）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Format {
+    #[default]
+    Txt,
+    Pdf,
+}
+
+impl Format {
+    pub fn parse(s: &str) -> Result<Self, DomainError> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "" | "txt" => Ok(Self::Txt),
+            "pdf" => Ok(Self::Pdf),
+            _ => Err(DomainError::EpubFormatInvalid(s.to_owned())),
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Txt => "txt",
+            Self::Pdf => "pdf",
+        }
+    }
+}
+
+/// 轉換選項：輸出格式與是否把簡體轉成繁體（EP1、EP2）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ConvertOptions {
+    pub format: Format,
+    pub s2t: bool,
+}
+
+/// 轉出的內容
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Content {
+    /// 文字（CRLF 換行）
+    Text(String),
+    /// PDF 位元組
+    Pdf(Vec<u8>),
+}
+
+/// 一本轉換的結果
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EpubOutput {
+    pub file_name: String,
+    pub title: Option<String>,
+    pub author: Option<String>,
+    pub chapters: u32,
+    pub content: Content,
+}
+
+/// 簡體轉繁體（EP2、EP3：OpenCC s2tw，字形加台灣異體字）；辭典載入一次，之後共用
+fn to_traditional(text: &str) -> String {
+    use std::sync::OnceLock;
+    static CC: OnceLock<opencc_jieba_rs::OpenCC> = OnceLock::new();
+    CC.get_or_init(opencc_jieba_rs::OpenCC::new)
+        .convert(text, "s2tw", false)
+}
+
 /// 轉換結果（未換行轉換：段落以 `\n` 分隔）
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EpubText {
@@ -28,6 +88,8 @@ pub struct EpubText {
     pub author: Option<String>,
     pub chapters: usize,
     pub text: String,
+    /// 各章的行（段落）；PDF 排版用
+    pub parts: Vec<Vec<String>>,
 }
 
 fn invalid(why: &str) -> DomainError {
@@ -101,6 +163,10 @@ pub fn convert(bytes: &[u8]) -> Result<EpubText, DomainError> {
         author,
         chapters: chapters.len(),
         text: chapters.join("\n\n"),
+        parts: chapters
+            .iter()
+            .map(|c| c.lines().map(str::to_owned).collect())
+            .collect(),
     })
 }
 
@@ -281,25 +347,63 @@ fn decode_entities(s: &str) -> String {
 pub struct EpubService {
     authz: Arc<dyn Authorizer>,
     audit: Arc<dyn AuditLog>,
+    fonts: Arc<dyn PdfFonts>,
 }
 
 impl EpubService {
     pub fn new(authz: Arc<dyn Authorizer>, audit: Arc<dyn AuditLog>) -> Self {
-        Self { authz, audit }
+        Self {
+            authz,
+            audit,
+            fonts: Arc::new(SystemFonts),
+        }
     }
 
-    /// 轉換（ET2–ET6）：超過 50 MB 回 EPUB_TOO_LARGE；文字換行為 CRLF、UTF-8 不含 BOM
+    /// 換掉 PDF 字型來源（BDD 驗證找不到字型）
+    pub fn with_fonts(mut self, fonts: Arc<dyn PdfFonts>) -> Self {
+        self.fonts = fonts;
+        self
+    }
+
+    /// 轉成文字（ET2–ET6）：超過 50 MB 回 EPUB_TOO_LARGE；文字換行為 CRLF、UTF-8 不含 BOM
     pub async fn convert(
         &self,
         actor: &Actor,
         file_name: &str,
         bytes: &[u8],
     ) -> Result<EpubTextDto, AppError> {
+        let out = self
+            .convert_with(actor, file_name, bytes, ConvertOptions::default())
+            .await?;
+        match out.content {
+            Content::Text(text) => Ok(EpubTextDto {
+                file_name: out.file_name,
+                title: out.title,
+                author: out.author,
+                chapters: out.chapters,
+                text,
+            }),
+            Content::Pdf(_) => unreachable!("預設選項輸出文字"),
+        }
+    }
+
+    /// 依選項轉成 TXT 或 PDF，可選簡體轉繁體（EP1–EP10）
+    pub async fn convert_with(
+        &self,
+        actor: &Actor,
+        file_name: &str,
+        bytes: &[u8],
+        opts: ConvertOptions,
+    ) -> Result<EpubOutput, AppError> {
         self.authz.authorize(actor, PROGRAM, "run").await?;
         if bytes.len() > MAX_MB * 1024 * 1024 {
             return Err(DomainError::EpubTooLarge { max_mb: MAX_MB }.into());
         }
-        let r = convert(bytes)?;
+        let stem = file_name
+            .rsplit_once('.')
+            .map_or(file_name, |(s, _)| s)
+            .trim();
+        let out = render(bytes, stem, opts, self.fonts.clone()).await?;
         let _ = self
             .audit
             .record(&AuditEntry {
@@ -307,21 +411,91 @@ impl EpubService {
                 user_id: actor.user_id.clone(),
                 key: file_name.to_owned(),
                 action: "run".to_owned(),
-                detail: Some(format!("{} bytes", bytes.len())),
+                detail: Some(format!(
+                    "{} bytes, format={}, s2t={}",
+                    bytes.len(),
+                    opts.format.as_str(),
+                    opts.s2t
+                )),
             })
             .await;
-        let stem = file_name
-            .rsplit_once('.')
-            .map_or(file_name, |(s, _)| s)
-            .trim();
-        Ok(EpubTextDto {
-            file_name: format!("{}.txt", if stem.is_empty() { "book" } else { stem }),
-            title: r.title,
-            author: r.author,
-            chapters: u32::try_from(r.chapters).unwrap_or(u32::MAX),
-            text: r.text.replace('\n', "\r\n"),
-        })
+        Ok(out)
     }
+}
+
+/// 解析 EPUB 並依選項輸出（EpubService 與 GitHub 轉換共用）。轉換與排版放在背景執行緒（EP7）
+pub(crate) async fn render(
+    bytes: &[u8],
+    stem: &str,
+    opts: ConvertOptions,
+    fonts: Arc<dyn PdfFonts>,
+) -> Result<EpubOutput, DomainError> {
+    let bytes = bytes.to_vec();
+    let stem = if stem.is_empty() { "book" } else { stem }.to_owned();
+    tokio::task::spawn_blocking(move || render_blocking(&bytes, &stem, opts, fonts.as_ref()))
+        .await
+        .map_err(|e| DomainError::PdfGenerationFailed(e.to_string()))?
+}
+
+fn render_blocking(
+    bytes: &[u8],
+    stem: &str,
+    opts: ConvertOptions,
+    fonts: &dyn PdfFonts,
+) -> Result<EpubOutput, DomainError> {
+    // 先讀字型：PDF 沒有字型時不必先解析整本書
+    let files = match opts.format {
+        Format::Pdf => Some(fonts.load()?),
+        Format::Txt => None,
+    };
+    let mut r = convert(bytes)?;
+    if opts.s2t {
+        r.title = r.title.as_deref().map(to_traditional);
+        r.author = r.author.as_deref().map(to_traditional);
+        for part in &mut r.parts {
+            let joined = to_traditional(&part.join("\n"));
+            *part = joined.lines().map(str::to_owned).collect();
+        }
+    }
+    build_output(&r.parts, r.title, r.author, stem, opts.format, files)
+}
+
+/// 由各章的行組出輸出檔（TXT 以 CRLF、章節之間空一行；PDF 依 [`epub_pdf`] 排版）。
+/// 簡轉繁與英文翻譯共用：兩者都是先處理文字，再交給這裡
+pub(crate) fn build_output(
+    parts: &[Vec<String>],
+    title: Option<String>,
+    author: Option<String>,
+    stem: &str,
+    format: Format,
+    files: Option<Vec<epub_pdf::FontFile>>,
+) -> Result<EpubOutput, DomainError> {
+    let chapters = u32::try_from(parts.len()).unwrap_or(u32::MAX);
+    let content = match files {
+        Some(files) => {
+            let book = Book {
+                title: title.as_deref().unwrap_or(stem),
+                author: author.as_deref().unwrap_or_default(),
+                chapters: parts,
+            };
+            Content::Pdf(epub_pdf::render(&book, &files)?)
+        }
+        None => Content::Text(
+            parts
+                .iter()
+                .map(|p| p.join("\n"))
+                .collect::<Vec<_>>()
+                .join("\n\n")
+                .replace('\n', "\r\n"),
+        ),
+    };
+    Ok(EpubOutput {
+        file_name: format!("{stem}.{}", format.as_str()),
+        title,
+        author,
+        chapters,
+        content,
+    })
 }
 
 #[cfg(test)]

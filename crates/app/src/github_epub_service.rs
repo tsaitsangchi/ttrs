@@ -12,7 +12,8 @@ use ttrs_shared::{
 
 use crate::{
     Actor, AppError, Authorizer,
-    epub_service::{self, MAX_MB},
+    epub_pdf::{PdfFonts, SystemFonts},
+    epub_service::{self, Content, ConvertOptions, EpubOutput, MAX_MB},
     ports::{AuditEntry, AuditLog, GithubRepo, GithubSource},
 };
 
@@ -51,6 +52,7 @@ pub struct GithubEpubService {
     authz: Arc<dyn Authorizer>,
     source: Arc<dyn GithubSource>,
     audit: Arc<dyn AuditLog>,
+    fonts: Arc<dyn PdfFonts>,
 }
 
 impl GithubEpubService {
@@ -63,7 +65,14 @@ impl GithubEpubService {
             authz,
             source,
             audit,
+            fonts: Arc::new(SystemFonts),
         }
+    }
+
+    /// 換掉 PDF 字型來源（BDD）
+    pub fn with_fonts(mut self, fonts: Arc<dyn PdfFonts>) -> Self {
+        self.fonts = fonts;
+        self
     }
 
     /// 換掉 GitHub 來源（BDD 對 PostgreSQL 也用記憶體來源，不連外網，GE8）
@@ -129,6 +138,29 @@ impl GithubEpubService {
         repo: &str,
         path: &str,
     ) -> Result<EpubTextDto, AppError> {
+        let out = self
+            .convert_with(actor, repo, path, ConvertOptions::default())
+            .await?;
+        match out.content {
+            Content::Text(text) => Ok(EpubTextDto {
+                file_name: out.file_name,
+                title: out.title,
+                author: out.author,
+                chapters: out.chapters,
+                text,
+            }),
+            Content::Pdf(_) => unreachable!("預設選項輸出文字"),
+        }
+    }
+
+    /// 下載一本並依選項轉成 TXT 或 PDF、可選簡體轉繁體（EP11）
+    pub async fn convert_with(
+        &self,
+        actor: &Actor,
+        repo: &str,
+        path: &str,
+        opts: ConvertOptions,
+    ) -> Result<EpubOutput, AppError> {
         self.authz.authorize(actor, PROGRAM, "run").await?;
         let info = self.source.get_repo(repo.trim()).await?;
         let (files, _) = self
@@ -149,22 +181,25 @@ impl GithubEpubService {
         if bytes.len() > MAX_MB * 1024 * 1024 {
             return Err(DomainError::EpubTooLarge { max_mb: MAX_MB }.into());
         }
-        let r = epub_service::convert(&bytes)?;
-        self.audit(actor, "run", &format!("{}/{path}", info.full_name))
-            .await;
         let name = path.rsplit('/').next().unwrap_or(path);
         let stem = name.rsplit_once('.').map_or(name, |(s, _)| s);
-        Ok(EpubTextDto {
-            file_name: format!("{stem}.txt"),
-            title: r.title,
-            author: r.author,
-            chapters: u32::try_from(r.chapters).unwrap_or(u32::MAX),
-            text: r.text.replace('\n', "\r\n"),
-        })
+        let out = epub_service::render(&bytes, stem, opts, self.fonts.clone()).await?;
+        self.audit_detail(
+            actor,
+            "run",
+            &format!("{}/{path}", info.full_name),
+            Some(format!("format={}, s2t={}", opts.format.as_str(), opts.s2t)),
+        )
+        .await;
+        Ok(out)
     }
 
     /// 稽核紀錄（GE6）
     async fn audit(&self, actor: &Actor, action: &str, key: &str) {
+        self.audit_detail(actor, action, key, None).await;
+    }
+
+    async fn audit_detail(&self, actor: &Actor, action: &str, key: &str, detail: Option<String>) {
         let _ = self
             .audit
             .record(&AuditEntry {
@@ -172,7 +207,7 @@ impl GithubEpubService {
                 user_id: actor.user_id.clone(),
                 key: key.to_owned(),
                 action: action.to_owned(),
-                detail: None,
+                detail,
             })
             .await;
     }

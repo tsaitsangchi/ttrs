@@ -1534,6 +1534,8 @@ impl IntoResponse for HttpError {
             | "REPORT_TITLE_NOT_FOUND" => StatusCode::NOT_FOUND,
             "PASSWORD_RESET_UNAVAILABLE" => StatusCode::SERVICE_UNAVAILABLE,
             "EPUB_TOO_LARGE" => StatusCode::PAYLOAD_TOO_LARGE,
+            "EPUB_FORMAT_INVALID" => StatusCode::BAD_REQUEST,
+            "PDF_FONT_MISSING" => StatusCode::SERVICE_UNAVAILABLE,
             "GITHUB_RATE_LIMITED" => StatusCode::TOO_MANY_REQUESTS,
             "GITHUB_UNAVAILABLE" => StatusCode::BAD_GATEWAY,
             "GITHUB_NOT_FOUND" => StatusCode::NOT_FOUND,
@@ -3540,15 +3542,84 @@ async fn list_currencies(Ctx(s): Ctx) -> ApiResult<Json<Vec<ttrs_shared::Currenc
 struct EpubQuery {
     #[serde(default)]
     name: Option<String>,
+    /// txt（預設）或 pdf（epub_to_pdf.feature EP1、EP8）
+    #[serde(default)]
+    format: Option<String>,
+    /// 簡體轉繁體（EP2）
+    #[serde(default)]
+    s2t: Option<bool>,
+}
+
+fn convert_options(
+    format: Option<&str>,
+    s2t: Option<bool>,
+) -> Result<ttrs_app::ConvertOptions, ttrs_domain::DomainError> {
+    Ok(ttrs_app::ConvertOptions {
+        format: ttrs_app::Format::parse(format.unwrap_or("txt"))?,
+        s2t: s2t.unwrap_or(false),
+    })
+}
+
+/// 百分比編碼（回應標頭只能放 ASCII）
+fn header_encode(s: &str) -> String {
+    s.bytes()
+        .map(|b| match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (b as char).to_string()
+            }
+            _ => format!("%{b:02X}"),
+        })
+        .collect()
+}
+
+/// txt 回 JSON（EpubTextDto）；pdf 回 application/pdf 二進位，檔名、書名、作者、章數放標頭（EP8）
+fn epub_response(out: ttrs_app::EpubOutput) -> Response {
+    match out.content {
+        ttrs_app::Content::Text(text) => Json(ttrs_shared::EpubTextDto {
+            file_name: out.file_name,
+            title: out.title,
+            author: out.author,
+            chapters: out.chapters,
+            text,
+        })
+        .into_response(),
+        ttrs_app::Content::Pdf(bytes) => {
+            let mut res = bytes.into_response();
+            let h = res.headers_mut();
+            let mut put = |k: &'static str, v: &str| {
+                if let Ok(v) = axum::http::HeaderValue::from_str(&header_encode(v)) {
+                    h.insert(k, v);
+                }
+            };
+            put("x-epub-file-name", &out.file_name);
+            put("x-epub-title", out.title.as_deref().unwrap_or_default());
+            put("x-epub-author", out.author.as_deref().unwrap_or_default());
+            put("x-epub-chapters", &out.chapters.to_string());
+            h.insert(
+                axum::http::header::CONTENT_TYPE,
+                axum::http::HeaderValue::from_static("application/pdf"),
+            );
+            h.insert(
+                axum::http::header::ACCESS_CONTROL_EXPOSE_HEADERS,
+                axum::http::HeaderValue::from_static(
+                    "x-epub-file-name, x-epub-title, x-epub-author, x-epub-chapters",
+                ),
+            );
+            res
+        }
+    }
 }
 
 async fn epub_to_text(
     Ctx(s): Ctx,
     Query(q): Query<EpubQuery>,
     body: axum::body::Bytes,
-) -> ApiResult<Json<ttrs_shared::EpubTextDto>> {
+) -> ApiResult<Response> {
     let name = q.name.unwrap_or_else(|| "book.epub".to_owned());
-    Ok(Json(s.epub.convert(&s.actor, &name, &body).await?))
+    let opts = convert_options(q.format.as_deref(), q.s2t).map_err(ttrs_app::AppError::from)?;
+    Ok(epub_response(
+        s.epub.convert_with(&s.actor, &name, &body, opts).await?,
+    ))
 }
 
 // ----- GitHub EPUB 搜尋（github_epub_search.feature） -----
@@ -3588,10 +3659,11 @@ async fn github_epub_files(
 async fn github_epub_convert(
     Ctx(s): Ctx,
     Json(req): Json<ttrs_shared::GithubEpubConvertRequest>,
-) -> ApiResult<Json<ttrs_shared::EpubTextDto>> {
-    Ok(Json(
+) -> ApiResult<Response> {
+    let opts = convert_options(req.format.as_deref(), req.s2t).map_err(ttrs_app::AppError::from)?;
+    Ok(epub_response(
         s.github_epub
-            .convert(&s.actor, &req.repo, &req.path)
+            .convert_with(&s.actor, &req.repo, &req.path, opts)
             .await?,
     ))
 }

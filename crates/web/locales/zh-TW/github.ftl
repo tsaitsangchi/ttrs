@@ -1,7 +1,7 @@
 # GitHub EPUB 搜尋（github_epub_search.feature）
 github-breadcrumb = 系統管理 / GitHub EPUB Search
 github-title = GitHub EPUB 搜尋
-github-hint = 以關鍵字搜尋 GitHub 上的 repo，選一個 repo 列出裡面的 EPUB，再一次轉換一本成 TXT 下載。請只轉換你有權使用的書；沒有標示授權的 repo 請自行確認使用權利。
+github-hint = 以關鍵字搜尋 GitHub 上的 repo，選一個 repo 列出裡面的 EPUB，再一次轉換一本成 TXT 或 PDF 下載。請只轉換你有權使用的書；沒有標示授權的 repo 請自行確認使用權利。
 github-field-keyword = 關鍵字
 github-field-open-only = 只看開放授權
 github-msg-busy = 查詢中…
@@ -18,7 +18,7 @@ github-license-unknown = 未標示授權，請自行確認使用權利
 github-action-files = 列出 EPUB
 github-action-prev = 上一頁
 github-action-next = 下一頁
-github-action-convert = 轉成 TXT
+github-action-convert = 轉換並下載
 github-files-title = { $repo } 的 EPUB
 github-files-license = 授權：{ $license }
 github-files-truncated = 這個 repo 檔案太多，GitHub 沒有列出全部，清單可能不完整。

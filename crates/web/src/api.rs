@@ -2868,13 +2868,91 @@ pub async fn item_unit_conversion_history(
     .await
 }
 
-// ----- EPUB 轉 TXT（/api/epub-to-text；epub_to_text.feature） -----
+// ----- EPUB 轉 TXT／PDF（/api/epub-to-text；epub_to_text.feature、epub_to_pdf.feature） -----
 
-/// 上傳 EPUB 位元組，回傳書名、作者、章節數與文字（CRLF）
-pub async fn epub_to_text(name: &str, bytes: Vec<u8>) -> Result<ttrs_shared::EpubTextDto, String> {
+/// 轉換完成的檔案：檔名、書名、作者、章節數與內容位元組
+pub struct EpubFile {
+    pub file_name: String,
+    pub title: Option<String>,
+    pub author: Option<String>,
+    pub chapters: u32,
+    pub bytes: Vec<u8>,
+    pub mime: &'static str,
+}
+
+/// 百分比解碼（回應標頭的書名、作者）
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        let hex = if b[i] == b'%' && i + 2 < b.len() {
+            std::str::from_utf8(&b[i + 1..i + 3])
+                .ok()
+                .and_then(|h| u8::from_str_radix(h, 16).ok())
+        } else {
+            None
+        };
+        if let Some(v) = hex {
+            out.push(v);
+            i += 3;
+        } else {
+            out.push(b[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// 把轉換回應（txt 為 JSON、pdf 為二進位＋標頭）轉成 [`EpubFile`]
+async fn epub_file(res: reqwest::Response, format: &str) -> Result<EpubFile, String> {
+    if !res.status().is_success() {
+        return Err(error_message(res).await);
+    }
+    if format == "pdf" {
+        let header = |k: &str| {
+            res.headers()
+                .get(k)
+                .and_then(|v| v.to_str().ok())
+                .map(percent_decode)
+        };
+        let file_name = header("x-epub-file-name").unwrap_or_else(|| "book.pdf".to_owned());
+        let title = header("x-epub-title").filter(|t| !t.is_empty());
+        let author = header("x-epub-author").filter(|t| !t.is_empty());
+        let chapters = header("x-epub-chapters")
+            .and_then(|c| c.parse().ok())
+            .unwrap_or(0);
+        let bytes = res.bytes().await.map_err(|e| e.to_string())?.to_vec();
+        return Ok(EpubFile {
+            file_name,
+            title,
+            author,
+            chapters,
+            bytes,
+            mime: "application/pdf",
+        });
+    }
+    let r: ttrs_shared::EpubTextDto = res.json().await.map_err(|e| e.to_string())?;
+    Ok(EpubFile {
+        file_name: r.file_name,
+        title: r.title,
+        author: r.author,
+        chapters: r.chapters,
+        bytes: r.text.into_bytes(),
+        mime: "text/plain;charset=utf-8",
+    })
+}
+
+/// 上傳 EPUB 位元組，轉成 txt 或 pdf（可選簡體轉繁體）
+pub async fn epub_convert(
+    name: &str,
+    bytes: Vec<u8>,
+    format: &str,
+    s2t: bool,
+) -> Result<EpubFile, String> {
     let res = reqwest::Client::new()
         .post(url(&format!(
-            "/api/epub-to-text?name={}",
+            "/api/epub-to-text?name={}&format={format}&s2t={s2t}",
             urlencoding(name)
         )))
         .header("content-type", "application/epub+zip")
@@ -2882,18 +2960,18 @@ pub async fn epub_to_text(name: &str, bytes: Vec<u8>) -> Result<ttrs_shared::Epu
         .send()
         .await
         .map_err(|e| e.to_string())?;
-    into_result(res).await
+    epub_file(res, format).await
 }
 
-/// 讓瀏覽器下載文字檔（UTF-8，不加 BOM，ET6）
+/// 讓瀏覽器下載檔案（文字為 UTF-8 不含 BOM，ET6）
 #[cfg(target_arch = "wasm32")]
-pub fn download_text(file: &str, text: &str) -> Result<(), String> {
+pub fn download_file(file: &str, bytes: &[u8], mime: &str) -> Result<(), String> {
     use wasm_bindgen::JsCast;
     let err = |e: wasm_bindgen::JsValue| format!("{e:?}");
     let parts = js_sys::Array::new();
-    parts.push(&js_sys::Uint8Array::from(text.as_bytes()));
+    parts.push(&js_sys::Uint8Array::from(bytes));
     let opts = web_sys::BlobPropertyBag::new();
-    opts.set_type("text/plain;charset=utf-8");
+    opts.set_type(mime);
     let blob = web_sys::Blob::new_with_u8_array_sequence_and_options(&parts, &opts).map_err(err)?;
     let href = web_sys::Url::create_object_url_with_blob(&blob).map_err(err)?;
     let doc = web_sys::window()
@@ -2911,7 +2989,7 @@ pub fn download_text(file: &str, text: &str) -> Result<(), String> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn download_text(_file: &str, _text: &str) -> Result<(), String> {
+pub fn download_file(_file: &str, _bytes: &[u8], _mime: &str) -> Result<(), String> {
     Ok(())
 }
 
@@ -2940,14 +3018,19 @@ pub async fn github_epub_files(repo: &str) -> Result<ttrs_shared::GithubEpubList
 pub async fn github_epub_convert(
     repo: &str,
     path: &str,
-) -> Result<ttrs_shared::EpubTextDto, String> {
-    send_json(
-        reqwest::Method::POST,
-        url("/api/github-epub/convert"),
-        Some(&ttrs_shared::GithubEpubConvertRequest {
+    format: &str,
+    s2t: bool,
+) -> Result<EpubFile, String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/github-epub/convert"))
+        .json(&ttrs_shared::GithubEpubConvertRequest {
             repo: repo.to_owned(),
             path: path.to_owned(),
-        }),
-    )
-    .await
+            format: Some(format.to_owned()),
+            s2t: Some(s2t),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    epub_file(res, format).await
 }
