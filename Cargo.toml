@@ -24,6 +24,8 @@ chrono-tz = "0.10"
 # EPUB 轉 TXT（epub_to_text.feature ET8）
 zip = { version = "2", default-features = false, features = ["deflate"] }
 roxmltree = "0.20"
+# 以網址下載 EPUB（epub_url_download.feature）：解析網址、檢查位址
+url = "2"
 # EPUB 轉 PDF／簡轉繁（epub_to_pdf.feature EP4、EP8）
 printpdf = { version = "0.12", default-features = false }
 opencc-jieba-rs = "0.8"
@@ -35,7 +37,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "tls-rustls", "postgres", "macros", "migrate", "chrono", "rust_decimal", "uuid"] }
 thiserror = "2"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "process"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "process", "net"] }
 tower-http = { version = "0.7", features = ["cors", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }

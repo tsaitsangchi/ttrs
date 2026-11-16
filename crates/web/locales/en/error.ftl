@@ -295,6 +295,9 @@ error-TRANSLATE_CONSENT_REQUIRED = Please confirm first: translating sends the b
 error-TRANSLATE_JOB_NOT_FOUND = The translation job was not found (it may have expired).
 error-EPUB_BOOK_NOT_FOUND = The book was not found (the source may have removed it).
 error-EPUB_SOURCE_UNAVAILABLE = This source is temporarily unavailable; please try again later.
+error-URL_NOT_ALLOWED = This URL is not allowed (only http/https, and no internal network addresses).
+error-URL_ROBOTS_DISALLOWED = The site's robots.txt does not allow reading this page.
+error-URL_UNREACHABLE = Cannot reach this URL (connection failed, timed out, too many redirects or the server returned an error).
 
 # GitHub EPUB 搜尋
 error-GITHUB_RATE_LIMITED = The GitHub query limit has been reached; try again later.

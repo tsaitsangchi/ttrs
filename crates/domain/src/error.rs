@@ -379,6 +379,13 @@ pub enum DomainError {
     EpubBookNotFound(String),
     #[error("來源「{0}」暫時無法使用")]
     EpubSourceUnavailable(String),
+    // ----- 以網址下載 EPUB（epub_url_download.feature） -----
+    #[error("這個網址不允許連線（只允許 http／https，且不可是內部網路位址）")]
+    UrlNotAllowed,
+    #[error("該網站的 robots.txt 不允許讀取這個網頁")]
+    UrlRobotsDisallowed,
+    #[error("無法連到這個網址（連線失敗、逾時、轉址過多或對方回應錯誤）")]
+    UrlUnreachable,
     // ----- GitHub EPUB 搜尋（github_epub_search.feature） -----
     #[error("GitHub 查詢次數已用完，請於 {reset} 後再試")]
     GithubRateLimited { reset: String },
@@ -764,6 +771,9 @@ impl DomainError {
             Self::TranslateJobNotFound => "TRANSLATE_JOB_NOT_FOUND",
             Self::EpubBookNotFound(_) => "EPUB_BOOK_NOT_FOUND",
             Self::EpubSourceUnavailable(_) => "EPUB_SOURCE_UNAVAILABLE",
+            Self::UrlNotAllowed => "URL_NOT_ALLOWED",
+            Self::UrlRobotsDisallowed => "URL_ROBOTS_DISALLOWED",
+            Self::UrlUnreachable => "URL_UNREACHABLE",
             Self::GithubRateLimited { .. } => "GITHUB_RATE_LIMITED",
             Self::GithubUnavailable(_) => "GITHUB_UNAVAILABLE",
             Self::GithubNotFound(_) => "GITHUB_NOT_FOUND",

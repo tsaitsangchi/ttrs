@@ -4553,7 +4553,7 @@ impl GithubSource for InMemoryStore {
 
 use ttrs_domain::DomainError;
 
-use crate::ports::{EpubBook, EpubSource};
+use crate::ports::{EpubBook, EpubSource, HttpHop, WebClient};
 
 #[async_trait]
 impl TranslationJobRepository for InMemoryStore {
@@ -4801,5 +4801,133 @@ impl EpubSource for FakeEpubSource {
             });
         }
         Ok(bytes.clone())
+    }
+}
+
+// ----- 以網址下載 EPUB 的假網路（epub_url_download.feature；BDD，不連外網、位址解析也是假的） -----
+
+#[derive(Clone, Default)]
+pub struct FakeWeb(Arc<Mutex<FakeWebState>>);
+
+#[derive(Default)]
+struct FakeWebState {
+    pages: BTreeMap<String, FakePage>,
+    dns: BTreeMap<String, Vec<std::net::IpAddr>>,
+    /// 實際發出的請求（網址，連到的位址）
+    requests: Vec<(String, std::net::IpAddr)>,
+}
+
+enum FakePage {
+    Body {
+        content_type: String,
+        body: Vec<u8>,
+        /// 假裝的內容大小（測試大檔，不必真的放那麼大的資料）
+        declared: Option<u64>,
+    },
+    Redirect(String),
+}
+
+impl FakeWeb {
+    fn state(&self) -> std::sync::MutexGuard<'_, FakeWebState> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    pub fn add_body(&self, url: &str, content_type: &str, body: Vec<u8>) {
+        self.state().pages.insert(
+            url.to_owned(),
+            FakePage::Body {
+                content_type: content_type.to_owned(),
+                body,
+                declared: None,
+            },
+        );
+    }
+
+    pub fn add_epub(&self, url: &str, bytes: Vec<u8>) {
+        self.add_body(url, "application/epub+zip", bytes);
+    }
+
+    pub fn add_html(&self, url: &str, html: &str) {
+        self.add_body(url, "text/html; charset=utf-8", html.as_bytes().to_vec());
+    }
+
+    pub fn add_redirect(&self, url: &str, to: &str) {
+        self.state()
+            .pages
+            .insert(url.to_owned(), FakePage::Redirect(to.to_owned()));
+    }
+
+    /// 內容有 `size` 位元組（只記大小）
+    pub fn add_sized(&self, url: &str, size: u64) {
+        self.state().pages.insert(
+            url.to_owned(),
+            FakePage::Body {
+                content_type: "application/epub+zip".to_owned(),
+                body: b"PK".to_vec(),
+                declared: Some(size),
+            },
+        );
+    }
+
+    pub fn set_dns(&self, host: &str, ip: &str) {
+        if let Ok(ip) = ip.parse() {
+            self.state().dns.insert(host.to_owned(), vec![ip]);
+        }
+    }
+
+    pub fn requests(&self) -> Vec<(String, std::net::IpAddr)> {
+        self.state().requests.clone()
+    }
+}
+
+#[async_trait]
+impl WebClient for FakeWeb {
+    async fn resolve(&self, host: &str) -> Result<Vec<std::net::IpAddr>, DomainError> {
+        Ok(self
+            .state()
+            .dns
+            .get(host)
+            .cloned()
+            // 沒有設定的網域一律解析到一個公開位址
+            .unwrap_or_else(|| vec![std::net::IpAddr::from([93, 184, 216, 34])]))
+    }
+
+    async fn get(
+        &self,
+        url: &str,
+        ip: std::net::IpAddr,
+        max_bytes: u64,
+    ) -> Result<HttpHop, DomainError> {
+        let mut s = self.state();
+        s.requests.push((url.to_owned(), ip));
+        match s.pages.get(url) {
+            None => Ok(HttpHop {
+                status: 404,
+                ..HttpHop::default()
+            }),
+            Some(FakePage::Redirect(to)) => Ok(HttpHop {
+                status: 302,
+                location: Some(to.clone()),
+                ..HttpHop::default()
+            }),
+            Some(FakePage::Body {
+                content_type,
+                body,
+                declared,
+            }) => {
+                let size = declared.unwrap_or(body.len() as u64);
+                if size > max_bytes {
+                    return Err(DomainError::EpubTooLarge {
+                        max_mb: usize::try_from(max_bytes / 1024 / 1024).unwrap_or(0),
+                    });
+                }
+                Ok(HttpHop {
+                    status: 200,
+                    location: None,
+                    content_type: Some(content_type.clone()),
+                    body: body.clone(),
+                })
+            }
+        }
     }
 }

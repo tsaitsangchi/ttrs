@@ -3,7 +3,7 @@
 //! 書可直接下載原始 EPUB、或轉成 TXT／PDF（可簡轉繁、英文翻譯）；GitHub 結果是 repo，按「列出 EPUB」再選檔案（GE3）。
 
 use dioxus::prelude::*;
-use ttrs_shared::{EpubBookDto, EpubSearchPage, GithubEpubListDto};
+use ttrs_shared::{EpubBookDto, EpubSearchPage, EpubUrlDto, GithubEpubListDto};
 
 use crate::api;
 use crate::components::material::{
@@ -58,6 +58,9 @@ fn SearchPage() -> Element {
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
     let mut book_message = use_signal(|| None::<String>);
+    // 貼上網址（epub_url_download.feature）：輸入的網址與讀取結果
+    let mut url_text = use_signal(String::new);
+    let mut url_result = use_signal(|| None::<EpubUrlDto>);
     // 轉換結果顯示在 EPUB 清單裡（清單在頁面下方，訊息放上方會看不到）
     let mut file_error = use_signal(|| None::<String>);
     let format = use_signal(|| "txt".to_owned());
@@ -188,6 +191,82 @@ fn SearchPage() -> Element {
         });
     };
 
+    // 讀取網址（UD1、UD2）：EPUB 檔回一本書，網頁回頁面上的 EPUB 連結
+    let mut read_url = move || {
+        let link = url_text();
+        if link.trim().is_empty() {
+            return;
+        }
+        busy.set(true);
+        error.set(None);
+        book_message.set(None);
+        spawn(async move {
+            match api::epub_url_read(link.trim()).await {
+                Ok(r) => url_result.set(Some(r)),
+                Err(e) => {
+                    url_result.set(None);
+                    error.set(Some(e));
+                }
+            }
+            busy.set(false);
+        });
+    };
+
+    // 下載網址的原始 EPUB（UD3）
+    let mut download_url = move |link: String| {
+        busy.set(true);
+        book_message.set(None);
+        error.set(None);
+        spawn(async move {
+            match api::epub_url_download(&link).await {
+                Ok(r) => match api::download_file(&r.file_name, &r.bytes, r.mime) {
+                    Ok(()) => book_message.set(Some(tf(
+                        "github-msg-downloaded",
+                        &[("file", r.file_name.as_str())],
+                    ))),
+                    Err(e) => error.set(Some(e)),
+                },
+                Err(e) => error.set(Some(e)),
+            }
+            busy.set(false);
+        });
+    };
+
+    // 轉換網址的 EPUB；選了英文翻譯時提交翻譯工作並等它完成
+    let mut convert_url = move |link: String| {
+        busy.set(true);
+        book_message.set(None);
+        error.set(None);
+        let (fmt, to_trad, translating, agreed) =
+            (format(), s2t(), lang() == "translate", consent());
+        spawn(async move {
+            let outcome =
+                match api::epub_url_convert(&link, &fmt, to_trad, translating, agreed).await {
+                    Ok(api::Converted::File(f)) => Ok(f),
+                    Ok(api::Converted::Job(id)) => {
+                        wait_translation(&id, &link, &fmt, &mut progress).await
+                    }
+                    Err(e) => Err(e),
+                };
+            progress.set(None);
+            match outcome {
+                Ok(r) => match api::download_file(&r.file_name, &r.bytes, r.mime) {
+                    Ok(()) => book_message.set(Some(tf(
+                        "github-msg-done",
+                        &[
+                            ("file", r.file_name.as_str()),
+                            ("title", r.title.clone().unwrap_or_default().as_str()),
+                            ("chapters", r.chapters.to_string().as_str()),
+                        ],
+                    ))),
+                    Err(e) => error.set(Some(e)),
+                },
+                Err(e) => error.set(Some(e)),
+            }
+            busy.set(false);
+        });
+    };
+
     let result = results();
     let pages = result.as_ref().map_or(1, |r| {
         u32::try_from(r.total.div_ceil(30)).unwrap_or(1).max(1)
@@ -217,6 +296,54 @@ fn SearchPage() -> Element {
                 Card {
                     div { class: "card-body",
                         EpubOptions { format, s2t, translate: Some((lang, consent)), disabled: busy() }
+                    }
+                }
+            }
+            Card {
+                div { class: "card-body",
+                    h3 { {t("github-url-title")} }
+                    p { class: "muted", {t("github-url-hint")} }
+                    div { class: "action-bar",
+                        TextField { id: "url-in", label: t("github-url-field"), value: url_text(), oninput: move |v| url_text.set(v) }
+                        Button { icon: icons::SEARCH, tone: Tone::Primary, variant: ButtonVariant::Tonal, disabled: busy() || url_text().trim().is_empty(), onclick: move |_| read_url(), {t("github-url-read")} }
+                    }
+                    if let Some(u) = url_result() {
+                        if u.kind == "book" {
+                            div { class: "action-bar",
+                                span { {tf("github-url-book", &[("title", u.title.clone().unwrap_or_default().as_str())])} }
+                                if perm.can("run") {
+                                    Button { icon: icons::DOWNLOAD, tone: Tone::Neutral, variant: ButtonVariant::Text, disabled: busy(), onclick: { let l = u.url.clone(); move |_| download_url(l.clone()) }, {t("github-action-download")} }
+                                    Button { icon: icons::DOWNLOAD, tone: Tone::Success, variant: ButtonVariant::Tonal, disabled: busy(), onclick: { let l = u.url.clone(); move |_| convert_url(l.clone()) }, {t("github-action-convert")} }
+                                }
+                            }
+                        } else if u.links.is_empty() {
+                            p { class: "muted", {t("github-url-none")} }
+                        } else {
+                            p { class: "muted", {tf("github-url-links", &[("n", u.links.len().to_string().as_str())])} }
+                            div { class: "table-scroll",
+                                table { class: "md-table",
+                                    thead { tr {
+                                        th { {t("github-col-path")} }
+                                        th { {t("github-col-url")} }
+                                        th {}
+                                    } }
+                                    tbody {
+                                        for link in u.links.clone() {
+                                            tr { key: "{link.url}",
+                                                td { "{link.name}" }
+                                                td { class: "mono", "{link.url}" }
+                                                td {
+                                                    if perm.can("run") {
+                                                        Button { icon: icons::DOWNLOAD, tone: Tone::Neutral, variant: ButtonVariant::Text, disabled: busy(), onclick: { let l = link.url.clone(); move |_| download_url(l.clone()) }, {t("github-action-download")} }
+                                                        Button { icon: icons::DOWNLOAD, tone: Tone::Success, variant: ButtonVariant::Tonal, disabled: busy(), onclick: { let l = link.url.clone(); move |_| convert_url(l.clone()) }, {t("github-action-convert")} }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

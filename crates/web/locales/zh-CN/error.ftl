@@ -295,6 +295,9 @@ error-TRANSLATE_CONSENT_REQUIRED = 请先勾选同意：翻译会把书的内容
 error-TRANSLATE_JOB_NOT_FOUND = 找不到这个翻译工作（可能已过期）。
 error-EPUB_BOOK_NOT_FOUND = 找不到这本书（可能来源已移除）。
 error-EPUB_SOURCE_UNAVAILABLE = 这个来源暂时无法使用，请稍后再试。
+error-URL_NOT_ALLOWED = 这个网址不允许连接（只允许 http／https，且不可是内部网络地址）。
+error-URL_ROBOTS_DISALLOWED = 该网站的 robots.txt 不允许读取这个网页。
+error-URL_UNREACHABLE = 无法连到这个网址（连接失败、超时、转址过多或对方响应错误）。
 
 # GitHub EPUB 搜尋
 error-GITHUB_RATE_LIMITED = GitHub 查询次数已用完，请稍后再试。

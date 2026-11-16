@@ -8464,6 +8464,7 @@ dependencies = [
  "tracing",
  "ttrs-domain",
  "ttrs-shared",
+ "url",
  "zip 2.6.1",
 ]
 

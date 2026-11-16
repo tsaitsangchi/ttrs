@@ -1107,6 +1107,17 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .download_raw(a, "x", "y", None)
             .await
             .map(drop),
+        // 以網址下載（假網路沒有這個頁面，回 URL_UNREACHABLE，不是權限拒絕）
+        ["讀取", "網址", "的", "EPUB"] => w
+            .epub_url
+            .read(a, "https://books.example.com/a.epub")
+            .await
+            .map(drop),
+        ["下載", "網址", "的", "EPUB"] => w
+            .epub_url
+            .download_raw(a, "https://books.example.com/a.epub")
+            .await
+            .map(drop),
         ["列出", "GitHub", "repo", "的", "EPUB"] => w.github.files(a, "x/y").await.map(drop),
         ["轉換", "GitHub", "上的", "EPUB"] => {
             w.github.convert(a, "x/y", "a.epub").await.map(drop)

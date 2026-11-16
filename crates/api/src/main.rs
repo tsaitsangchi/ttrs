@@ -33,6 +33,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mailer = SmtpMailer::from_env()?.map(Arc::new);
     let mut services = with_mail(services, mailer.clone())?;
+    // 以網址下載 EPUB（epub_url_download.feature）：真實連線，檢查在 app 層
+    services.epub_url = services.epub_url.with_web(Arc::new(ttrs_infra::ReqwestWeb));
     // EPUB 多來源搜尋（epub_web_search.feature WS2）：Internet Archive、Gutenberg、Wikisource、GitHub
     services.epub_search = services
         .epub_search

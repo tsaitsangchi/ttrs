@@ -19,6 +19,7 @@ getrandom.workspace = true
 tokio.workspace = true
 sha2 = "0.10"
 serde.workspace = true
+url.workspace = true
 serde_json.workspace = true
 zip.workspace = true
 roxmltree.workspace = true

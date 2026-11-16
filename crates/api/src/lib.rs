@@ -82,6 +82,8 @@ pub struct AppState {
     pub translate: ttrs_app::TranslationService,
     /// EPUB 多來源搜尋（工具作業）
     pub epub_search: ttrs_app::EpubSearchService,
+    /// 以網址下載 EPUB（工具作業）
+    pub epub_url: ttrs_app::EpubUrlService,
     /// 稅別維護（aooi150；共用）
     pub taxes: ttrs_app::TaxTypeService,
     /// 專案維護（aooi200；工廠層）
@@ -163,6 +165,7 @@ impl AppState {
             github_epub,
             translate,
             epub_search,
+            epub_url,
             taxes,
             projects,
             product_classes,
@@ -198,6 +201,7 @@ impl AppState {
             github_epub,
             translate,
             epub_search,
+            epub_url,
             taxes,
             projects,
             product_classes,
@@ -581,6 +585,10 @@ pub fn router(state: AppState) -> Router {
             "/api/epub-translate/{id}/download",
             get(epub_translate_download),
         )
+        // 以網址下載 EPUB（TTRS 工具作業，epub_url_download.feature）
+        .route("/api/epub-url", get(epub_url_read))
+        .route("/api/epub-url/download", get(epub_url_download))
+        .route("/api/epub-url/convert", post(epub_url_convert))
         // EPUB 多來源搜尋（TTRS 工具作業，epub_web_search.feature）
         .route("/api/epub-search", get(epub_search))
         .route("/api/epub-search/download", get(epub_search_download))
@@ -1566,7 +1574,8 @@ impl IntoResponse for HttpError {
             "TRANSLATE_QUOTA_EXHAUSTED" => StatusCode::TOO_MANY_REQUESTS,
             "TRANSLATE_FAILED" => StatusCode::BAD_GATEWAY,
             "TRANSLATE_JOB_NOT_FOUND" | "EPUB_BOOK_NOT_FOUND" => StatusCode::NOT_FOUND,
-            "EPUB_SOURCE_UNAVAILABLE" => StatusCode::BAD_GATEWAY,
+            "EPUB_SOURCE_UNAVAILABLE" | "URL_UNREACHABLE" => StatusCode::BAD_GATEWAY,
+            "URL_NOT_ALLOWED" | "URL_ROBOTS_DISALLOWED" => StatusCode::FORBIDDEN,
             "PDF_FONT_MISSING" => StatusCode::SERVICE_UNAVAILABLE,
             "GITHUB_RATE_LIMITED" => StatusCode::TOO_MANY_REQUESTS,
             "GITHUB_UNAVAILABLE" => StatusCode::BAD_GATEWAY,
@@ -3694,6 +3703,68 @@ async fn epub_translate_status(
 
 async fn epub_translate_download(Ctx(s): Ctx, Path(id): Path<String>) -> ApiResult<Response> {
     Ok(epub_response(s.translate.download(&s.actor, &id).await?))
+}
+
+// ----- 以網址下載 EPUB（epub_url_download.feature） -----
+
+#[derive(Deserialize)]
+struct EpubUrlQuery {
+    url: String,
+}
+
+async fn epub_url_read(
+    Ctx(s): Ctx,
+    Query(q): Query<EpubUrlQuery>,
+) -> ApiResult<Json<ttrs_shared::EpubUrlDto>> {
+    Ok(Json(s.epub_url.read(&s.actor, &q.url).await?))
+}
+
+/// 下載原始 EPUB（UD3）：不保存檔案，直接回傳
+async fn epub_url_download(Ctx(s): Ctx, Query(q): Query<EpubUrlQuery>) -> ApiResult<Response> {
+    let (file_name, bytes) = s.epub_url.download_raw(&s.actor, &q.url).await?;
+    let mut res = bytes.into_response();
+    let h = res.headers_mut();
+    h.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/epub+zip"),
+    );
+    if let Ok(v) = HeaderValue::from_str(&header_encode(&file_name)) {
+        h.insert("x-epub-file-name", v);
+    }
+    h.insert(
+        header::ACCESS_CONTROL_EXPOSE_HEADERS,
+        HeaderValue::from_static("x-epub-file-name"),
+    );
+    Ok(res)
+}
+
+/// 轉換網址的 EPUB（UD3）：請求的 `id` 欄位放網址；要翻譯時改為提交翻譯工作（202）
+async fn epub_url_convert(
+    Ctx(s): Ctx,
+    Json(req): Json<ttrs_shared::EpubBookConvertRequest>,
+) -> ApiResult<Response> {
+    let opts = convert_options(req.format.as_deref(), req.s2t).map_err(ttrs_app::AppError::from)?;
+    let (stem, bytes) = s.epub_url.fetch(&s.actor, &req.id).await?;
+    if req.translate.unwrap_or(false) {
+        let job_id = s
+            .translate
+            .submit(
+                &s.actor,
+                &format!("{stem}.epub"),
+                &bytes,
+                opts.format,
+                req.consent.unwrap_or(false),
+            )
+            .await?;
+        return Ok((
+            StatusCode::ACCEPTED,
+            Json(ttrs_shared::TranslateSubmitDto { job_id }),
+        )
+            .into_response());
+    }
+    Ok(epub_response(
+        s.epub_url.render_bytes(&bytes, &stem, opts).await?,
+    ))
 }
 
 // ----- EPUB 多來源搜尋（epub_web_search.feature） -----

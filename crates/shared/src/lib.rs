@@ -2771,3 +2771,21 @@ pub struct EpubBookConvertRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub consent: Option<bool>,
 }
+
+/// 讀取網址的結果（epub_url_download.feature）：一本書，或網頁上找到的 EPUB 連結
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EpubUrlDto {
+    /// book／links
+    pub kind: String,
+    /// 轉址後的最終網址
+    pub url: String,
+    pub title: Option<String>,
+    pub author: Option<String>,
+    pub links: Vec<EpubUrlLinkDto>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EpubUrlLinkDto {
+    pub name: String,
+    pub url: String,
+}

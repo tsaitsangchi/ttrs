@@ -1100,3 +1100,33 @@ pub trait EpubSource: Send + Sync {
     async fn download(&self, id: &str, max_bytes: u64)
     -> Result<Vec<u8>, ttrs_domain::DomainError>;
 }
+
+// ---------------------------------------------------------------------------
+// 以網址下載 EPUB（TTRS 新增，TipTop 無對應；epub_url_download.feature）
+// ---------------------------------------------------------------------------
+
+/// 單次 HTTP 請求（不自動轉址）的回應
+#[derive(Debug, Clone, Default)]
+pub struct HttpHop {
+    pub status: u16,
+    /// 3xx 的 Location 標頭
+    pub location: Option<String>,
+    pub content_type: Option<String>,
+    pub body: Vec<u8>,
+}
+
+/// 對外的 HTTP 連線（UD4）：app 層負責檢查網址與位址（SSRF 防護）、處理轉址；
+/// 這裡只做「解析網域」與「對已檢查過的位址發一次請求」。infra 以 reqwest 實作；BDD 用記憶體假網路
+#[async_trait]
+pub trait WebClient: Send + Sync {
+    /// 解析網域成 IP（可能多個）
+    async fn resolve(&self, host: &str) -> Result<Vec<std::net::IpAddr>, ttrs_domain::DomainError>;
+    /// 對 `url` 發一次 GET，連線到已檢查過的 `ip`（避免 DNS 重新綁定），不跟隨轉址、不帶 cookie；
+    /// 內容超過 `max_bytes` 回 EPUB_TOO_LARGE；連線失敗、逾時回 URL_UNREACHABLE
+    async fn get(
+        &self,
+        url: &str,
+        ip: std::net::IpAddr,
+        max_bytes: u64,
+    ) -> Result<HttpHop, ttrs_domain::DomainError>;
+}

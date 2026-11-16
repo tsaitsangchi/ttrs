@@ -145,6 +145,10 @@ pub struct ErpWorld {
     pub fake_sources: Vec<ttrs_app::memory::FakeEpubSource>,
     pub search_page: Option<ttrs_shared::EpubSearchPage>,
     pub raw_epub: Option<Vec<u8>>,
+    /// 以網址下載 EPUB（epub_url_download.feature）：服務、假網路與讀取結果
+    pub epub_url: ttrs_app::EpubUrlService,
+    pub fake_web: ttrs_app::memory::FakeWeb,
+    pub url_read: Option<ttrs_shared::EpubUrlDto>,
     /// GitHub EPUB 搜尋（github_epub_search.feature）：兩種後端都用記憶體假來源（GE8）與結果
     pub github: ttrs_app::GithubEpubService,
     pub github_feed: InMemoryStore,
@@ -251,12 +255,15 @@ impl ErpWorld {
             github_epub,
             translate,
             epub_search,
+            epub_url,
             authorizer: _,
         } = services;
         let rate_feed = InMemoryStore::new();
         let rates = rates.with_feed(Arc::new(rate_feed.clone()));
         let github_feed = InMemoryStore::new();
         let github = github_epub.with_source(Arc::new(github_feed.clone()));
+        let fake_web = ttrs_app::memory::FakeWeb::default();
+        let epub_url = epub_url.with_web(Arc::new(fake_web.clone()));
         let translator = ttrs_app::memory::FakeTranslator::default();
         let translate = translate.with_engine(Arc::new(translator.clone())).inline();
         Self {
@@ -334,6 +341,9 @@ impl ErpWorld {
             fake_sources: Vec::new(),
             search_page: None,
             raw_epub: None,
+            epub_url,
+            fake_web,
+            url_read: None,
             github,
             github_feed,
             github_repos: None,
