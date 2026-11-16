@@ -33,7 +33,7 @@
 #       其他來源列在「其他來源」）。一頁 30 筆、可翻頁（各來源各取前 N 筆再合併排序）。可以嗎？
 #  WS7. 部分來源失敗：某個來源逾時或回錯誤時，不影響其他來源；畫面上方提示「某某來源暫時無法查詢」，其餘照常顯示。可以嗎？
 #  WS8. 下載與轉換：沿用現有流程——列出檔案、一次一本轉 TXT／PDF（含簡轉繁、英文翻譯選項，EPUB 轉換已有）；
-#       另外可直接「下載原始 EPUB」（不轉換）。下載大小上限 50 MB，不保存檔案。可以嗎？
+#       另外可直接「下載原始 EPUB」（不轉換）。下載大小上限 100 MB，不保存檔案。可以嗎？
 #  WS9. 稽核紀錄：記錄使用者、關鍵字、選的來源、下載的書名與網址。可以嗎？
 #  實測（2026-11-13）：Gutendex 可依 languages=zh 取得 444 本中文書（有 download_count、epub3 連結）；Internet Archive advancedsearch
 #       可用 format:EPUB、language、licenseurl 過濾（licenseurl 含 creativecommons／publicdomain 者才收，否則 11 萬筆中有大量版權不明的雜誌、掃描檔）；
@@ -117,8 +117,8 @@
     而且 轉出的檔名應為 "紅樓夢.txt"
 
   # WS8：大小上限
-  場景: WS-9 超過 50 MB 不下載
-    假設 "Internet Archive" 的 "三國演義" 檔案大小為 60 MB
+  場景: WS-9 超過 100 MB 不下載
+    假設 "Internet Archive" 的 "三國演義" 檔案大小為 120 MB
     當 使用者下載 "Internet Archive" 的 "三國演義" 原始 EPUB
     那麼 應出現錯誤 "EPUB_TOO_LARGE"
 

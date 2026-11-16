@@ -115,6 +115,27 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
+/// GitHub 檔案頁（/blob/ 或 /raw/）改成原始檔網址（UD12）；只改網域剛好是 github.com 的 https 網址
+fn github_raw(url: Url) -> Url {
+    if url.host_str() != Some("github.com") || !matches!(url.scheme(), "http" | "https") {
+        return url;
+    }
+    let segs: Vec<&str> = url.path().trim_start_matches('/').split('/').collect();
+    if segs.len() < 5 || !matches!(segs[2], "blob" | "raw") {
+        return url;
+    }
+    let path = format!("/{}/{}/{}", segs[0], segs[1], segs[3..].join("/"));
+    let mut out = url.clone();
+    if out.set_host(Some("raw.githubusercontent.com")).is_err() {
+        return url;
+    }
+    let _ = out.set_scheme("https");
+    out.set_path(&path);
+    out.set_query(None);
+    out.set_fragment(None);
+    out
+}
+
 fn is_epub_path(url: &Url) -> bool {
     url.path().to_lowercase().ends_with(".epub")
 }
@@ -247,7 +268,8 @@ impl EpubUrlService {
     /// 檢查網址並取得內容（UD4）：只允許 http／https；網域解析後每個位址都必須是公開位址；
     /// 轉址最多 5 次，每次都重新檢查；連線固定到檢查過的位址
     async fn get_checked(&self, raw: &str, max_bytes: u64) -> Result<(Url, HttpHop), DomainError> {
-        let mut current = Url::parse(raw.trim()).map_err(|_| DomainError::UrlNotAllowed)?;
+        let mut current =
+            github_raw(Url::parse(raw.trim()).map_err(|_| DomainError::UrlNotAllowed)?);
         for _ in 0..=MAX_REDIRECTS {
             let ip = self.checked_ip(&current).await?;
             let hop = self.web.get(current.as_str(), ip, max_bytes).await?;
@@ -324,7 +346,7 @@ impl EpubUrlService {
     /// 讀取網址（UD1、UD2）：EPUB 檔回一本書，網頁回頁面上的 EPUB 連結
     pub async fn read(&self, actor: &Actor, raw: &str) -> Result<EpubUrlDto, AppError> {
         self.authz.authorize(actor, PROGRAM, "query").await?;
-        let url = Url::parse(raw.trim()).map_err(|_| DomainError::UrlNotAllowed)?;
+        let url = github_raw(Url::parse(raw.trim()).map_err(|_| DomainError::UrlNotAllowed)?);
         // 直接指向 .epub 的連結不檢查 robots.txt；其他網址先檢查
         if !is_epub_path(&url) {
             self.check_robots(&url).await?;
@@ -491,6 +513,24 @@ mod tests {
         ));
         assert!(robots_allows("User-agent: bot\nDisallow: /", "/list"));
         assert!(robots_allows("", "/list"));
+    }
+
+    #[test]
+    fn github_pages_become_raw() {
+        let r = |s: &str| github_raw(Url::parse(s).unwrap()).to_string();
+        assert_eq!(
+            r("https://github.com/o/r/blob/master/%E5%BA%86(a).epub?x=1"),
+            "https://raw.githubusercontent.com/o/r/master/%E5%BA%86(a).epub"
+        );
+        assert_eq!(
+            r("https://github.com/o/r/raw/main/d/a.epub"),
+            "https://raw.githubusercontent.com/o/r/main/d/a.epub"
+        );
+        assert_eq!(
+            r("https://x.com/o/r/blob/main/a.epub"),
+            "https://x.com/o/r/blob/main/a.epub"
+        );
+        assert_eq!(r("https://github.com/o/r"), "https://github.com/o/r");
     }
 
     #[test]

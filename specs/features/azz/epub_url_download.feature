@@ -10,7 +10,7 @@
 #  UD1. 畫面：EPUB 搜尋頁加「貼上網址」欄位與「讀取」按鈕。可以嗎？
 #  UD2. 兩種網址：(a) 直接指向 EPUB 檔（內容是 EPUB 就視為一本書）；(b) 一般網頁——伺服器只讀這一頁（上限 2 MB），
 #       列出頁面上副檔名為 .epub 的連結（最多 100 個，標示檔名與網址），使用者選一個再下載；不會再點進其他頁面。可以嗎？
-#  UD3. 下載與轉換：沿用現有流程——下載原始 EPUB，或轉成 TXT／PDF、簡轉繁、英文翻譯；上限 50 MB、不保存檔案；
+#  UD3. 下載與轉換：沿用現有流程——下載原始 EPUB，或轉成 TXT／PDF、簡轉繁、英文翻譯；上限 100 MB、不保存檔案；
 #       內容不是 EPUB（不是 zip、沒有 container.xml）回 EPUB_INVALID。可以嗎？
 #  UD4. 安全（伺服器代為連線，必須防止被拿去連內部網路，SSRF）：
 #       只允許 http／https；連線前把網域解析成 IP，位址是本機（127.*、::1）、私有網段（10.*、172.16–31.*、192.168.*、fc00::/7）、
@@ -21,6 +21,15 @@
 #  UD6. 稽核紀錄：記使用者、網址（不含查詢字串）與位元組數。可以嗎？
 #  UD7. 權限：沿用 github-epub-search 的 run；新增錯誤代碼 URL_NOT_ALLOWED、URL_ROBOTS_DISALLOWED、URL_UNREACHABLE（三語翻譯）。可以嗎？
 #  UD8. 測試：BDD 用記憶體假的網路（不連外網，位址解析也用假的）驗證 SSRF 防護與頁面解析；另有需要網路、預設不執行的實測。可以嗎？
+#
+#
+# ---- 追加（2026-11-16，使用者貼 GitHub 的 blob 連結搜不到「庆余年」）：已確認 2026-11-16 ----
+#  UD12. 貼上 GitHub 檔案頁網址（https://github.com/<擁有者>/<repo>/blob/<分支>/<路徑>，或 /raw/ 形式）時，
+#        系統自動改用該檔案的原始網址（https://raw.githubusercontent.com/<擁有者>/<repo>/<分支>/<路徑>）下載，
+#        因為 blob 網址回的是 HTML 網頁，不是檔案。只改寫網域剛好是 github.com 的網址，其他網站不動；
+#        改寫後仍走 UD4 的安全檢查（SSRF、轉址、100 MB）。路徑中的中文與括號沿用網址原本的百分比編碼。可以嗎？
+#  UD13. 稽核紀錄記改寫後的網址（不含查詢字串），與 UD6 相同。可以嗎？
+#  不新增錯誤代碼、資料表或欄位；不移植的欄位：無。
 #
 # 不做（不是本功能）：自動搜尋或爬取全網路、維護網站清單、繞過登入／付費／DRM。
 # 不移植的欄位：無。不新增資料表。ADR 0013 標準功能鈕：沿用 GE7 的例外。
@@ -91,8 +100,8 @@
     當 使用者轉換網址 "https://books.example.com/x.epub"，輸出 "txt"
     那麼 應出現錯誤 "EPUB_INVALID"
 
-  場景: UD-9 超過 50 MB 不下載
-    假設 網址 "https://books.example.com/big.epub" 的內容有 60 MB
+  場景: UD-9 超過 100 MB 不下載
+    假設 網址 "https://books.example.com/big.epub" 的內容有 120 MB
     當 使用者轉換網址 "https://books.example.com/big.epub"，輸出 "txt"
     那麼 應出現錯誤 "EPUB_TOO_LARGE"
 
@@ -108,3 +117,19 @@
     假設 網址 "https://books.example.com/a.epub?token=secret" 回傳一本 EPUB，書名 "測試"
     當 使用者讀取網址 "https://books.example.com/a.epub?token=secret"
     那麼 稽核紀錄應有網址 "books.example.com/a.epub" 的 "github-epub-search" "query" 一筆，且內容不含 "secret"
+
+  場景: UD-12 GitHub 檔案頁網址自動改用原始檔網址
+    假設 網址 "https://raw.githubusercontent.com/jugetaozi/ibooks/master/%E5%BA%86%E4%BD%99%E5%B9%B4.epub" 回傳一本 EPUB，書名 "庆余年"
+    當 使用者讀取網址 "https://github.com/jugetaozi/ibooks/blob/master/%E5%BA%86%E4%BD%99%E5%B9%B4.epub"
+    那麼 應視為一本書，書名 "庆余年"
+
+  場景: UD-13 raw 形式與轉換同樣適用
+    假設 網址 "https://raw.githubusercontent.com/o/r/main/a.epub" 回傳一本 EPUB，書名 "測試"
+    當 使用者轉換網址 "https://github.com/o/r/raw/main/a.epub"，輸出 "txt"
+    那麼 操作應成功
+    而且 轉出的檔名應為 "a.txt"
+
+  場景: UD-14 只改寫 github.com，其他網站的 blob 路徑不動
+    假設 網址 "https://books.example.com/o/r/blob/main/a.epub" 回傳一本 EPUB，書名 "測試"
+    當 使用者讀取網址 "https://books.example.com/o/r/blob/main/a.epub"
+    那麼 應視為一本書，書名 "測試"

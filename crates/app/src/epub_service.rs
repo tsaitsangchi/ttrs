@@ -20,7 +20,7 @@ use crate::{
 /// 權限檢查用的程式代號
 pub const PROGRAM: &str = "epub-to-text";
 /// 單一檔案上限（ET4）
-pub const MAX_MB: usize = 50;
+pub const MAX_MB: usize = 100;
 
 /// 輸出格式（EP1）
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

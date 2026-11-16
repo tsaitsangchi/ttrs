@@ -10,7 +10,7 @@
 #  ET2. 使用方式（使用者 2026-11-12 說明）：在畫面上傳 EPUB → 伺服器轉成 TXT → 直接下載同名的 .txt。可一次選多本，逐一轉換下載；
 #       轉完在畫面列出每本的書名、作者、章節數（方便確認轉的是哪本）。可以嗎？
 #  ET3. 不保存檔案：EPUB 與轉出的文字只在記憶體處理，不存資料庫、不留檔；稽核紀錄只記使用者、檔名與大小。可以嗎？
-#  ET4. 單一檔案上限 50 MB，超過回 EPUB_TOO_LARGE。可以嗎？
+#  ET4. 單一檔案上限 100 MB，超過回 EPUB_TOO_LARGE。可以嗎？
 #  ET5. 轉換規則：依 OPF spine 的順序串接各章；標題、段落、<br> 轉成換行，章節之間空一行；去掉 script、style 與其他標籤；
 #       HTML entity 解碼；圖片略過；連續空行最多保留一行。有加密（META-INF/encryption.xml，DRM）的書不轉換，回 EPUB_ENCRYPTED；
 #       不是 EPUB（不是 zip、沒有 container.xml 或 OPF）回 EPUB_INVALID。可以嗎？
@@ -74,7 +74,7 @@
 
   # ET4：大小上限
   場景: ET-5 超過大小上限
-    當 使用者將 51 MB 的檔案轉成文字
+    當 使用者將 101 MB 的檔案轉成文字
     那麼 應出現錯誤 "EPUB_TOO_LARGE"
 
   # ET6：輸出 CRLF、UTF-8 無 BOM

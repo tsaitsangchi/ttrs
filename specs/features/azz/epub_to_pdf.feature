@@ -26,7 +26,7 @@
 #           都找不到回 PDF_FONT_MISSING，TXT 不受影響（建議，程式庫不必塞幾十 MB 的字型）；
 #       (b) 把 Noto Sans TC（OFL 授權）子集放進專案，行為一致但要進版控、約數 MB。
 #       本機目前只有 Droid Sans Fallback（4 MB，涵蓋常用繁簡字）。BDD 的 PDF 情境在找不到字型時略過。可以嗎？
-#  EP7. 大小與時間：上傳上限仍是 50 MB；PDF 在背景執行緒產生，不另設頁數上限（長篇小說可能上千頁、數十 MB）。可以嗎？
+#  EP7. 大小與時間：上傳上限仍是 100 MB；PDF 在背景執行緒產生，不另設頁數上限（長篇小說可能上千頁、數十 MB）。可以嗎？
 #  EP8. 實作：app 層函式 convert_pdf（輸入 EPUB 位元組、選項，輸出 PDF 位元組），PDF 用 printpdf（MIT）排版與嵌入字型子集；
 #       API 仍是 POST /api/epub-to-text?name=&format=txt|pdf&s2t=true|false；
 #       txt 回 JSON（同現在），pdf 回 application/pdf 二進位，書名、作者、章數放回應標頭（百分比編碼）。可以嗎？
@@ -152,7 +152,7 @@
 
   # EP7：大小上限
   場景: EP-10 超過大小上限不產生 PDF
-    當 使用者將 51 MB 的檔案轉成 "pdf"
+    當 使用者將 101 MB 的檔案轉成 "pdf"
     那麼 應出現錯誤 "EPUB_TOO_LARGE"
 
   # EP9：稽核

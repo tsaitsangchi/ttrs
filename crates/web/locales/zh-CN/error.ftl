@@ -281,7 +281,7 @@ error-UNIT_INACTIVE = 单位已停用。
 # EPUB 轉 TXT
 error-EPUB_INVALID = 不是有效的 EPUB 文件。
 error-EPUB_ENCRYPTED = 这本 EPUB 有加密（DRM），无法转换。
-error-EPUB_TOO_LARGE = 文件超过 50 MB 上限。
+error-EPUB_TOO_LARGE = 文件超过 100 MB 上限。
 error-EPUB_FORMAT_INVALID = 输出格式必须是 txt 或 pdf。
 error-PDF_FONT_MISSING = 服务器找不到可用的中文字体，无法生成 PDF。
 error-PDF_GENERATION_FAILED = 生成 PDF 失败。

@@ -566,7 +566,7 @@ pub fn router(state: AppState) -> Router {
             "/api/general-parameters/report.{format}",
             get(general_parameters_report),
         )
-        // EPUB to Text（TTRS 工具作業，epub_to_text.feature）：上傳 EPUB 位元組，回傳文字；上限 50 MB（ET4）另留緩衝
+        // EPUB to Text（TTRS 工具作業，epub_to_text.feature）：上傳 EPUB 位元組，回傳文字；上限 100 MB（ET4）另留緩衝
         .route(
             "/api/epub-to-text",
             post(epub_to_text).layer(axum::extract::DefaultBodyLimit::max(

@@ -12,7 +12,7 @@
 #  GE2. 搜尋 repo：輸入關鍵字（如 epub、電子書），以 GitHub 搜尋 repo，列出名稱、說明、授權、星數、最後更新，一頁 30 筆、可翻頁。
 #       可勾「只看開放授權」：只顯示授權為 CC0、CC-BY、CC-BY-SA、Unlicense、MIT、Apache-2.0、GPL 系列等開放授權的 repo。可以嗎？
 #  GE3. 列出 EPUB：選一個 repo 後列出預設分支裡所有 .epub 檔的路徑、大小與 GitHub 連結；檔案太多、GitHub 未列完時顯示提示。可以嗎？
-#  GE4. 轉換：一次選一本，伺服器從 GitHub 下載後直接轉成 TXT 並下載（同 EPUB 轉 TXT 的規則與 50 MB 上限）；不提供批次下載，
+#  GE4. 轉換：一次選一本，伺服器從 GitHub 下載後直接轉成 TXT 並下載（同 EPUB 轉 TXT 的規則與 100 MB 上限）；不提供批次下載，
 #       不保存檔案。畫面在轉換按鈕旁顯示該 repo 的授權，沒有授權資訊時顯示「未標示授權，請自行確認使用權利」。可以嗎？
 #  GE5. GitHub token：放在 .env 的 TTRS_GITHUB_TOKEN（不寫進程式、資料庫或畫面）；沒有設定時以匿名方式呼叫（每小時 60 次）。
 #       超過次數回 GITHUB_RATE_LIMITED 並顯示可再查詢的時間；連不上回 GITHUB_UNAVAILABLE。可以嗎？
@@ -71,9 +71,9 @@
     那麼 操作應成功
     而且 轉出的檔名應為 "war.txt"，書名 "戰爭"
 
-  # GE4：沿用 50 MB 上限
+  # GE4：沿用 100 MB 上限
   場景: GE-5 超過大小上限不下載
-    假設 GitHub repo "alice/books" 的檔案 "classics/huge.epub" 大小為 60 MB
+    假設 GitHub repo "alice/books" 的檔案 "classics/huge.epub" 大小為 120 MB
     當 使用者轉換 GitHub 檔案 "alice/books" "classics/huge.epub"
     那麼 應出現錯誤 "EPUB_TOO_LARGE"
 
