@@ -473,6 +473,8 @@
       | github-epub-search | query | 在 GitHub 搜尋 EPUB |
       | github-epub-search | query | 列出 GitHub repo 的 EPUB |
       | github-epub-search | run | 轉換 GitHub 上的 EPUB |
+      | github-epub-search | query | 多來源搜尋 EPUB |
+      | github-epub-search | run | 下載 搜尋結果的 EPUB |
       | unit-conversion-maintenance | query | 查詢單位換算 |
       | unit-conversion-maintenance | detail | 新增單位換算 KG G |
       | unit-conversion-maintenance | detail | 修改單位換算 KG G |

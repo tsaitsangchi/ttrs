@@ -50,6 +50,17 @@ async fn translate_one(
     progress: &mut Signal<Option<(String, u32, u32)>>,
 ) -> Result<api::EpubFile, String> {
     let id = api::epub_translate_submit(name, bytes, format, consent).await?;
+    wait_translation(&id, name, format, progress).await
+}
+
+/// 等翻譯工作完成並下載結果；多來源搜尋頁共用
+pub async fn wait_translation(
+    id: &str,
+    name: &str,
+    format: &str,
+    progress: &mut Signal<Option<(String, u32, u32)>>,
+) -> Result<api::EpubFile, String> {
+    let id = id.to_owned();
     loop {
         let s = api::epub_translate_status(&id).await?;
         progress.set(Some((name.to_owned(), s.done_lines, s.total_lines)));

@@ -1053,3 +1053,50 @@ pub trait TranslationJobRepository: Send + Sync {
     /// 刪除到期的工作，回刪除筆數
     async fn purge_expired(&self, now: chrono::DateTime<chrono::Utc>) -> Result<u64, RepoError>;
 }
+
+// ---------------------------------------------------------------------------
+// EPUB 多來源搜尋（TTRS 新增，TipTop 無對應；epub_web_search.feature）
+// ---------------------------------------------------------------------------
+
+/// 搜尋結果的種類：一本可下載的書，或一個 GitHub repo（按「列出 EPUB」才看得到檔案）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EpubBookKind {
+    Book,
+    Repo,
+}
+
+/// 來源回傳的一筆結果（尚未排序、去重）
+#[derive(Debug, Clone)]
+pub struct EpubBook {
+    /// 來源名稱（如 "Internet Archive"）
+    pub source: String,
+    /// 在來源內的識別（IA identifier、Gutenberg 編號、Wikisource 頁名、GitHub repo 全名）
+    pub id: String,
+    pub title: String,
+    pub author: Option<String>,
+    /// 來源標示的語言（zh-TW、chi、en…），不一定準
+    pub language: Option<String>,
+    /// 授權原文：SPDX、CC 授權網址、「公共領域」；沒有資料為 None
+    pub license: Option<String>,
+    pub downloads: Option<u64>,
+    pub kind: EpubBookKind,
+    pub url: Option<String>,
+}
+
+/// EPUB 來源（WS2）：infra 實作 Internet Archive、Project Gutenberg、Wikisource、GitHub；BDD 用記憶體假來源。
+/// 搜尋失敗回 DomainError（逾時、來源錯誤），由服務隔離，不影響其他來源（WS7）
+#[async_trait]
+pub trait EpubSource: Send + Sync {
+    /// 顯示名稱，也是結果的「來源」
+    fn name(&self) -> String;
+    /// `keywords` 是同一個關鍵字的繁體、簡體等寫法（任一個符合即可）；`open_only` 時來源可先過濾授權
+    async fn search(
+        &self,
+        keywords: &[String],
+        open_only: bool,
+        limit: usize,
+    ) -> Result<Vec<EpubBook>, ttrs_domain::DomainError>;
+    /// 下載 EPUB 位元組；超過 `max_bytes` 回 EPUB_TOO_LARGE，不下載完
+    async fn download(&self, id: &str, max_bytes: u64)
+    -> Result<Vec<u8>, ttrs_domain::DomainError>;
+}

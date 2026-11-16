@@ -1100,6 +1100,13 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .map(drop),
         // GitHub EPUB 搜尋（工具作業；假來源沒有資料，有權限時回 GITHUB_NOT_FOUND 而非權限拒絕）
         ["在", "GitHub", "搜尋", "EPUB"] => w.github.search(a, "epub", false, 1).await.map(drop),
+        // 多來源搜尋（沒有設定來源時搜尋結果為空；下載找不到書，都不是權限拒絕）
+        ["多來源搜尋", "EPUB"] => w.epub_search.search(a, "x", true, 1).await.map(drop),
+        ["下載", "搜尋結果的", "EPUB"] => w
+            .epub_search
+            .download_raw(a, "x", "y", None)
+            .await
+            .map(drop),
         ["列出", "GitHub", "repo", "的", "EPUB"] => w.github.files(a, "x/y").await.map(drop),
         ["轉換", "GitHub", "上的", "EPUB"] => {
             w.github.convert(a, "x/y", "a.epub").await.map(drop)

@@ -140,6 +140,11 @@ pub struct ErpWorld {
     pub translator: ttrs_app::memory::FakeTranslator,
     pub translate_job: Option<String>,
     pub translate_calls_before: usize,
+    /// EPUB 多來源搜尋（epub_web_search.feature）：服務、各來源的假資料、搜尋結果與下載的原始檔
+    pub epub_search: ttrs_app::EpubSearchService,
+    pub fake_sources: Vec<ttrs_app::memory::FakeEpubSource>,
+    pub search_page: Option<ttrs_shared::EpubSearchPage>,
+    pub raw_epub: Option<Vec<u8>>,
     /// GitHub EPUB 搜尋（github_epub_search.feature）：兩種後端都用記憶體假來源（GE8）與結果
     pub github: ttrs_app::GithubEpubService,
     pub github_feed: InMemoryStore,
@@ -245,6 +250,7 @@ impl ErpWorld {
             epub,
             github_epub,
             translate,
+            epub_search,
             authorizer: _,
         } = services;
         let rate_feed = InMemoryStore::new();
@@ -324,6 +330,10 @@ impl ErpWorld {
             translator,
             translate_job: None,
             translate_calls_before: 0,
+            epub_search,
+            fake_sources: Vec::new(),
+            search_page: None,
+            raw_epub: None,
             github,
             github_feed,
             github_repos: None,

@@ -293,6 +293,8 @@ error-TRANSLATE_QUOTA_EXHAUSTED = The Claude subscription usage limit has been r
 error-TRANSLATE_FAILED = The translation failed; please try again later.
 error-TRANSLATE_CONSENT_REQUIRED = Please confirm first: translating sends the book text to Claude.
 error-TRANSLATE_JOB_NOT_FOUND = The translation job was not found (it may have expired).
+error-EPUB_BOOK_NOT_FOUND = The book was not found (the source may have removed it).
+error-EPUB_SOURCE_UNAVAILABLE = This source is temporarily unavailable; please try again later.
 
 # GitHub EPUB 搜尋
 error-GITHUB_RATE_LIMITED = The GitHub query limit has been reached; try again later.

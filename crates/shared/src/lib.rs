@@ -2721,3 +2721,53 @@ pub struct TranslateJobDto {
 pub struct TranslateSubmitDto {
     pub job_id: String,
 }
+
+/// EPUB 多來源搜尋的一筆結果（epub_web_search.feature）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EpubBookDto {
+    pub source: String,
+    pub id: String,
+    pub title: String,
+    pub author: Option<String>,
+    /// 來源標示的語言
+    pub language: Option<String>,
+    /// traditional／simplified／other_chinese／other：排序用的文字判斷（WS3、WS4）
+    pub script: String,
+    pub license: Option<String>,
+    /// 是否為開放授權（公共領域、CC0、CC BY 等；WS5）
+    pub open_license: bool,
+    pub downloads: Option<u64>,
+    /// book（可直接下載）／repo（GitHub repo，要先列出 EPUB）
+    pub kind: String,
+    pub url: Option<String>,
+    /// 去重後同一本書的其他來源
+    pub other_sources: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EpubSearchPage {
+    pub items: Vec<EpubBookDto>,
+    pub total: u64,
+    pub page: u32,
+    /// 暫時無法查詢的來源（WS7）
+    pub warnings: Vec<String>,
+}
+
+/// 轉換多來源搜尋結果中的一本（WS8）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EpubBookConvertRequest {
+    pub source: String,
+    pub id: String,
+    /// 書名（檔名用）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub format: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub s2t: Option<bool>,
+    /// 英文翻成繁體中文（會把內容送到 Claude，需 consent）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub translate: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub consent: Option<bool>,
+}

@@ -292,7 +292,7 @@ impl InMemoryStore {
             ("epub-to-text", ["EPUB 轉換", "EPUB Converter", "EPUB 转换"]),
             (
                 "github-epub-search",
-                ["GitHub EPUB 搜尋", "GitHub EPUB Search", "GitHub EPUB 搜索"],
+                ["EPUB 搜尋", "EPUB Search", "EPUB 搜索"],
             ),
             (
                 "unit-conversion-maintenance",
@@ -4553,6 +4553,8 @@ impl GithubSource for InMemoryStore {
 
 use ttrs_domain::DomainError;
 
+use crate::ports::{EpubBook, EpubSource};
+
 #[async_trait]
 impl TranslationJobRepository for InMemoryStore {
     async fn create(&self, job: &JobRecord) -> Result<(), RepoError> {
@@ -4710,5 +4712,94 @@ impl TranslationEngine for FakeTranslator {
             input_tokens: 10,
             output_tokens: 20,
         })
+    }
+}
+
+// ----- EPUB 多來源搜尋的假來源（epub_web_search.feature；BDD，不連外網） -----
+
+/// 假來源：BDD 依表格放入書，可設定失敗與檔案大小
+#[derive(Clone)]
+pub struct FakeEpubSource(Arc<Mutex<FakeSourceState>>);
+
+struct FakeSourceState {
+    name: String,
+    /// (書, 標籤, EPUB 位元組, 檔案大小)
+    books: Vec<(EpubBook, String, Vec<u8>, u64)>,
+    failing: bool,
+}
+
+impl FakeEpubSource {
+    pub fn new(name: &str) -> Self {
+        Self(Arc::new(Mutex::new(FakeSourceState {
+            name: name.to_owned(),
+            books: Vec::new(),
+            failing: false,
+        })))
+    }
+
+    fn state(&self) -> std::sync::MutexGuard<'_, FakeSourceState> {
+        self.0.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    pub fn add_book(&self, book: EpubBook, tag: &str, bytes: Vec<u8>) {
+        let size = bytes.len() as u64;
+        self.state().books.push((book, tag.to_owned(), bytes, size));
+    }
+
+    pub fn set_failing(&self, failing: bool) {
+        self.state().failing = failing;
+    }
+
+    /// 設定某本書回報的檔案大小（不必真的放那麼大的資料）
+    pub fn set_size(&self, title: &str, size: u64) {
+        for b in &mut self.state().books {
+            if b.0.title == title {
+                b.3 = size;
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl EpubSource for FakeEpubSource {
+    fn name(&self) -> String {
+        self.state().name.clone()
+    }
+
+    async fn search(
+        &self,
+        keywords: &[String],
+        _open_only: bool,
+        limit: usize,
+    ) -> Result<Vec<EpubBook>, DomainError> {
+        let s = self.state();
+        if s.failing {
+            return Err(DomainError::EpubSourceUnavailable(s.name.clone()));
+        }
+        Ok(s.books
+            .iter()
+            .filter(|(b, tag, _, _)| {
+                keywords
+                    .iter()
+                    .any(|k| b.title.contains(k.as_str()) || tag.contains(k.as_str()))
+            })
+            .map(|(b, ..)| b.clone())
+            .take(limit)
+            .collect())
+    }
+
+    async fn download(&self, id: &str, max_bytes: u64) -> Result<Vec<u8>, DomainError> {
+        let s = self.state();
+        let (_, _, bytes, size) = s
+            .books
+            .iter()
+            .find(|(b, ..)| b.id == id)
+            .ok_or_else(|| DomainError::EpubBookNotFound(id.to_owned()))?;
+        if *size > max_bytes {
+            return Err(DomainError::EpubTooLarge {
+                max_mb: usize::try_from(max_bytes / 1024 / 1024).unwrap_or(0),
+            });
+        }
+        Ok(bytes.clone())
     }
 }

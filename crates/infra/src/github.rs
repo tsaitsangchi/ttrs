@@ -16,7 +16,7 @@ fn unavailable(e: impl ToString) -> DomainError {
     DomainError::GithubUnavailable(e.to_string())
 }
 
-fn client() -> Result<reqwest::Client, DomainError> {
+pub(crate) fn client() -> Result<reqwest::Client, DomainError> {
     let _ = rustls::crypto::ring::default_provider().install_default();
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
@@ -105,8 +105,45 @@ fn encode_path(p: &str) -> String {
         .join("/")
 }
 
+/// 只呼叫 GitHub、不碰資料庫的來源（多來源 EPUB 搜尋用）；[`PgStore`] 的實作也委派給它
+#[derive(Debug, Clone, Copy, Default)]
+pub struct GithubHttp;
+
 #[async_trait]
 impl GithubSource for PgStore {
+    async fn search_repos(
+        &self,
+        keyword: &str,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<GithubRepo>, u64), DomainError> {
+        GithubHttp.search_repos(keyword, page, per_page).await
+    }
+
+    async fn get_repo(&self, full_name: &str) -> Result<GithubRepo, DomainError> {
+        GithubHttp.get_repo(full_name).await
+    }
+
+    async fn tree(
+        &self,
+        full_name: &str,
+        branch: &str,
+    ) -> Result<(Vec<GithubFile>, bool), DomainError> {
+        GithubHttp.tree(full_name, branch).await
+    }
+
+    async fn download(
+        &self,
+        full_name: &str,
+        branch: &str,
+        path: &str,
+    ) -> Result<Vec<u8>, DomainError> {
+        GithubHttp.download(full_name, branch, path).await
+    }
+}
+
+#[async_trait]
+impl GithubSource for GithubHttp {
     async fn search_repos(
         &self,
         keyword: &str,

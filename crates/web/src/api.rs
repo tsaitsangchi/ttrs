@@ -3042,19 +3042,88 @@ pub async fn epub_translate_download(id: &str, format: &str) -> Result<EpubFile,
     epub_file(res, format).await
 }
 
-// ----- GitHub EPUB 搜尋（/api/github-epub；github_epub_search.feature） -----
+// ----- EPUB 多來源搜尋（/api/epub-search；epub_web_search.feature） -----
 
-pub async fn github_epub_repos(
+pub async fn epub_search(
     q: &str,
     open_only: bool,
     page: u32,
-) -> Result<ttrs_shared::GithubRepoPage, String> {
+) -> Result<ttrs_shared::EpubSearchPage, String> {
     get_json(url(&format!(
-        "/api/github-epub/repos?q={}&open={open_only}&page={page}",
+        "/api/epub-search?q={}&open={open_only}&page={page}",
         urlencoding(q)
     )))
     .await
 }
+
+/// 下載原始 EPUB（不轉換）
+pub async fn epub_search_download(source: &str, id: &str, title: &str) -> Result<EpubFile, String> {
+    let res = reqwest::Client::new()
+        .get(url(&format!(
+            "/api/epub-search/download?source={}&id={}&title={}",
+            urlencoding(source),
+            urlencoding(id),
+            urlencoding(title)
+        )))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !res.status().is_success() {
+        return Err(error_message(res).await);
+    }
+    let name = res
+        .headers()
+        .get("x-epub-file-name")
+        .and_then(|v| v.to_str().ok())
+        .map(percent_decode)
+        .unwrap_or_else(|| "book.epub".to_owned());
+    let bytes = res.bytes().await.map_err(|e| e.to_string())?.to_vec();
+    Ok(EpubFile {
+        file_name: name,
+        title: None,
+        author: None,
+        chapters: 0,
+        bytes,
+        mime: "application/epub+zip",
+    })
+}
+
+/// 轉換結果：直接取得檔案，或（英文翻譯）取得翻譯工作編號
+pub enum Converted {
+    File(EpubFile),
+    Job(String),
+}
+
+/// 轉換搜尋結果中的一本；`translate` 時伺服器改為提交翻譯工作
+pub async fn epub_search_convert(
+    book: &ttrs_shared::EpubBookDto,
+    format: &str,
+    s2t: bool,
+    translate: bool,
+    consent: bool,
+) -> Result<Converted, String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/epub-search/convert"))
+        .json(&ttrs_shared::EpubBookConvertRequest {
+            source: book.source.clone(),
+            id: book.id.clone(),
+            title: Some(book.title.clone()),
+            format: Some(format.to_owned()),
+            s2t: Some(s2t),
+            translate: Some(translate),
+            consent: Some(consent),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    if res.status().as_u16() == 202 {
+        let r: ttrs_shared::TranslateSubmitDto = into_result(res).await?;
+        return Ok(Converted::Job(r.job_id));
+    }
+    epub_file(res, format).await.map(Converted::File)
+}
+
+// ----- GitHub EPUB 搜尋（/api/github-epub；github_epub_search.feature） -----
 
 pub async fn github_epub_files(repo: &str) -> Result<ttrs_shared::GithubEpubListDto, String> {
     get_json(url(&format!(

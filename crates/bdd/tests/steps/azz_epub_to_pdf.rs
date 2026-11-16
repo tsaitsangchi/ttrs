@@ -28,7 +28,10 @@ async fn run(w: &mut ErpWorld, name: &str, bytes: Vec<u8>, opts: ConvertOptions)
     set_result(w, r).await;
 }
 
-async fn set_result(w: &mut ErpWorld, r: Result<ttrs_app::EpubOutput, ttrs_app::AppError>) {
+pub(crate) async fn set_result(
+    w: &mut ErpWorld,
+    r: Result<ttrs_app::EpubOutput, ttrs_app::AppError>,
+) {
     w.epub_output = r.as_ref().ok().cloned();
     w.epub_result = match &w.epub_output {
         Some(o) => match &o.content {

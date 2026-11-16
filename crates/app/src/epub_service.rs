@@ -74,11 +74,19 @@ pub struct EpubOutput {
 }
 
 /// 簡體轉繁體（EP2、EP3：OpenCC s2tw，字形加台灣異體字）；辭典載入一次，之後共用
-fn to_traditional(text: &str) -> String {
+pub(crate) fn to_traditional(text: &str) -> String {
     use std::sync::OnceLock;
     static CC: OnceLock<opencc_jieba_rs::OpenCC> = OnceLock::new();
     CC.get_or_init(opencc_jieba_rs::OpenCC::new)
         .convert(text, "s2tw", false)
+}
+
+/// 繁體轉簡體（搜尋時同時查簡體寫法；OpenCC t2s）
+pub(crate) fn to_simplified(text: &str) -> String {
+    use std::sync::OnceLock;
+    static CC: OnceLock<opencc_jieba_rs::OpenCC> = OnceLock::new();
+    CC.get_or_init(opencc_jieba_rs::OpenCC::new)
+        .convert(text, "t2s", false)
 }
 
 /// 轉換結果（未換行轉換：段落以 `\n` 分隔）
@@ -301,7 +309,8 @@ fn decode_entities(s: &str) -> String {
     while let Some(amp) = rest.find('&') {
         out.push_str(&rest[..amp]);
         rest = &rest[amp..];
-        let Some(semi) = rest[..rest.len().min(12)].find(';') else {
+        // ';' 是 ASCII，用位元組找才不會把後面的中文字切在字元中間
+        let Some(semi) = rest.bytes().take(12).position(|b| b == b';') else {
             out.push('&');
             rest = &rest[1..];
             continue;
@@ -508,6 +517,14 @@ mod tests {
             "<html><head><title>x</title></head><body><h1>標題</h1><p>甲&amp;乙&#x4E00;</p><p>a<br/>b</p><script>s()</script></body></html>",
         );
         assert_eq!(t, "標題\n甲&乙一\na\nb");
+    }
+
+    #[test]
+    fn decodes_entities_next_to_multibyte_text() {
+        // & 後面緊接中文字（第 12 個位元組落在字元中間）不可當機
+        let t = html_to_text("<p>甲&乙。。。。。。。。丙&amp;丁&。。。。。</p>");
+        assert_eq!(t, "甲&乙。。。。。。。。丙&丁&。。。。。");
+        assert_eq!(decode_entities("a&b;c&。。。。。。"), "a&b;c&。。。。。。");
     }
 
     #[test]

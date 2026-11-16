@@ -293,6 +293,8 @@ error-TRANSLATE_QUOTA_EXHAUSTED = （使用伺服器訊息）
 error-TRANSLATE_FAILED = （使用伺服器訊息）
 error-TRANSLATE_CONSENT_REQUIRED = （使用伺服器訊息）
 error-TRANSLATE_JOB_NOT_FOUND = （使用伺服器訊息）
+error-EPUB_BOOK_NOT_FOUND = （使用伺服器訊息）
+error-EPUB_SOURCE_UNAVAILABLE = （使用伺服器訊息）
 
 # GitHub EPUB 搜尋
 error-GITHUB_RATE_LIMITED = （使用伺服器訊息）

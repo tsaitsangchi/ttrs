@@ -293,6 +293,8 @@ error-TRANSLATE_QUOTA_EXHAUSTED = Claude 订阅用量已达上限，请稍后再
 error-TRANSLATE_FAILED = 翻译失败，请稍后再试。
 error-TRANSLATE_CONSENT_REQUIRED = 请先勾选同意：翻译会把书的内容发送到 Claude。
 error-TRANSLATE_JOB_NOT_FOUND = 找不到这个翻译工作（可能已过期）。
+error-EPUB_BOOK_NOT_FOUND = 找不到这本书（可能来源已移除）。
+error-EPUB_SOURCE_UNAVAILABLE = 这个来源暂时无法使用，请稍后再试。
 
 # GitHub EPUB 搜尋
 error-GITHUB_RATE_LIMITED = GitHub 查询次数已用完，请稍后再试。

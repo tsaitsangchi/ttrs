@@ -374,6 +374,11 @@ pub enum DomainError {
     TranslateConsentRequired,
     #[error("找不到這個翻譯工作（可能已過期）")]
     TranslateJobNotFound,
+    // ----- EPUB 多來源搜尋（epub_web_search.feature） -----
+    #[error("找不到來源「{0}」或這本書")]
+    EpubBookNotFound(String),
+    #[error("來源「{0}」暫時無法使用")]
+    EpubSourceUnavailable(String),
     // ----- GitHub EPUB 搜尋（github_epub_search.feature） -----
     #[error("GitHub 查詢次數已用完，請於 {reset} 後再試")]
     GithubRateLimited { reset: String },
@@ -757,6 +762,8 @@ impl DomainError {
             Self::TranslateFailed(_) => "TRANSLATE_FAILED",
             Self::TranslateConsentRequired => "TRANSLATE_CONSENT_REQUIRED",
             Self::TranslateJobNotFound => "TRANSLATE_JOB_NOT_FOUND",
+            Self::EpubBookNotFound(_) => "EPUB_BOOK_NOT_FOUND",
+            Self::EpubSourceUnavailable(_) => "EPUB_SOURCE_UNAVAILABLE",
             Self::GithubRateLimited { .. } => "GITHUB_RATE_LIMITED",
             Self::GithubUnavailable(_) => "GITHUB_UNAVAILABLE",
             Self::GithubNotFound(_) => "GITHUB_NOT_FOUND",

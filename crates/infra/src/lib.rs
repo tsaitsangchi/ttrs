@@ -3,6 +3,7 @@
 //! 資料庫環境就緒後改用 `sqlx::query!` 搭配 `cargo sqlx prepare` 做編譯期檢查。
 
 mod claude_cli;
+mod epub_sources;
 mod github;
 pub mod pg;
 mod pg_accounting_period;
@@ -37,6 +38,7 @@ pub mod report;
 pub mod smtp;
 
 pub use claude_cli::ClaudeCliEngine;
+pub use epub_sources::default_epub_sources;
 pub use pg::PgStore;
 pub use plant_schema::{
     PLANT_MIGRATOR, drop_all_plant_schemas, plant_role_exists, plant_schema_version,

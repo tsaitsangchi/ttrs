@@ -155,6 +155,8 @@ pub struct Services {
     pub github_epub: crate::GithubEpubService,
     /// EPUB 英文翻譯成繁體中文（epub_translate.feature）
     pub translate: crate::TranslationService,
+    /// EPUB 多來源搜尋（epub_web_search.feature）
+    pub epub_search: crate::EpubSearchService,
     /// 稅別維護（aooi150）
     pub taxes: TaxTypeService,
     /// 專案維護（aooi200，工廠層）
@@ -300,6 +302,7 @@ impl Services {
             ),
             epub: crate::EpubService::new(a.clone(), store.clone()),
             github_epub: crate::GithubEpubService::new(a.clone(), store.clone(), store.clone()),
+            epub_search: crate::EpubSearchService::new(a.clone(), store.clone()),
             translate: crate::TranslationService::new(
                 a.clone(),
                 store.clone(),
