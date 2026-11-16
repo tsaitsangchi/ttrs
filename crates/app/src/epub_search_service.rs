@@ -150,18 +150,51 @@ fn same_book(a: &EpubBook, b: &EpubBook) -> bool {
         && (author(a) == author(b) || author(a).is_empty() || author(b).is_empty())
 }
 
+/// 比對用的文字：轉成繁體、英文小寫、去掉空白與標點（RL1）
+fn normalize(s: &str) -> String {
+    to_traditional(s)
+        .to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric())
+        .collect()
+}
+
+/// 書名吻合程度（RL1）：0 完全相同、1 開頭就是關鍵字、2 中間含有、3 不含；取各關鍵字寫法中最好的一級
+fn relevance(title: &str, keywords: &[String]) -> u8 {
+    let t = normalize(title);
+    keywords
+        .iter()
+        .map(|k| normalize(k))
+        .filter(|k| !k.is_empty())
+        .map(|k| {
+            if t == k {
+                0
+            } else if t.starts_with(&k) {
+                1
+            } else if t.contains(&k) {
+                2
+            } else {
+                3
+            }
+        })
+        .min()
+        .unwrap_or(3)
+}
+
 /// 一筆結果與判斷出的文字種類
 struct Ranked {
     book: EpubBook,
+    relevance: u8,
     script: Script,
     open: bool,
     others: Vec<String>,
 }
 
 impl Ranked {
-    /// 排序鍵（WS3）：繁體優先；同層可直接下載的在前；有下載次數的在前、由高到低；最後依書名
-    fn key(&self) -> (u8, bool, bool, Reverse<u64>, String) {
+    /// 排序鍵：書名吻合程度（RL2）；再依 WS3——繁體優先；同層可直接下載的在前；有下載次數的在前、由高到低；最後依書名
+    fn key(&self) -> (u8, u8, bool, bool, Reverse<u64>, String) {
         (
+            self.relevance,
             self.script.tier(),
             self.book.kind != EpubBookKind::Book,
             self.book.downloads.is_none(),
@@ -172,10 +205,11 @@ impl Ranked {
 }
 
 /// 排序、去重（WS3、WS6）：相同書名作者只留排序最前面的一筆，其他來源記在 `others`
-fn merge(books: Vec<EpubBook>) -> Vec<Ranked> {
+fn merge(books: Vec<EpubBook>, keywords: &[String]) -> Vec<Ranked> {
     let mut ranked: Vec<Ranked> = books
         .into_iter()
         .map(|b| Ranked {
+            relevance: relevance(&b.title, keywords),
             script: script_of(b.language.as_deref(), &b.title),
             open: license_is_open(b.license.as_deref()),
             book: b,
@@ -317,7 +351,7 @@ impl EpubSearchService {
                 warnings.push(name);
             }
         }
-        let mut merged = merge(books);
+        let mut merged = merge(books, &variants);
         if open_only {
             merged.retain(|r| r.open);
         }
@@ -460,6 +494,18 @@ mod tests {
     }
 
     #[test]
+    fn relevance_tiers() {
+        let k = keyword_variants("慶餘年");
+        assert_eq!(relevance("慶餘年", &k), 0);
+        assert_eq!(relevance("庆余年", &k), 0);
+        assert_eq!(relevance("《慶餘年》讀後感", &k), 1);
+        assert_eq!(relevance("庆余年第1卷至第7卷-全集", &k), 1);
+        assert_eq!(relevance("再讀慶餘年", &k), 2);
+        assert_eq!(relevance("余家庆刑事一审刑事判决书", &k), 3);
+        assert_eq!(relevance("The Story", &keyword_variants("the story")), 0);
+    }
+
+    #[test]
     fn script_detection() {
         assert_eq!(script_of(Some("zh-TW"), "x"), Script::Traditional);
         assert_eq!(script_of(Some("chi"), "紅樓夢"), Script::Traditional);
@@ -500,12 +546,15 @@ mod tests {
 
     #[test]
     fn ranks_and_merges() {
-        let r = merge(vec![
-            book("A", "Dream", "en", Some(20000)),
-            book("B", "红楼梦", "zh-CN", Some(9000)),
-            book("C", "紅樓夢", "zh-TW", Some(5000)),
-            book("D", "紅樓夢", "zh-TW", None),
-        ]);
+        let r = merge(
+            vec![
+                book("A", "Dream", "en", Some(20000)),
+                book("B", "红楼梦", "zh-CN", Some(9000)),
+                book("C", "紅樓夢", "zh-TW", Some(5000)),
+                book("D", "紅樓夢", "zh-TW", None),
+            ],
+            &[],
+        );
         let titles: Vec<_> = r.iter().map(|x| x.book.title.as_str()).collect();
         assert_eq!(titles, ["紅樓夢", "红楼梦", "Dream"]);
         assert_eq!(r[0].others, ["D"]);
@@ -517,7 +566,7 @@ mod tests {
         a.author = Some("曹雪芹".to_owned());
         let mut b = book("B", "紅樓夢", "zh-TW", None);
         b.author = None;
-        let r = merge(vec![a, b]);
+        let r = merge(vec![a, b], &[]);
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].others, ["B"]);
     }

@@ -215,3 +215,14 @@ async fn audit(w: &mut ErpWorld, program: String, action: String, d1: String, d2
         "應有稽核紀錄：{entries:?}"
     );
 }
+
+/// epub_search_relevance.feature：第 N 筆的書名
+#[then(regex = r#"^第(一|二|三|四|五)筆應為 "([^"]+)"$"#)]
+async fn nth_is(w: &mut ErpWorld, nth: String, title: String) {
+    let i = ["一", "二", "三", "四", "五"]
+        .iter()
+        .position(|n| *n == nth)
+        .unwrap();
+    let got = page(w).items.get(i).map(|b| b.title.clone());
+    assert_eq!(got.as_deref(), Some(title.as_str()));
+}
