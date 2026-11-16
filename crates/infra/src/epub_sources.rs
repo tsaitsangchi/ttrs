@@ -1,11 +1,12 @@
 //! EPUB 多來源搜尋的來源（epub_web_search.feature WS2）：Internet Archive、Project Gutenberg（Gutendex）、
-//! Wikisource（ws-export 產生 EPUB）、GitHub。都是免費公開 API、不需金鑰；呼叫時帶通用的 User-Agent，不帶使用者資料。
+//! Wikisource（ws-export 產生 EPUB）、GitHub（repo 搜尋與依檔名搜尋，實作在 ttrs_app::github_epub_source）。都是免費公開 API、不需金鑰；呼叫時帶通用的 User-Agent，不帶使用者資料。
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::Value;
-use ttrs_app::ports::{EpubBook, EpubBookKind, EpubSource, GithubSource};
+use ttrs_app::github_epub_source::{GithubFiles, GithubRepos};
+use ttrs_app::ports::{EpubBook, EpubBookKind, EpubSource};
 use ttrs_domain::DomainError;
 
 use crate::github::{GithubHttp, client};
@@ -342,58 +343,6 @@ impl EpubSource for Wikisource {
     }
 }
 
-// ----- GitHub（以 repo 為單位，按「列出 EPUB」才看到檔案） -----
-
-pub struct GithubRepos(pub Arc<dyn GithubSource>);
-
-const GH: &str = "GitHub";
-
-#[async_trait]
-impl EpubSource for GithubRepos {
-    fn name(&self) -> String {
-        GH.to_owned()
-    }
-
-    async fn search(
-        &self,
-        keywords: &[String],
-        _open_only: bool,
-        limit: usize,
-    ) -> Result<Vec<EpubBook>, DomainError> {
-        let Some(k) = keywords.first() else {
-            return Ok(Vec::new());
-        };
-        let (repos, _) = self
-            .0
-            .search_repos(
-                &format!("{k} epub"),
-                1,
-                u32::try_from(limit.min(100)).unwrap_or(30),
-            )
-            .await
-            .map_err(|_| unavailable(GH))?;
-        Ok(repos
-            .into_iter()
-            .map(|r| EpubBook {
-                source: GH.to_owned(),
-                url: Some(format!("https://github.com/{}", r.full_name)),
-                title: r.full_name.clone(),
-                author: None,
-                language: None,
-                license: r.license,
-                downloads: None,
-                kind: EpubBookKind::Repo,
-                id: r.full_name,
-            })
-            .collect())
-    }
-
-    async fn download(&self, id: &str, _max_bytes: u64) -> Result<Vec<u8>, DomainError> {
-        // repo 要先「列出 EPUB」再選檔案，不能直接下載
-        Err(DomainError::EpubBookNotFound(id.to_owned()))
-    }
-}
-
 /// 預設的來源（API 啟動時使用）
 pub fn default_epub_sources() -> Vec<Arc<dyn EpubSource>> {
     vec![
@@ -401,5 +350,6 @@ pub fn default_epub_sources() -> Vec<Arc<dyn EpubSource>> {
         Arc::new(Gutenberg),
         Arc::new(Wikisource),
         Arc::new(GithubRepos(Arc::new(GithubHttp))),
+        Arc::new(GithubFiles(Arc::new(GithubHttp))),
     ]
 }

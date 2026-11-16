@@ -40,6 +40,7 @@ mod web_client;
 
 pub use claude_cli::ClaudeCliEngine;
 pub use epub_sources::default_epub_sources;
+pub use github::GithubHttp;
 pub use pg::PgStore;
 pub use plant_schema::{
     PLANT_MIGRATOR, drop_all_plant_schemas, plant_role_exists, plant_schema_version,

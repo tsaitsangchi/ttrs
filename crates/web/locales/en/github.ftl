@@ -1,7 +1,7 @@
 # GitHub EPUB 搜尋（github_epub_search.feature）
 github-breadcrumb = System Admin / EPUB Search
 github-title = EPUB Search
-github-hint = Search Internet Archive, Project Gutenberg, Wikisource and GitHub at once for EPUB files that can be legally downloaded: Traditional Chinese first, then by download count; both Traditional and Simplified spellings of the keyword are searched. Results are not filtered by license; each one shows its license status and you decide whether you may use it (tick "open licenses only" to keep public-domain and open-licensed books). Internet Archive accepts uploads from anyone, so results may include adult content.
+github-hint = Search Internet Archive, Project Gutenberg, Wikisource and GitHub at once for EPUB files that can be legally downloaded: Traditional Chinese first, then by download count; both Traditional and Simplified spellings of the keyword are searched. Results are not filtered by license; each one shows its license status and you decide whether you may use it (tick "open licenses only" to keep public-domain and open-licensed books). Internet Archive accepts uploads from anyone, so results may include adult content. GitHub is searched by repository name and also by EPUB file name, but GitHub indexes only some files, so a missing result does not mean the file does not exist; if you know the address, use "Paste a URL" below.
 github-field-keyword = Keyword
 github-field-open-only = Open licenses only
 github-msg-busy = Searching…
@@ -35,6 +35,7 @@ github-script-other = Other language
 github-action-download = Download EPUB
 github-others = Also on: { $sources }
 github-warn-source = Source "{ $source }" is temporarily unavailable; results may be incomplete.
+github-notice-no-token = No GitHub token is configured, so GitHub is searched by repository name and description only, not by EPUB file name.
 github-license-check = Please check your usage rights
 github-msg-downloaded = Downloaded { $file }
 github-url-title = Paste a URL

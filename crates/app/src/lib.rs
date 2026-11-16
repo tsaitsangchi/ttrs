@@ -19,6 +19,7 @@ pub mod error;
 pub mod exchange_rate_service;
 pub mod general_parameter_service;
 pub mod github_epub_service;
+pub mod github_epub_source;
 pub mod item_group_service;
 pub mod item_service;
 pub mod legacy_catalog_service;

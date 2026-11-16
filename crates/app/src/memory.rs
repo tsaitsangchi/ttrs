@@ -122,6 +122,9 @@ struct State {
     github_repos: Vec<GithubRepo>,
     github_files: BTreeMap<String, Vec<(String, u64, Vec<u8>)>>,
     github_rate_limited: bool,
+    /// GitHub 依檔名搜尋（epub_github_filename.feature）：是否設定 token、程式碼搜尋是否被限流
+    github_token: bool,
+    github_code_limited: bool,
     /// 翻譯工作（translation_job；epub_translate.feature）
     translation_jobs: BTreeMap<String, JobRecord>,
     customs_current: Option<(NaiveDate, NaiveDate, Vec<Quote>)>,
@@ -4465,6 +4468,16 @@ impl InMemoryStore {
     pub fn set_github_rate_limited(&self, v: bool) {
         self.lock().github_rate_limited = v;
     }
+
+    /// BDD：是否設定 GitHub token（GF2）
+    pub fn set_github_token(&self, v: bool) {
+        self.lock().github_token = v;
+    }
+
+    /// BDD：程式碼搜尋被限流（GF4）
+    pub fn set_github_code_limited(&self, v: bool) {
+        self.lock().github_code_limited = v;
+    }
 }
 
 fn github_check(s: &State) -> Result<(), ttrs_domain::DomainError> {
@@ -4546,6 +4559,37 @@ impl GithubSource for InMemoryStore {
             .and_then(|fs| fs.iter().find(|(p, _, _)| p == path))
             .map(|(_, _, c)| c.clone())
             .ok_or_else(|| ttrs_domain::DomainError::GithubNotFound(format!("{full_name}/{path}")))
+    }
+
+    fn has_token(&self) -> bool {
+        self.lock().github_token
+    }
+
+    /// 假的程式碼搜尋：檔名（不含資料夾）包含 `name` 的 .epub 檔
+    async fn search_epub_files(
+        &self,
+        name: &str,
+    ) -> Result<Vec<crate::ports::GithubCodeHit>, ttrs_domain::DomainError> {
+        let s = self.lock();
+        if s.github_code_limited {
+            return Err(ttrs_domain::DomainError::GithubRateLimited {
+                reset: "2026-11-16 12:00".to_owned(),
+            });
+        }
+        let mut out = Vec::new();
+        for (repo, files) in &s.github_files {
+            for (path, _, _) in files {
+                let file = path.rsplit('/').next().unwrap_or(path);
+                if file.to_lowercase().ends_with(".epub") && file.contains(name) {
+                    out.push(crate::ports::GithubCodeHit {
+                        full_name: repo.clone(),
+                        path: path.clone(),
+                        git_ref: "main".to_owned(),
+                    });
+                }
+            }
+        }
+        Ok(out)
     }
 }
 

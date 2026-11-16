@@ -81,3 +81,29 @@ async fn wikisource_search_and_download() {
 async fn github_search() {
     search_ok("GitHub", false).await;
 }
+
+/// GitHub 依檔名搜尋（epub_github_filename.feature GF7）：需要 TTRS_GITHUB_TOKEN 與網路
+#[tokio::test]
+#[ignore = "需要網路與 TTRS_GITHUB_TOKEN"]
+async fn github_filename_search_and_download() {
+    use std::sync::Arc;
+    use ttrs_app::{
+        github_epub_source::GithubFiles,
+        ports::{EpubBookKind, EpubSource},
+    };
+    let s = GithubFiles(Arc::new(ttrs_infra::GithubHttp));
+    let books = s
+        .search(&["慶餘年".to_owned(), "庆余年".to_owned()], false, 10)
+        .await
+        .expect("GitHub 依檔名");
+    for b in &books {
+        println!("{}｜{}｜{:?}", b.title, b.id, b.license);
+    }
+    let b = books
+        .iter()
+        .find(|b| b.kind == EpubBookKind::Book)
+        .expect("至少一筆");
+    let bytes = s.download(&b.id, 100 * 1024 * 1024).await.expect("下載");
+    assert!(bytes.starts_with(b"PK"));
+    println!("下載 {} 成功 {} bytes", b.title, bytes.len());
+}

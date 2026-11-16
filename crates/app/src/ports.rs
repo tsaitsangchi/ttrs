@@ -944,6 +944,15 @@ pub struct GithubFile {
     pub size: u64,
 }
 
+/// 依檔名搜尋找到的 EPUB 檔（epub_github_filename.feature GF1）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GithubCodeHit {
+    pub full_name: String,
+    pub path: String,
+    /// 下載用的分支或 commit
+    pub git_ref: String,
+}
+
 /// GitHub 來源（github_epub_search.feature GE9）：infra 以 HTTPS 呼叫 GitHub，記憶體後端由 BDD 設定。
 /// 失敗回 GITHUB_RATE_LIMITED／GITHUB_UNAVAILABLE／GITHUB_NOT_FOUND
 #[async_trait]
@@ -969,6 +978,13 @@ pub trait GithubSource: Send + Sync {
         branch: &str,
         path: &str,
     ) -> Result<Vec<u8>, ttrs_domain::DomainError>;
+    /// 有沒有設定 token（GF2）：沒有時不能用程式碼搜尋
+    fn has_token(&self) -> bool;
+    /// 依檔名搜尋 EPUB 檔（GF1）：`name` 是關鍵字的一種寫法；GitHub 只收錄部分檔案
+    async fn search_epub_files(
+        &self,
+        name: &str,
+    ) -> Result<Vec<GithubCodeHit>, ttrs_domain::DomainError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -1099,6 +1115,10 @@ pub trait EpubSource: Send + Sync {
     /// 下載 EPUB 位元組；超過 `max_bytes` 回 EPUB_TOO_LARGE，不下載完
     async fn download(&self, id: &str, max_bytes: u64)
     -> Result<Vec<u8>, ttrs_domain::DomainError>;
+    /// 給使用者的提示代碼（例如 GITHUB_NO_TOKEN，GF2）；沒有則 None
+    fn notice(&self) -> Option<String> {
+        None
+    }
 }
 
 // ---------------------------------------------------------------------------

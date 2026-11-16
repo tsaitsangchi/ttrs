@@ -25,6 +25,7 @@ mod azz_authorization;
 mod azz_change_history;
 mod azz_data_dictionary;
 mod azz_emergency_password_reset;
+mod azz_epub_github_filename;
 mod azz_epub_to_pdf;
 mod azz_epub_to_text;
 mod azz_epub_translate;

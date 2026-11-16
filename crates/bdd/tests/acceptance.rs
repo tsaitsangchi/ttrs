@@ -145,6 +145,8 @@ pub struct ErpWorld {
     pub fake_sources: Vec<ttrs_app::memory::FakeEpubSource>,
     pub search_page: Option<ttrs_shared::EpubSearchPage>,
     pub raw_epub: Option<Vec<u8>>,
+    /// 最近一次下載／轉換搜尋結果用的識別碼（epub_github_filename.feature 的稽核）
+    pub search_id: Option<String>,
     /// 以網址下載 EPUB（epub_url_download.feature）：服務、假網路與讀取結果
     pub epub_url: ttrs_app::EpubUrlService,
     pub fake_web: ttrs_app::memory::FakeWeb,
@@ -341,6 +343,7 @@ impl ErpWorld {
             fake_sources: Vec::new(),
             search_page: None,
             raw_epub: None,
+            search_id: None,
             epub_url,
             fake_web,
             url_read: None,

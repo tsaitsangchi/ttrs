@@ -175,12 +175,24 @@ async fn is_epub(w: &mut ErpWorld) {
 
 #[when(regex = r#"^使用者轉換 "([^"]+)" 的 "([^"]+)"，輸出 "(txt|pdf)"$"#)]
 async fn convert(w: &mut ErpWorld, src: String, title: String, format: String) {
+    // 搜尋過就用結果中的識別碼（GitHub 依檔名搜尋的識別碼不是書名），否則以書名當識別碼
+    let id = w
+        .search_page
+        .as_ref()
+        .and_then(|p| {
+            p.items
+                .iter()
+                .find(|b| b.source == src && b.title == title)
+                .map(|b| b.id.clone())
+        })
+        .unwrap_or_else(|| title.clone());
+    w.search_id = Some(id.clone());
     let r = w
         .epub_search
         .convert(
             &w.actor,
             &src,
-            &title,
+            &id,
             Some(&title),
             ConvertOptions {
                 format: Format::parse(&format).expect("格式"),

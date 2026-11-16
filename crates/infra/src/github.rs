@@ -4,13 +4,15 @@
 use async_trait::async_trait;
 use chrono::{Local, TimeZone};
 use serde_json::Value;
-use ttrs_app::ports::{GithubFile, GithubRepo, GithubSource};
+use ttrs_app::ports::{GithubCodeHit, GithubFile, GithubRepo, GithubSource};
 use ttrs_domain::DomainError;
 
 use crate::PgStore;
 
 const API: &str = "https://api.github.com";
 const RAW: &str = "https://raw.githubusercontent.com";
+/// Git LFS 檔案的實際內容
+const MEDIA: &str = "https://media.githubusercontent.com/media";
 
 fn unavailable(e: impl ToString) -> DomainError {
     DomainError::GithubUnavailable(e.to_string())
@@ -140,6 +142,14 @@ impl GithubSource for PgStore {
     ) -> Result<Vec<u8>, DomainError> {
         GithubHttp.download(full_name, branch, path).await
     }
+
+    fn has_token(&self) -> bool {
+        GithubHttp.has_token()
+    }
+
+    async fn search_epub_files(&self, name: &str) -> Result<Vec<GithubCodeHit>, DomainError> {
+        GithubHttp.search_epub_files(name).await
+    }
 }
 
 #[async_trait]
@@ -220,14 +230,125 @@ impl GithubSource for GithubHttp {
             encode_path(branch),
             encode_path(path)
         );
-        let res = get(&url, &format!("{full_name}/{path}")).await?;
-        Ok(res.bytes().await.map_err(unavailable)?.to_vec())
+        let what = format!("{full_name}/{path}");
+        let bytes = get(&url, &what)
+            .await?
+            .bytes()
+            .await
+            .map_err(unavailable)?
+            .to_vec();
+        // Git LFS 的檔案在 raw 網址只有文字指標，內容要從 media 網址下載（GF6）；先看指標的大小，超過上限不下載
+        let Some(size) = lfs_size(&bytes) else {
+            return Ok(bytes);
+        };
+        let max = u64::try_from(ttrs_app::epub_service::MAX_MB * 1024 * 1024).unwrap_or(u64::MAX);
+        if size > max {
+            return Err(DomainError::EpubTooLarge {
+                max_mb: ttrs_app::epub_service::MAX_MB,
+            });
+        }
+        let media = format!(
+            "{MEDIA}/{}/{}/{}",
+            encode_path(full_name),
+            encode_path(branch),
+            encode_path(path)
+        );
+        Ok(get(&media, &what)
+            .await?
+            .bytes()
+            .await
+            .map_err(unavailable)?
+            .to_vec())
     }
+
+    fn has_token(&self) -> bool {
+        token().is_some()
+    }
+
+    /// 程式碼搜尋（GF1）：一定要 token；查詢「filename:<名稱> extension:epub」（不加 filename: 實測一律 0 筆）
+    async fn search_epub_files(&self, name: &str) -> Result<Vec<GithubCodeHit>, DomainError> {
+        if token().is_none() {
+            return Ok(Vec::new());
+        }
+        let name = name.replace(['"', ':'], " ");
+        let url = reqwest::Url::parse_with_params(
+            &format!("{API}/search/code"),
+            &[
+                ("q", format!("filename:{} extension:epub", name.trim())),
+                ("per_page", "30".to_owned()),
+            ],
+        )
+        .map_err(unavailable)?;
+        let v = get_json(url.as_str(), &name).await?;
+        Ok(v["items"]
+            .as_array()
+            .map(|a| a.iter().filter_map(code_hit).collect())
+            .unwrap_or_default())
+    }
+}
+
+/// Git LFS 指標檔的大小（位元組）；不是指標回 None
+fn lfs_size(bytes: &[u8]) -> Option<u64> {
+    if bytes.len() > 1024 || !bytes.starts_with(b"version https://git-lfs.github.com/spec/") {
+        return None;
+    }
+    std::str::from_utf8(bytes)
+        .ok()?
+        .lines()
+        .find_map(|l| l.strip_prefix("size "))
+        .and_then(|n| n.trim().parse().ok())
+}
+
+/// 程式碼搜尋的一筆：分支取 html_url 中 /blob/ 後的 commit（沒有就用 HEAD）
+fn code_hit(v: &Value) -> Option<GithubCodeHit> {
+    let full_name = v["repository"]["full_name"].as_str()?.to_owned();
+    let path = v["path"].as_str()?.to_owned();
+    if !path.to_lowercase().ends_with(".epub") {
+        return None;
+    }
+    let git_ref = v["html_url"]
+        .as_str()
+        .and_then(|u| u.split("/blob/").nth(1))
+        .and_then(|rest| rest.split('/').next())
+        .filter(|r| !r.is_empty())
+        .unwrap_or("HEAD")
+        .to_owned();
+    Some(GithubCodeHit {
+        full_name,
+        path,
+        git_ref,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_lfs_pointer() {
+        let p = b"version https://git-lfs.github.com/spec/v1\noid sha256:d2cb\nsize 5679211\n";
+        assert_eq!(lfs_size(p), Some(5_679_211));
+        assert_eq!(lfs_size(b"PK\x03\x04"), None);
+    }
+
+    #[test]
+    fn parses_code_hits() {
+        let v: Value = serde_json::json!({
+            "path": "小说/庆余年.epub",
+            "html_url": "https://github.com/o/r/blob/0123abc/%E5%B0%8F%E8%AF%B4/x.epub",
+            "repository": {"full_name": "o/r"}
+        });
+        let h = code_hit(&v).unwrap();
+        assert_eq!(
+            (h.full_name.as_str(), h.git_ref.as_str()),
+            ("o/r", "0123abc")
+        );
+        assert_eq!(h.path, "小说/庆余年.epub");
+        assert!(
+            code_hit(&serde_json::json!({"path": "a.txt", "repository": {"full_name": "o/r"}}))
+                .is_none()
+        );
+    }
 
     #[test]
     fn encodes_paths() {

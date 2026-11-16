@@ -360,6 +360,12 @@ fn SearchPage() -> Element {
                 for w in r.warnings.clone() {
                     p { class: "query-hint", {tf("github-warn-source", &[("source", w.as_str())])} }
                 }
+                // 來源的提示代碼（GF2）
+                for n in r.notices.clone() {
+                    if n == "GITHUB_NO_TOKEN" {
+                        p { class: "query-hint", {t("github-notice-no-token")} }
+                    }
+                }
                 Card {
                     div { class: "table-header",
                         h3 { {t("github-repos-title")} }

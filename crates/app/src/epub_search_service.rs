@@ -304,10 +304,17 @@ impl EpubSearchService {
             .collect();
         let (mut books, mut warnings) = (Vec::new(), Vec::new());
         for (source, h) in self.sources.iter().zip(handles) {
-            match h.await {
-                Ok((_, Ok(Ok(found)))) => books.extend(found),
-                Ok((name, _)) => warnings.push(name),
-                Err(_) => warnings.push(source.name()),
+            let failed = match h.await {
+                Ok((_, Ok(Ok(found)))) => {
+                    books.extend(found);
+                    None
+                }
+                Ok((name, _)) => Some(name),
+                Err(_) => Some(source.name()),
+            };
+            // 同名的來源（GitHub 的 repo 與檔名搜尋）只提示一次
+            if let Some(name) = failed.filter(|n| !warnings.contains(n)) {
+                warnings.push(name);
             }
         }
         let mut merged = merge(books);
@@ -322,7 +329,14 @@ impl EpubSearchService {
             .take(PER_PAGE)
             .map(to_dto)
             .collect();
-        let names: Vec<String> = self.sources.iter().map(|s| s.name()).collect();
+        let mut notices: Vec<String> = Vec::new();
+        for n in self.sources.iter().filter_map(|s| s.notice()) {
+            if !notices.contains(&n) {
+                notices.push(n);
+            }
+        }
+        let mut names: Vec<String> = self.sources.iter().map(|s| s.name()).collect();
+        names.dedup();
         self.audit_detail(
             actor,
             "query",
@@ -335,17 +349,23 @@ impl EpubSearchService {
             total,
             page,
             warnings,
+            notices,
         })
     }
 
-    fn source(&self, name: &str) -> Result<&Arc<dyn EpubSource>, DomainError> {
-        self.sources
-            .iter()
-            .find(|s| s.name() == name)
-            .ok_or_else(|| DomainError::EpubBookNotFound(name.to_owned()))
+    /// 依名稱下載：同名的來源（GitHub 的 repo 與檔名搜尋）依序嘗試，回第一個不是「找不到」的結果
+    async fn download_from(&self, name: &str, id: &str, max: u64) -> Result<Vec<u8>, DomainError> {
+        let mut last = DomainError::EpubBookNotFound(name.to_owned());
+        for s in self.sources.iter().filter(|s| s.name() == name) {
+            match s.download(id, max).await {
+                Err(e @ DomainError::EpubBookNotFound(_)) => last = e,
+                other => return other,
+            }
+        }
+        Err(last)
     }
 
-    /// 從來源下載一本 EPUB（WS8）：超過 50 MB 回 EPUB_TOO_LARGE，不保存檔案。回（建議檔名主體, 位元組）
+    /// 從來源下載一本 EPUB（WS8）：超過 100 MB 回 EPUB_TOO_LARGE，不保存檔案。回（建議檔名主體, 位元組）
     pub async fn fetch(
         &self,
         actor: &Actor,
@@ -354,9 +374,12 @@ impl EpubSearchService {
         title: Option<&str>,
     ) -> Result<(String, Vec<u8>), AppError> {
         self.authz.authorize(actor, PROGRAM, "run").await?;
-        let src = self.source(source)?;
-        let bytes = src
-            .download(id, u64::try_from(MAX_MB * 1024 * 1024).unwrap_or(u64::MAX))
+        let bytes = self
+            .download_from(
+                source,
+                id,
+                u64::try_from(MAX_MB * 1024 * 1024).unwrap_or(u64::MAX),
+            )
             .await?;
         self.audit_detail(
             actor,

@@ -2751,6 +2751,9 @@ pub struct EpubSearchPage {
     pub page: u32,
     /// 暫時無法查詢的來源（WS7）
     pub warnings: Vec<String>,
+    /// 來源的提示代碼（例如 GITHUB_NO_TOKEN：未設定 GitHub token，GF2）
+    #[serde(default)]
+    pub notices: Vec<String>,
 }
 
 /// 轉換多來源搜尋結果中的一本（WS8）

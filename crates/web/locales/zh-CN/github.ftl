@@ -1,7 +1,7 @@
 # GitHub EPUB 搜尋（github_epub_search.feature）
 github-breadcrumb = 系统管理 / EPUB Search
 github-title = EPUB 搜索
-github-hint = 输入关键字，同时搜索 Internet Archive、Project Gutenberg、维基文库与 GitHub 上可合法下载的 EPUB：繁体中文排最前面，其次按下载次数；搜索会同时查繁体与简体写法。不过滤授权，每一条都标示授权状态，是否有权使用由你自己判断（勾选“只看开放授权”可只留公共领域与开放授权）。Internet Archive 是开放上传的平台，结果可能含成人内容，请自行判断。
+github-hint = 输入关键字，同时搜索 Internet Archive、Project Gutenberg、维基文库与 GitHub 上可合法下载的 EPUB：繁体中文排最前面，其次按下载次数；搜索会同时查繁体与简体写法。不过滤授权，每一条都标示授权状态，是否有权使用由你自己判断（勾选“只看开放授权”可只留公共领域与开放授权）。Internet Archive 是开放上传的平台，结果可能含成人内容，请自行判断。GitHub 除了比对 repo 名称，也按文件名找 EPUB 文件，但 GitHub 只收录部分文件，找不到不代表没有；已知网址时请用下方“粘贴网址”。
 github-field-keyword = 关键字
 github-field-open-only = 只看开放授权
 github-msg-busy = 查询中…
@@ -35,6 +35,7 @@ github-script-other = 其他语言
 github-action-download = 下载 EPUB
 github-others = 也见于：{ $sources }
 github-warn-source = 来源“{ $source }”暂时无法查询，结果可能不完整。
+github-notice-no-token = 未设置 GitHub token，GitHub 只比对 repo 名称与说明，不按文件名搜索 EPUB 文件。
 github-license-check = 请自行确认使用权利
 github-msg-downloaded = 已下载 { $file }
 github-url-title = 粘贴网址
