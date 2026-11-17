@@ -480,6 +480,9 @@
       | github-epub-search | query | 列出 我的 GitHub 書庫 |
       | github-epub-search | insert | 加入 我的 GitHub 書庫 a/b |
       | github-epub-search | delete | 移除 我的 GitHub 書庫 a/b |
+      | github-epub-search | query | 列出 共用 GitHub 書庫 |
+      | github-epub-search | share | 加入 共用 GitHub 書庫 a/b |
+      | github-epub-search | share | 移除 共用 GitHub 書庫 a/b |
       | unit-conversion-maintenance | query | 查詢單位換算 |
       | unit-conversion-maintenance | detail | 新增單位換算 KG G |
       | unit-conversion-maintenance | detail | 修改單位換算 KG G |

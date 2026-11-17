@@ -58,3 +58,9 @@ library-col-added = 加入時間
 library-msg-empty = 書庫還沒有 repo。
 library-msg-added = 已加入 { $repo }。
 library-msg-removed = 已移除 { $repo }。
+
+# 共用 GitHub 書庫（epub_github_shared_library.feature）
+shared-library-title = 共用 GitHub 書庫
+shared-library-hint = 全公司共用的 GitHub repo 清單（最多 20 個），由有「管理共用書庫」功能的人設定；所有人搜尋時都會一併比對這些 repo 裡的 EPUB 檔名。納入哪些 repo、使用權利由設定的人判斷。
+shared-library-col-added-by = 加入者
+shared-library-msg-empty = 共用書庫還沒有 repo。

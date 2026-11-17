@@ -15,6 +15,7 @@ mod pg_currency;
 mod pg_department;
 mod pg_dictionary;
 mod pg_epub_library;
+mod pg_epub_shared_library;
 mod pg_exchange_rate;
 mod pg_item;
 mod pg_item_group;

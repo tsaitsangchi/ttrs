@@ -1013,6 +1013,34 @@ pub trait EpubLibraryRepository: Send + Sync {
     ) -> Result<bool, RepoError>;
 }
 
+/// 共用 GitHub 書庫的一筆（epub_github_shared_library.feature SL1、SL6；表 epub_github_shared_library）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EpubSharedLibraryEntry {
+    /// 擁有者/repo（GitHub 回傳的正式名稱）
+    pub repo: String,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub version: i32,
+}
+
+/// 共用 GitHub 書庫（epub_github_shared_library.feature）：全公司一份 repo 清單
+#[async_trait]
+pub trait EpubSharedLibraryRepository: Send + Sync {
+    /// 依加入時間、repo 排序
+    async fn list_epub_shared_library(&self) -> Result<Vec<EpubSharedLibraryEntry>, RepoError>;
+    /// 重複回 `Conflict`
+    async fn insert_epub_shared_library(
+        &self,
+        repo: &str,
+        created_by: &str,
+        created_dept: &str,
+    ) -> Result<(), RepoError>;
+    /// 刪除：版本不符回 `Stale`；不存在回 `Ok(false)`
+    async fn delete_epub_shared_library(&self, repo: &str, version: i32)
+    -> Result<bool, RepoError>;
+}
+
 // ---------------------------------------------------------------------------
 // EPUB 英文翻譯成繁體中文（TTRS 新增，TipTop 無對應；epub_translate.feature）
 // ---------------------------------------------------------------------------

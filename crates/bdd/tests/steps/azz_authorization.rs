@@ -1115,6 +1115,16 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["移除", "我的", "GitHub", "書庫", repo] => {
             w.epub_search.remove_library(a, repo, 1).await.map(drop)
         }
+        // 共用 GitHub 書庫（同上：有權限時回 GITHUB_NOT_FOUND，不是權限拒絕）
+        ["列出", "共用", "GitHub", "書庫"] => w.epub_search.shared_library(a).await.map(drop),
+        ["加入", "共用", "GitHub", "書庫", repo] => {
+            w.epub_search.add_shared_library(a, repo).await.map(drop)
+        }
+        ["移除", "共用", "GitHub", "書庫", repo] => w
+            .epub_search
+            .remove_shared_library(a, repo, 1)
+            .await
+            .map(drop),
         // 以網址下載（假網路沒有這個頁面，回 URL_UNREACHABLE，不是權限拒絕）
         ["讀取", "網址", "的", "EPUB"] => w
             .epub_url

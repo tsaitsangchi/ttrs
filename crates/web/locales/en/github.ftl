@@ -58,3 +58,9 @@ library-col-added = Added
 library-msg-empty = No repos in your library yet.
 library-msg-added = Added { $repo }.
 library-msg-removed = Removed { $repo }.
+
+# 共用 GitHub 書庫（epub_github_shared_library.feature）
+shared-library-title = Shared GitHub library
+shared-library-hint = A company-wide list of GitHub repos (up to 20), set by people with the "manage shared library" action. Searches by all users also match EPUB file names in these repos. Whoever adds a repo is responsible for the right to use it.
+shared-library-col-added-by = Added by
+shared-library-msg-empty = No repos in the shared library yet.

@@ -149,7 +149,7 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "github-epub-search",
         "",
         "AZZ",
-        "insert, query, delete, run",
+        "insert, query, delete, run, share",
     ),
     // 單位換算（UC9）：比照單位維護
     (

@@ -2766,6 +2766,18 @@ pub struct EpubLibraryRepoDto {
     pub version: i32,
 }
 
+/// 共用 GitHub 書庫的一個 repo（epub_github_shared_library.feature SL3）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EpubSharedRepoDto {
+    pub repo: String,
+    /// 該 repo 的授權（GitHub 暫時查不到時為空）
+    pub license: Option<String>,
+    /// 加入者（使用者代號）
+    pub created_by: String,
+    pub created_at: DateTime<Utc>,
+    pub version: i32,
+}
+
 /// 加入我的 GitHub 書庫：「擁有者/repo」或 github.com 網址
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EpubLibraryAddRequest {

@@ -5,11 +5,12 @@
 //! 繁體中文排最前面，同層可直接下載的在前、再依下載次數由高到低。搜尋時關鍵字同時查繁體與簡體寫法。
 //! 只收可合法下載的書：預設只顯示公共領域、開放授權（取消過濾才看得到其他，並標示授權）。
 //! 我的 GitHub 書庫（epub_github_library.feature ML1–ML8）：使用者自己指定的 repo，搜尋時一併比對檔名。
+//! 共用 GitHub 書庫（epub_github_shared_library.feature SL1–SL8）：有 share 功能的人設定、所有人的搜尋都包含。
 
 use std::{cmp::Reverse, sync::Arc, time::Duration};
 
 use ttrs_domain::DomainError;
-use ttrs_shared::{EpubBookDto, EpubLibraryRepoDto, EpubSearchPage};
+use ttrs_shared::{EpubBookDto, EpubLibraryRepoDto, EpubSearchPage, EpubSharedRepoDto};
 
 use crate::{
     Actor, AppError, Authorizer,
@@ -19,8 +20,8 @@ use crate::{
     github_epub_service::is_open_license,
     github_epub_source::{self, GH, GithubFiles},
     ports::{
-        AuditEntry, AuditLog, EpubBook, EpubBookKind, EpubLibraryRepository, EpubSource,
-        GithubSource,
+        AuditEntry, AuditLog, EpubBook, EpubBookKind, EpubLibraryRepository,
+        EpubSharedLibraryRepository, EpubSource, GithubSource,
     },
 };
 
@@ -295,12 +296,20 @@ pub struct EpubSearchService {
     fonts: Arc<dyn PdfFonts>,
     /// 我的 GitHub 書庫的清單與讀取 repo 用的 GitHub（ML3）
     library: Option<Arc<dyn EpubLibraryRepository>>,
+    /// 共用 GitHub 書庫的清單（SL1）
+    shared: Option<Arc<dyn EpubSharedLibraryRepository>>,
     github: Option<Arc<dyn GithubSource>>,
 }
 
 /// 我的 GitHub 書庫的清單存放處與 GitHub
 type LibraryParts<'a> = (
     &'a Arc<dyn EpubLibraryRepository>,
+    &'a Arc<dyn GithubSource>,
+);
+
+/// 共用 GitHub 書庫的清單存放處與 GitHub
+type SharedParts<'a> = (
+    &'a Arc<dyn EpubSharedLibraryRepository>,
     &'a Arc<dyn GithubSource>,
 );
 
@@ -319,6 +328,7 @@ impl EpubSearchService {
             sources: Vec::new(),
             fonts: Arc::new(SystemFonts),
             library: None,
+            shared: None,
             github: None,
         }
     }
@@ -331,6 +341,12 @@ impl EpubSearchService {
     ) -> Self {
         self.library = Some(library);
         self.github = Some(github);
+        self
+    }
+
+    /// 共用 GitHub 書庫（SL1）：清單存放處（GitHub 與我的書庫共用）
+    pub fn with_shared_library(mut self, shared: Arc<dyn EpubSharedLibraryRepository>) -> Self {
+        self.shared = Some(shared);
         self
     }
 
@@ -380,20 +396,39 @@ impl EpubSearchService {
             })
             .collect();
         // 我的 GitHub 書庫（ML3、ML4）：每個 repo 各自讀取，失敗只略過該 repo
-        let library_handles: Vec<_> = match (&self.library, &self.github) {
-            (Some(lib), Some(gh)) => lib
+        // 共用書庫與我的書庫的 repo 合併，同一個 repo 只讀一次（SL4）
+        let mut repos: Vec<String> = Vec::new();
+        if let Some(shared) = &self.shared {
+            for e in shared
+                .list_epub_shared_library()
+                .await
+                .map_err(library_err)?
+            {
+                repos.push(e.repo);
+            }
+        }
+        if let Some(lib) = &self.library {
+            for e in lib
                 .list_epub_library(&actor.user_id)
                 .await
                 .map_err(library_err)?
+            {
+                if !repos.iter().any(|r| r.eq_ignore_ascii_case(&e.repo)) {
+                    repos.push(e.repo);
+                }
+            }
+        }
+        let library_handles: Vec<_> = match &self.github {
+            Some(gh) => repos
                 .into_iter()
-                .map(|e| {
+                .map(|repo| {
                     let (gh, variants) = (gh.clone(), variants.clone());
                     tokio::spawn(async move {
                         tokio::time::timeout(
                             SOURCE_TIMEOUT,
                             github_epub_source::library_books(
                                 gh.as_ref(),
-                                &e.repo,
+                                &repo,
                                 &variants,
                                 PER_SOURCE,
                             ),
@@ -402,7 +437,7 @@ impl EpubSearchService {
                     })
                 })
                 .collect(),
-            _ => Vec::new(),
+            None => Vec::new(),
         };
         let (mut books, mut warnings) = (Vec::new(), Vec::new());
         for h in library_handles {
@@ -649,6 +684,117 @@ impl EpubSearchService {
                 "delete",
                 repo,
                 Some(format!("library remove repo={repo}")),
+            )
+            .await;
+            Ok(())
+        })
+        .await
+    }
+
+    fn shared_parts(&self) -> Result<SharedParts<'_>, AppError> {
+        match (&self.shared, &self.github) {
+            (Some(l), Some(g)) => Ok((l, g)),
+            _ => Err(AppError::Infra("未設定共用 GitHub 書庫".to_owned())),
+        }
+    }
+
+    /// 列出共用 GitHub 書庫（SL2、SL3）：能搜尋的人都看得到
+    pub async fn shared_library(&self, actor: &Actor) -> Result<Vec<EpubSharedRepoDto>, AppError> {
+        self.authz.authorize(actor, PROGRAM, "query").await?;
+        let (lib, gh) = self.shared_parts()?;
+        let entries = lib.list_epub_shared_library().await.map_err(library_err)?;
+        let mut out = Vec::with_capacity(entries.len());
+        for e in entries {
+            let license = gh.get_repo(&e.repo).await.ok().and_then(|r| r.license);
+            out.push(EpubSharedRepoDto {
+                repo: e.repo,
+                license,
+                created_by: e.created_by,
+                created_at: e.created_at,
+                version: e.version,
+            });
+        }
+        Ok(out)
+    }
+
+    /// 加入共用 GitHub 書庫（SL2、SL3）：需 share 功能；檢查與錯誤代碼同 [`Self::add_library`]
+    pub async fn add_shared_library(
+        &self,
+        actor: &Actor,
+        input: &str,
+    ) -> Result<EpubSharedRepoDto, AppError> {
+        crate::change_log::run(actor, PROGRAM, "share", async {
+            self.authz.authorize(actor, PROGRAM, "share").await?;
+            let (lib, gh) = self.shared_parts()?;
+            let name = github_epub_source::parse_repo(input)
+                .ok_or_else(|| DomainError::GithubNotFound(input.trim().to_owned()))?;
+            let list = lib.list_epub_shared_library().await.map_err(library_err)?;
+            let dup = |n: &str| list.iter().any(|e| e.repo.eq_ignore_ascii_case(n));
+            if dup(&name) {
+                return Err(DomainError::EpubLibraryDuplicate(name).into());
+            }
+            if list.len() >= LIBRARY_MAX {
+                return Err(DomainError::EpubLibraryFull { max: LIBRARY_MAX }.into());
+            }
+            let info = gh.get_repo(&name).await?;
+            if dup(&info.full_name) {
+                return Err(DomainError::EpubLibraryDuplicate(info.full_name).into());
+            }
+            lib.insert_epub_shared_library(&info.full_name, &actor.user_id, &actor.dept)
+                .await
+                .map_err(|e| match e {
+                    RepoError::Conflict => {
+                        DomainError::EpubLibraryDuplicate(info.full_name.clone()).into()
+                    }
+                    e => library_err(e),
+                })?;
+            self.audit_detail(
+                actor,
+                "share",
+                &info.full_name,
+                Some(format!("shared library add repo={}", info.full_name)),
+            )
+            .await;
+            let entry = lib
+                .list_epub_shared_library()
+                .await
+                .map_err(library_err)?
+                .into_iter()
+                .find(|e| e.repo == info.full_name)
+                .ok_or_else(|| AppError::Infra("加入後讀不到共用書庫資料".to_owned()))?;
+            Ok(EpubSharedRepoDto {
+                repo: entry.repo,
+                license: info.license,
+                created_by: entry.created_by,
+                created_at: entry.created_at,
+                version: entry.version,
+            })
+        })
+        .await
+    }
+
+    /// 從共用 GitHub 書庫移除（SL3、SL6）：需 share 功能；比對版本，已被改過回 RECORD_CHANGED
+    pub async fn remove_shared_library(
+        &self,
+        actor: &Actor,
+        repo: &str,
+        version: i32,
+    ) -> Result<(), AppError> {
+        crate::change_log::run(actor, PROGRAM, "share", async {
+            self.authz.authorize(actor, PROGRAM, "share").await?;
+            let (lib, _) = self.shared_parts()?;
+            if !lib
+                .delete_epub_shared_library(repo, version)
+                .await
+                .map_err(library_err)?
+            {
+                return Err(DomainError::GithubNotFound(repo.to_owned()).into());
+            }
+            self.audit_detail(
+                actor,
+                "share",
+                repo,
+                Some(format!("shared library remove repo={repo}")),
             )
             .await;
             Ok(())

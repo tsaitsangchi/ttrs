@@ -593,6 +593,13 @@ pub fn router(state: AppState) -> Router {
         .route("/api/epub-search", get(epub_search))
         .route("/api/epub-search/download", get(epub_search_download))
         .route("/api/epub-search/convert", post(epub_search_convert))
+        // 共用 GitHub 書庫（epub_github_shared_library.feature SL3）
+        .route(
+            "/api/epub-search/shared-library",
+            get(epub_shared_library)
+                .post(epub_shared_library_add)
+                .delete(epub_shared_library_remove),
+        )
         // 我的 GitHub 書庫（epub_github_library.feature ML2）
         .route(
             "/api/epub-search/library",
@@ -3828,6 +3835,37 @@ async fn epub_library_remove(
 ) -> ApiResult<StatusCode> {
     s.epub_search
         .remove_library(&s.actor, &q.repo, require_version(q.version)?)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// 列出共用 GitHub 書庫（SL3）
+async fn epub_shared_library(Ctx(s): Ctx) -> ApiResult<Json<Vec<ttrs_shared::EpubSharedRepoDto>>> {
+    Ok(Json(s.epub_search.shared_library(&s.actor).await?))
+}
+
+/// 加入共用 GitHub 書庫（SL3；需 share 功能）
+async fn epub_shared_library_add(
+    Ctx(s): Ctx,
+    Json(req): Json<ttrs_shared::EpubLibraryAddRequest>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::EpubSharedRepoDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(
+            s.epub_search
+                .add_shared_library(&s.actor, &req.repo)
+                .await?,
+        ),
+    ))
+}
+
+/// 從共用 GitHub 書庫移除（SL3；需 share 功能、需帶版本）
+async fn epub_shared_library_remove(
+    Ctx(s): Ctx,
+    Query(q): Query<EpubLibraryRemoveQuery>,
+) -> ApiResult<StatusCode> {
+    s.epub_search
+        .remove_shared_library(&s.actor, &q.repo, require_version(q.version)?)
         .await?;
     Ok(StatusCode::NO_CONTENT)
 }

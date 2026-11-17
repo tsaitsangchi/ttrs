@@ -12,7 +12,7 @@ use crate::components::material::{
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::i18n::{t, tf};
-use crate::pages::azz::epub_library::EpubLibrary;
+use crate::pages::azz::epub_library::{EpubLibrary, EpubSharedLibrary};
 use crate::pages::azz::epub_to_text::{EpubOptions, wait_translation};
 
 const PROGRAM: &str = "github-epub-search";
@@ -304,6 +304,8 @@ fn SearchPage() -> Element {
             // 我的 GitHub 書庫（ML2）
             if perm.can("query") {
                 Card { EpubLibrary {} }
+                // 共用 GitHub 書庫（SL3）
+                Card { EpubSharedLibrary {} }
             }
             Card {
                 div { class: "card-body",

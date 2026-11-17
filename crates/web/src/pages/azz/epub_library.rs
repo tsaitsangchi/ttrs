@@ -1,8 +1,9 @@
 //! 我的 GitHub 書庫（EPUB 搜尋頁的一區；specs/features/azz/epub_github_library.feature ML2）
 //! 使用者自己指定要納入搜尋的 GitHub repo：加入（insert）、移除（delete）、列出（query）。
+//! 共用 GitHub 書庫（epub_github_shared_library.feature SL3）：全公司一份，有 share 功能的人才能加入、移除。
 
 use dioxus::prelude::*;
-use ttrs_shared::EpubLibraryRepoDto;
+use ttrs_shared::{EpubLibraryRepoDto, EpubSharedRepoDto};
 
 use crate::api;
 use crate::components::history::local_time;
@@ -94,6 +95,110 @@ pub fn EpubLibrary() -> Element {
                                     td { {local_time(e.created_at)} }
                                     td {
                                         if perm.can("delete") {
+                                            Button { icon: icons::DELETE, tone: Tone::Error, variant: ButtonVariant::Text, disabled: busy(), onclick: { let e = e.clone(); move |_| remove(e.clone()) }, {t("library-action-remove")} }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+            }
+            if let Some(msg) = error() {
+                Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| error.set(None) }
+            }
+            if let Some(msg) = message() {
+                Notification { kind: NotificationKind::Success, title: msg, onclose: move |_| message.set(None) }
+            }
+        }
+    }
+}
+
+/// 共用 GitHub 書庫（SL3）：能搜尋的人都看得到清單；有 share 功能才有加入、移除
+#[component]
+pub fn EpubSharedLibrary() -> Element {
+    let perm = use_context::<Perm>();
+    let mut input = use_signal(String::new);
+    let mut busy = use_signal(|| false);
+    let mut error = use_signal(|| None::<String>);
+    let mut message = use_signal(|| None::<String>);
+    let mut list = use_resource(api::epub_shared_library);
+
+    let add = move |_| {
+        let repo = input();
+        if repo.trim().is_empty() {
+            return;
+        }
+        busy.set(true);
+        spawn(async move {
+            match api::epub_shared_library_add(repo.trim()).await {
+                Ok(r) => {
+                    error.set(None);
+                    input.set(String::new());
+                    message.set(Some(tf("library-msg-added", &[("repo", r.repo.as_str())])));
+                    list.restart();
+                }
+                Err(e) => error.set(Some(e)),
+            }
+            busy.set(false);
+        });
+    };
+
+    let mut remove = move |e: EpubSharedRepoDto| {
+        busy.set(true);
+        spawn(async move {
+            match api::epub_shared_library_remove(&e.repo, e.version).await {
+                Ok(()) => {
+                    error.set(None);
+                    message.set(Some(tf(
+                        "library-msg-removed",
+                        &[("repo", e.repo.as_str())],
+                    )));
+                    list.restart();
+                }
+                Err(err) => error.set(Some(err)),
+            }
+            busy.set(false);
+        });
+    };
+
+    let entries = list.read().clone();
+    rsx! {
+        div { class: "card-body",
+            h3 { {t("shared-library-title")} }
+            p { class: "muted", {t("shared-library-hint")} }
+            if perm.can("share") {
+                div { class: "action-bar",
+                    TextField { id: "shared-library-repo", label: t("library-field-repo"), value: input(), oninput: move |v| input.set(v) }
+                    Button { icon: icons::ADD, tone: Tone::Primary, variant: ButtonVariant::Tonal, disabled: busy() || input().trim().is_empty(), onclick: add, {t("library-action-add")} }
+                }
+            }
+            match entries {
+                None => rsx! { p { class: "muted", {t("github-msg-busy")} } },
+                Some(Err(e)) => rsx! { p { class: "query-hint", {e} } },
+                Some(Ok(rows)) => rsx! {
+                    table { class: "data-table",
+                        thead {
+                            tr {
+                                th { {t("library-col-repo")} }
+                                th { {t("github-col-license")} }
+                                th { {t("shared-library-col-added-by")} }
+                                th { {t("library-col-added")} }
+                                th {}
+                            }
+                        }
+                        tbody {
+                            if rows.is_empty() {
+                                tr { td { colspan: 5, class: "muted", {t("shared-library-msg-empty")} } }
+                            }
+                            for e in rows {
+                                tr { key: "{e.repo}",
+                                    td { a { href: "https://github.com/{e.repo}", target: "_blank", rel: "noopener", "{e.repo}" } }
+                                    td { {e.license.clone().unwrap_or_else(|| t("github-license-none"))} }
+                                    td { "{e.created_by}" }
+                                    td { {local_time(e.created_at)} }
+                                    td {
+                                        if perm.can("share") {
                                             Button { icon: icons::DELETE, tone: Tone::Error, variant: ButtonVariant::Text, disabled: busy(), onclick: { let e = e.clone(); move |_| remove(e.clone()) }, {t("library-action-remove")} }
                                         }
                                     }

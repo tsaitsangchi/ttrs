@@ -127,6 +127,8 @@ struct State {
     github_code_limited: bool,
     /// 我的 GitHub 書庫（epub_github_library.feature；表 epub_github_library）
     epub_library: Vec<crate::ports::EpubLibraryEntry>,
+    /// 共用 GitHub 書庫（epub_github_shared_library.feature；表 epub_github_shared_library）
+    epub_shared_library: Vec<crate::ports::EpubSharedLibraryEntry>,
     /// 翻譯工作（translation_job；epub_translate.feature）
     translation_jobs: BTreeMap<String, JobRecord>,
     customs_current: Option<(NaiveDate, NaiveDate, Vec<Quote>)>,
@@ -4677,6 +4679,81 @@ impl crate::ports::EpubLibraryRepository for InMemoryStore {
             "epub_github_library",
             vec![("user_id", e.user_id.clone()), ("repo", e.repo.clone())],
             Some(epub_library_row(&e)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+fn epub_shared_row(e: &crate::ports::EpubSharedLibraryEntry) -> Row {
+    row(vec![
+        ("repo", text::s(&e.repo)),
+        ("created_by", text::s(&e.created_by)),
+        ("created_dept", text::s(&e.created_dept)),
+        ("version", text::int(i64::from(e.version))),
+        ("created_at", Some(e.created_at.to_rfc3339())),
+        ("updated_at", None),
+    ])
+}
+
+#[async_trait]
+impl crate::ports::EpubSharedLibraryRepository for InMemoryStore {
+    async fn list_epub_shared_library(
+        &self,
+    ) -> Result<Vec<crate::ports::EpubSharedLibraryEntry>, RepoError> {
+        let mut v = self.lock().epub_shared_library.clone();
+        v.sort_by(|a, b| (a.created_at, &a.repo).cmp(&(b.created_at, &b.repo)));
+        Ok(v)
+    }
+
+    async fn insert_epub_shared_library(
+        &self,
+        repo: &str,
+        created_by: &str,
+        created_dept: &str,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.epub_shared_library.iter().any(|e| e.repo == repo) {
+            return Err(RepoError::Conflict);
+        }
+        let e = crate::ports::EpubSharedLibraryEntry {
+            repo: repo.to_owned(),
+            created_by: created_by.to_owned(),
+            created_dept: created_dept.to_owned(),
+            created_at: Utc::now(),
+            version: 1,
+        };
+        s.log_change(
+            None,
+            "epub_github_shared_library",
+            vec![("repo", e.repo.clone())],
+            None,
+            Some(epub_shared_row(&e)),
+            &[],
+        );
+        s.epub_shared_library.push(e);
+        Ok(())
+    }
+
+    async fn delete_epub_shared_library(
+        &self,
+        repo: &str,
+        version: i32,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(i) = s.epub_shared_library.iter().position(|e| e.repo == repo) else {
+            return Ok(false);
+        };
+        if s.epub_shared_library[i].version != version {
+            return Err(RepoError::Stale);
+        }
+        let e = s.epub_shared_library.remove(i);
+        s.log_change(
+            None,
+            "epub_github_shared_library",
+            vec![("repo", e.repo.clone())],
+            Some(epub_shared_row(&e)),
             None,
             &[],
         );

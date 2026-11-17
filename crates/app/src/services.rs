@@ -67,6 +67,7 @@ pub trait Store:
     + crate::ports::GithubSource
     + crate::ports::TranslationJobRepository
     + crate::ports::EpubLibraryRepository
+    + crate::ports::EpubSharedLibraryRepository
     + 'static
 {
 }
@@ -108,6 +109,8 @@ impl<T> Store for T where
         + crate::ports::GithubSource
         + crate::ports::TranslationJobRepository
         + crate::ports::EpubLibraryRepository
+        + crate::ports::EpubSharedLibraryRepository
+        + crate::ports::EpubSharedLibraryRepository
         + 'static
 {
 }
@@ -307,7 +310,8 @@ impl Services {
             epub: crate::EpubService::new(a.clone(), store.clone()),
             github_epub: crate::GithubEpubService::new(a.clone(), store.clone(), store.clone()),
             epub_search: crate::EpubSearchService::new(a.clone(), store.clone())
-                .with_library(store.clone(), store.clone()),
+                .with_library(store.clone(), store.clone())
+                .with_shared_library(store.clone()),
             epub_url: crate::EpubUrlService::new(
                 a.clone(),
                 store.clone(),

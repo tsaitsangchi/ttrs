@@ -3086,6 +3086,36 @@ pub async fn epub_library_remove(repo: &str, version: i32) -> Result<(), String>
     no_content(res).await
 }
 
+// ----- 共用 GitHub 書庫（/api/epub-search/shared-library；epub_github_shared_library.feature） -----
+
+pub async fn epub_shared_library() -> Result<Vec<ttrs_shared::EpubSharedRepoDto>, String> {
+    get_json(url("/api/epub-search/shared-library")).await
+}
+
+pub async fn epub_shared_library_add(repo: &str) -> Result<ttrs_shared::EpubSharedRepoDto, String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/epub-search/shared-library"))
+        .json(&ttrs_shared::EpubLibraryAddRequest {
+            repo: repo.to_owned(),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn epub_shared_library_remove(repo: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(url(&format!(
+            "/api/epub-search/shared-library?repo={}&version={version}",
+            urlencoding(repo)
+        )))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
 /// 下載原始 EPUB（不轉換）
 pub async fn epub_search_download(source: &str, id: &str, title: &str) -> Result<EpubFile, String> {
     let res = reqwest::Client::new()
