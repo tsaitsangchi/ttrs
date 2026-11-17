@@ -303,3 +303,5 @@ error-URL_UNREACHABLE = （使用伺服器訊息）
 error-GITHUB_RATE_LIMITED = （使用伺服器訊息）
 error-GITHUB_UNAVAILABLE = （使用伺服器訊息）
 error-GITHUB_NOT_FOUND = （使用伺服器訊息）
+error-EPUB_LIBRARY_DUPLICATE = （使用伺服器訊息）
+error-EPUB_LIBRARY_FULL = （使用伺服器訊息）

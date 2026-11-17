@@ -4,18 +4,24 @@
 //! 同時查詢多個合法來源（Internet Archive、Project Gutenberg、Wikisource、GitHub），合併、去重並排序：
 //! 繁體中文排最前面，同層可直接下載的在前、再依下載次數由高到低。搜尋時關鍵字同時查繁體與簡體寫法。
 //! 只收可合法下載的書：預設只顯示公共領域、開放授權（取消過濾才看得到其他，並標示授權）。
+//! 我的 GitHub 書庫（epub_github_library.feature ML1–ML8）：使用者自己指定的 repo，搜尋時一併比對檔名。
 
 use std::{cmp::Reverse, sync::Arc, time::Duration};
 
 use ttrs_domain::DomainError;
-use ttrs_shared::{EpubBookDto, EpubSearchPage};
+use ttrs_shared::{EpubBookDto, EpubLibraryRepoDto, EpubSearchPage};
 
 use crate::{
     Actor, AppError, Authorizer,
     epub_pdf::{PdfFonts, SystemFonts},
     epub_service::{self, ConvertOptions, EpubOutput, MAX_MB, to_simplified, to_traditional},
+    error::RepoError,
     github_epub_service::is_open_license,
-    ports::{AuditEntry, AuditLog, EpubBook, EpubBookKind, EpubSource},
+    github_epub_source::{self, GH, GithubFiles},
+    ports::{
+        AuditEntry, AuditLog, EpubBook, EpubBookKind, EpubLibraryRepository, EpubSource,
+        GithubSource,
+    },
 };
 
 /// 權限檢查用的程式代號（沿用 GitHub EPUB 搜尋，畫面名稱改為「EPUB 搜尋」）
@@ -24,6 +30,8 @@ pub const PROGRAM: &str = "github-epub-search";
 pub const PER_PAGE: usize = 30;
 /// 每個來源最多取幾筆再合併排序（WS6）
 pub const PER_SOURCE: usize = 30;
+/// 我的 GitHub 書庫每人最多幾個 repo（ML1）
+pub const LIBRARY_MAX: usize = 20;
 /// 每個來源最多等多久（WS6）
 const SOURCE_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -151,7 +159,7 @@ fn same_book(a: &EpubBook, b: &EpubBook) -> bool {
 }
 
 /// 比對用的文字：轉成繁體、英文小寫、去掉空白與標點（RL1）
-fn normalize(s: &str) -> String {
+pub(crate) fn normalize(s: &str) -> String {
     to_traditional(s)
         .to_lowercase()
         .chars()
@@ -285,6 +293,22 @@ pub struct EpubSearchService {
     audit: Arc<dyn AuditLog>,
     sources: Vec<Arc<dyn EpubSource>>,
     fonts: Arc<dyn PdfFonts>,
+    /// 我的 GitHub 書庫的清單與讀取 repo 用的 GitHub（ML3）
+    library: Option<Arc<dyn EpubLibraryRepository>>,
+    github: Option<Arc<dyn GithubSource>>,
+}
+
+/// 我的 GitHub 書庫的清單存放處與 GitHub
+type LibraryParts<'a> = (
+    &'a Arc<dyn EpubLibraryRepository>,
+    &'a Arc<dyn GithubSource>,
+);
+
+fn library_err(e: RepoError) -> AppError {
+    match e {
+        RepoError::Stale => DomainError::RecordChanged.into(),
+        e => AppError::Infra(e.to_string()),
+    }
 }
 
 impl EpubSearchService {
@@ -294,7 +318,26 @@ impl EpubSearchService {
             audit,
             sources: Vec::new(),
             fonts: Arc::new(SystemFonts),
+            library: None,
+            github: None,
         }
+    }
+
+    /// 我的 GitHub 書庫（ML1–ML3）：清單存放處與讀取 repo 用的 GitHub
+    pub fn with_library(
+        mut self,
+        library: Arc<dyn EpubLibraryRepository>,
+        github: Arc<dyn GithubSource>,
+    ) -> Self {
+        self.library = Some(library);
+        self.github = Some(github);
+        self
+    }
+
+    /// 換掉讀取書庫 repo 用的 GitHub（BDD 用記憶體假 GitHub，ML8）
+    pub fn with_github(mut self, github: Arc<dyn GithubSource>) -> Self {
+        self.github = Some(github);
+        self
     }
 
     /// 設定要查詢的來源（API 啟動時放入真正的來源；BDD 放假來源）
@@ -336,7 +379,39 @@ impl EpubSearchService {
                 })
             })
             .collect();
+        // 我的 GitHub 書庫（ML3、ML4）：每個 repo 各自讀取，失敗只略過該 repo
+        let library_handles: Vec<_> = match (&self.library, &self.github) {
+            (Some(lib), Some(gh)) => lib
+                .list_epub_library(&actor.user_id)
+                .await
+                .map_err(library_err)?
+                .into_iter()
+                .map(|e| {
+                    let (gh, variants) = (gh.clone(), variants.clone());
+                    tokio::spawn(async move {
+                        tokio::time::timeout(
+                            SOURCE_TIMEOUT,
+                            github_epub_source::library_books(
+                                gh.as_ref(),
+                                &e.repo,
+                                &variants,
+                                PER_SOURCE,
+                            ),
+                        )
+                        .await
+                    })
+                })
+                .collect(),
+            _ => Vec::new(),
+        };
         let (mut books, mut warnings) = (Vec::new(), Vec::new());
+        for h in library_handles {
+            match h.await {
+                Ok(Ok(Ok(found))) => books.extend(found),
+                _ if !warnings.iter().any(|w| w == GH) => warnings.push(GH.to_owned()),
+                _ => {}
+            }
+        }
         for (source, h) in self.sources.iter().zip(handles) {
             let failed = match h.await {
                 Ok((_, Ok(Ok(found)))) => {
@@ -395,6 +470,10 @@ impl EpubSearchService {
                 Err(e @ DomainError::EpubBookNotFound(_)) => last = e,
                 other => return other,
             }
+        }
+        // 我的 GitHub 書庫找到的檔案（ML3）：識別碼與依檔名搜尋相同
+        if let Some(gh) = self.github.as_ref().filter(|_| name == GH) {
+            return GithubFiles(gh.clone()).download(id, max).await;
         }
         Err(last)
     }
@@ -459,6 +538,122 @@ impl EpubSearchService {
     ) -> Result<EpubOutput, AppError> {
         let (stem, bytes) = self.fetch(actor, source, id, title).await?;
         Ok(epub_service::render(&bytes, &stem, opts, self.fonts.clone()).await?)
+    }
+
+    fn library_parts(&self) -> Result<LibraryParts<'_>, AppError> {
+        match (&self.library, &self.github) {
+            (Some(l), Some(g)) => Ok((l, g)),
+            _ => Err(AppError::Infra("未設定我的 GitHub 書庫".to_owned())),
+        }
+    }
+
+    /// 列出我的 GitHub 書庫（ML2）：每個 repo 的授權即時向 GitHub 查，查不到就空白
+    pub async fn library(&self, actor: &Actor) -> Result<Vec<EpubLibraryRepoDto>, AppError> {
+        self.authz.authorize(actor, PROGRAM, "query").await?;
+        let (lib, gh) = self.library_parts()?;
+        let entries = lib
+            .list_epub_library(&actor.user_id)
+            .await
+            .map_err(library_err)?;
+        let mut out = Vec::with_capacity(entries.len());
+        for e in entries {
+            let license = gh.get_repo(&e.repo).await.ok().and_then(|r| r.license);
+            out.push(EpubLibraryRepoDto {
+                repo: e.repo,
+                license,
+                created_at: e.created_at,
+                version: e.version,
+            });
+        }
+        Ok(out)
+    }
+
+    /// 加入我的 GitHub 書庫（ML2）：「擁有者/repo」或 github.com 網址；向 GitHub 確認存在，
+    /// 重複回 EPUB_LIBRARY_DUPLICATE、超過 20 個回 EPUB_LIBRARY_FULL、不存在（或格式不對）回 GITHUB_NOT_FOUND
+    pub async fn add_library(
+        &self,
+        actor: &Actor,
+        input: &str,
+    ) -> Result<EpubLibraryRepoDto, AppError> {
+        crate::change_log::run(actor, PROGRAM, "insert", async {
+            self.authz.authorize(actor, PROGRAM, "insert").await?;
+            let (lib, gh) = self.library_parts()?;
+            let name = github_epub_source::parse_repo(input)
+                .ok_or_else(|| DomainError::GithubNotFound(input.trim().to_owned()))?;
+            let list = lib
+                .list_epub_library(&actor.user_id)
+                .await
+                .map_err(library_err)?;
+            let dup = |n: &str| list.iter().any(|e| e.repo.eq_ignore_ascii_case(n));
+            if dup(&name) {
+                return Err(DomainError::EpubLibraryDuplicate(name).into());
+            }
+            if list.len() >= LIBRARY_MAX {
+                return Err(DomainError::EpubLibraryFull { max: LIBRARY_MAX }.into());
+            }
+            let info = gh.get_repo(&name).await?;
+            if dup(&info.full_name) {
+                return Err(DomainError::EpubLibraryDuplicate(info.full_name).into());
+            }
+            lib.insert_epub_library(&actor.user_id, &info.full_name)
+                .await
+                .map_err(|e| match e {
+                    RepoError::Conflict => {
+                        DomainError::EpubLibraryDuplicate(info.full_name.clone()).into()
+                    }
+                    e => library_err(e),
+                })?;
+            self.audit_detail(
+                actor,
+                "insert",
+                &info.full_name,
+                Some(format!("library add repo={}", info.full_name)),
+            )
+            .await;
+            let entry = lib
+                .list_epub_library(&actor.user_id)
+                .await
+                .map_err(library_err)?
+                .into_iter()
+                .find(|e| e.repo == info.full_name)
+                .ok_or_else(|| AppError::Infra("加入後讀不到書庫資料".to_owned()))?;
+            Ok(EpubLibraryRepoDto {
+                repo: entry.repo,
+                license: info.license,
+                created_at: entry.created_at,
+                version: entry.version,
+            })
+        })
+        .await
+    }
+
+    /// 從我的 GitHub 書庫移除（ML2）：比對版本（ADR 0012），已被改過回 RECORD_CHANGED
+    pub async fn remove_library(
+        &self,
+        actor: &Actor,
+        repo: &str,
+        version: i32,
+    ) -> Result<(), AppError> {
+        crate::change_log::run(actor, PROGRAM, "delete", async {
+            self.authz.authorize(actor, PROGRAM, "delete").await?;
+            let (lib, _) = self.library_parts()?;
+            if !lib
+                .delete_epub_library(&actor.user_id, repo, version)
+                .await
+                .map_err(library_err)?
+            {
+                return Err(DomainError::GithubNotFound(repo.to_owned()).into());
+            }
+            self.audit_detail(
+                actor,
+                "delete",
+                repo,
+                Some(format!("library remove repo={repo}")),
+            )
+            .await;
+            Ok(())
+        })
+        .await
     }
 
     async fn audit_detail(&self, actor: &Actor, action: &str, key: &str, detail: Option<String>) {

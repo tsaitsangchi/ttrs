@@ -3,16 +3,21 @@
 //! - [`GithubRepos`]：搜 repo 名稱與說明（按「列出 EPUB」才看到檔案）。
 //! - [`GithubFiles`]：有 token 時依檔名搜 EPUB 檔，每個檔案列成一本書；GitHub 只收錄部分檔案。
 //!
-//! 兩者名稱都是「GitHub」：失敗時畫面只提示一次，下載時服務依序嘗試。
+//! - [`library_books`]：使用者自己指定的 repo（我的 GitHub 書庫，epub_github_library.feature ML3）。
+//!
+//! 名稱都是「GitHub」：失敗時畫面只提示一次，下載時服務依序嘗試。
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use ttrs_domain::DomainError;
 
-use crate::ports::{EpubBook, EpubBookKind, EpubSource, GithubSource};
+use crate::{
+    epub_search_service::normalize,
+    ports::{EpubBook, EpubBookKind, EpubSource, GithubSource},
+};
 
-const GH: &str = "GitHub";
+pub(crate) const GH: &str = "GitHub";
 /// 一次搜尋最多查幾個 repo 的授權（每個 repo 一次 API 呼叫）
 const LICENSE_LOOKUPS: usize = 10;
 /// 提示代碼：未設定 token，GitHub 只比對 repo 名稱與說明（GF2）
@@ -87,7 +92,7 @@ fn parse_id(id: &str) -> Option<(&str, &str, &str)> {
 }
 
 /// 書名：檔名去掉 .epub
-fn title_of(path: &str) -> String {
+pub(crate) fn title_of(path: &str) -> String {
     let name = path.rsplit('/').next().unwrap_or(path);
     let lower = name.to_lowercase();
     if lower.ends_with(".epub") {
@@ -182,6 +187,65 @@ impl EpubSource for GithubFiles {
     }
 }
 
+/// 使用者輸入的 repo（「擁有者/repo」或 github.com 網址）轉成「擁有者/repo」（ML2）；格式不對回 None
+pub fn parse_repo(input: &str) -> Option<String> {
+    let s = input.trim().trim_end_matches('/');
+    let s = s
+        .strip_prefix("https://")
+        .or_else(|| s.strip_prefix("http://"))
+        .unwrap_or(s);
+    let s = s.strip_prefix("www.").unwrap_or(s);
+    let s = s.strip_prefix("github.com/").unwrap_or(s);
+    let mut it = s.split('/');
+    let (owner, repo) = (it.next()?, it.next()?.trim_end_matches(".git"));
+    let ok = |p: &str| {
+        !p.is_empty()
+            && p.chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    };
+    (ok(owner) && ok(repo)).then(|| format!("{owner}/{repo}"))
+}
+
+/// 書庫中一個 repo 裡檔名含有關鍵字的 EPUB（ML3）：讀 repo 資訊（授權、預設分支）與檔案清單，
+/// 檔名去掉 .epub 後以 RL1 的方式比對（轉繁體、小寫、去空白標點）
+pub(crate) async fn library_books(
+    gh: &dyn GithubSource,
+    repo: &str,
+    keywords: &[String],
+    limit: usize,
+) -> Result<Vec<EpubBook>, DomainError> {
+    let info = gh.get_repo(repo).await?;
+    let (files, _truncated) = gh.tree(&info.full_name, &info.default_branch).await?;
+    let keys: Vec<String> = keywords
+        .iter()
+        .map(|k| normalize(k))
+        .filter(|k| !k.is_empty())
+        .collect();
+    Ok(files
+        .into_iter()
+        .filter(|f| f.path.to_lowercase().ends_with(".epub"))
+        .filter(|f| {
+            let t = normalize(&title_of(&f.path));
+            keys.iter().any(|k| t.contains(k.as_str()))
+        })
+        .take(limit)
+        .map(|f| EpubBook {
+            source: GH.to_owned(),
+            id: file_id(&info.full_name, &info.default_branch, &f.path),
+            title: title_of(&f.path),
+            author: None,
+            language: None,
+            license: info.license.clone(),
+            downloads: None,
+            kind: EpubBookKind::Book,
+            url: Some(format!(
+                "https://github.com/{}/blob/{}/{}",
+                info.full_name, info.default_branch, f.path
+            )),
+        })
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -196,5 +260,24 @@ mod tests {
         assert_eq!(parse_id("o/r"), None);
         assert_eq!(title_of("d/庆余年(精校版）.EPUB"), "庆余年(精校版）");
         assert_eq!(title_of("a.txt"), "a.txt");
+    }
+
+    #[test]
+    fn repo_inputs() {
+        assert_eq!(
+            parse_repo("jugetaozi/ibooks").as_deref(),
+            Some("jugetaozi/ibooks")
+        );
+        assert_eq!(
+            parse_repo("https://github.com/jugetaozi/ibooks/").as_deref(),
+            Some("jugetaozi/ibooks")
+        );
+        assert_eq!(parse_repo("github.com/a/b.git").as_deref(), Some("a/b"));
+        assert_eq!(
+            parse_repo("https://github.com/a/b/blob/master/x.epub").as_deref(),
+            Some("a/b")
+        );
+        assert_eq!(parse_repo("abc"), None);
+        assert_eq!(parse_repo("a b/c"), None);
     }
 }

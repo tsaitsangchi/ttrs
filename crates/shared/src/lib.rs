@@ -2756,6 +2756,22 @@ pub struct EpubSearchPage {
     pub notices: Vec<String>,
 }
 
+/// 我的 GitHub 書庫的一個 repo（epub_github_library.feature ML2）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EpubLibraryRepoDto {
+    pub repo: String,
+    /// 該 repo 的授權（GitHub 暫時查不到時為空）
+    pub license: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub version: i32,
+}
+
+/// 加入我的 GitHub 書庫：「擁有者/repo」或 github.com 網址
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EpubLibraryAddRequest {
+    pub repo: String,
+}
+
 /// 轉換多來源搜尋結果中的一本（WS8）
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EpubBookConvertRequest {

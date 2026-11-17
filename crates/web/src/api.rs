@@ -3056,6 +3056,36 @@ pub async fn epub_search(
     .await
 }
 
+// ----- 我的 GitHub 書庫（/api/epub-search/library；epub_github_library.feature） -----
+
+pub async fn epub_library() -> Result<Vec<ttrs_shared::EpubLibraryRepoDto>, String> {
+    get_json(url("/api/epub-search/library")).await
+}
+
+pub async fn epub_library_add(repo: &str) -> Result<ttrs_shared::EpubLibraryRepoDto, String> {
+    let res = reqwest::Client::new()
+        .post(url("/api/epub-search/library"))
+        .json(&ttrs_shared::EpubLibraryAddRequest {
+            repo: repo.to_owned(),
+        })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    into_result(res).await
+}
+
+pub async fn epub_library_remove(repo: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(url(&format!(
+            "/api/epub-search/library?repo={}&version={version}",
+            urlencoding(repo)
+        )))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
 /// 下載原始 EPUB（不轉換）
 pub async fn epub_search_download(source: &str, id: &str, title: &str) -> Result<EpubFile, String> {
     let res = reqwest::Client::new()

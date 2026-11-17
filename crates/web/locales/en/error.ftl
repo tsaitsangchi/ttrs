@@ -303,3 +303,5 @@ error-URL_UNREACHABLE = Cannot reach this URL (connection failed, timed out, too
 error-GITHUB_RATE_LIMITED = The GitHub query limit has been reached; try again later.
 error-GITHUB_UNAVAILABLE = Cannot connect to GitHub.
 error-GITHUB_NOT_FOUND = Not found on GitHub.
+error-EPUB_LIBRARY_DUPLICATE = This repo is already in your GitHub library.
+error-EPUB_LIBRARY_FULL = Your GitHub library is full (at most 20 repos).

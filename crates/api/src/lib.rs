@@ -593,6 +593,13 @@ pub fn router(state: AppState) -> Router {
         .route("/api/epub-search", get(epub_search))
         .route("/api/epub-search/download", get(epub_search_download))
         .route("/api/epub-search/convert", post(epub_search_convert))
+        // 我的 GitHub 書庫（epub_github_library.feature ML2）
+        .route(
+            "/api/epub-search/library",
+            get(epub_library)
+                .post(epub_library_add)
+                .delete(epub_library_remove),
+        )
         // GitHub EPUB Search（TTRS 工具作業，github_epub_search.feature）
         .route("/api/github-epub/repos", get(github_epub_repos))
         .route("/api/github-epub/files", get(github_epub_files))
@@ -1580,6 +1587,7 @@ impl IntoResponse for HttpError {
             "GITHUB_RATE_LIMITED" => StatusCode::TOO_MANY_REQUESTS,
             "GITHUB_UNAVAILABLE" => StatusCode::BAD_GATEWAY,
             "GITHUB_NOT_FOUND" => StatusCode::NOT_FOUND,
+            "EPUB_LIBRARY_DUPLICATE" | "EPUB_LIBRARY_FULL" => StatusCode::CONFLICT,
             // 匯率來源（台銀、關務署網站）無法取得
             "EXCHANGE_RATE_SOURCE_UNAVAILABLE" => StatusCode::BAD_GATEWAY,
             "NOT_SIGNED_IN"
@@ -3788,6 +3796,40 @@ async fn epub_search(
             .search(&s.actor, &q.q, q.open.unwrap_or(false), q.page.unwrap_or(1))
             .await?,
     ))
+}
+
+/// 列出我的 GitHub 書庫（ML2）
+async fn epub_library(Ctx(s): Ctx) -> ApiResult<Json<Vec<ttrs_shared::EpubLibraryRepoDto>>> {
+    Ok(Json(s.epub_search.library(&s.actor).await?))
+}
+
+/// 加入我的 GitHub 書庫（ML2）
+async fn epub_library_add(
+    Ctx(s): Ctx,
+    Json(req): Json<ttrs_shared::EpubLibraryAddRequest>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::EpubLibraryRepoDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.epub_search.add_library(&s.actor, &req.repo).await?),
+    ))
+}
+
+#[derive(Deserialize)]
+struct EpubLibraryRemoveQuery {
+    repo: String,
+    #[serde(default)]
+    version: Option<i32>,
+}
+
+/// 從我的 GitHub 書庫移除（ML2）：需帶版本（ADR 0012）
+async fn epub_library_remove(
+    Ctx(s): Ctx,
+    Query(q): Query<EpubLibraryRemoveQuery>,
+) -> ApiResult<StatusCode> {
+    s.epub_search
+        .remove_library(&s.actor, &q.repo, require_version(q.version)?)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[derive(Deserialize)]

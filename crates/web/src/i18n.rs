@@ -333,7 +333,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 36] = [
+        const TRANSLATED: [(&str, &str); 37] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/session.rs",
@@ -399,6 +399,10 @@ mod tests {
             (
                 "pages/azz/github_epub_search.rs",
                 include_str!("pages/azz/github_epub_search.rs"),
+            ),
+            (
+                "pages/azz/epub_library.rs",
+                include_str!("pages/azz/epub_library.rs"),
             ),
             (
                 "pages/aoo/unit_conversion_maintenance.rs",

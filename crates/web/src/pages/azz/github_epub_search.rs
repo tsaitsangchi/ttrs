@@ -1,5 +1,6 @@
 //! EPUB 搜尋（TTRS 工具作業；specs/features/azz/epub_web_search.feature、github_epub_search.feature）
 //! 關鍵字同時查 Internet Archive、Project Gutenberg、Wikisource、GitHub，繁體中文排最前面（WS3）；
+//! 「我的 GitHub 書庫」的 repo 搜尋時一併比對檔名（epub_github_library.feature）。
 //! 書可直接下載原始 EPUB、或轉成 TXT／PDF（可簡轉繁、英文翻譯）；GitHub 結果是 repo，按「列出 EPUB」再選檔案（GE3）。
 
 use dioxus::prelude::*;
@@ -11,6 +12,7 @@ use crate::components::material::{
 };
 use crate::components::permission::{Perm, ProgramGate};
 use crate::i18n::{t, tf};
+use crate::pages::azz::epub_library::EpubLibrary;
 use crate::pages::azz::epub_to_text::{EpubOptions, wait_translation};
 
 const PROGRAM: &str = "github-epub-search";
@@ -298,6 +300,10 @@ fn SearchPage() -> Element {
                         EpubOptions { format, s2t, translate: Some((lang, consent)), disabled: busy() }
                     }
                 }
+            }
+            // 我的 GitHub 書庫（ML2）
+            if perm.can("query") {
+                Card { EpubLibrary {} }
             }
             Card {
                 div { class: "card-body",

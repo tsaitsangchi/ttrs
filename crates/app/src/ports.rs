@@ -987,6 +987,32 @@ pub trait GithubSource: Send + Sync {
     ) -> Result<Vec<GithubCodeHit>, ttrs_domain::DomainError>;
 }
 
+/// 我的 GitHub 書庫的一筆（epub_github_library.feature ML1、ML6；表 epub_github_library）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EpubLibraryEntry {
+    pub user_id: String,
+    /// 擁有者/repo（GitHub 回傳的正式名稱）
+    pub repo: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub version: i32,
+}
+
+/// 我的 GitHub 書庫（epub_github_library.feature）：每位使用者自己的 repo 清單
+#[async_trait]
+pub trait EpubLibraryRepository: Send + Sync {
+    /// 該使用者的清單，依加入時間、repo 排序
+    async fn list_epub_library(&self, user_id: &str) -> Result<Vec<EpubLibraryEntry>, RepoError>;
+    /// 重複回 `Conflict`
+    async fn insert_epub_library(&self, user_id: &str, repo: &str) -> Result<(), RepoError>;
+    /// 刪除：版本不符回 `Stale`；不存在回 `Ok(false)`
+    async fn delete_epub_library(
+        &self,
+        user_id: &str,
+        repo: &str,
+        version: i32,
+    ) -> Result<bool, RepoError>;
+}
+
 // ---------------------------------------------------------------------------
 // EPUB 英文翻譯成繁體中文（TTRS 新增，TipTop 無對應；epub_translate.feature）
 // ---------------------------------------------------------------------------

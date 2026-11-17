@@ -303,3 +303,5 @@ error-URL_UNREACHABLE = 无法连到这个网址（连接失败、超时、转�
 error-GITHUB_RATE_LIMITED = GitHub 查询次数已用完，请稍后再试。
 error-GITHUB_UNAVAILABLE = 无法连接 GitHub。
 error-GITHUB_NOT_FOUND = GitHub 上找不到。
+error-EPUB_LIBRARY_DUPLICATE = 这个 repo 已在你的 GitHub 书库。
+error-EPUB_LIBRARY_FULL = GitHub 书库最多 20 个 repo。

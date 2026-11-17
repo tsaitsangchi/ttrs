@@ -46,3 +46,15 @@ github-url-book = This is an EPUB: { $title }
 github-url-links = { $n } EPUB links found on the page
 github-url-none = No EPUB links on this page
 github-col-url = URL
+
+# 我的 GitHub 書庫（epub_github_library.feature）
+library-title = My GitHub library
+library-hint = Add GitHub repos you choose (up to 20). Searches will also match EPUB file names in these repos, so you do not need to paste links. Only repos you add are read; you choose the repos and are responsible for your right to use them.
+library-field-repo = Repo (owner/repo or github.com URL)
+library-action-add = Add
+library-action-remove = Remove
+library-col-repo = Repo
+library-col-added = Added
+library-msg-empty = No repos in your library yet.
+library-msg-added = Added { $repo }.
+library-msg-removed = Removed { $repo }.

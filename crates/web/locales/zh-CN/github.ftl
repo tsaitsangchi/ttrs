@@ -46,3 +46,15 @@ github-url-book = 这是一本 EPUB：{ $title }
 github-url-links = 网页上找到 { $n } 个 EPUB 链接
 github-url-none = 这个网页上没有 EPUB 链接
 github-col-url = 网址
+
+# 我的 GitHub 書庫（epub_github_library.feature）
+library-title = 我的 GitHub 书库
+library-hint = 把你选定的 GitHub repo 加入书库（最多 20 个），之后搜索时会一并比对这些 repo 里的 EPUB 文件名，不必贴网址。只会读取你自己加入的 repo；repo 由你选择、使用权利由你自己判断。
+library-field-repo = repo（拥有者/repo 或 github.com 网址）
+library-action-add = 加入
+library-action-remove = 移除
+library-col-repo = repo
+library-col-added = 加入时间
+library-msg-empty = 书库还没有 repo。
+library-msg-added = 已加入 { $repo }。
+library-msg-removed = 已移除 { $repo }。

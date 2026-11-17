@@ -393,6 +393,11 @@ pub enum DomainError {
     GithubUnavailable(String),
     #[error("GitHub 上找不到：{0}")]
     GithubNotFound(String),
+    // ----- 我的 GitHub 書庫（epub_github_library.feature） -----
+    #[error("「{0}」已在你的 GitHub 書庫")]
+    EpubLibraryDuplicate(String),
+    #[error("GitHub 書庫最多 {max} 個 repo")]
+    EpubLibraryFull { max: usize },
 
     // 單位（aooi101 / gfe_file；unit_maintenance.feature）
     #[error("單位不可空白")]
@@ -777,6 +782,8 @@ impl DomainError {
             Self::GithubRateLimited { .. } => "GITHUB_RATE_LIMITED",
             Self::GithubUnavailable(_) => "GITHUB_UNAVAILABLE",
             Self::GithubNotFound(_) => "GITHUB_NOT_FOUND",
+            Self::EpubLibraryDuplicate(_) => "EPUB_LIBRARY_DUPLICATE",
+            Self::EpubLibraryFull { .. } => "EPUB_LIBRARY_FULL",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",
             Self::UnitCodeTooLong { .. } => "UNIT_CODE_TOO_LONG",
             Self::UnitDecimalsInvalid { .. } => "UNIT_DECIMALS_INVALID",

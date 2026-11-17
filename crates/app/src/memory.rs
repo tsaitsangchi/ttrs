@@ -125,6 +125,8 @@ struct State {
     /// GitHub 依檔名搜尋（epub_github_filename.feature）：是否設定 token、程式碼搜尋是否被限流
     github_token: bool,
     github_code_limited: bool,
+    /// 我的 GitHub 書庫（epub_github_library.feature；表 epub_github_library）
+    epub_library: Vec<crate::ports::EpubLibraryEntry>,
     /// 翻譯工作（translation_job；epub_translate.feature）
     translation_jobs: BTreeMap<String, JobRecord>,
     customs_current: Option<(NaiveDate, NaiveDate, Vec<Quote>)>,
@@ -4598,6 +4600,89 @@ impl GithubSource for InMemoryStore {
 use ttrs_domain::DomainError;
 
 use crate::ports::{EpubBook, EpubSource, HttpHop, WebClient};
+
+fn epub_library_row(e: &crate::ports::EpubLibraryEntry) -> Row {
+    row(vec![
+        ("user_id", text::s(&e.user_id)),
+        ("repo", text::s(&e.repo)),
+        ("version", text::int(i64::from(e.version))),
+        ("created_at", Some(e.created_at.to_rfc3339())),
+        ("updated_at", None),
+    ])
+}
+
+#[async_trait]
+impl crate::ports::EpubLibraryRepository for InMemoryStore {
+    async fn list_epub_library(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<crate::ports::EpubLibraryEntry>, RepoError> {
+        let mut v: Vec<_> = self
+            .lock()
+            .epub_library
+            .iter()
+            .filter(|e| e.user_id == user_id)
+            .cloned()
+            .collect();
+        v.sort_by(|a, b| (a.created_at, &a.repo).cmp(&(b.created_at, &b.repo)));
+        Ok(v)
+    }
+
+    async fn insert_epub_library(&self, user_id: &str, repo: &str) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.epub_library
+            .iter()
+            .any(|e| e.user_id == user_id && e.repo == repo)
+        {
+            return Err(RepoError::Conflict);
+        }
+        let e = crate::ports::EpubLibraryEntry {
+            user_id: user_id.to_owned(),
+            repo: repo.to_owned(),
+            created_at: Utc::now(),
+            version: 1,
+        };
+        s.log_change(
+            None,
+            "epub_github_library",
+            vec![("user_id", e.user_id.clone()), ("repo", e.repo.clone())],
+            None,
+            Some(epub_library_row(&e)),
+            &[],
+        );
+        s.epub_library.push(e);
+        Ok(())
+    }
+
+    async fn delete_epub_library(
+        &self,
+        user_id: &str,
+        repo: &str,
+        version: i32,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(i) = s
+            .epub_library
+            .iter()
+            .position(|e| e.user_id == user_id && e.repo == repo)
+        else {
+            return Ok(false);
+        };
+        if s.epub_library[i].version != version {
+            return Err(RepoError::Stale);
+        }
+        let e = s.epub_library.remove(i);
+        s.log_change(
+            None,
+            "epub_github_library",
+            vec![("user_id", e.user_id.clone()), ("repo", e.repo.clone())],
+            Some(epub_library_row(&e)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
 
 #[async_trait]
 impl TranslationJobRepository for InMemoryStore {

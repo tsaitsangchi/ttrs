@@ -193,7 +193,7 @@ impl ErpWorld {
                     .expect("drop plant schemas");
                 sqlx::query("TRUNCATE change_log, user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, unit, plant, \
-                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year, unit_conversion, translation_job \
+                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year, unit_conversion, translation_job, epub_github_library \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
@@ -264,6 +264,8 @@ impl ErpWorld {
         let rates = rates.with_feed(Arc::new(rate_feed.clone()));
         let github_feed = InMemoryStore::new();
         let github = github_epub.with_source(Arc::new(github_feed.clone()));
+        // 我的 GitHub 書庫（epub_github_library.feature ML8）：清單用該後端，GitHub 用記憶體假來源
+        let epub_search = epub_search.with_github(Arc::new(github_feed.clone()));
         let fake_web = ttrs_app::memory::FakeWeb::default();
         let epub_url = epub_url.with_web(Arc::new(fake_web.clone()));
         let translator = ttrs_app::memory::FakeTranslator::default();
