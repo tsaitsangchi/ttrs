@@ -783,6 +783,90 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 編碼獨立段維護（aooi403；資料不存在時回 ENCODING_SEGMENT_NOT_FOUND，不是權限拒絕）
+        ["查詢編碼獨立段"] => w
+            .encoding_segments
+            .query(a, QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增編碼獨立段", code] => w
+            .encoding_segments
+            .create(
+                a,
+                ttrs_shared::EncodingSegmentInput {
+                    segment_code: (*code).to_owned(),
+                    name: None,
+                    length: Some(2),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["修改編碼獨立段", code] => w
+            .encoding_segments
+            .update(
+                a,
+                code,
+                ttrs_shared::EncodingSegmentInput {
+                    segment_code: (*code).to_owned(),
+                    name: None,
+                    length: Some(2),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["失效編碼獨立段", code] => w
+            .encoding_segments
+            .set_active(a, code, false, None)
+            .await
+            .map(drop),
+        ["刪除編碼獨立段", code] => w.encoding_segments.delete(a, code, None).await,
+        ["複製編碼獨立段", code] => {
+            w.encoding_segments.copy(a, code, "COPY").await.map(drop)
+        }
+        ["維護編碼獨立段", code, "的單身"] => w
+            .encoding_segments
+            .add_value(
+                a,
+                code,
+                ttrs_shared::EncodingSegmentValueInput {
+                    value: "01".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["確認編碼獨立段", code] => w
+            .encoding_segments
+            .confirm(a, code, true, None)
+            .await
+            .map(drop),
+        ["取消確認編碼獨立段", code] => w
+            .encoding_segments
+            .confirm(a, code, false, None)
+            .await
+            .map(drop),
+        ["列印編碼獨立段"] => w
+            .encoding_segments
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出編碼獨立段為", "Excel"] => w
+            .encoding_segments
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         ["查詢單位"] => w.units.query(a, QueryRequest::default()).await.map(drop),
         ["新增單位", code] => {
             let req = ttrs_shared::UnitInput {

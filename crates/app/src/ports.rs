@@ -1015,6 +1015,34 @@ pub trait EncodingNatureRepository: Send + Sync {
     ) -> Result<bool, RepoError>;
 }
 
+/// 編碼獨立段（gej_file 單頭、gek_file 單身；encoding_segment.feature）。共用 schema；單頭與單身一起存取
+#[async_trait]
+pub trait EncodingSegmentRepository: Send + Sync {
+    /// 全部獨立段（含單身），依編號排序
+    async fn list_encoding_segments(
+        &self,
+    ) -> Result<Vec<ttrs_domain::encoding_segment::EncodingSegment>, RepoError>;
+    async fn get_encoding_segment(
+        &self,
+        code: &ttrs_domain::encoding_segment::SegmentCode,
+    ) -> Result<Option<ttrs_domain::encoding_segment::EncodingSegment>, RepoError>;
+    /// 單頭與單身一起新增；編號重複回 `Conflict`
+    async fn insert_encoding_segment(
+        &self,
+        segment: &ttrs_domain::encoding_segment::EncodingSegment,
+    ) -> Result<(), RepoError>;
+    /// 單頭版本不符回 `Stale`；單身只寫入有變動的列（異動記錄只記變動的列）
+    async fn update_encoding_segment(
+        &self,
+        segment: &ttrs_domain::encoding_segment::EncodingSegment,
+    ) -> Result<(), RepoError>;
+    /// 連同單身刪除；已被編碼類別引用時回 `InUse`（IS6）；回傳是否有刪到
+    async fn delete_encoding_segment(
+        &self,
+        code: &ttrs_domain::encoding_segment::SegmentCode,
+    ) -> Result<bool, RepoError>;
+}
+
 /// 我的 GitHub 書庫的一筆（epub_github_library.feature ML1、ML6；表 epub_github_library）
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EpubLibraryEntry {

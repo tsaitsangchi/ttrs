@@ -425,6 +425,18 @@
       | encoding-nature-maintenance | output        | 列印編碼性質               |
       | encoding-nature-maintenance | exporttoexcel | 匯出編碼性質為 Excel       |
       | encoding-nature-maintenance | history       | 查詢作業 encoding-nature-maintenance A1 的異動記錄 |
+      | encoding-segment-maintenance | query        | 查詢編碼獨立段             |
+      | encoding-segment-maintenance | insert       | 新增編碼獨立段 COLOR       |
+      | encoding-segment-maintenance | modify       | 修改編碼獨立段 COLOR       |
+      | encoding-segment-maintenance | invalid      | 失效編碼獨立段 COLOR       |
+      | encoding-segment-maintenance | delete       | 刪除編碼獨立段 COLOR       |
+      | encoding-segment-maintenance | reproduce    | 複製編碼獨立段 COLOR       |
+      | encoding-segment-maintenance | detail       | 維護編碼獨立段 COLOR 的單身 |
+      | encoding-segment-maintenance | confirm      | 確認編碼獨立段 COLOR       |
+      | encoding-segment-maintenance | notconfirm   | 取消確認編碼獨立段 COLOR   |
+      | encoding-segment-maintenance | output       | 列印編碼獨立段             |
+      | encoding-segment-maintenance | exporttoexcel | 匯出編碼獨立段為 Excel    |
+      | encoding-segment-maintenance | history      | 查詢作業 encoding-segment-maintenance COLOR 的異動記錄 |
       | project-maintenance | query | 查詢專案 |
       | project-maintenance | insert | 新增專案 P1 |
       | project-maintenance | modify | 修改專案 P1 |

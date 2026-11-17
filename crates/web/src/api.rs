@@ -1840,6 +1840,131 @@ pub async fn delete_encoding_nature(code: &str, version: i32) -> Result<(), Stri
     no_content(res).await
 }
 
+// ----- Encoding Segment Maintenance 編碼獨立段維護（TipTop aooi403；共用） -----
+
+fn encoding_segment_url(code: &str, suffix: &str) -> String {
+    if code.is_empty() {
+        url(&format!("/api/encoding-segments{suffix}"))
+    } else {
+        url(&format!(
+            "/api/encoding-segments/{}{suffix}",
+            urlencoding(code)
+        ))
+    }
+}
+
+pub async fn query_encoding_segments(
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::EncodingSegmentDto>, String> {
+    post_query(encoding_segment_url("", "/query"), req).await
+}
+
+pub async fn create_encoding_segment(
+    req: &ttrs_shared::EncodingSegmentInput,
+) -> Result<ttrs_shared::EncodingSegmentDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        encoding_segment_url("", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_encoding_segment(
+    code: &str,
+    req: &ttrs_shared::EncodingSegmentInput,
+) -> Result<ttrs_shared::EncodingSegmentDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        encoding_segment_url(code, ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn copy_encoding_segment(
+    code: &str,
+    new_code: &str,
+) -> Result<ttrs_shared::EncodingSegmentDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        encoding_segment_url(code, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+/// 停用／啟用（activate、deactivate）、確認／取消確認（confirm、unconfirm）
+pub async fn set_encoding_segment_state(
+    code: &str,
+    state: &str,
+    version: i32,
+) -> Result<ttrs_shared::EncodingSegmentDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            encoding_segment_url(code, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_encoding_segment(code: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            encoding_segment_url(code, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 單身：新增一列（line 為 None）或修改一列
+pub async fn save_encoding_segment_value(
+    code: &str,
+    line: Option<i32>,
+    req: &ttrs_shared::EncodingSegmentValueInput,
+) -> Result<ttrs_shared::EncodingSegmentDto, String> {
+    match line {
+        None => {
+            send_json(
+                reqwest::Method::POST,
+                encoding_segment_url(code, "/values"),
+                Some(req),
+            )
+            .await
+        }
+        Some(l) => {
+            send_json(
+                reqwest::Method::PUT,
+                encoding_segment_url(code, &format!("/values/{l}")),
+                Some(req),
+            )
+            .await
+        }
+    }
+}
+
+pub async fn remove_encoding_segment_value(
+    code: &str,
+    line: i32,
+    version: i32,
+) -> Result<ttrs_shared::EncodingSegmentDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::DELETE,
+        format!(
+            "{}?version={version}",
+            encoding_segment_url(code, &format!("/values/{line}"))
+        ),
+        None,
+    )
+    .await
+}
+
 // ----- Product Classification 產品分類維護（TipTop axmi110；工廠層） -----
 
 pub async fn create_product_class(

@@ -63,6 +63,7 @@ pub struct AppState {
     /// 單位維護（aooi101；unit_maintenance.feature）
     pub units: ttrs_app::UnitService,
     pub encoding_natures: ttrs_app::EncodingNatureService,
+    pub encoding_segments: ttrs_app::EncodingSegmentService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
     pub basic_codes: ttrs_app::BasicCodeService,
     /// 幣別維護（aooi050；共用）
@@ -156,6 +157,7 @@ impl AppState {
             menus,
             units,
             encoding_natures,
+            encoding_segments,
             basic_codes,
             currencies,
             rates,
@@ -193,6 +195,7 @@ impl AppState {
             menus,
             units,
             encoding_natures,
+            encoding_segments,
             basic_codes,
             currencies,
             rates,
@@ -506,6 +509,38 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/encoding-natures/{code}/{state}",
             post(set_encoding_nature_state),
+        )
+        // Encoding Segment Maintenance 編碼獨立段維護（TipTop aooi403；共用；encoding_segment.feature）
+        .route("/api/encoding-segments", post(create_encoding_segment))
+        .route(
+            "/api/encoding-segments/query",
+            post(query_encoding_segments),
+        )
+        .route(
+            "/api/encoding-segments/report.{format}",
+            get(encoding_segment_report),
+        )
+        .route(
+            "/api/encoding-segments/{code}/copy",
+            post(copy_encoding_segment),
+        )
+        .route(
+            "/api/encoding-segments/{code}/values",
+            post(add_encoding_segment_value),
+        )
+        .route(
+            "/api/encoding-segments/{code}/values/{line}",
+            axum::routing::put(update_encoding_segment_value).delete(remove_encoding_segment_value),
+        )
+        .route(
+            "/api/encoding-segments/{code}",
+            get(get_encoding_segment)
+                .put(update_encoding_segment)
+                .delete(delete_encoding_segment),
+        )
+        .route(
+            "/api/encoding-segments/{code}/{state}",
+            post(set_encoding_segment_state),
         )
         // Tax Type Maintenance 稅別維護（TipTop aooi150；共用）：鍵值為稅別碼＋進銷項
         .route("/api/tax-types", get(list_tax_types).post(create_tax_type))
@@ -1589,6 +1624,8 @@ impl IntoResponse for HttpError {
             | "CODE_NOT_FOUND"
             | "UNIT_NOT_FOUND"
             | "ENCODING_NATURE_NOT_FOUND"
+            | "ENCODING_SEGMENT_NOT_FOUND"
+            | "ENCODING_SEGMENT_LINE_NOT_FOUND"
             | "PRODUCT_CLASS_NOT_FOUND"
             | "ITEM_GROUP_NOT_FOUND"
             | "CURRENCY_NOT_FOUND"
@@ -1645,6 +1682,12 @@ impl IntoResponse for HttpError {
             | "UNIT_IN_USE"
             | "ENCODING_NATURE_ALREADY_EXISTS"
             | "ENCODING_NATURE_IN_USE"
+            | "ENCODING_SEGMENT_ALREADY_EXISTS"
+            | "ENCODING_SEGMENT_IN_USE"
+            | "ENCODING_SEGMENT_INACTIVE"
+            | "ENCODING_SEGMENT_LENGTH_HAS_VALUES"
+            | "ENCODING_SEGMENT_VALUE_DUPLICATE"
+            | "ENCODING_SEGMENT_LINE_DUPLICATE"
             | "PRODUCT_CLASS_ALREADY_EXISTS"
             | "PRODUCT_CLASS_IN_USE"
             | "ITEM_GROUP_ALREADY_EXISTS"
@@ -3303,6 +3346,140 @@ async fn delete_encoding_nature(
 ) -> ApiResult<StatusCode> {
     let version = Some(require_version(v.version)?);
     s.encoding_natures.delete(&s.actor, &code, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- Encoding Segment Maintenance 編碼獨立段維護（aooi403） -----
+
+use ttrs_shared::{EncodingSegmentDto, EncodingSegmentInput, EncodingSegmentValueInput};
+
+async fn get_encoding_segment(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+) -> ApiResult<Json<EncodingSegmentDto>> {
+    Ok(Json(s.encoding_segments.get(&s.actor, &code).await?))
+}
+
+async fn create_encoding_segment(
+    Ctx(s): Ctx,
+    Json(req): Json<EncodingSegmentInput>,
+) -> ApiResult<(StatusCode, Json<EncodingSegmentDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.encoding_segments.create(&s.actor, req).await?),
+    ))
+}
+
+async fn update_encoding_segment(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<EncodingSegmentInput>,
+) -> ApiResult<Json<EncodingSegmentDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.encoding_segments.update(&s.actor, &code, req).await?,
+    ))
+}
+
+/// 單身新增一列（detail）
+async fn add_encoding_segment_value(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<EncodingSegmentValueInput>,
+) -> ApiResult<Json<EncodingSegmentDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.encoding_segments.add_value(&s.actor, &code, req).await?,
+    ))
+}
+
+/// 單身修改一列（detail）
+async fn update_encoding_segment_value(
+    Ctx(s): Ctx,
+    Path((code, line)): Path<(String, i32)>,
+    Json(req): Json<EncodingSegmentValueInput>,
+) -> ApiResult<Json<EncodingSegmentDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.encoding_segments
+            .update_value(&s.actor, &code, line, req)
+            .await?,
+    ))
+}
+
+/// 單身刪除一列（detail）
+async fn remove_encoding_segment_value(
+    Ctx(s): Ctx,
+    Path((code, line)): Path<(String, i32)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<EncodingSegmentDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.encoding_segments
+            .remove_value(&s.actor, &code, line, version)
+            .await?,
+    ))
+}
+
+/// 停用（deactivate）、啟用（activate）、確認（confirm）、取消確認（unconfirm）
+async fn set_encoding_segment_state(
+    Ctx(s): Ctx,
+    Path((code, state)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let g = &s.encoding_segments;
+    let dto = match state.as_str() {
+        "activate" => g.set_active(&s.actor, &code, true, version).await?,
+        "deactivate" => g.set_active(&s.actor, &code, false, version).await?,
+        "confirm" => g.confirm(&s.actor, &code, true, version).await?,
+        "unconfirm" => g.confirm(&s.actor, &code, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn query_encoding_segments(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<EncodingSegmentDto>>> {
+    Ok(Json(s.encoding_segments.query(&s.actor, req).await?))
+}
+
+async fn copy_encoding_segment(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<EncodingSegmentDto>)> {
+    let g = s
+        .encoding_segments
+        .copy(&s.actor, &code, &req.new_code)
+        .await?;
+    Ok((StatusCode::CREATED, Json(g)))
+}
+
+async fn encoding_segment_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .encoding_segments
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn delete_encoding_segment(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.encoding_segments.delete(&s.actor, &code, version).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

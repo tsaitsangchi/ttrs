@@ -406,6 +406,37 @@ pub enum DomainError {
     EncodingNatureNotFound,
     #[error("編碼性質已被編碼類別使用，不可刪除或變更類別；請改為停用")]
     EncodingNatureInUse,
+    // ----- 編碼獨立段（aooi403 / gej_file、gek_file；encoding_segment.feature） -----
+    #[error("獨立段編號不可空白")]
+    EncodingSegmentCodeEmpty,
+    #[error("獨立段編號長度不可超過 {max} 碼")]
+    EncodingSegmentCodeTooLong { max: usize },
+    #[error("長度必須是 1 到 {max}")]
+    EncodingSegmentLengthInvalid { max: i16 },
+    #[error("獨立段已存在")]
+    EncodingSegmentAlreadyExists,
+    #[error("獨立段不存在")]
+    EncodingSegmentNotFound,
+    #[error("獨立段已被編碼類別使用，不可刪除；請改為停用")]
+    EncodingSegmentInUse,
+    #[error("獨立段已停用，請先啟用再修改")]
+    EncodingSegmentInactive,
+    #[error("已有編碼編號時不可修改長度；要改長度請先刪除單身")]
+    EncodingSegmentLengthHasValues,
+    #[error("編碼編號不可空白")]
+    EncodingSegmentValueEmpty,
+    #[error("編碼編號長度必須是 {length} 碼（等於獨立段的長度）")]
+    EncodingSegmentValueLengthMismatch { length: i16 },
+    #[error("編碼編號不可含 * % _ ? 與空白")]
+    EncodingSegmentValueInvalidChar,
+    #[error("同一獨立段內編碼編號不可重複")]
+    EncodingSegmentValueDuplicate,
+    #[error("項次必須是正整數")]
+    EncodingSegmentLineInvalid,
+    #[error("項次重複")]
+    EncodingSegmentLineDuplicate,
+    #[error("找不到這個項次")]
+    EncodingSegmentLineNotFound,
     // ----- 我的 GitHub 書庫（epub_github_library.feature） -----
     #[error("「{0}」已在你的 GitHub 書庫")]
     EpubLibraryDuplicate(String),
@@ -801,6 +832,23 @@ impl DomainError {
             Self::EncodingNatureAlreadyExists => "ENCODING_NATURE_ALREADY_EXISTS",
             Self::EncodingNatureNotFound => "ENCODING_NATURE_NOT_FOUND",
             Self::EncodingNatureInUse => "ENCODING_NATURE_IN_USE",
+            Self::EncodingSegmentCodeEmpty => "ENCODING_SEGMENT_CODE_EMPTY",
+            Self::EncodingSegmentCodeTooLong { .. } => "ENCODING_SEGMENT_CODE_TOO_LONG",
+            Self::EncodingSegmentLengthInvalid { .. } => "ENCODING_SEGMENT_LENGTH_INVALID",
+            Self::EncodingSegmentAlreadyExists => "ENCODING_SEGMENT_ALREADY_EXISTS",
+            Self::EncodingSegmentNotFound => "ENCODING_SEGMENT_NOT_FOUND",
+            Self::EncodingSegmentInUse => "ENCODING_SEGMENT_IN_USE",
+            Self::EncodingSegmentInactive => "ENCODING_SEGMENT_INACTIVE",
+            Self::EncodingSegmentLengthHasValues => "ENCODING_SEGMENT_LENGTH_HAS_VALUES",
+            Self::EncodingSegmentValueEmpty => "ENCODING_SEGMENT_VALUE_EMPTY",
+            Self::EncodingSegmentValueLengthMismatch { .. } => {
+                "ENCODING_SEGMENT_VALUE_LENGTH_MISMATCH"
+            }
+            Self::EncodingSegmentValueInvalidChar => "ENCODING_SEGMENT_VALUE_INVALID_CHAR",
+            Self::EncodingSegmentValueDuplicate => "ENCODING_SEGMENT_VALUE_DUPLICATE",
+            Self::EncodingSegmentLineInvalid => "ENCODING_SEGMENT_LINE_INVALID",
+            Self::EncodingSegmentLineDuplicate => "ENCODING_SEGMENT_LINE_DUPLICATE",
+            Self::EncodingSegmentLineNotFound => "ENCODING_SEGMENT_LINE_NOT_FOUND",
             Self::EpubLibraryDuplicate(_) => "EPUB_LIBRARY_DUPLICATE",
             Self::EpubLibraryFull { .. } => "EPUB_LIBRARY_FULL",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",

@@ -68,6 +68,7 @@ pub trait Store:
     + crate::ports::TranslationJobRepository
     + crate::ports::EpubLibraryRepository
     + crate::ports::EncodingNatureRepository
+    + crate::ports::EncodingSegmentRepository
     + crate::ports::EpubSharedLibraryRepository
     + 'static
 {
@@ -111,7 +112,11 @@ impl<T> Store for T where
         + crate::ports::TranslationJobRepository
         + crate::ports::EpubLibraryRepository
         + crate::ports::EncodingNatureRepository
+        + crate::ports::EncodingSegmentRepository
+        + crate::ports::EncodingSegmentRepository
         + crate::ports::EncodingNatureRepository
+        + crate::ports::EncodingSegmentRepository
+        + crate::ports::EncodingSegmentRepository
         + crate::ports::EpubSharedLibraryRepository
         + crate::ports::EpubSharedLibraryRepository
         + 'static
@@ -145,6 +150,7 @@ pub struct Services {
     /// 單位維護（aooi101）
     pub units: UnitService,
     pub encoding_natures: crate::EncodingNatureService,
+    pub encoding_segments: crate::EncodingSegmentService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210）
     pub basic_codes: BasicCodeService,
     /// 幣別維護（aooi050）
@@ -281,6 +287,11 @@ impl Services {
             history: ChangeHistoryService::new(a.clone(), history.clone()),
             units: UnitService::new(a.clone(), store.clone(), reports.clone()),
             encoding_natures: crate::EncodingNatureService::new(
+                a.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
+            encoding_segments: crate::EncodingSegmentService::new(
                 a.clone(),
                 store.clone(),
                 reports.clone(),

@@ -103,6 +103,9 @@ pub struct ErpWorld {
     /// 編碼性質維護（encoding_nature.feature）與「另一位使用者修改」前的版本
     pub encoding_natures: ttrs_app::EncodingNatureService,
     pub nature_version: Option<i32>,
+    /// 編碼獨立段維護（encoding_segment.feature）與「另一位使用者修改」前的版本
+    pub encoding_segments: ttrs_app::EncodingSegmentService,
+    pub segment_version: Option<i32>,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭
     pub basic_codes: ttrs_app::BasicCodeService,
     /// 幣別維護（currency_maintenance.feature）
@@ -196,7 +199,7 @@ impl ErpWorld {
                     .expect("drop plant schemas");
                 sqlx::query("TRUNCATE change_log, user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, unit, plant, \
-                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year, unit_conversion, translation_job, epub_github_library, epub_github_shared_library, encoding_nature \
+                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year, unit_conversion, translation_job, epub_github_library, epub_github_shared_library, encoding_nature, encoding_segment_code, encoding_segment \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
@@ -246,6 +249,7 @@ impl ErpWorld {
             menus,
             units,
             encoding_natures,
+            encoding_segments,
             basic_codes,
             currencies,
             rates,
@@ -319,7 +323,9 @@ impl ErpWorld {
             menus,
             units,
             encoding_natures,
+            encoding_segments,
             nature_version: None,
+            segment_version: None,
             basic_codes,
             currencies,
             rates,

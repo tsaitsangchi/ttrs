@@ -313,3 +313,20 @@ error-ENCODING_NATURE_CATEGORY_INVALID = 类别只能是 1 到 6。
 error-ENCODING_NATURE_ALREADY_EXISTS = 编码性质已存在。
 error-ENCODING_NATURE_NOT_FOUND = 编码性质不存在。
 error-ENCODING_NATURE_IN_USE = 编码性质已被编码类别使用，不可删除或变更类别；请改为停用。
+
+# 編碼獨立段（aooi403）
+error-ENCODING_SEGMENT_CODE_EMPTY = 独立段编号不可空白。
+error-ENCODING_SEGMENT_CODE_TOO_LONG = 独立段编号长度超过上限（最多 10 码）。
+error-ENCODING_SEGMENT_LENGTH_INVALID = 长度必须是 1 到 30。
+error-ENCODING_SEGMENT_ALREADY_EXISTS = 独立段已存在。
+error-ENCODING_SEGMENT_NOT_FOUND = 独立段不存在。
+error-ENCODING_SEGMENT_IN_USE = 独立段已被编码类别使用，不可删除；请改为停用。
+error-ENCODING_SEGMENT_INACTIVE = 独立段已停用，请先启用再修改。
+error-ENCODING_SEGMENT_LENGTH_HAS_VALUES = 已有编码编号时不可修改长度；要改长度请先删除单身。
+error-ENCODING_SEGMENT_VALUE_EMPTY = 编码编号不可空白。
+error-ENCODING_SEGMENT_VALUE_LENGTH_MISMATCH = 编码编号长度必须等于独立段的长度。
+error-ENCODING_SEGMENT_VALUE_INVALID_CHAR = 编码编号不可含 * % _ ? 与空白。
+error-ENCODING_SEGMENT_VALUE_DUPLICATE = 同一独立段内编码编号不可重复。
+error-ENCODING_SEGMENT_LINE_INVALID = 项次必须是正整数。
+error-ENCODING_SEGMENT_LINE_DUPLICATE = 项次重复。
+error-ENCODING_SEGMENT_LINE_NOT_FOUND = 找不到这个项次。

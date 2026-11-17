@@ -239,3 +239,13 @@ encoding-nature-category-3 = 3.供應商編號
 encoding-nature-category-4 = 4.固定資產編號
 encoding-nature-category-5 = 5.批號
 encoding-nature-category-6 = 6.序號
+
+# 編碼獨立段（aooi403）
+encoding-segment-report-title = 編碼獨立段
+encoding-segment-col-code = 獨立段編號
+encoding-segment-col-name = 名稱
+encoding-segment-col-length = 長度
+encoding-segment-col-active = 資料有效
+encoding-segment-col-line = 項次
+encoding-segment-col-value = 編碼編號
+encoding-segment-col-value-name = 編碼名稱

@@ -39,6 +39,12 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
     ("plant-maintenance", &["plant"], "plant_id"),
     ("menu-maintenance", &["menu_item"], "menu_no"),
     ("unit-maintenance", &["unit"], "unit_code"),
+    // 編碼獨立段：單頭與單身一併列出
+    (
+        "encoding-segment-maintenance",
+        &["encoding_segment", "encoding_segment_code"],
+        "segment_code",
+    ),
     (
         "encoding-nature-maintenance",
         &["encoding_nature"],

@@ -1714,6 +1714,82 @@ impl EncodingNatureDto {
     }
 }
 
+/// 編碼獨立段（aooi403 / gej_file、gek_file；encoding_segment.feature）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EncodingSegmentDto {
+    pub segment_code: String,
+    pub name: Option<String>,
+    pub length: i16,
+    /// 單身，依項次排序
+    pub values: Vec<EncodingSegmentValueDto>,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 獨立段單身一列（gek02 項次、gek03 編碼編號、gek04 編碼名稱）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EncodingSegmentValueDto {
+    pub line: i32,
+    pub value: String,
+    pub name: Option<String>,
+}
+
+/// 新增、修改獨立段單頭
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EncodingSegmentInput {
+    pub segment_code: String,
+    pub name: Option<String>,
+    pub length: Option<i16>,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+/// 新增、修改獨立段單身一列；項次空白時為最大項次＋1（IS4）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EncodingSegmentValueInput {
+    pub line: Option<i32>,
+    pub value: String,
+    pub name: Option<String>,
+    /// 單頭的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+impl EncodingSegmentDto {
+    pub fn to_input(&self) -> EncodingSegmentInput {
+        EncodingSegmentInput {
+            segment_code: self.segment_code.clone(),
+            name: self.name.clone(),
+            length: Some(self.length),
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::encoding_segment 一致）
+pub mod encoding_segment_max_len {
+    pub const CODE: usize = 10;
+    pub const NAME: usize = 80;
+    pub const VALUE: usize = 30;
+}
+
 /// 畫面 maxlength（與 ttrs_domain::encoding_nature 一致）
 pub mod encoding_nature_max_len {
     pub const CODE: usize = 2;

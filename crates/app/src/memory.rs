@@ -102,6 +102,8 @@ struct State {
     units: BTreeMap<String, Unit>,
     /// 編碼性質（geh_file；encoding_nature.feature）
     encoding_natures: BTreeMap<String, ttrs_domain::encoding_nature::EncodingNature>,
+    /// 編碼獨立段（gej_file、gek_file；encoding_segment.feature）
+    encoding_segments: BTreeMap<String, ttrs_domain::encoding_segment::EncodingSegment>,
     /// (種類, 代號) → 基本代碼（gea、geb、geo、ged、azh，共用）
     basic_codes: BTreeMap<(BasicCodeKind, String), BasicCode>,
     /// 幣別（azi_file，共用）
@@ -238,6 +240,7 @@ impl InMemoryStore {
                     "unit-conversion-maintenance",
                     "item-unit-conversion-maintenance",
                     "encoding-nature-maintenance",
+                    "encoding-segment-maintenance",
                 ],
             ),
             (
@@ -285,7 +288,11 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 33] = [
+        let names: [(&str, [&str; 3]); 34] = [
+            (
+                "encoding-segment-maintenance",
+                ["編碼獨立段維護", "Encoding Segments", "编码独立段维护"],
+            ),
             (
                 "encoding-nature-maintenance",
                 ["編碼性質維護", "Encoding Natures", "编码性质维护"],
@@ -3038,6 +3045,167 @@ impl crate::ports::EncodingNatureRepository for InMemoryStore {
             "encoding_nature",
             nature_key(&old),
             Some(nature_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+// ----- 編碼獨立段（gej_file、gek_file；encoding_segment.feature） -----
+
+fn segment_key(s: &ttrs_domain::encoding_segment::EncodingSegment) -> Vec<(&'static str, String)> {
+    vec![("segment_code", s.code.as_str().to_owned())]
+}
+
+fn segment_row(s: &ttrs_domain::encoding_segment::EncodingSegment) -> Row {
+    let mut cols = vec![
+        ("segment_code", text::s(s.code.as_str())),
+        ("name", text::opt(s.attrs.name.as_deref())),
+        ("length", text::int(i64::from(s.attrs.length))),
+        ("confirmed", text::b(s.confirmation.confirmed)),
+        ("confirmed_by", text::opt(s.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        s.active,
+        &s.created_by,
+        &s.created_dept,
+        s.created_on,
+        s.updated_by.as_deref(),
+        s.updated_on,
+        &s.stamp,
+    ));
+    row(cols)
+}
+
+fn segment_value_key(
+    code: &str,
+    v: &ttrs_domain::encoding_segment::SegmentValue,
+) -> Vec<(&'static str, String)> {
+    vec![
+        ("segment_code", code.to_owned()),
+        ("line_no", v.line.to_string()),
+    ]
+}
+
+fn segment_value_row(code: &str, v: &ttrs_domain::encoding_segment::SegmentValue) -> Row {
+    row(vec![
+        ("segment_code", text::s(code)),
+        ("line_no", text::int(i64::from(v.line))),
+        ("code_value", text::s(&v.value)),
+        ("name", text::opt(v.name.as_deref())),
+    ])
+}
+
+impl State {
+    /// 單身的異動記錄：只記有變動的列（與 PostgreSQL 觸發器相同）
+    fn log_segment_values(
+        &mut self,
+        code: &str,
+        old: &[ttrs_domain::encoding_segment::SegmentValue],
+        new: &[ttrs_domain::encoding_segment::SegmentValue],
+    ) {
+        for o in old.iter().filter(|o| !new.iter().any(|n| n.line == o.line)) {
+            self.log_change(
+                None,
+                "encoding_segment_code",
+                segment_value_key(code, o),
+                Some(segment_value_row(code, o)),
+                None,
+                &[],
+            );
+        }
+        for n in new {
+            let before = old.iter().find(|o| o.line == n.line);
+            if before != Some(n) {
+                self.log_change(
+                    None,
+                    "encoding_segment_code",
+                    segment_value_key(code, n),
+                    before.map(|b| segment_value_row(code, b)),
+                    Some(segment_value_row(code, n)),
+                    &[],
+                );
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl crate::ports::EncodingSegmentRepository for InMemoryStore {
+    async fn list_encoding_segments(
+        &self,
+    ) -> Result<Vec<ttrs_domain::encoding_segment::EncodingSegment>, RepoError> {
+        Ok(self.lock().encoding_segments.values().cloned().collect())
+    }
+
+    async fn get_encoding_segment(
+        &self,
+        code: &ttrs_domain::encoding_segment::SegmentCode,
+    ) -> Result<Option<ttrs_domain::encoding_segment::EncodingSegment>, RepoError> {
+        Ok(self.lock().encoding_segments.get(code.as_str()).cloned())
+    }
+
+    async fn insert_encoding_segment(
+        &self,
+        segment: &ttrs_domain::encoding_segment::EncodingSegment,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.encoding_segments.contains_key(segment.code.as_str()) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = segment.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            None,
+            "encoding_segment",
+            segment_key(&n),
+            None,
+            Some(segment_row(&n)),
+            &[],
+        );
+        s.log_segment_values(n.code.as_str(), &[], &n.values);
+        s.encoding_segments.insert(n.code.as_str().to_owned(), n);
+        Ok(())
+    }
+
+    async fn update_encoding_segment(
+        &self,
+        segment: &ttrs_domain::encoding_segment::EncodingSegment,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.encoding_segments.get(segment.code.as_str()).cloned() else {
+            return Ok(());
+        };
+        let mut n = segment.clone();
+        n.stamp = bumped(&old.stamp, &segment.stamp)?;
+        s.log_change(
+            None,
+            "encoding_segment",
+            segment_key(&n),
+            Some(segment_row(&old)),
+            Some(segment_row(&n)),
+            &[],
+        );
+        s.log_segment_values(n.code.as_str(), &old.values, &n.values);
+        s.encoding_segments.insert(n.code.as_str().to_owned(), n);
+        Ok(())
+    }
+
+    async fn delete_encoding_segment(
+        &self,
+        code: &ttrs_domain::encoding_segment::SegmentCode,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.encoding_segments.remove(code.as_str()) else {
+            return Ok(false);
+        };
+        s.log_segment_values(old.code.as_str(), &old.values, &[]);
+        s.log_change(
+            None,
+            "encoding_segment",
+            segment_key(&old),
+            Some(segment_row(&old)),
             None,
             &[],
         );

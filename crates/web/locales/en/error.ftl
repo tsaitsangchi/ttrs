@@ -313,3 +313,20 @@ error-ENCODING_NATURE_CATEGORY_INVALID = Category must be 1 to 6.
 error-ENCODING_NATURE_ALREADY_EXISTS = The encoding nature already exists.
 error-ENCODING_NATURE_NOT_FOUND = Encoding nature not found.
 error-ENCODING_NATURE_IN_USE = The encoding nature is used by an encoding class; deactivate it instead.
+
+# 編碼獨立段（aooi403）
+error-ENCODING_SEGMENT_CODE_EMPTY = Segment No. is required.
+error-ENCODING_SEGMENT_CODE_TOO_LONG = Segment No. is too long (at most 10 characters).
+error-ENCODING_SEGMENT_LENGTH_INVALID = Length must be 1 to 30.
+error-ENCODING_SEGMENT_ALREADY_EXISTS = The segment already exists.
+error-ENCODING_SEGMENT_NOT_FOUND = Segment not found.
+error-ENCODING_SEGMENT_IN_USE = The segment is used by an encoding class; deactivate it instead.
+error-ENCODING_SEGMENT_INACTIVE = The segment is inactive; activate it before editing.
+error-ENCODING_SEGMENT_LENGTH_HAS_VALUES = The length cannot change while the segment has codes; delete the codes first.
+error-ENCODING_SEGMENT_VALUE_EMPTY = Code No. is required.
+error-ENCODING_SEGMENT_VALUE_LENGTH_MISMATCH = Code No. must be exactly as long as the segment length.
+error-ENCODING_SEGMENT_VALUE_INVALID_CHAR = Code No. cannot contain * % _ ? or spaces.
+error-ENCODING_SEGMENT_VALUE_DUPLICATE = Code No. is already used in this segment.
+error-ENCODING_SEGMENT_LINE_INVALID = Line No. must be a positive whole number.
+error-ENCODING_SEGMENT_LINE_DUPLICATE = Line No. already exists.
+error-ENCODING_SEGMENT_LINE_NOT_FOUND = Line not found.

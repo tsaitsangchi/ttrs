@@ -173,6 +173,47 @@ tables:
       - { legacy: geh03, type: varchar2(15), sch: 檔案名稱, reason: "由類別決定的固定值、畫面不能輸入（FUN-7C0084）；TTRS 由程式依類別決定號碼用在哪張表（EN5）", verify: true, verify_note: "轉檔時若正式區有不是固定值（ima_file、occ_file、pmc_file、faj_file、rvbs_file）的舊資料，請 Key User 確認怎麼處理" }
       - { legacy: geh05, type: varchar2(10), sch: 索引值, reason: "同 geh03；s_auno 用它組 SQL 找最大號，TTRS 不以字串組 SQL（EN5）", verify: true, verify_note: "同 geh03：非固定值（ima01、occ01、pmc01、faj02、rvbs04、rvbs03）的舊資料待確認" }
 
+  - legacy: gej_file
+    target: encoding_segment
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（IS2），轉入以總公司資料為準，差異請 Key User 確認"
+    verify: true
+    program: aooi403（Encoding Segment Maintenance 編碼獨立段維護）
+    spec: specs/features/aoo/encoding_segment.feature
+    note: "獨立段資料單頭檔；migrations/0058_encoding_segment.sql。編碼類別 gel05 引用（aooi402 移植時接上）"
+    columns:
+      - { legacy: gej01,   type: varchar2(10) PK NOT NULL, target: segment_code, sch: 獨立段編號, note: "區分大小寫、最多 10 字、建立後不可修改（IS3；TipTop g_chkey 可開放改鍵值，TTRS 不開放）" }
+      - { legacy: gej02,   type: varchar2(80), target: name, sch: 名稱 }
+      - { legacy: gej03,   type: number(5), target: length, sch: 長度, note: "必填、1–30；已有單身時不可修改（IS3、IS5）" }
+      - { legacy: gejacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean；停用的不可修改（IS5）" }
+      - { legacy: gejuser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: gejgrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
+      - { legacy: gejmodu, type: varchar2(10), target: updated_by, sch: 資料修改者, note: "修改單身時一併更新（FUN-5B0136）" }
+      - { legacy: gejdate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）；轉入的既有資料視為已確認" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+    not_ported:
+      - { legacy: gej04, type: varchar2(1), sch: No Use, reason: ".sch 註明 No Use（IS7）" }
+      - { legacy: gej05, type: varchar2(1), sch: No Use, reason: ".sch 註明 No Use（IS7）" }
+      - { legacy: gej06, type: varchar2(1), sch: No Use, reason: ".sch 註明 No Use（IS7）" }
+
+  - legacy: gek_file
+    target: encoding_segment_code
+    scope: system
+    program: aooi403 單身
+    spec: specs/features/aoo/encoding_segment.feature
+    note: "獨立段資料單身檔；刪除單頭時一併刪除"
+    columns:
+      - { legacy: gek01, type: varchar2(10) PK NOT NULL, target: segment_code, sch: 獨立段編號 }
+      - { legacy: gek02, type: number(5) PK NOT NULL, target: line_no, sch: 項次, note: "正整數、同一獨立段內不可重複；預設最大＋1（IS4）" }
+      - { legacy: gek03, type: varchar2(30), target: code_value, sch: 編碼編號, note: "必填、長度等於單頭長度、不可含 * % _ ? 與空白、同一獨立段內不可重複（IS4）", verify: true, verify_note: "轉檔前請確認正式區沒有同一獨立段內重複的編碼編號（TipTop 不檢查）" }
+      - { legacy: gek04, type: varchar2(80), target: name, sch: 編碼名稱 }
+    not_ported:
+      - { legacy: gek05, type: varchar2(1), sch: No Use, reason: ".sch 註明 No Use（IS7）" }
+      - { legacy: gek06, type: varchar2(1), sch: No Use, reason: ".sch 註明 No Use（IS7）" }
+      - { legacy: gek07, type: varchar2(1), sch: No Use, reason: ".sch 註明 No Use（IS7）" }
+      - { legacy: gek08, type: varchar2(1), sch: No Use, reason: ".sch 註明 No Use（IS7）" }
+
   # ----- 基本代碼（migrations/0041_basic_codes.sql；basic_code_service.rs） -----
   - legacy: gea_file
     target: region

@@ -239,3 +239,13 @@ encoding-nature-category-3 = 3.Supplier No.
 encoding-nature-category-4 = 4.Fixed Asset No.
 encoding-nature-category-5 = 5.Lot No.
 encoding-nature-category-6 = 6.Serial No.
+
+# 編碼獨立段（aooi403）
+encoding-segment-report-title = Encoding Segments
+encoding-segment-col-code = Segment No.
+encoding-segment-col-name = Name
+encoding-segment-col-length = Length
+encoding-segment-col-active = Active
+encoding-segment-col-line = Line No.
+encoding-segment-col-value = Code No.
+encoding-segment-col-value-name = Code Name

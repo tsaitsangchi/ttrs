@@ -1310,6 +1310,77 @@ pub mod encoding_nature {
     }
 }
 
+pub mod encoding_segment {
+    use ttrs_domain::{encoding_segment::EncodingSegment, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    /// aooi403.4gl:108-205 的查詢欄位：單頭 gej01、gej02、gej03 與狀態欄位，單身 gek02、gek03、gek04
+    /// （單身條件符合任一列即符合）
+    pub const FIELDS: &[Field] = &[
+        field("segment_code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("length", FieldType::Integer),
+        field("line", FieldType::Integer),
+        field("value", FieldType::Text),
+        field("value_name", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(s: &EncodingSegment, field: &str) -> FieldValue {
+        match field {
+            "segment_code" => text(s.code.as_str()),
+            "name" => opt_text(s.attrs.name.as_deref()),
+            "length" => int(i32::from(s.attrs.length)),
+            "line" => FieldValue::Set(
+                s.values
+                    .iter()
+                    .map(|v| QbeValue::Integer(i64::from(v.line)))
+                    .collect(),
+            ),
+            "value" => FieldValue::Set(
+                s.values
+                    .iter()
+                    .map(|v| QbeValue::Text(v.value.clone()))
+                    .collect(),
+            ),
+            "value_name" => FieldValue::Set(
+                s.values
+                    .iter()
+                    .filter_map(|v| v.name.clone().map(QbeValue::Text))
+                    .collect(),
+            ),
+            other => confirm_value(other, &s.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(s.active),
+                        &s.created_by,
+                        &s.created_dept,
+                        Some(s.created_on),
+                        s.updated_by.as_deref(),
+                        s.updated_on,
+                        s.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
 pub mod unit_conversion {
     use ttrs_domain::{qbe::FieldType, unit_conversion::UnitConversion};
     use ttrs_shared::QbeCondition;

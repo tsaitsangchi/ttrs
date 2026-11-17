@@ -158,6 +158,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "query, detail, history, reproduce, confirm, notconfirm, output, exporttoexcel",
     ),
+    // 編碼獨立段（IS8）：單頭單身，沿用 TipTop 功能代號並補上確認與異動記錄
+    (
+        "encoding-segment-maintenance",
+        "aooi403",
+        "AOO",
+        "insert, query, modify, delete, invalid, reproduce, detail, history, confirm, notconfirm, output, exporttoexcel",
+    ),
     // 單位換算（UC9）：比照單位維護
     (
         "unit-conversion-maintenance",
