@@ -330,3 +330,12 @@ error-ENCODING_SEGMENT_VALUE_DUPLICATE = （使用伺服器訊息）
 error-ENCODING_SEGMENT_LINE_INVALID = （使用伺服器訊息）
 error-ENCODING_SEGMENT_LINE_DUPLICATE = （使用伺服器訊息）
 error-ENCODING_SEGMENT_LINE_NOT_FOUND = （使用伺服器訊息）
+
+# 編碼年對照（aooi404）
+error-ENCODING_YEAR_INVALID = （使用伺服器訊息）
+error-ENCODING_YEAR_CODE_EMPTY = （使用伺服器訊息）
+error-ENCODING_YEAR_CODE_TOO_LONG = （使用伺服器訊息）
+error-ENCODING_YEAR_CODE_INVALID_CHAR = （使用伺服器訊息）
+error-ENCODING_YEAR_ALREADY_EXISTS = （使用伺服器訊息）
+error-ENCODING_YEAR_NOT_FOUND = （使用伺服器訊息）
+error-ENCODING_YEAR_LENGTH_CHANGED = （使用伺服器訊息）

@@ -1381,6 +1381,55 @@ pub mod encoding_segment {
     }
 }
 
+pub mod encoding_year {
+    use ttrs_domain::{encoding_year::EncodingYear, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    /// aooi404.4gl:338-381 的查詢欄位（gff01、gff02、gff03）加上確認與「狀態」欄位
+    pub const FIELDS: &[Field] = &[
+        field("year", FieldType::Integer),
+        field("length", FieldType::Integer),
+        field("code_value", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(y: &EncodingYear, field: &str) -> FieldValue {
+        match field {
+            "year" => int(y.year),
+            "length" => int(i32::from(y.length)),
+            "code_value" => text(&y.code_value),
+            other => confirm_value(other, &y.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(y.active),
+                        &y.created_by,
+                        &y.created_dept,
+                        Some(y.created_on),
+                        y.updated_by.as_deref(),
+                        y.updated_on,
+                        y.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
 pub mod unit_conversion {
     use ttrs_domain::{qbe::FieldType, unit_conversion::UnitConversion};
     use ttrs_shared::QbeCondition;

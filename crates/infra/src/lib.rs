@@ -16,6 +16,7 @@ mod pg_department;
 mod pg_dictionary;
 mod pg_encoding_nature;
 mod pg_encoding_segment;
+mod pg_encoding_year;
 mod pg_epub_library;
 mod pg_epub_shared_library;
 mod pg_exchange_rate;

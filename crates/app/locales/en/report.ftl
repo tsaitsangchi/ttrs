@@ -249,3 +249,10 @@ encoding-segment-col-active = Active
 encoding-segment-col-line = Line No.
 encoding-segment-col-value = Code No.
 encoding-segment-col-value-name = Code Name
+
+# 編碼年對照（aooi404）
+encoding-year-report-title = Encoding Year Codes
+encoding-year-col-year = Year
+encoding-year-col-length = Length
+encoding-year-col-code = Code No.
+encoding-year-col-active = Active

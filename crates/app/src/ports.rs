@@ -1043,6 +1043,32 @@ pub trait EncodingSegmentRepository: Send + Sync {
     ) -> Result<bool, RepoError>;
 }
 
+/// 編碼年對照（gff_file；encoding_year.feature）。共用 schema；主鍵為年＋長度
+#[async_trait]
+pub trait EncodingYearRepository: Send + Sync {
+    /// 全部對照，依年、長度排序
+    async fn list_encoding_years(
+        &self,
+    ) -> Result<Vec<ttrs_domain::encoding_year::EncodingYear>, RepoError>;
+    async fn get_encoding_year(
+        &self,
+        year: i32,
+        length: i16,
+    ) -> Result<Option<ttrs_domain::encoding_year::EncodingYear>, RepoError>;
+    /// 年＋長度重複回 `Conflict`
+    async fn insert_encoding_year(
+        &self,
+        y: &ttrs_domain::encoding_year::EncodingYear,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`
+    async fn update_encoding_year(
+        &self,
+        y: &ttrs_domain::encoding_year::EncodingYear,
+    ) -> Result<(), RepoError>;
+    /// 回傳是否有刪到
+    async fn delete_encoding_year(&self, year: i32, length: i16) -> Result<bool, RepoError>;
+}
+
 /// 我的 GitHub 書庫的一筆（epub_github_library.feature ML1、ML6；表 epub_github_library）
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EpubLibraryEntry {

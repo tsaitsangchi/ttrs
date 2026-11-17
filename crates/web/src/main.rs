@@ -17,10 +17,10 @@ use pages::{
         AccountingPeriodMaintenance, AreaMaintenance, ClassificationCodeMaintenance,
         CountryMaintenance, CurrencyMaintenance, DailyRateCopy, DailyRateMaintenance,
         DepartmentMaintenance, EmployeeMaintenance, EncodingNatureMaintenance,
-        EncodingSegmentMaintenance, GeneralParameters, ItemUnitConversionMaintenance,
-        MonthlyRateMaintenance, PlantMaintenance, ProjectMaintenance, RegionMaintenance,
-        ReportTitleMaintenance, ShippingMethodMaintenance, TaxTypeMaintenance,
-        UnitConversionMaintenance, UnitMaintenance,
+        EncodingSegmentMaintenance, EncodingYearMaintenance, GeneralParameters,
+        ItemUnitConversionMaintenance, MonthlyRateMaintenance, PlantMaintenance,
+        ProjectMaintenance, RegionMaintenance, ReportTitleMaintenance, ShippingMethodMaintenance,
+        TaxTypeMaintenance, UnitConversionMaintenance, UnitMaintenance,
     },
     axm::ProductClassificationMaintenance,
     azz::{
@@ -68,6 +68,9 @@ enum Route {
         /// Encoding Segment Maintenance 編碼獨立段維護（TipTop aooi403）
         #[route("/aoo/encoding-segment-maintenance")]
         EncodingSegmentMaintenance {},
+        /// Encoding Year Maintenance 編碼年對照維護（TipTop aooi404）
+        #[route("/aoo/encoding-year-maintenance")]
+        EncodingYearMaintenance {},
         /// Unit Maintenance 單位維護（TipTop aooi101）
         #[route("/aoo/unit-maintenance")]
         UnitMaintenance {},
@@ -228,6 +231,11 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
             Tone::Success,
         ),
         "unit-maintenance" => (Route::UnitMaintenance {}, icons::STRAIGHTEN, Tone::Success),
+        "encoding-year-maintenance" => (
+            Route::EncodingYearMaintenance {},
+            icons::CALENDAR_MONTH,
+            Tone::Success,
+        ),
         "encoding-segment-maintenance" => (
             Route::EncodingSegmentMaintenance {},
             icons::LIST,

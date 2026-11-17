@@ -249,3 +249,10 @@ encoding-segment-col-active = 资料有效
 encoding-segment-col-line = 项次
 encoding-segment-col-value = 编码编号
 encoding-segment-col-value-name = 编码名称
+
+# 編碼年對照（aooi404）
+encoding-year-report-title = 编码年对照
+encoding-year-col-year = 年
+encoding-year-col-length = 长度
+encoding-year-col-code = 编码编号
+encoding-year-col-active = 资料有效

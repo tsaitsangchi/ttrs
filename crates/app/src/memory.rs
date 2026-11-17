@@ -104,6 +104,8 @@ struct State {
     encoding_natures: BTreeMap<String, ttrs_domain::encoding_nature::EncodingNature>,
     /// 編碼獨立段（gej_file、gek_file；encoding_segment.feature）
     encoding_segments: BTreeMap<String, ttrs_domain::encoding_segment::EncodingSegment>,
+    /// 編碼年對照（gff_file；encoding_year.feature），鍵為（年, 長度）
+    encoding_years: BTreeMap<(i32, i16), ttrs_domain::encoding_year::EncodingYear>,
     /// (種類, 代號) → 基本代碼（gea、geb、geo、ged、azh，共用）
     basic_codes: BTreeMap<(BasicCodeKind, String), BasicCode>,
     /// 幣別（azi_file，共用）
@@ -241,6 +243,7 @@ impl InMemoryStore {
                     "item-unit-conversion-maintenance",
                     "encoding-nature-maintenance",
                     "encoding-segment-maintenance",
+                    "encoding-year-maintenance",
                 ],
             ),
             (
@@ -288,7 +291,11 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 34] = [
+        let names: [(&str, [&str; 3]); 35] = [
+            (
+                "encoding-year-maintenance",
+                ["編碼年對照維護", "Encoding Year Codes", "编码年对照维护"],
+            ),
             (
                 "encoding-segment-maintenance",
                 ["編碼獨立段維護", "Encoding Segments", "编码独立段维护"],
@@ -3206,6 +3213,112 @@ impl crate::ports::EncodingSegmentRepository for InMemoryStore {
             "encoding_segment",
             segment_key(&old),
             Some(segment_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+// ----- 編碼年對照（gff_file；encoding_year.feature） -----
+
+fn year_code_key(y: &ttrs_domain::encoding_year::EncodingYear) -> Vec<(&'static str, String)> {
+    vec![
+        ("year", y.year.to_string()),
+        ("length", y.length.to_string()),
+    ]
+}
+
+fn year_code_row(y: &ttrs_domain::encoding_year::EncodingYear) -> Row {
+    let mut cols = vec![
+        ("year", text::int(i64::from(y.year))),
+        ("length", text::int(i64::from(y.length))),
+        ("code_value", text::s(&y.code_value)),
+        ("confirmed", text::b(y.confirmation.confirmed)),
+        ("confirmed_by", text::opt(y.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        y.active,
+        &y.created_by,
+        &y.created_dept,
+        y.created_on,
+        y.updated_by.as_deref(),
+        y.updated_on,
+        &y.stamp,
+    ));
+    row(cols)
+}
+
+#[async_trait]
+impl crate::ports::EncodingYearRepository for InMemoryStore {
+    async fn list_encoding_years(
+        &self,
+    ) -> Result<Vec<ttrs_domain::encoding_year::EncodingYear>, RepoError> {
+        Ok(self.lock().encoding_years.values().cloned().collect())
+    }
+
+    async fn get_encoding_year(
+        &self,
+        year: i32,
+        length: i16,
+    ) -> Result<Option<ttrs_domain::encoding_year::EncodingYear>, RepoError> {
+        Ok(self.lock().encoding_years.get(&(year, length)).cloned())
+    }
+
+    async fn insert_encoding_year(
+        &self,
+        y: &ttrs_domain::encoding_year::EncodingYear,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.encoding_years.contains_key(&(y.year, y.length)) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = y.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            None,
+            "encoding_year_code",
+            year_code_key(&n),
+            None,
+            Some(year_code_row(&n)),
+            &[],
+        );
+        s.encoding_years.insert((n.year, n.length), n);
+        Ok(())
+    }
+
+    async fn update_encoding_year(
+        &self,
+        y: &ttrs_domain::encoding_year::EncodingYear,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.encoding_years.get(&(y.year, y.length)).cloned() else {
+            return Ok(());
+        };
+        let mut n = y.clone();
+        n.stamp = bumped(&old.stamp, &y.stamp)?;
+        s.log_change(
+            None,
+            "encoding_year_code",
+            year_code_key(&n),
+            Some(year_code_row(&old)),
+            Some(year_code_row(&n)),
+            &[],
+        );
+        s.encoding_years.insert((n.year, n.length), n);
+        Ok(())
+    }
+
+    async fn delete_encoding_year(&self, year: i32, length: i16) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.encoding_years.remove(&(year, length)) else {
+            return Ok(false);
+        };
+        s.log_change(
+            None,
+            "encoding_year_code",
+            year_code_key(&old),
+            Some(year_code_row(&old)),
             None,
             &[],
         );

@@ -1790,6 +1790,69 @@ pub mod encoding_segment_max_len {
     pub const VALUE: usize = 30;
 }
 
+/// 編碼年對照（aooi404 / gff_file；encoding_year.feature）：主鍵為年＋長度
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EncodingYearDto {
+    pub year: i32,
+    /// 編碼編號的字數
+    pub length: i16,
+    pub code_value: String,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 新增、修改編碼年對照（長度由編碼編號帶出）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EncodingYearInput {
+    pub year: Option<i32>,
+    pub code_value: String,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+/// 複製編碼年對照到新的年
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct EncodingYearCopyRequest {
+    pub new_year: Option<i32>,
+}
+
+impl EncodingYearDto {
+    /// 畫面上的鍵值與 API 路徑：「年/長度」
+    pub fn key(&self) -> String {
+        format!("{}/{}", self.year, self.length)
+    }
+
+    pub fn to_input(&self) -> EncodingYearInput {
+        EncodingYearInput {
+            year: Some(self.year),
+            code_value: self.code_value.clone(),
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::encoding_year 一致）
+pub mod encoding_year_max_len {
+    pub const CODE: usize = 10;
+}
+
 /// 畫面 maxlength（與 ttrs_domain::encoding_nature 一致）
 pub mod encoding_nature_max_len {
     pub const CODE: usize = 2;

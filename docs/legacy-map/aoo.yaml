@@ -173,6 +173,22 @@ tables:
       - { legacy: geh03, type: varchar2(15), sch: 檔案名稱, reason: "由類別決定的固定值、畫面不能輸入（FUN-7C0084）；TTRS 由程式依類別決定號碼用在哪張表（EN5）", verify: true, verify_note: "轉檔時若正式區有不是固定值（ima_file、occ_file、pmc_file、faj_file、rvbs_file）的舊資料，請 Key User 確認怎麼處理" }
       - { legacy: geh05, type: varchar2(10), sch: 索引值, reason: "同 geh03；s_auno 用它組 SQL 找最大號，TTRS 不以字串組 SQL（EN5）", verify: true, verify_note: "同 geh03：非固定值（ima01、occ01、pmc01、faj02、rvbs04、rvbs03）的舊資料待確認" }
 
+  - legacy: gff_file
+    target: encoding_year_code
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（EY2），轉入以總公司資料為準，差異請 Key User 確認"
+    verify: true
+    program: aooi404（Encoding Year Maintenance 編碼年對照維護）
+    spec: specs/features/aoo/encoding_year.feature
+    note: "編碼年對照表；migrations/0059_encoding_year.sql。自動編號（s_auno）的「年」段取今年、該段長度的編碼編號；編碼類別（aooi402）的年段長度須在此表有資料"
+    columns:
+      - { legacy: gff01, type: number(5) PK NOT NULL, target: year, sch: 年, note: "1–9999（EY3；TipTop 只檢查須大於 0）" }
+      - { legacy: gff02, type: number(5) PK NOT NULL, target: length, sch: 長度, note: "＝編碼編號的字數，自動帶出、不可輸入（EY3）" }
+      - { legacy: gff03, type: varchar2(10), target: code_value, sch: 編碼編號, note: "必填、不可含 * % _ ? 與空白；修改時字數不可變（EY3、EY4）", verify: true, verify_note: "轉檔前請確認正式區的 gff02 都等於 gff03 的字數、gff03 沒有空白或萬用字元（TipTop 不檢查）" }
+      - { legacy: "(無)", target: "active / created_by / created_dept / created_on / updated_by / updated_on", note: "TTRS 新增：資料有效與所有者、修改者（EY5；gff_file 無這些欄位），轉入時資料有效＝是、所有者為轉檔帳號" }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）；轉入的既有資料視為已確認" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+
   - legacy: gej_file
     target: encoding_segment
     scope: system

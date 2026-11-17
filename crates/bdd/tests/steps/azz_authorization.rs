@@ -783,6 +783,83 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 編碼年對照維護（aooi404；資料不存在時回 ENCODING_YEAR_NOT_FOUND，不是權限拒絕）
+        ["查詢編碼年對照"] => w
+            .encoding_years
+            .query(a, QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增編碼年對照", year] => w
+            .encoding_years
+            .create(
+                a,
+                ttrs_shared::EncodingYearInput {
+                    year: year.parse().ok(),
+                    code_value: "Q".into(),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["修改編碼年對照", year] => w
+            .encoding_years
+            .update(
+                a,
+                year.parse().unwrap_or(0),
+                1,
+                ttrs_shared::EncodingYearInput {
+                    year: year.parse().ok(),
+                    code_value: "R".into(),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["停用編碼年對照", year] => w
+            .encoding_years
+            .set_active(a, year.parse().unwrap_or(0), 1, false, None)
+            .await
+            .map(drop),
+        ["刪除編碼年對照", year] => {
+            w.encoding_years
+                .delete(a, year.parse().unwrap_or(0), 1, None)
+                .await
+        }
+        ["複製編碼年對照", year] => w
+            .encoding_years
+            .copy(a, year.parse().unwrap_or(0), 1, Some(2099))
+            .await
+            .map(drop),
+        ["確認編碼年對照", year] => w
+            .encoding_years
+            .confirm(a, year.parse().unwrap_or(0), 1, true, None)
+            .await
+            .map(drop),
+        ["取消確認編碼年對照", year] => w
+            .encoding_years
+            .confirm(a, year.parse().unwrap_or(0), 1, false, None)
+            .await
+            .map(drop),
+        ["列印編碼年對照"] => w
+            .encoding_years
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出編碼年對照為", "Excel"] => w
+            .encoding_years
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         // 編碼獨立段維護（aooi403；資料不存在時回 ENCODING_SEGMENT_NOT_FOUND，不是權限拒絕）
         ["查詢編碼獨立段"] => w
             .encoding_segments

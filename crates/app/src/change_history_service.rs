@@ -39,6 +39,8 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
     ("plant-maintenance", &["plant"], "plant_id"),
     ("menu-maintenance", &["menu_item"], "menu_no"),
     ("unit-maintenance", &["unit"], "unit_code"),
+    // 編碼年對照：以年查詢（各長度一併列出）
+    ("encoding-year-maintenance", &["encoding_year_code"], "year"),
     // 編碼獨立段：單頭與單身一併列出
     (
         "encoding-segment-maintenance",

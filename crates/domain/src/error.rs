@@ -437,6 +437,21 @@ pub enum DomainError {
     EncodingSegmentLineDuplicate,
     #[error("找不到這個項次")]
     EncodingSegmentLineNotFound,
+    // ----- 編碼年對照（aooi404 / gff_file；encoding_year.feature） -----
+    #[error("年必須是 1 到 {max}")]
+    EncodingYearInvalid { max: i32 },
+    #[error("編碼編號不可空白")]
+    EncodingYearCodeEmpty,
+    #[error("編碼編號長度不可超過 {max} 碼")]
+    EncodingYearCodeTooLong { max: usize },
+    #[error("編碼編號不可含 * % _ ? 與空白")]
+    EncodingYearCodeInvalidChar,
+    #[error("這一年已有相同長度的編碼編號")]
+    EncodingYearAlreadyExists,
+    #[error("編碼年對照不存在")]
+    EncodingYearNotFound,
+    #[error("修改時編碼編號必須維持 {length} 碼；要改長度請刪除後重新新增")]
+    EncodingYearLengthChanged { length: i16 },
     // ----- 我的 GitHub 書庫（epub_github_library.feature） -----
     #[error("「{0}」已在你的 GitHub 書庫")]
     EpubLibraryDuplicate(String),
@@ -849,6 +864,13 @@ impl DomainError {
             Self::EncodingSegmentLineInvalid => "ENCODING_SEGMENT_LINE_INVALID",
             Self::EncodingSegmentLineDuplicate => "ENCODING_SEGMENT_LINE_DUPLICATE",
             Self::EncodingSegmentLineNotFound => "ENCODING_SEGMENT_LINE_NOT_FOUND",
+            Self::EncodingYearInvalid { .. } => "ENCODING_YEAR_INVALID",
+            Self::EncodingYearCodeEmpty => "ENCODING_YEAR_CODE_EMPTY",
+            Self::EncodingYearCodeTooLong { .. } => "ENCODING_YEAR_CODE_TOO_LONG",
+            Self::EncodingYearCodeInvalidChar => "ENCODING_YEAR_CODE_INVALID_CHAR",
+            Self::EncodingYearAlreadyExists => "ENCODING_YEAR_ALREADY_EXISTS",
+            Self::EncodingYearNotFound => "ENCODING_YEAR_NOT_FOUND",
+            Self::EncodingYearLengthChanged { .. } => "ENCODING_YEAR_LENGTH_CHANGED",
             Self::EpubLibraryDuplicate(_) => "EPUB_LIBRARY_DUPLICATE",
             Self::EpubLibraryFull { .. } => "EPUB_LIBRARY_FULL",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",

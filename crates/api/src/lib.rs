@@ -64,6 +64,7 @@ pub struct AppState {
     pub units: ttrs_app::UnitService,
     pub encoding_natures: ttrs_app::EncodingNatureService,
     pub encoding_segments: ttrs_app::EncodingSegmentService,
+    pub encoding_years: ttrs_app::EncodingYearService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
     pub basic_codes: ttrs_app::BasicCodeService,
     /// 幣別維護（aooi050；共用）
@@ -158,6 +159,7 @@ impl AppState {
             units,
             encoding_natures,
             encoding_segments,
+            encoding_years,
             basic_codes,
             currencies,
             rates,
@@ -196,6 +198,7 @@ impl AppState {
             units,
             encoding_natures,
             encoding_segments,
+            encoding_years,
             basic_codes,
             currencies,
             rates,
@@ -509,6 +512,27 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/encoding-natures/{code}/{state}",
             post(set_encoding_nature_state),
+        )
+        // Encoding Year Maintenance 編碼年對照維護（TipTop aooi404；共用；encoding_year.feature）：鍵值為年＋長度
+        .route("/api/encoding-years", post(create_encoding_year))
+        .route("/api/encoding-years/query", post(query_encoding_years))
+        .route(
+            "/api/encoding-years/report.{format}",
+            get(encoding_year_report),
+        )
+        .route(
+            "/api/encoding-years/{year}/{length}",
+            get(get_encoding_year)
+                .put(update_encoding_year)
+                .delete(delete_encoding_year),
+        )
+        .route(
+            "/api/encoding-years/{year}/{length}/copy",
+            post(copy_encoding_year),
+        )
+        .route(
+            "/api/encoding-years/{year}/{length}/{state}",
+            post(set_encoding_year_state),
         )
         // Encoding Segment Maintenance 編碼獨立段維護（TipTop aooi403；共用；encoding_segment.feature）
         .route("/api/encoding-segments", post(create_encoding_segment))
@@ -1625,6 +1649,7 @@ impl IntoResponse for HttpError {
             | "UNIT_NOT_FOUND"
             | "ENCODING_NATURE_NOT_FOUND"
             | "ENCODING_SEGMENT_NOT_FOUND"
+            | "ENCODING_YEAR_NOT_FOUND"
             | "ENCODING_SEGMENT_LINE_NOT_FOUND"
             | "PRODUCT_CLASS_NOT_FOUND"
             | "ITEM_GROUP_NOT_FOUND"
@@ -1683,6 +1708,7 @@ impl IntoResponse for HttpError {
             | "ENCODING_NATURE_ALREADY_EXISTS"
             | "ENCODING_NATURE_IN_USE"
             | "ENCODING_SEGMENT_ALREADY_EXISTS"
+            | "ENCODING_YEAR_ALREADY_EXISTS"
             | "ENCODING_SEGMENT_IN_USE"
             | "ENCODING_SEGMENT_INACTIVE"
             | "ENCODING_SEGMENT_LENGTH_HAS_VALUES"
@@ -3346,6 +3372,103 @@ async fn delete_encoding_nature(
 ) -> ApiResult<StatusCode> {
     let version = Some(require_version(v.version)?);
     s.encoding_natures.delete(&s.actor, &code, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- Encoding Year Maintenance 編碼年對照維護（aooi404） -----
+
+use ttrs_shared::{EncodingYearCopyRequest, EncodingYearDto, EncodingYearInput};
+
+async fn get_encoding_year(
+    Ctx(s): Ctx,
+    Path((year, length)): Path<(i32, i16)>,
+) -> ApiResult<Json<EncodingYearDto>> {
+    Ok(Json(s.encoding_years.get(&s.actor, year, length).await?))
+}
+
+async fn create_encoding_year(
+    Ctx(s): Ctx,
+    Json(req): Json<EncodingYearInput>,
+) -> ApiResult<(StatusCode, Json<EncodingYearDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.encoding_years.create(&s.actor, req).await?),
+    ))
+}
+
+async fn update_encoding_year(
+    Ctx(s): Ctx,
+    Path((year, length)): Path<(i32, i16)>,
+    Json(req): Json<EncodingYearInput>,
+) -> ApiResult<Json<EncodingYearDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.encoding_years.update(&s.actor, year, length, req).await?,
+    ))
+}
+
+/// 停用（deactivate）、啟用（activate）、確認（confirm）、取消確認（unconfirm）
+async fn set_encoding_year_state(
+    Ctx(s): Ctx,
+    Path((year, length, state)): Path<(i32, i16, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let y = &s.encoding_years;
+    let a = &s.actor;
+    let dto = match state.as_str() {
+        "activate" => y.set_active(a, year, length, true, version).await?,
+        "deactivate" => y.set_active(a, year, length, false, version).await?,
+        "confirm" => y.confirm(a, year, length, true, version).await?,
+        "unconfirm" => y.confirm(a, year, length, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn query_encoding_years(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<EncodingYearDto>>> {
+    Ok(Json(s.encoding_years.query(&s.actor, req).await?))
+}
+
+async fn copy_encoding_year(
+    Ctx(s): Ctx,
+    Path((year, length)): Path<(i32, i16)>,
+    Json(req): Json<EncodingYearCopyRequest>,
+) -> ApiResult<(StatusCode, Json<EncodingYearDto>)> {
+    let y = s
+        .encoding_years
+        .copy(&s.actor, year, length, req.new_year)
+        .await?;
+    Ok((StatusCode::CREATED, Json(y)))
+}
+
+async fn encoding_year_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .encoding_years
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn delete_encoding_year(
+    Ctx(s): Ctx,
+    Path((year, length)): Path<(i32, i16)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.encoding_years
+        .delete(&s.actor, year, length, version)
+        .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

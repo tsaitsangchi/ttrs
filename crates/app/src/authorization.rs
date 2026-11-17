@@ -165,6 +165,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "insert, query, modify, delete, invalid, reproduce, detail, history, confirm, notconfirm, output, exporttoexcel",
     ),
+    // 編碼年對照（EY8）：比照單位維護
+    (
+        "encoding-year-maintenance",
+        "aooi404",
+        "AOO",
+        "query, detail, history, reproduce, confirm, notconfirm, output, exporttoexcel",
+    ),
     // 單位換算（UC9）：比照單位維護
     (
         "unit-conversion-maintenance",

@@ -1,0 +1,20 @@
+# 編碼年對照維護（TipTop aooi404；specs/features/aoo/encoding_year.feature）
+encoding-year-breadcrumb = General Management / Encoding Year Maintenance
+encoding-year-title = Encoding Year Codes
+encoding-year-list-title = Encoding year codes
+encoding-year-field-year = Year
+encoding-year-field-length = Length
+encoding-year-field-code = Code No.
+encoding-year-action-activate = Activate
+encoding-year-action-deactivate = Deactivate
+encoding-year-dialog-new = New year code
+encoding-year-dialog-edit = Edit year code { $code }
+encoding-year-msg-saved = Year code { $code } saved
+encoding-year-msg-deleted = Year code { $code } deleted
+encoding-year-msg-activated = Year code { $code } activated
+encoding-year-msg-deactivated = Year code { $code } deactivated
+encoding-year-msg-confirmed = Year code { $code } confirmed
+encoding-year-msg-unconfirmed = Year code { $code } unconfirmed
+encoding-year-msg-copied = Copied year code { $from } to { $to }
+encoding-year-field-copy-as = Copy to year
+encoding-year-hint = Length is the number of characters in the code. Year and length cannot change once created; delete and add again to change the length.

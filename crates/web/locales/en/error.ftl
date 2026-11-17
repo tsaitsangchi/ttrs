@@ -330,3 +330,12 @@ error-ENCODING_SEGMENT_VALUE_DUPLICATE = Code No. is already used in this segmen
 error-ENCODING_SEGMENT_LINE_INVALID = Line No. must be a positive whole number.
 error-ENCODING_SEGMENT_LINE_DUPLICATE = Line No. already exists.
 error-ENCODING_SEGMENT_LINE_NOT_FOUND = Line not found.
+
+# 編碼年對照（aooi404）
+error-ENCODING_YEAR_INVALID = Year must be 1 to 9999.
+error-ENCODING_YEAR_CODE_EMPTY = Code No. is required.
+error-ENCODING_YEAR_CODE_TOO_LONG = Code No. is too long (at most 10 characters).
+error-ENCODING_YEAR_CODE_INVALID_CHAR = Code No. cannot contain * % _ ? or spaces.
+error-ENCODING_YEAR_ALREADY_EXISTS = This year already has a code of the same length.
+error-ENCODING_YEAR_NOT_FOUND = Year code not found.
+error-ENCODING_YEAR_LENGTH_CHANGED = The code must keep the same length; delete and add it again to change the length.

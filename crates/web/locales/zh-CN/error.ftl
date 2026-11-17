@@ -330,3 +330,12 @@ error-ENCODING_SEGMENT_VALUE_DUPLICATE = 同一独立段内编码编号不可重
 error-ENCODING_SEGMENT_LINE_INVALID = 项次必须是正整数。
 error-ENCODING_SEGMENT_LINE_DUPLICATE = 项次重复。
 error-ENCODING_SEGMENT_LINE_NOT_FOUND = 找不到这个项次。
+
+# 編碼年對照（aooi404）
+error-ENCODING_YEAR_INVALID = 年必须是 1 到 9999。
+error-ENCODING_YEAR_CODE_EMPTY = 编码编号不可空白。
+error-ENCODING_YEAR_CODE_TOO_LONG = 编码编号长度超过上限（最多 10 码）。
+error-ENCODING_YEAR_CODE_INVALID_CHAR = 编码编号不可含 * % _ ? 与空白。
+error-ENCODING_YEAR_ALREADY_EXISTS = 这一年已有相同长度的编码编号。
+error-ENCODING_YEAR_NOT_FOUND = 编码年对照不存在。
+error-ENCODING_YEAR_LENGTH_CHANGED = 修改时编码编号必须维持原本的长度；要改长度请删除后重新新增。

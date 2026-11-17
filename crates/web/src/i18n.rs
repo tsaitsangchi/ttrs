@@ -73,6 +73,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-TW/unit.ftl"),
         include_str!("../locales/zh-TW/encoding_nature.ftl"),
         include_str!("../locales/zh-TW/encoding_segment.ftl"),
+        include_str!("../locales/zh-TW/encoding_year.ftl"),
         include_str!("../locales/zh-TW/basic_code.ftl"),
         include_str!("../locales/zh-TW/currency.ftl"),
         include_str!("../locales/zh-TW/exchange_rate.ftl"),
@@ -104,6 +105,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/en/unit.ftl"),
         include_str!("../locales/en/encoding_nature.ftl"),
         include_str!("../locales/en/encoding_segment.ftl"),
+        include_str!("../locales/en/encoding_year.ftl"),
         include_str!("../locales/en/basic_code.ftl"),
         include_str!("../locales/en/currency.ftl"),
         include_str!("../locales/en/exchange_rate.ftl"),
@@ -135,6 +137,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-CN/unit.ftl"),
         include_str!("../locales/zh-CN/encoding_nature.ftl"),
         include_str!("../locales/zh-CN/encoding_segment.ftl"),
+        include_str!("../locales/zh-CN/encoding_year.ftl"),
         include_str!("../locales/zh-CN/basic_code.ftl"),
         include_str!("../locales/zh-CN/currency.ftl"),
         include_str!("../locales/zh-CN/exchange_rate.ftl"),
@@ -339,7 +342,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 39] = [
+        const TRANSLATED: [(&str, &str); 40] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/session.rs",
@@ -369,6 +372,10 @@ mod tests {
             (
                 "pages/aim/item_group_maintenance.rs",
                 include_str!("pages/aim/item_group_maintenance.rs"),
+            ),
+            (
+                "pages/aoo/encoding_year_maintenance.rs",
+                include_str!("pages/aoo/encoding_year_maintenance.rs"),
             ),
             (
                 "pages/aoo/encoding_segment_maintenance.rs",

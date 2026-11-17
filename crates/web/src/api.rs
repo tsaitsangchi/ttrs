@@ -1840,6 +1840,76 @@ pub async fn delete_encoding_nature(code: &str, version: i32) -> Result<(), Stri
     no_content(res).await
 }
 
+// ----- Encoding Year Maintenance 編碼年對照維護（TipTop aooi404；共用） -----
+// 鍵值 key 為「年/長度」（EncodingYearDto::key），直接當路徑使用
+
+fn encoding_year_url(key: &str, suffix: &str) -> String {
+    if key.is_empty() {
+        url(&format!("/api/encoding-years{suffix}"))
+    } else {
+        url(&format!("/api/encoding-years/{key}{suffix}"))
+    }
+}
+
+pub async fn query_encoding_years(
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::EncodingYearDto>, String> {
+    post_query(encoding_year_url("", "/query"), req).await
+}
+
+pub async fn create_encoding_year(
+    req: &ttrs_shared::EncodingYearInput,
+) -> Result<ttrs_shared::EncodingYearDto, String> {
+    send_json(reqwest::Method::POST, encoding_year_url("", ""), Some(req)).await
+}
+
+pub async fn update_encoding_year(
+    key: &str,
+    req: &ttrs_shared::EncodingYearInput,
+) -> Result<ttrs_shared::EncodingYearDto, String> {
+    send_json(reqwest::Method::PUT, encoding_year_url(key, ""), Some(req)).await
+}
+
+pub async fn copy_encoding_year(
+    key: &str,
+    new_year: &str,
+) -> Result<ttrs_shared::EncodingYearDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        encoding_year_url(key, "/copy"),
+        Some(&ttrs_shared::EncodingYearCopyRequest {
+            new_year: new_year.trim().parse().ok(),
+        }),
+    )
+    .await
+}
+
+/// 停用／啟用（activate、deactivate）、確認／取消確認（confirm、unconfirm）
+pub async fn set_encoding_year_state(
+    key: &str,
+    state: &str,
+    version: i32,
+) -> Result<ttrs_shared::EncodingYearDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            encoding_year_url(key, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_encoding_year(key: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!("{}?version={version}", encoding_year_url(key, "")))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
 // ----- Encoding Segment Maintenance 編碼獨立段維護（TipTop aooi403；共用） -----
 
 fn encoding_segment_url(code: &str, suffix: &str) -> String {

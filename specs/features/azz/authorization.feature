@@ -437,6 +437,17 @@
       | encoding-segment-maintenance | output       | 列印編碼獨立段             |
       | encoding-segment-maintenance | exporttoexcel | 匯出編碼獨立段為 Excel    |
       | encoding-segment-maintenance | history      | 查詢作業 encoding-segment-maintenance COLOR 的異動記錄 |
+      | encoding-year-maintenance | query         | 查詢編碼年對照             |
+      | encoding-year-maintenance | detail        | 新增編碼年對照 2026        |
+      | encoding-year-maintenance | detail        | 修改編碼年對照 2026        |
+      | encoding-year-maintenance | detail        | 停用編碼年對照 2026        |
+      | encoding-year-maintenance | detail        | 刪除編碼年對照 2026        |
+      | encoding-year-maintenance | reproduce     | 複製編碼年對照 2026        |
+      | encoding-year-maintenance | confirm       | 確認編碼年對照 2026        |
+      | encoding-year-maintenance | notconfirm    | 取消確認編碼年對照 2026    |
+      | encoding-year-maintenance | output        | 列印編碼年對照             |
+      | encoding-year-maintenance | exporttoexcel | 匯出編碼年對照為 Excel     |
+      | encoding-year-maintenance | history       | 查詢作業 encoding-year-maintenance 2026 的異動記錄 |
       | project-maintenance | query | 查詢專案 |
       | project-maintenance | insert | 新增專案 P1 |
       | project-maintenance | modify | 修改專案 P1 |

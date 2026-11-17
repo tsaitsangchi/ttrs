@@ -69,6 +69,7 @@ pub trait Store:
     + crate::ports::EpubLibraryRepository
     + crate::ports::EncodingNatureRepository
     + crate::ports::EncodingSegmentRepository
+    + crate::ports::EncodingYearRepository
     + crate::ports::EpubSharedLibraryRepository
     + 'static
 {
@@ -113,10 +114,18 @@ impl<T> Store for T where
         + crate::ports::EpubLibraryRepository
         + crate::ports::EncodingNatureRepository
         + crate::ports::EncodingSegmentRepository
+        + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingYearRepository
         + crate::ports::EncodingSegmentRepository
+        + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingYearRepository
         + crate::ports::EncodingNatureRepository
         + crate::ports::EncodingSegmentRepository
+        + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingYearRepository
         + crate::ports::EncodingSegmentRepository
+        + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingYearRepository
         + crate::ports::EpubSharedLibraryRepository
         + crate::ports::EpubSharedLibraryRepository
         + 'static
@@ -151,6 +160,7 @@ pub struct Services {
     pub units: UnitService,
     pub encoding_natures: crate::EncodingNatureService,
     pub encoding_segments: crate::EncodingSegmentService,
+    pub encoding_years: crate::EncodingYearService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210）
     pub basic_codes: BasicCodeService,
     /// 幣別維護（aooi050）
@@ -292,6 +302,11 @@ impl Services {
                 reports.clone(),
             ),
             encoding_segments: crate::EncodingSegmentService::new(
+                a.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
+            encoding_years: crate::EncodingYearService::new(
                 a.clone(),
                 store.clone(),
                 reports.clone(),

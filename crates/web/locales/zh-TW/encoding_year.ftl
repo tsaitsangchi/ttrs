@@ -1,0 +1,20 @@
+# 編碼年對照維護（TipTop aooi404；specs/features/aoo/encoding_year.feature）
+encoding-year-breadcrumb = 整體管理 / Encoding Year Maintenance
+encoding-year-title = 編碼年對照維護
+encoding-year-list-title = 編碼年對照
+encoding-year-field-year = 年
+encoding-year-field-length = 長度
+encoding-year-field-code = 編碼編號
+encoding-year-action-activate = 啟用
+encoding-year-action-deactivate = 停用
+encoding-year-dialog-new = 新增編碼年對照
+encoding-year-dialog-edit = 修改編碼年對照 { $code }
+encoding-year-msg-saved = 編碼年對照 { $code } 已儲存
+encoding-year-msg-deleted = 編碼年對照 { $code } 已刪除
+encoding-year-msg-activated = 編碼年對照 { $code } 已啟用
+encoding-year-msg-deactivated = 編碼年對照 { $code } 已停用
+encoding-year-msg-confirmed = 已確認編碼年對照 { $code }
+encoding-year-msg-unconfirmed = 已取消確認編碼年對照 { $code }
+encoding-year-msg-copied = 已將編碼年對照 { $from } 複製為 { $to }
+encoding-year-field-copy-as = 複製到年
+encoding-year-hint = 長度由編碼編號的字數自動帶出；年與長度建立後不可修改，要改長度請刪除後重新新增。
