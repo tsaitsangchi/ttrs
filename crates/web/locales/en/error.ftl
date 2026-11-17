@@ -363,3 +363,9 @@ error-ENCODING_CLASS_SERIAL_DUPLICATE = An encoding class can have only one runn
 error-ENCODING_CLASS_LINE_INVALID = Segment No. must be a positive whole number.
 error-ENCODING_CLASS_LINE_DUPLICATE = Segment No. already exists.
 error-ENCODING_CLASS_LINE_NOT_FOUND = Segment not found.
+
+# 自動編號（aooi400 / s_auno）
+error-ENCODING_RULE_VALUE_REQUIRED = Pick a valid code for each independent segment.
+error-ENCODING_RULE_SERIAL_EXHAUSTED = The running number is used up; lengthen it or use another encoding class.
+error-ENCODING_RULE_YEAR_CODE_MISSING = There is no year code for this year; add it in Encoding Year Codes first.
+error-ENCODING_RULE_PERIOD_MISSING = Today is not in any accounting period, so the quarter is unknown; add the accounting periods first.

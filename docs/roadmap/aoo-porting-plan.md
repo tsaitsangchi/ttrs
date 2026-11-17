@@ -24,6 +24,7 @@
 | ✔ | 批次 2：aooi060 每月匯率、aooi070 每日匯率、aoop010 每日匯率複製 | 2026-11-11 完成；匯率放共用 schema、不移植拋轉（ER1）；本國幣別先放 `system_parameter.base_currency`（aza17，ER2；aoos010 移植時在同一張表補其他參數）。自動匯入見下一列 |
 | ✔ | aooi070★ 匯率自動匯入 | 2026-11-12 完成（IM1–IM9，`exchange_rate_import.feature` IM-1–IM-15）：每日匯率維護的「自動匯入」（台銀即期／現金、海關，可上傳台銀 CSV，今天已有匯率時先確認覆寫）；API `POST /api/daily-rates/import/bank`、`/import/customs`；每日排程 `TTRS_RATE_JOB_AT`（API 伺服器）或 `ttrs-admin rate-job`（cron），服務帳號 `TTRS_RATE_JOB_USER`（預設 ttrs-batch），有步驟失敗時寄信給 `TTRS_ADMIN_MAIL`。台銀網站對程式下載有機器人驗證，開發機只拿到驗證頁，上線前在公司網路再測一次 |
 | ✔ | 批次 3、4：aoos010 系統參數、aoos020 會計期間、aooi102 單位換算、aooi103 料件單位換算 | 2026-11-12 完成。批次 3 其餘：aoos900、aooi902 不移植；aoos021、aoos031、aooq011、aooq021 延後到總帳；aoos030、aooq010 由會計期間維護取代（2026-11-17 批次 3 結案） |
+| ✔ | 批次 5：aooi401 編碼性質、aooi403 編碼獨立段、aooi404 編碼年對照、aooi402 編碼類別、aooi400 編碼規則（取代） | 2026-11-17 完成；自動編號（s_auno）為共用服務，編碼類別維護有「編碼試算」；料件新增時的自動編號（aza28）另案 |
 
 ## 3. 程式清單與處理方式
 
@@ -81,7 +82,7 @@
 
 | 程式 | 名稱 | 主要表 | 規模 | 處理 |
 |---|---|---|---|---|
-| aooi400 | 編碼規則 | gef_file | L | 移植 |
+| aooi400 | 編碼規則 | gef_file、geg_file | L | 取代（2026-11-17 確認，`encoding_rule.feature` ER1–ER7）：規則是依編碼類別「擷取」出的展開結果、TipTop 也鎖住不可改，改為即時計算；自動編號（s_auno）做成共用服務，編碼類別維護提供「編碼試算」；料件新增時的自動編號另寫規格（需整體參數 aza28） |
 | aooi401 | 編碼性質 | geh_file | S | 移植（2026-11-17 完成，`encoding_nature.feature` EN1–EN8）：檔案名稱、索引值不移植；被編碼類別引用的檢查待 aooi402 接上 |
 | aooi402 | 編碼類別 | gei_file、gel_file | L | 移植（2026-11-17 完成，`encoding_class.feature` EC1–EC11）：型態 4 欄位值延後到批／序號管理；接上編碼性質、獨立段的被引用檢查；已有編碼規則時的限制待 aooi400 |
 | aooi403 | 編碼獨立段 | gej_file、gek_file | M | 移植（2026-11-17 完成，`encoding_segment.feature` IS1–IS8）：新增「編碼編號不可重複」「有單身不可改長度」兩項檢查；被編碼類別引用的檢查待 aooi402 接上 |

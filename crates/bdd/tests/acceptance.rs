@@ -112,6 +112,8 @@ pub struct ErpWorld {
     /// 編碼類別維護（encoding_class.feature）與「另一位使用者修改」前的版本
     pub encoding_classes: ttrs_app::EncodingClassService,
     pub class_version: Option<i32>,
+    /// 編碼試算的結果（encoding_rule.feature）
+    pub encoding_preview: Option<ttrs_shared::EncodingPreviewDto>,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭
     pub basic_codes: ttrs_app::BasicCodeService,
     /// 幣別維護（currency_maintenance.feature）
@@ -338,6 +340,7 @@ impl ErpWorld {
             year_version: None,
             encoding_classes,
             class_version: None,
+            encoding_preview: None,
             basic_codes,
             currencies,
             rates,

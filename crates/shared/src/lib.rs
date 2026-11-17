@@ -1933,6 +1933,23 @@ impl EncodingClassDto {
     }
 }
 
+/// 編碼試算（encoding_rule.feature ER4）：營運中心與各獨立段依序挑選的編碼編號
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EncodingPreviewRequest {
+    pub plant: String,
+    pub selections: Vec<String>,
+}
+
+/// 編碼試算結果：下一個號碼、名稱與提示代碼（不保留號碼，ER5）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EncodingPreviewDto {
+    pub number: String,
+    pub name: String,
+    #[serde(default)]
+    pub notices: Vec<String>,
+}
+
 /// 畫面 maxlength（與 ttrs_domain::encoding_class 一致）
 pub mod encoding_class_max_len {
     pub const CODE: usize = 10;

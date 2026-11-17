@@ -784,6 +784,11 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .await
             .map(drop),
         // 編碼類別維護（aooi402；資料不存在時回 ENCODING_CLASS_NOT_FOUND 或性質無效，不是權限拒絕）
+        ["試算編碼類別", code] => w
+            .encoding_classes
+            .preview(a, "TW01", code, &[])
+            .await
+            .map(drop),
         ["查詢編碼類別"] => w
             .encoding_classes
             .query(a, QueryRequest::default())

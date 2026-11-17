@@ -466,6 +466,135 @@ impl EncodingClass {
     }
 }
 
+/// 自動編號時要用的外部資料（應用層查好；encoding_rule.feature ER2、ER3）
+#[derive(Debug, Clone, Default)]
+pub struct ComposeContext {
+    /// 有效獨立段的有效編碼編號：（獨立段, 編碼編號, 編碼名稱）
+    pub independent_values: Vec<(String, String, Option<String>)>,
+    /// 有效的編碼年對照：（年, 長度, 編碼編號）
+    pub year_codes: Vec<(i32, i16, String)>,
+    /// 今天所屬會計期間的季別（s_season）；沒有會計期間為 None
+    pub quarter: Option<i16>,
+    pub today: NaiveDate,
+    /// 已存在的號碼（依編碼性質的類別，ER3）；None＝這種資料還查不到
+    pub existing: Option<Vec<String>>,
+}
+
+/// 組出的號碼（ER2）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Composed {
+    pub number: String,
+    pub name: String,
+    /// 沒有比對已存在的號碼（流水號從 1 起算，ER3）
+    pub serial_unchecked: bool,
+}
+
+/// 依編碼類別組下一個號碼（取代 s_auno、q_gef_p1；ER2）：`selections` 依序為各獨立段挑選的編碼編號
+pub fn compose(
+    class: &EncodingClass,
+    selections: &[String],
+    ctx: &ComposeContext,
+) -> Result<Composed, DomainError> {
+    if !class.active {
+        return Err(DomainError::EncodingClassInactive);
+    }
+    let two = |n: u32| format!("{n:02}");
+    let mut picks = selections.iter();
+    // 各段的內容；流水號先留空，記下位置
+    let mut parts: Vec<Option<String>> = Vec::with_capacity(class.segments.len());
+    let mut name = String::new();
+    let mut serial: Option<(usize, usize)> = None;
+    for (i, s) in class.segments.iter().enumerate() {
+        let len = usize::try_from(s.length).unwrap_or(0);
+        let part = match s.kind {
+            SegmentType::Fixed => s.value.clone().unwrap_or_default(),
+            SegmentType::Independent => {
+                let seg = s.value.as_deref().unwrap_or_default();
+                let pick = picks.next().map(|p| p.trim()).unwrap_or_default();
+                let (_, v, n) = ctx
+                    .independent_values
+                    .iter()
+                    .find(|(g, v, _)| g == seg && v == pick)
+                    .ok_or(DomainError::EncodingRuleValueRequired)?;
+                if let Some(n) = n {
+                    name.push_str(n);
+                }
+                v.clone()
+            }
+            SegmentType::Serial => {
+                serial = Some((i, len));
+                parts.push(None);
+                if s.show_name {
+                    name.push_str(s.description.as_deref().unwrap_or_default());
+                }
+                continue;
+            }
+            SegmentType::Field => return Err(DomainError::EncodingClassTypeNotSupported),
+            SegmentType::Year => {
+                let year = chrono::Datelike::year(&ctx.today);
+                ctx.year_codes
+                    .iter()
+                    .find(|(y, l, _)| *y == year && *l == s.length)
+                    .map(|(_, _, c)| c.clone())
+                    .ok_or(DomainError::EncodingRuleYearCodeMissing { year })?
+            }
+            SegmentType::Quarter => {
+                let q = ctx.quarter.ok_or(DomainError::EncodingRulePeriodMissing)?;
+                two(u32::try_from(q).unwrap_or(0))
+            }
+            SegmentType::Month => two(chrono::Datelike::month(&ctx.today)),
+            // TipTop WEEKDAY：週日 0、週一 1…週六 6（ER2）
+            SegmentType::Week => two(chrono::Datelike::weekday(&ctx.today).num_days_from_sunday()),
+            SegmentType::Day => two(chrono::Datelike::day(&ctx.today)),
+        };
+        if s.show_name && s.kind == SegmentType::Fixed {
+            name.push_str(s.description.as_deref().unwrap_or_default());
+        }
+        parts.push(Some(part));
+    }
+    let Some((at, len)) = serial else {
+        return Ok(Composed {
+            number: parts.into_iter().flatten().collect(),
+            name,
+            serial_unchecked: false,
+        });
+    };
+    // 流水號：其他段都相同的已存在號碼中最大的流水號＋1（q_gef_p1）
+    let before: String = parts[..at].iter().flatten().cloned().collect();
+    let after: String = parts[at + 1..].iter().flatten().cloned().collect();
+    let max = ctx.existing.as_ref().map(|nos| {
+        nos.iter()
+            .filter_map(|n| {
+                let chars: Vec<char> = n.chars().collect();
+                let b = before.chars().count();
+                if chars.len() != b + len + after.chars().count() {
+                    return None;
+                }
+                let head: String = chars[..b].iter().collect();
+                let mid: String = chars[b..b + len].iter().collect();
+                let tail: String = chars[b + len..].iter().collect();
+                (head == before && tail == after && mid.chars().all(|c| c.is_ascii_digit()))
+                    .then(|| mid.parse::<u64>().ok())
+                    .flatten()
+            })
+            .max()
+            .unwrap_or(0)
+    });
+    let next = max.unwrap_or(0) + 1;
+    let limit = u32::try_from(len)
+        .ok()
+        .and_then(|l| 10u64.checked_pow(l))
+        .unwrap_or(u64::MAX);
+    if next >= limit {
+        return Err(DomainError::EncodingRuleSerialExhausted);
+    }
+    Ok(Composed {
+        number: format!("{before}{next:0len$}{after}"),
+        name,
+        serial_unchecked: max.is_none(),
+    })
+}
+
 /// 批號、序號性質才能用型態 4–9；批號、序號性質不能用獨立段（:959-991 aic-048）
 fn check_allowed(kind: SegmentType, ctx: &SegmentContext) -> Result<(), DomainError> {
     let ok = if kind.lot_serial_only() {
@@ -540,6 +669,41 @@ mod tests {
         c.renumber("u", today()).unwrap();
         let nos: Vec<_> = c.segments.iter().map(|s| s.no).collect();
         assert_eq!(nos, [1, 2, 3]);
+    }
+
+    #[test]
+    fn compose_numbers() {
+        let ctx = SegmentContext {
+            lot_or_serial: false,
+            independent_segments: vec![("COLOR".into(), 2)],
+            year_lengths: vec![1],
+        };
+        let mut c = class();
+        c.add_segment(None, seg("1", Some(2), Some("FG")), &ctx, "u", today())
+            .unwrap();
+        c.add_segment(None, seg("2", None, Some("COLOR")), &ctx, "u", today())
+            .unwrap();
+        c.add_segment(None, seg("3", Some(2), None), &ctx, "u", today())
+            .unwrap();
+        let mut cc = ComposeContext {
+            independent_values: vec![("COLOR".into(), "01".into(), Some("紅".into()))],
+            today: today(),
+            existing: Some(vec!["FG0103".into(), "FG01XX".into(), "FG010".into()]),
+            ..Default::default()
+        };
+        let r = compose(&c, &["01".into()], &cc).unwrap();
+        assert_eq!((r.number.as_str(), r.name.as_str()), ("FG0104", "紅"));
+        cc.existing = Some(vec!["FG0199".into()]);
+        assert_eq!(
+            compose(&c, &["01".into()], &cc),
+            Err(DomainError::EncodingRuleSerialExhausted)
+        );
+        assert_eq!(
+            compose(&c, &["02".into()], &cc),
+            Err(DomainError::EncodingRuleValueRequired)
+        );
+        cc.existing = None;
+        assert!(compose(&c, &["01".into()], &cc).unwrap().serial_unchecked);
     }
 
     #[test]

@@ -17,6 +17,7 @@ use crate::components::material::{
     TextField, Tone, icons,
 };
 use crate::components::permission::{Perm, ProgramGate};
+use crate::components::plant::PlantPicker;
 use crate::components::qbe::{ListPager, PAGE_SIZE, Qbe, RecordNav, conditions_of, use_row_nav};
 use crate::components::status::{
     self, ConfirmCells, ConfirmHeaders, ConfirmQbeCells, HasStatus, StatusCells, StatusHeaders,
@@ -99,6 +100,11 @@ fn ClassPage() -> Element {
     let mut value_editor = use_signal(|| None::<SegmentEdit>);
     let mut value_form = use_signal(EncodingClassSegmentInput::default);
     let mut value_error = use_signal(|| None::<String>);
+    // 編碼試算（encoding_rule.feature ER4）：營運中心、各獨立段挑選的編碼編號、結果
+    let plant = use_signal(String::new);
+    let mut picks = use_signal(Vec::<String>::new);
+    let mut preview = use_signal(|| None::<Result<ttrs_shared::EncodingPreviewDto, String>>);
+    let mut preview_for = use_signal(String::new);
 
     let page_data = classes
         .read()
@@ -540,6 +546,64 @@ fn ClassPage() -> Element {
                     }
                     if !c.active {
                         p { class: "query-hint", {t("encoding-class-hint-inactive")} }
+                    }
+                }
+            }
+
+            // 編碼試算（取代 aooi400 編碼規則與 s_auno；encoding_rule.feature ER2–ER5）：不保留號碼、不寫入資料
+            if let Some(c) = cur.clone().filter(|c| !c.segments.is_empty()) {
+                Card {
+                    div { class: "card-body",
+                        h3 { {t("encoding-class-preview-title")} }
+                        p { class: "muted", {t("encoding-class-preview-hint")} }
+                        PlantPicker { plant }
+                        div { class: "action-bar",
+                            for (i, s) in c.segments.iter().filter(|s| s.segment_type == "2").cloned().enumerate() {
+                                TextField {
+                                    key: "{s.seq_no}",
+                                    id: "pick-{s.seq_no}",
+                                    label: s.description.clone().unwrap_or_else(|| s.value.clone().unwrap_or_default()),
+                                    value: if *preview_for.read() == c.class_code { picks.read().get(i).cloned().unwrap_or_default() } else { String::new() },
+                                    oninput: {
+                                        let code = c.class_code.clone();
+                                        move |v: String| {
+                                            if *preview_for.peek() != code {
+                                                preview_for.set(code.clone());
+                                                picks.set(Vec::new());
+                                                preview.set(None);
+                                            }
+                                            let mut p = picks.write();
+                                            if p.len() <= i { p.resize(i + 1, String::new()); }
+                                            p[i] = v;
+                                        }
+                                    },
+                                }
+                            }
+                            Button { icon: icons::SEARCH, tone: Tone::Primary, variant: ButtonVariant::Tonal, disabled: !c.active, onclick: {
+                                let code = c.class_code.clone();
+                                move |_| {
+                                    let code = code.clone();
+                                    let sel = if *preview_for.peek() == code { picks() } else { Vec::new() };
+                                    preview_for.set(code.clone());
+                                    let p = plant();
+                                    spawn(async move {
+                                        preview.set(Some(api::preview_encoding_class(&code, &p, sel).await));
+                                    });
+                                }
+                            }, {t("encoding-class-action-preview")} }
+                        }
+                        if *preview_for.read() == c.class_code {
+                            match preview() {
+                                Some(Ok(r)) => rsx! {
+                                    p { {tf("encoding-class-preview-result", &[("number", r.number.as_str()), ("name", r.name.as_str())])} }
+                                    if r.notices.iter().any(|n| n == "ENCODING_RULE_TARGET_NOT_SUPPORTED") {
+                                        p { class: "query-hint", {t("encoding-class-preview-unchecked")} }
+                                    }
+                                },
+                                Some(Err(e)) => rsx! { p { class: "query-hint", "{e}" } },
+                                None => rsx! {},
+                            }
+                        }
                     }
                 }
             }

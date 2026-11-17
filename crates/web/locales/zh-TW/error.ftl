@@ -363,3 +363,9 @@ error-ENCODING_CLASS_SERIAL_DUPLICATE = （使用伺服器訊息）
 error-ENCODING_CLASS_LINE_INVALID = （使用伺服器訊息）
 error-ENCODING_CLASS_LINE_DUPLICATE = （使用伺服器訊息）
 error-ENCODING_CLASS_LINE_NOT_FOUND = （使用伺服器訊息）
+
+# 自動編號（aooi400 / s_auno）
+error-ENCODING_RULE_VALUE_REQUIRED = （使用伺服器訊息）
+error-ENCODING_RULE_SERIAL_EXHAUSTED = （使用伺服器訊息）
+error-ENCODING_RULE_YEAR_CODE_MISSING = （使用伺服器訊息）
+error-ENCODING_RULE_PERIOD_MISSING = （使用伺服器訊息）

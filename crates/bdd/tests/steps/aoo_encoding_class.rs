@@ -103,13 +103,59 @@ async fn has(w: &mut ErpWorld, code: String, nature: String) {
 }
 
 #[given(
-    regex = r#"^編碼類別 "([^"]+)" 已有一段：型態 "([^"]+)"(?:，長度 (\d+))?(?:，(?:固定值|獨立段) "([^"]*)")?$"#
+    regex = r#"^編碼類別 "([^"]+)" 已有一段：型態 "([^"]+)"(?:，長度 (\d+))?(?:，(?:固定值|獨立段) "([^"]*)")?(?:，說明 "([^"]*)")?(，名稱顯示)?$"#
 )]
-async fn has_segment(w: &mut ErpWorld, code: String, kind: String, length: String, value: String) {
+async fn has_segment(
+    w: &mut ErpWorld,
+    code: String,
+    kind: String,
+    length: String,
+    value: String,
+    description: String,
+    show: String,
+) {
+    let input = EncodingClassSegmentInput {
+        show_name: !show.is_empty(),
+        ..segment(&kind, &length, &value, &description)
+    };
     w.encoding_classes
-        .add_segment(&w.actor, &code, segment(&kind, &length, &value, ""))
+        .add_segment(&w.actor, &code, input)
         .await
         .unwrap_or_else(|e| panic!("新增一段失敗：{e}"));
+}
+
+// ----- 編碼試算（encoding_rule.feature） -----
+
+#[when(
+    regex = r#"^使用者在營運中心 "([^"]+)" 以編碼類別 "([^"]+)" 試算(?:，獨立段選 "([^"]*)")?$"#
+)]
+async fn preview(w: &mut ErpWorld, plant: String, code: String, pick: String) {
+    let picks: Vec<String> = if pick.is_empty() {
+        Vec::new()
+    } else {
+        pick.split('、').map(str::to_owned).collect()
+    };
+    let r = w
+        .encoding_classes
+        .preview(&w.actor, &plant, &code, &picks)
+        .await;
+    w.encoding_preview = r.as_ref().ok().cloned();
+    w.last = Some(r.map(drop));
+}
+
+#[then(regex = r#"^試算的(號碼|名稱)應為 "([^"]*)"$"#)]
+async fn preview_is(w: &mut ErpWorld, what: String, expected: String) {
+    ok(w);
+    let p = w.encoding_preview.as_ref().expect("尚未試算");
+    let got = if what == "號碼" { &p.number } else { &p.name };
+    assert_eq!(got, &expected);
+}
+
+#[then(regex = r#"^試算應提示 "([A-Z_]+)"$"#)]
+async fn preview_notice(w: &mut ErpWorld, code: String) {
+    ok(w);
+    let p = w.encoding_preview.as_ref().expect("尚未試算");
+    assert!(p.notices.contains(&code), "{:?}", p.notices);
 }
 
 #[given(regex = r#"^使用者已(停用|確認)編碼類別 "([^"]+)"$"#)]

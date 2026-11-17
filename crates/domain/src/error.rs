@@ -453,6 +453,15 @@ pub enum DomainError {
     EncodingClassLineDuplicate,
     #[error("找不到這個段次")]
     EncodingClassLineNotFound,
+    // ----- 自動編號（aooi400 / s_auno；encoding_rule.feature） -----
+    #[error("請為每個獨立段挑選一個有效的編碼編號")]
+    EncodingRuleValueRequired,
+    #[error("流水號已用完，請加長流水號或改用其他編碼類別")]
+    EncodingRuleSerialExhausted,
+    #[error("編碼年對照沒有 {year} 年的資料，請先在編碼年對照維護建立")]
+    EncodingRuleYearCodeMissing { year: i32 },
+    #[error("今天不在任何會計期間內，無法取得季別；請先在會計期間維護建立")]
+    EncodingRulePeriodMissing,
     // ----- 編碼獨立段（aooi403 / gej_file、gek_file；encoding_segment.feature） -----
     #[error("獨立段編號不可空白")]
     EncodingSegmentCodeEmpty,
@@ -920,6 +929,10 @@ impl DomainError {
             Self::EncodingClassLineInvalid => "ENCODING_CLASS_LINE_INVALID",
             Self::EncodingClassLineDuplicate => "ENCODING_CLASS_LINE_DUPLICATE",
             Self::EncodingClassLineNotFound => "ENCODING_CLASS_LINE_NOT_FOUND",
+            Self::EncodingRuleValueRequired => "ENCODING_RULE_VALUE_REQUIRED",
+            Self::EncodingRuleSerialExhausted => "ENCODING_RULE_SERIAL_EXHAUSTED",
+            Self::EncodingRuleYearCodeMissing { .. } => "ENCODING_RULE_YEAR_CODE_MISSING",
+            Self::EncodingRulePeriodMissing => "ENCODING_RULE_PERIOD_MISSING",
             Self::EncodingSegmentCodeEmpty => "ENCODING_SEGMENT_CODE_EMPTY",
             Self::EncodingSegmentCodeTooLong { .. } => "ENCODING_SEGMENT_CODE_TOO_LONG",
             Self::EncodingSegmentLengthInvalid { .. } => "ENCODING_SEGMENT_LENGTH_INVALID",

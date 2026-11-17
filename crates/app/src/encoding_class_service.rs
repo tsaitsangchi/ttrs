@@ -4,18 +4,24 @@
 //! 共用 schema（EC2）。功能代號沿用 TipTop：insert、query、modify、delete、invalid、reproduce、detail（單身）、
 //! output、exporttoexcel，加上 history、confirm、notconfirm（EC11，ADR 0013）。
 //! 各段的檢查要用到編碼性質（aooi401）、獨立段（aooi403）、編碼年對照（aooi404），在這裡查好交給 domain。
+//! 「編碼試算」依類別即時組下一個號碼（取代 aooi400 的編碼規則與 s_auno；encoding_rule.feature ER1–ER7）。
 
 use std::sync::Arc;
 
 use chrono::NaiveDate;
 use ttrs_domain::{
     DomainError,
-    encoding_class::{ClassAttrs, ClassCode, EncodingClass, SegmentContext, SegmentInput},
+    accounting_period::Calendar,
+    encoding_class::{
+        ClassAttrs, ClassCode, ComposeContext, EncodingClass, SegmentContext, SegmentInput,
+        SegmentType, compose,
+    },
     encoding_nature::{NatureCategory, NatureCode},
+    plant::PlantId,
 };
 use ttrs_shared::{
-    EncodingClassDto, EncodingClassInput, EncodingClassSegmentDto, EncodingClassSegmentInput, Page,
-    QbeCondition, QueryRequest,
+    EncodingClassDto, EncodingClassInput, EncodingClassSegmentDto, EncodingClassSegmentInput,
+    EncodingPreviewDto, Page, QbeCondition, QueryRequest,
 };
 
 use crate::{
@@ -24,8 +30,8 @@ use crate::{
     error::RepoError,
     list_report::{ListReporter, ListSpec},
     ports::{
-        EncodingClassRepository, EncodingNatureRepository, EncodingSegmentRepository,
-        EncodingYearRepository,
+        AccountingPeriodRepository, EncodingClassRepository, EncodingNatureRepository,
+        EncodingSegmentRepository, EncodingYearRepository, ItemRepository,
     },
     query,
     report::{self, ReportData, ReportFormat},
@@ -52,13 +58,19 @@ const REPORT: ListSpec = ListSpec {
     ],
 };
 
-/// 編碼類別用到的資料：類別本身與檢查各段要查的編碼性質、獨立段、編碼年對照
+/// 提示代碼：這種性質還查不到已存在的號碼，流水號從 1 起算（encoding_rule.feature ER3）
+pub const TARGET_NOT_SUPPORTED: &str = "ENCODING_RULE_TARGET_NOT_SUPPORTED";
+
+/// 編碼類別用到的資料：類別本身與檢查各段要查的編碼性質、獨立段、編碼年對照；
+/// 試算時另查料件（已存在的料號）與會計期間（季別）
 #[derive(Clone)]
 pub struct EncodingClassRepos {
     pub classes: Arc<dyn EncodingClassRepository>,
     pub natures: Arc<dyn EncodingNatureRepository>,
     pub segments: Arc<dyn EncodingSegmentRepository>,
     pub years: Arc<dyn EncodingYearRepository>,
+    pub items: Arc<dyn ItemRepository>,
+    pub periods: Arc<dyn AccountingPeriodRepository>,
 }
 
 #[derive(Clone)]
@@ -66,6 +78,8 @@ pub struct EncodingClassService {
     authz: Arc<dyn Authorizer>,
     repos: EncodingClassRepos,
     reports: ListReporter,
+    /// 測試用：指定今天
+    today: Option<NaiveDate>,
 }
 
 impl EncodingClassService {
@@ -78,7 +92,109 @@ impl EncodingClassService {
             authz,
             repos,
             reports,
+            today: None,
         }
+    }
+
+    /// 測試用：指定今天
+    pub fn with_today(mut self, today: NaiveDate) -> Self {
+        self.today = Some(today);
+        self
+    }
+
+    /// 編碼試算（encoding_rule.feature ER2–ER5；功能 query）：依類別組下一個號碼與名稱，不保留號碼、不寫入資料。
+    /// `selections` 依序為各獨立段挑選的編碼編號
+    pub async fn preview(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        code: &str,
+        selections: &[String],
+    ) -> Result<EncodingPreviewDto, AppError> {
+        self.authorize(actor, "query").await?;
+        let plant = PlantId::parse(plant)?;
+        let class = self.load(code).await?;
+        let today = self.today.unwrap_or_else(today);
+        let nature = self
+            .repos
+            .natures
+            .get_encoding_nature(
+                &NatureCode::parse(&class.attrs.nature)
+                    .map_err(|_| DomainError::EncodingClassNatureInvalid)?,
+            )
+            .await
+            .map_err(infra)?
+            .ok_or(DomainError::EncodingClassNatureInvalid)?;
+        let mut independent_values = Vec::new();
+        for s in self
+            .repos
+            .segments
+            .list_encoding_segments()
+            .await
+            .map_err(infra)?
+            .into_iter()
+            .filter(|s| s.active)
+        {
+            for v in s.values {
+                independent_values.push((s.code.as_str().to_owned(), v.value, v.name));
+            }
+        }
+        let year_codes = self
+            .repos
+            .years
+            .list_encoding_years()
+            .await
+            .map_err(infra)?
+            .into_iter()
+            .filter(|y| y.active)
+            .map(|y| (y.year, y.length, y.code_value))
+            .collect();
+        let quarter = if class
+            .segments
+            .iter()
+            .any(|s| s.kind == SegmentType::Quarter)
+        {
+            let years = self
+                .repos
+                .periods
+                .list_accounting_years()
+                .await
+                .map_err(infra)?;
+            Calendar::new(&years).locate(today).ok().map(|d| d.quarter)
+        } else {
+            None
+        };
+        // 已存在的號碼（ER3）：料件編號＝這個營運中心的料號；其他性質的模組尚未移植
+        let existing = match nature.attrs.category {
+            NatureCategory::Item => Some(
+                self.repos
+                    .items
+                    .list_items(&plant)
+                    .await
+                    .map_err(infra)?
+                    .into_iter()
+                    .map(|i| i.no.as_str().to_owned())
+                    .collect(),
+            ),
+            _ => None,
+        };
+        let ctx = ComposeContext {
+            independent_values,
+            year_codes,
+            quarter,
+            today,
+            existing,
+        };
+        let r = compose(&class, selections, &ctx)?;
+        Ok(EncodingPreviewDto {
+            number: r.number,
+            name: r.name,
+            notices: if r.serial_unchecked {
+                vec![TARGET_NOT_SUPPORTED.to_owned()]
+            } else {
+                Vec::new()
+            },
+        })
     }
 
     /// 全部類別，依代碼排序

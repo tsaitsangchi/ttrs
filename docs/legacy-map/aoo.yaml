@@ -173,6 +173,44 @@ tables:
       - { legacy: geh03, type: varchar2(15), sch: 檔案名稱, reason: "由類別決定的固定值、畫面不能輸入（FUN-7C0084）；TTRS 由程式依類別決定號碼用在哪張表（EN5）", verify: true, verify_note: "轉檔時若正式區有不是固定值（ima_file、occ_file、pmc_file、faj_file、rvbs_file）的舊資料，請 Key User 確認怎麼處理" }
       - { legacy: geh05, type: varchar2(10), sch: 索引值, reason: "同 geh03；s_auno 用它組 SQL 找最大號，TTRS 不以字串組 SQL（EN5）", verify: true, verify_note: "同 geh03：非固定值（ima01、occ01、pmc01、faj02、rvbs04、rvbs03）的舊資料待確認" }
 
+  - legacy: gef_file
+    target: "(不移植)"
+    scope: system
+    program: aooi400（編碼規則維護作業；由編碼類別維護的「編碼試算」與自動編號服務取代）
+    spec: specs/features/aoo/encoding_rule.feature
+    reason: "aooi400 的規則由「擷取」依編碼類別（gei/gel）與獨立段（gek）展開產生；擷取產生的規則不可修改單頭、單身（aoo-123，新增已由 MOD-6B0011 拿掉），等於展開結果。TTRS 自動編號時即時計算，不存規則（Key User 確認，2026-11-17，ER1）"
+    verify: true
+    verify_note: "請以正式區資料確認 gef/geg 與擷取結果一致（沒有早期手動調整、只允許部分編碼編號的前段規則）；有的話這種限制在 TTRS 會消失"
+    not_ported:
+      - { legacy: gef01, type: varchar2(10) PK NOT NULL, sch: "編碼類別", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: gef02, type: number(5) PK NOT NULL, sch: "段次", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: gef03, type: number(5), sch: "長度", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: gef04, type: varchar2(30) PK NOT NULL, sch: "前段編碼", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: gef05, type: varchar2(1), sch: "型態", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: gefacti, type: varchar2(1), sch: "資料有效碼", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: gefuser, type: varchar2(10), sch: "資料所有者", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: gefgrup, type: varchar2(10), sch: "資料所有部門", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: gefmodu, type: varchar2(10), sch: "資料修改者", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: gefdate, type: date, sch: "最近修改日", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+
+  - legacy: geg_file
+    target: "(不移植)"
+    scope: system
+    program: aooi400 單身
+    spec: specs/features/aoo/encoding_rule.feature
+    reason: "同 gef_file：獨立段編碼編號的展開結果，由編碼類別與獨立段即時計算（ER1）"
+    not_ported:
+      - { legacy: geg01, type: varchar2(10) PK NOT NULL, sch: "編碼類別", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: geg012, type: number(5) PK NOT NULL, sch: "段次", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: geg013, type: varchar2(30) PK NOT NULL, sch: "前段編碼", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: geg02, type: number(5) PK NOT NULL, sch: "項次", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: geg03, type: varchar2(30), sch: "編碼編號", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: geg04, type: varchar2(80), sch: "編碼名稱", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: geg05, type: varchar2(30), sch: "匯總編號", reason: "擷取產生的展開結果，改由編碼類別與獨立段即時計算（ER1）" }
+      - { legacy: geg06, type: varchar2(1), sch: "No Use", reason: ".sch 註明 No Use" }
+      - { legacy: geg07, type: varchar2(1), sch: "No Use", reason: ".sch 註明 No Use" }
+      - { legacy: geg08, type: varchar2(1), sch: "No Use", reason: ".sch 註明 No Use" }
+
   - legacy: gei_file
     target: encoding_class
     scope: system

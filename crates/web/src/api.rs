@@ -1958,6 +1958,23 @@ pub async fn remove_encoding_class_segment(
     .await
 }
 
+/// 編碼試算（encoding_rule.feature ER4）
+pub async fn preview_encoding_class(
+    code: &str,
+    plant: &str,
+    selections: Vec<String>,
+) -> Result<ttrs_shared::EncodingPreviewDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        encoding_class_url(code, "/preview"),
+        Some(&ttrs_shared::EncodingPreviewRequest {
+            plant: plant.to_owned(),
+            selections,
+        }),
+    )
+    .await
+}
+
 pub async fn renumber_encoding_class(
     code: &str,
     version: i32,

@@ -438,6 +438,7 @@
       | encoding-segment-maintenance | exporttoexcel | 匯出編碼獨立段為 Excel    |
       | encoding-segment-maintenance | history      | 查詢作業 encoding-segment-maintenance COLOR 的異動記錄 |
       | encoding-class-maintenance | query        | 查詢編碼類別               |
+      | encoding-class-maintenance | query        | 試算編碼類別 FG            |
       | encoding-class-maintenance | insert       | 新增編碼類別 FG            |
       | encoding-class-maintenance | modify       | 修改編碼類別 FG            |
       | encoding-class-maintenance | invalid      | 失效編碼類別 FG            |

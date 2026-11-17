@@ -104,6 +104,8 @@ async fn currency_inactive(w: &mut ErpWorld, code: String) {
 #[given(expr = "今天是 {string}")]
 async fn today_is(w: &mut ErpWorld, d: String) {
     w.rates = w.rates.clone().with_today(day(&d));
+    // 編碼試算的日期段也用同一個「今天」（encoding_rule.feature ER-7、ER-8）
+    w.encoding_classes = w.encoding_classes.clone().with_today(day(&d));
 }
 
 // ----- 每月匯率 -----

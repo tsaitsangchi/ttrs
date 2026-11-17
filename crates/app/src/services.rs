@@ -336,6 +336,8 @@ impl Services {
                     natures: store.clone(),
                     segments: store.clone(),
                     years: store.clone(),
+                    items: store.clone(),
+                    periods: store.clone(),
                 },
                 reports.clone(),
             ),

@@ -363,3 +363,9 @@ error-ENCODING_CLASS_SERIAL_DUPLICATE = 每个编码类别只能有一段流水�
 error-ENCODING_CLASS_LINE_INVALID = 段次必须是正整数。
 error-ENCODING_CLASS_LINE_DUPLICATE = 段次重复。
 error-ENCODING_CLASS_LINE_NOT_FOUND = 找不到这个段次。
+
+# 自動編號（aooi400 / s_auno）
+error-ENCODING_RULE_VALUE_REQUIRED = 请为每个独立段挑选一个有效的编码编号。
+error-ENCODING_RULE_SERIAL_EXHAUSTED = 流水号已用完，请加长流水号或改用其他编码类别。
+error-ENCODING_RULE_YEAR_CODE_MISSING = 编码年对照没有今年的资料，请先在编码年对照维护建立。
+error-ENCODING_RULE_PERIOD_MISSING = 今天不在任何会计期间内，无法取得季别；请先在会计期间维护建立。

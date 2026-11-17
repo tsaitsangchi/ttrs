@@ -527,6 +527,11 @@ pub fn router(state: AppState) -> Router {
             "/api/encoding-classes/{code}/copy",
             post(copy_encoding_class),
         )
+        // 編碼試算（encoding_rule.feature ER4；取代 aooi400 與 s_auno）
+        .route(
+            "/api/encoding-classes/{code}/preview",
+            post(preview_encoding_class),
+        )
         .route(
             "/api/encoding-classes/{code}/segments",
             post(add_encoding_class_segment),
@@ -1755,6 +1760,7 @@ impl IntoResponse for HttpError {
             | "ENCODING_CLASS_IN_USE"
             | "ENCODING_CLASS_INACTIVE"
             | "ENCODING_CLASS_SERIAL_DUPLICATE"
+            | "ENCODING_RULE_SERIAL_EXHAUSTED"
             | "ENCODING_CLASS_LINE_DUPLICATE"
             | "ENCODING_SEGMENT_IN_USE"
             | "ENCODING_SEGMENT_INACTIVE"
@@ -3536,6 +3542,19 @@ async fn set_encoding_class_state(
         _ => return Ok(StatusCode::NOT_FOUND.into_response()),
     };
     Ok(Json(dto).into_response())
+}
+
+/// 編碼試算：依類別組下一個號碼與名稱，不保留號碼（ER4、ER5）
+async fn preview_encoding_class(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<ttrs_shared::EncodingPreviewRequest>,
+) -> ApiResult<Json<ttrs_shared::EncodingPreviewDto>> {
+    Ok(Json(
+        s.encoding_classes
+            .preview(&s.actor, &req.plant, &code, &req.selections)
+            .await?,
+    ))
 }
 
 async fn query_encoding_classes(
