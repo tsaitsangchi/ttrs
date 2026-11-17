@@ -339,3 +339,27 @@ error-ENCODING_YEAR_CODE_INVALID_CHAR = Code No. cannot contain * % _ ? or space
 error-ENCODING_YEAR_ALREADY_EXISTS = This year already has a code of the same length.
 error-ENCODING_YEAR_NOT_FOUND = Year code not found.
 error-ENCODING_YEAR_LENGTH_CHANGED = The code must keep the same length; delete and add it again to change the length.
+
+# 編碼類別（aooi402）
+error-ENCODING_CLASS_CODE_EMPTY = Encoding class is required.
+error-ENCODING_CLASS_CODE_TOO_LONG = Encoding class is too long (at most 10 characters).
+error-ENCODING_CLASS_NAME_EMPTY = Name is required.
+error-ENCODING_CLASS_NATURE_INVALID = Nature must be an existing, active encoding nature.
+error-ENCODING_CLASS_ALREADY_EXISTS = The encoding class already exists.
+error-ENCODING_CLASS_NOT_FOUND = Encoding class not found.
+error-ENCODING_CLASS_IN_USE = The encoding class is in use; deactivate it instead.
+error-ENCODING_CLASS_INACTIVE = The encoding class is inactive; activate it before editing.
+error-ENCODING_CLASS_TYPE_INVALID = Type must be 1 to 9.
+error-ENCODING_CLASS_TYPE_NOT_ALLOWED = This type cannot be used with this nature: year, quarter, month, week, day and field are for lot and serial numbers only, and lot and serial numbers cannot use independent segments.
+error-ENCODING_CLASS_TYPE_NOT_SUPPORTED = Type 4 (field value) is not available yet; it comes with lot and serial number management.
+error-ENCODING_CLASS_SEGMENT_LENGTH_INVALID = Length must be 1 to 30.
+error-ENCODING_CLASS_DATE_LENGTH_INVALID = Quarter, month, week and day are always 2 characters.
+error-ENCODING_CLASS_YEAR_LENGTH_NOT_DEFINED = There is no year code of this length; add it in Encoding Year Codes first.
+error-ENCODING_CLASS_FIXED_EMPTY = Fixed value is required.
+error-ENCODING_CLASS_FIXED_INVALID_CHAR = Fixed value cannot contain * % _ ? or spaces.
+error-ENCODING_CLASS_FIXED_LENGTH_MISMATCH = Fixed value must be exactly as long as the segment length.
+error-ENCODING_CLASS_SEGMENT_INVALID = Independent segment must be an existing, active segment.
+error-ENCODING_CLASS_SERIAL_DUPLICATE = An encoding class can have only one running-number segment.
+error-ENCODING_CLASS_LINE_INVALID = Segment No. must be a positive whole number.
+error-ENCODING_CLASS_LINE_DUPLICATE = Segment No. already exists.
+error-ENCODING_CLASS_LINE_NOT_FOUND = Segment not found.

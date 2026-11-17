@@ -1381,6 +1381,69 @@ pub mod encoding_segment {
     }
 }
 
+pub mod encoding_class {
+    use ttrs_domain::{encoding_class::EncodingClass, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    /// aooi402.4gl:127-226 的查詢欄位：單頭 gei01–gei03 與狀態欄位，單身 gel02、gel06、gel03、gel04、gel05、gel07
+    /// （單身條件符合任一段即符合）
+    pub const FIELDS: &[Field] = &[
+        field("class_code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("nature_code", FieldType::Text),
+        field("seq_no", FieldType::Integer),
+        field("description", FieldType::Text),
+        field("length", FieldType::Integer),
+        field("segment_type", FieldType::Text),
+        field("value", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(c: &EncodingClass, field: &str) -> FieldValue {
+        let set = |f: &dyn Fn(&ttrs_domain::encoding_class::ClassSegment) -> Option<QbeValue>| {
+            FieldValue::Set(c.segments.iter().filter_map(f).collect())
+        };
+        match field {
+            "class_code" => text(c.code.as_str()),
+            "name" => text(&c.attrs.name),
+            "nature_code" => text(&c.attrs.nature),
+            "seq_no" => set(&|s| Some(QbeValue::Integer(i64::from(s.no)))),
+            "description" => set(&|s| s.description.clone().map(QbeValue::Text)),
+            "length" => set(&|s| Some(QbeValue::Integer(i64::from(s.length)))),
+            "segment_type" => set(&|s| Some(QbeValue::Text(s.kind.code().to_owned()))),
+            "value" => set(&|s| s.value.clone().map(QbeValue::Text)),
+            other => confirm_value(other, &c.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(c.active),
+                        &c.created_by,
+                        &c.created_dept,
+                        Some(c.created_on),
+                        c.updated_by.as_deref(),
+                        c.updated_on,
+                        c.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
 pub mod encoding_year {
     use ttrs_domain::{encoding_year::EncodingYear, qbe::FieldType};
     use ttrs_shared::QbeCondition;

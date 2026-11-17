@@ -70,6 +70,7 @@ pub trait Store:
     + crate::ports::EncodingNatureRepository
     + crate::ports::EncodingSegmentRepository
     + crate::ports::EncodingYearRepository
+    + crate::ports::EncodingClassRepository
     + crate::ports::EpubSharedLibraryRepository
     + 'static
 {
@@ -115,17 +116,33 @@ impl<T> Store for T where
         + crate::ports::EncodingNatureRepository
         + crate::ports::EncodingSegmentRepository
         + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingClassRepository
+        + crate::ports::EncodingClassRepository
         + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingClassRepository
+        + crate::ports::EncodingClassRepository
         + crate::ports::EncodingSegmentRepository
         + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingClassRepository
+        + crate::ports::EncodingClassRepository
         + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingClassRepository
+        + crate::ports::EncodingClassRepository
         + crate::ports::EncodingNatureRepository
         + crate::ports::EncodingSegmentRepository
         + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingClassRepository
+        + crate::ports::EncodingClassRepository
         + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingClassRepository
+        + crate::ports::EncodingClassRepository
         + crate::ports::EncodingSegmentRepository
         + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingClassRepository
+        + crate::ports::EncodingClassRepository
         + crate::ports::EncodingYearRepository
+        + crate::ports::EncodingClassRepository
+        + crate::ports::EncodingClassRepository
         + crate::ports::EpubSharedLibraryRepository
         + crate::ports::EpubSharedLibraryRepository
         + 'static
@@ -161,6 +178,7 @@ pub struct Services {
     pub encoding_natures: crate::EncodingNatureService,
     pub encoding_segments: crate::EncodingSegmentService,
     pub encoding_years: crate::EncodingYearService,
+    pub encoding_classes: crate::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210）
     pub basic_codes: BasicCodeService,
     /// 幣別維護（aooi050）
@@ -309,6 +327,16 @@ impl Services {
             encoding_years: crate::EncodingYearService::new(
                 a.clone(),
                 store.clone(),
+                reports.clone(),
+            ),
+            encoding_classes: crate::EncodingClassService::new(
+                a.clone(),
+                crate::EncodingClassRepos {
+                    classes: store.clone(),
+                    natures: store.clone(),
+                    segments: store.clone(),
+                    years: store.clone(),
+                },
                 reports.clone(),
             ),
             basic_codes: BasicCodeService::new(a.clone(), store.clone(), reports.clone()),

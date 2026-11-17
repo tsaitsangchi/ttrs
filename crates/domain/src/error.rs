@@ -406,6 +406,53 @@ pub enum DomainError {
     EncodingNatureNotFound,
     #[error("編碼性質已被編碼類別使用，不可刪除或變更類別；請改為停用")]
     EncodingNatureInUse,
+    // ----- 編碼類別（aooi402 / gei_file、gel_file；encoding_class.feature） -----
+    #[error("編碼類別不可空白")]
+    EncodingClassCodeEmpty,
+    #[error("編碼類別長度不可超過 {max} 碼")]
+    EncodingClassCodeTooLong { max: usize },
+    #[error("名稱不可空白")]
+    EncodingClassNameEmpty,
+    #[error("性質必須是存在且有效的編碼性質")]
+    EncodingClassNatureInvalid,
+    #[error("編碼類別已存在")]
+    EncodingClassAlreadyExists,
+    #[error("編碼類別不存在")]
+    EncodingClassNotFound,
+    #[error("編碼類別已被使用，不可刪除；請改為停用")]
+    EncodingClassInUse,
+    #[error("編碼類別已停用，請先啟用再修改")]
+    EncodingClassInactive,
+    #[error("型態只能是 1 到 9")]
+    EncodingClassTypeInvalid,
+    #[error(
+        "這個型態不能用在此性質：年、季、月、週、日、欄位值只限批號、序號；批號、序號不能用獨立段"
+    )]
+    EncodingClassTypeNotAllowed,
+    #[error("型態 4（欄位值）尚未開放，批號／序號管理移植時再提供")]
+    EncodingClassTypeNotSupported,
+    #[error("長度必須是 1 到 {max}")]
+    EncodingClassSegmentLengthInvalid { max: i16 },
+    #[error("季、月、週、日的長度固定為 2")]
+    EncodingClassDateLengthInvalid,
+    #[error("編碼年對照沒有 {length} 碼的資料，請先在編碼年對照維護建立")]
+    EncodingClassYearLengthNotDefined { length: i16 },
+    #[error("固定值不可空白")]
+    EncodingClassFixedEmpty,
+    #[error("固定值不可含 * % _ ? 與空白")]
+    EncodingClassFixedInvalidChar,
+    #[error("固定值必須是 {length} 碼（等於這一段的長度）")]
+    EncodingClassFixedLengthMismatch { length: i16 },
+    #[error("獨立段必須是存在且有效的獨立段")]
+    EncodingClassSegmentInvalid,
+    #[error("每個編碼類別只能有一段流水號")]
+    EncodingClassSerialDuplicate,
+    #[error("段次必須是正整數")]
+    EncodingClassLineInvalid,
+    #[error("段次重複")]
+    EncodingClassLineDuplicate,
+    #[error("找不到這個段次")]
+    EncodingClassLineNotFound,
     // ----- 編碼獨立段（aooi403 / gej_file、gek_file；encoding_segment.feature） -----
     #[error("獨立段編號不可空白")]
     EncodingSegmentCodeEmpty,
@@ -847,6 +894,32 @@ impl DomainError {
             Self::EncodingNatureAlreadyExists => "ENCODING_NATURE_ALREADY_EXISTS",
             Self::EncodingNatureNotFound => "ENCODING_NATURE_NOT_FOUND",
             Self::EncodingNatureInUse => "ENCODING_NATURE_IN_USE",
+            Self::EncodingClassCodeEmpty => "ENCODING_CLASS_CODE_EMPTY",
+            Self::EncodingClassCodeTooLong { .. } => "ENCODING_CLASS_CODE_TOO_LONG",
+            Self::EncodingClassNameEmpty => "ENCODING_CLASS_NAME_EMPTY",
+            Self::EncodingClassNatureInvalid => "ENCODING_CLASS_NATURE_INVALID",
+            Self::EncodingClassAlreadyExists => "ENCODING_CLASS_ALREADY_EXISTS",
+            Self::EncodingClassNotFound => "ENCODING_CLASS_NOT_FOUND",
+            Self::EncodingClassInUse => "ENCODING_CLASS_IN_USE",
+            Self::EncodingClassInactive => "ENCODING_CLASS_INACTIVE",
+            Self::EncodingClassTypeInvalid => "ENCODING_CLASS_TYPE_INVALID",
+            Self::EncodingClassTypeNotAllowed => "ENCODING_CLASS_TYPE_NOT_ALLOWED",
+            Self::EncodingClassTypeNotSupported => "ENCODING_CLASS_TYPE_NOT_SUPPORTED",
+            Self::EncodingClassSegmentLengthInvalid { .. } => {
+                "ENCODING_CLASS_SEGMENT_LENGTH_INVALID"
+            }
+            Self::EncodingClassDateLengthInvalid => "ENCODING_CLASS_DATE_LENGTH_INVALID",
+            Self::EncodingClassYearLengthNotDefined { .. } => {
+                "ENCODING_CLASS_YEAR_LENGTH_NOT_DEFINED"
+            }
+            Self::EncodingClassFixedEmpty => "ENCODING_CLASS_FIXED_EMPTY",
+            Self::EncodingClassFixedInvalidChar => "ENCODING_CLASS_FIXED_INVALID_CHAR",
+            Self::EncodingClassFixedLengthMismatch { .. } => "ENCODING_CLASS_FIXED_LENGTH_MISMATCH",
+            Self::EncodingClassSegmentInvalid => "ENCODING_CLASS_SEGMENT_INVALID",
+            Self::EncodingClassSerialDuplicate => "ENCODING_CLASS_SERIAL_DUPLICATE",
+            Self::EncodingClassLineInvalid => "ENCODING_CLASS_LINE_INVALID",
+            Self::EncodingClassLineDuplicate => "ENCODING_CLASS_LINE_DUPLICATE",
+            Self::EncodingClassLineNotFound => "ENCODING_CLASS_LINE_NOT_FOUND",
             Self::EncodingSegmentCodeEmpty => "ENCODING_SEGMENT_CODE_EMPTY",
             Self::EncodingSegmentCodeTooLong { .. } => "ENCODING_SEGMENT_CODE_TOO_LONG",
             Self::EncodingSegmentLengthInvalid { .. } => "ENCODING_SEGMENT_LENGTH_INVALID",

@@ -179,6 +179,7 @@ has_status!(
     ttrs_shared::EncodingNatureDto,
     ttrs_shared::EncodingSegmentDto,
     ttrs_shared::EncodingYearDto,
+    ttrs_shared::EncodingClassDto,
     ttrs_shared::BasicCodeDto,
     ttrs_shared::CurrencyDto,
     ttrs_shared::MonthlyRateDto,

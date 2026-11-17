@@ -14,6 +14,7 @@ mod pg_credential;
 mod pg_currency;
 mod pg_department;
 mod pg_dictionary;
+mod pg_encoding_class;
 mod pg_encoding_nature;
 mod pg_encoding_segment;
 mod pg_encoding_year;

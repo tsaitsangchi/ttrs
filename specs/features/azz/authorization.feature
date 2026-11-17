@@ -437,6 +437,18 @@
       | encoding-segment-maintenance | output       | 列印編碼獨立段             |
       | encoding-segment-maintenance | exporttoexcel | 匯出編碼獨立段為 Excel    |
       | encoding-segment-maintenance | history      | 查詢作業 encoding-segment-maintenance COLOR 的異動記錄 |
+      | encoding-class-maintenance | query        | 查詢編碼類別               |
+      | encoding-class-maintenance | insert       | 新增編碼類別 FG            |
+      | encoding-class-maintenance | modify       | 修改編碼類別 FG            |
+      | encoding-class-maintenance | invalid      | 失效編碼類別 FG            |
+      | encoding-class-maintenance | delete       | 刪除編碼類別 FG            |
+      | encoding-class-maintenance | reproduce    | 複製編碼類別 FG            |
+      | encoding-class-maintenance | detail       | 維護編碼類別 FG 的各段     |
+      | encoding-class-maintenance | confirm      | 確認編碼類別 FG            |
+      | encoding-class-maintenance | notconfirm   | 取消確認編碼類別 FG        |
+      | encoding-class-maintenance | output       | 列印編碼類別               |
+      | encoding-class-maintenance | exporttoexcel | 匯出編碼類別為 Excel      |
+      | encoding-class-maintenance | history      | 查詢作業 encoding-class-maintenance FG 的異動記錄 |
       | encoding-year-maintenance | query         | 查詢編碼年對照             |
       | encoding-year-maintenance | detail        | 新增編碼年對照 2026        |
       | encoding-year-maintenance | detail        | 修改編碼年對照 2026        |

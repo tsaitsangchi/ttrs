@@ -339,3 +339,27 @@ error-ENCODING_YEAR_CODE_INVALID_CHAR = 编码编号不可含 * % _ ? 与空白�
 error-ENCODING_YEAR_ALREADY_EXISTS = 这一年已有相同长度的编码编号。
 error-ENCODING_YEAR_NOT_FOUND = 编码年对照不存在。
 error-ENCODING_YEAR_LENGTH_CHANGED = 修改时编码编号必须维持原本的长度；要改长度请删除后重新新增。
+
+# 編碼類別（aooi402）
+error-ENCODING_CLASS_CODE_EMPTY = 编码类别不可空白。
+error-ENCODING_CLASS_CODE_TOO_LONG = 编码类别长度超过上限（最多 10 码）。
+error-ENCODING_CLASS_NAME_EMPTY = 名称不可空白。
+error-ENCODING_CLASS_NATURE_INVALID = 性质必须是存在且有效的编码性质。
+error-ENCODING_CLASS_ALREADY_EXISTS = 编码类别已存在。
+error-ENCODING_CLASS_NOT_FOUND = 编码类别不存在。
+error-ENCODING_CLASS_IN_USE = 编码类别已被使用，不可删除；请改为停用。
+error-ENCODING_CLASS_INACTIVE = 编码类别已停用，请先启用再修改。
+error-ENCODING_CLASS_TYPE_INVALID = 型态只能是 1 到 9。
+error-ENCODING_CLASS_TYPE_NOT_ALLOWED = 这个型态不能用在此性质：年、季、月、周、日、栏位值只限批号、序号；批号、序号不能用独立段。
+error-ENCODING_CLASS_TYPE_NOT_SUPPORTED = 型态 4（栏位值）尚未开放，批号／序号管理移植时再提供。
+error-ENCODING_CLASS_SEGMENT_LENGTH_INVALID = 长度必须是 1 到 30。
+error-ENCODING_CLASS_DATE_LENGTH_INVALID = 季、月、周、日的长度固定为 2。
+error-ENCODING_CLASS_YEAR_LENGTH_NOT_DEFINED = 编码年对照没有这个长度的资料，请先在编码年对照维护建立。
+error-ENCODING_CLASS_FIXED_EMPTY = 固定值不可空白。
+error-ENCODING_CLASS_FIXED_INVALID_CHAR = 固定值不可含 * % _ ? 与空白。
+error-ENCODING_CLASS_FIXED_LENGTH_MISMATCH = 固定值长度必须等于这一段的长度。
+error-ENCODING_CLASS_SEGMENT_INVALID = 独立段必须是存在且有效的独立段。
+error-ENCODING_CLASS_SERIAL_DUPLICATE = 每个编码类别只能有一段流水号。
+error-ENCODING_CLASS_LINE_INVALID = 段次必须是正整数。
+error-ENCODING_CLASS_LINE_DUPLICATE = 段次重复。
+error-ENCODING_CLASS_LINE_NOT_FOUND = 找不到这个段次。

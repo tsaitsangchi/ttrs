@@ -65,6 +65,7 @@ pub struct AppState {
     pub encoding_natures: ttrs_app::EncodingNatureService,
     pub encoding_segments: ttrs_app::EncodingSegmentService,
     pub encoding_years: ttrs_app::EncodingYearService,
+    pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
     pub basic_codes: ttrs_app::BasicCodeService,
     /// 幣別維護（aooi050；共用）
@@ -160,6 +161,7 @@ impl AppState {
             encoding_natures,
             encoding_segments,
             encoding_years,
+            encoding_classes,
             basic_codes,
             currencies,
             rates,
@@ -199,6 +201,7 @@ impl AppState {
             encoding_natures,
             encoding_segments,
             encoding_years,
+            encoding_classes,
             basic_codes,
             currencies,
             rates,
@@ -512,6 +515,43 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/encoding-natures/{code}/{state}",
             post(set_encoding_nature_state),
+        )
+        // Encoding Class Maintenance 編碼類別維護（TipTop aooi402；共用；encoding_class.feature）
+        .route("/api/encoding-classes", post(create_encoding_class))
+        .route("/api/encoding-classes/query", post(query_encoding_classes))
+        .route(
+            "/api/encoding-classes/report.{format}",
+            get(encoding_class_report),
+        )
+        .route(
+            "/api/encoding-classes/{code}/copy",
+            post(copy_encoding_class),
+        )
+        .route(
+            "/api/encoding-classes/{code}/segments",
+            post(add_encoding_class_segment),
+        )
+        .route(
+            "/api/encoding-classes/{code}/segments/renumber",
+            post(renumber_encoding_class),
+        )
+        .route(
+            "/api/encoding-classes/{code}/segments/{no}",
+            axum::routing::put(update_encoding_class_segment).delete(remove_encoding_class_segment),
+        )
+        .route(
+            "/api/encoding-classes/{code}/segments/{no}/insert",
+            post(insert_encoding_class_segment),
+        )
+        .route(
+            "/api/encoding-classes/{code}",
+            get(get_encoding_class)
+                .put(update_encoding_class)
+                .delete(delete_encoding_class),
+        )
+        .route(
+            "/api/encoding-classes/{code}/{state}",
+            post(set_encoding_class_state),
         )
         // Encoding Year Maintenance 編碼年對照維護（TipTop aooi404；共用；encoding_year.feature）：鍵值為年＋長度
         .route("/api/encoding-years", post(create_encoding_year))
@@ -1650,6 +1690,8 @@ impl IntoResponse for HttpError {
             | "ENCODING_NATURE_NOT_FOUND"
             | "ENCODING_SEGMENT_NOT_FOUND"
             | "ENCODING_YEAR_NOT_FOUND"
+            | "ENCODING_CLASS_NOT_FOUND"
+            | "ENCODING_CLASS_LINE_NOT_FOUND"
             | "ENCODING_SEGMENT_LINE_NOT_FOUND"
             | "PRODUCT_CLASS_NOT_FOUND"
             | "ITEM_GROUP_NOT_FOUND"
@@ -1709,6 +1751,11 @@ impl IntoResponse for HttpError {
             | "ENCODING_NATURE_IN_USE"
             | "ENCODING_SEGMENT_ALREADY_EXISTS"
             | "ENCODING_YEAR_ALREADY_EXISTS"
+            | "ENCODING_CLASS_ALREADY_EXISTS"
+            | "ENCODING_CLASS_IN_USE"
+            | "ENCODING_CLASS_INACTIVE"
+            | "ENCODING_CLASS_SERIAL_DUPLICATE"
+            | "ENCODING_CLASS_LINE_DUPLICATE"
             | "ENCODING_SEGMENT_IN_USE"
             | "ENCODING_SEGMENT_INACTIVE"
             | "ENCODING_SEGMENT_LENGTH_HAS_VALUES"
@@ -3372,6 +3419,166 @@ async fn delete_encoding_nature(
 ) -> ApiResult<StatusCode> {
     let version = Some(require_version(v.version)?);
     s.encoding_natures.delete(&s.actor, &code, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- Encoding Class Maintenance 編碼類別維護（aooi402） -----
+
+use ttrs_shared::{EncodingClassDto, EncodingClassInput, EncodingClassSegmentInput};
+
+async fn get_encoding_class(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+) -> ApiResult<Json<EncodingClassDto>> {
+    Ok(Json(s.encoding_classes.get(&s.actor, &code).await?))
+}
+
+async fn create_encoding_class(
+    Ctx(s): Ctx,
+    Json(req): Json<EncodingClassInput>,
+) -> ApiResult<(StatusCode, Json<EncodingClassDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.encoding_classes.create(&s.actor, req).await?),
+    ))
+}
+
+async fn update_encoding_class(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<EncodingClassInput>,
+) -> ApiResult<Json<EncodingClassDto>> {
+    require_version(req.version)?;
+    Ok(Json(s.encoding_classes.update(&s.actor, &code, req).await?))
+}
+
+/// 單身新增一段（detail）
+async fn add_encoding_class_segment(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<EncodingClassSegmentInput>,
+) -> ApiResult<Json<EncodingClassDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.encoding_classes.add_segment(&s.actor, &code, req).await?,
+    ))
+}
+
+/// 單身在指定段次插入一段，之後的段次加 1（detail；addno）
+async fn insert_encoding_class_segment(
+    Ctx(s): Ctx,
+    Path((code, no)): Path<(String, i32)>,
+    Json(req): Json<EncodingClassSegmentInput>,
+) -> ApiResult<Json<EncodingClassDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.encoding_classes
+            .insert_segment(&s.actor, &code, no, req)
+            .await?,
+    ))
+}
+
+/// 單身修改一段（detail）
+async fn update_encoding_class_segment(
+    Ctx(s): Ctx,
+    Path((code, no)): Path<(String, i32)>,
+    Json(req): Json<EncodingClassSegmentInput>,
+) -> ApiResult<Json<EncodingClassDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.encoding_classes
+            .update_segment(&s.actor, &code, no, req)
+            .await?,
+    ))
+}
+
+/// 單身刪除一段（detail）
+async fn remove_encoding_class_segment(
+    Ctx(s): Ctx,
+    Path((code, no)): Path<(String, i32)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<EncodingClassDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.encoding_classes
+            .remove_segment(&s.actor, &code, no, version)
+            .await?,
+    ))
+}
+
+/// 段次重排（detail；lineno_from_1_resort）
+async fn renumber_encoding_class(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<EncodingClassDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.encoding_classes
+            .renumber(&s.actor, &code, version)
+            .await?,
+    ))
+}
+
+/// 停用（deactivate）、啟用（activate）、確認（confirm）、取消確認（unconfirm）
+async fn set_encoding_class_state(
+    Ctx(s): Ctx,
+    Path((code, state)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let g = &s.encoding_classes;
+    let dto = match state.as_str() {
+        "activate" => g.set_active(&s.actor, &code, true, version).await?,
+        "deactivate" => g.set_active(&s.actor, &code, false, version).await?,
+        "confirm" => g.confirm(&s.actor, &code, true, version).await?,
+        "unconfirm" => g.confirm(&s.actor, &code, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn query_encoding_classes(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<EncodingClassDto>>> {
+    Ok(Json(s.encoding_classes.query(&s.actor, req).await?))
+}
+
+async fn copy_encoding_class(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<EncodingClassDto>)> {
+    let c = s
+        .encoding_classes
+        .copy(&s.actor, &code, &req.new_code)
+        .await?;
+    Ok((StatusCode::CREATED, Json(c)))
+}
+
+async fn encoding_class_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .encoding_classes
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn delete_encoding_class(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.encoding_classes.delete(&s.actor, &code, version).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

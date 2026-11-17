@@ -1853,6 +1853,93 @@ pub mod encoding_year_max_len {
     pub const CODE: usize = 10;
 }
 
+/// 編碼類別（aooi402 / gei_file、gel_file；encoding_class.feature）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EncodingClassDto {
+    pub class_code: String,
+    pub name: String,
+    /// 性質（編碼性質代碼）
+    pub nature_code: String,
+    /// 總段數、總長度（由單身算出）
+    pub segment_count: i32,
+    pub total_length: i32,
+    /// 單身，依段次排序
+    pub segments: Vec<EncodingClassSegmentDto>,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 編碼類別的一段（gel02 段次、gel06 說明、gel03 長度、gel04 型態、gel05 固定值／獨立段、gel07 名稱顯示）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EncodingClassSegmentDto {
+    pub seq_no: i32,
+    pub description: Option<String>,
+    pub length: i16,
+    /// 型態 1–9：固定值、獨立段、流水號、欄位值、年、季、月、週、日
+    pub segment_type: String,
+    pub value: Option<String>,
+    pub show_name: bool,
+}
+
+/// 新增、修改編碼類別單頭
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EncodingClassInput {
+    pub class_code: String,
+    pub name: Option<String>,
+    pub nature_code: String,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+/// 新增、修改、插入一段；段次空白時為最大段次＋1（EC4）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EncodingClassSegmentInput {
+    pub seq_no: Option<i32>,
+    pub description: Option<String>,
+    pub length: Option<i16>,
+    pub segment_type: String,
+    pub value: Option<String>,
+    pub show_name: bool,
+    /// 單頭的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+impl EncodingClassDto {
+    pub fn to_input(&self) -> EncodingClassInput {
+        EncodingClassInput {
+            class_code: self.class_code.clone(),
+            name: Some(self.name.clone()),
+            nature_code: self.nature_code.clone(),
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::encoding_class 一致）
+pub mod encoding_class_max_len {
+    pub const CODE: usize = 10;
+    pub const NAME: usize = 80;
+    pub const VALUE: usize = 30;
+}
+
 /// 畫面 maxlength（與 ttrs_domain::encoding_nature 一致）
 pub mod encoding_nature_max_len {
     pub const CODE: usize = 2;

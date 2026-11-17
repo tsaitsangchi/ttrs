@@ -191,7 +191,7 @@ impl EncodingNatureService {
     }
 
     /// 修改說明、類別；性質建立後不可修改（:720-736）。
-    /// 已被編碼類別引用後不可改類別（EN4）：aooi402 移植時接上，目前沒有引用
+    /// 已被編碼類別使用時不可改類別（EN4、EC9）
     pub async fn update(
         &self,
         actor: &Actor,
@@ -202,11 +202,17 @@ impl EncodingNatureService {
             self.authorize(actor, "detail").await?;
             let mut nature = self.load(code).await?;
             nature.stamp.check(input.version)?;
-            nature.update(
-                NatureAttrs::new(input.name, &input.category)?,
-                &actor.user_id,
-                today(),
-            );
+            let attrs = NatureAttrs::new(input.name, &input.category)?;
+            if attrs.category != nature.attrs.category
+                && self
+                    .natures
+                    .encoding_nature_in_use(&nature.code)
+                    .await
+                    .map_err(infra)?
+            {
+                return Err(DomainError::EncodingNatureInUse.into());
+            }
+            nature.update(attrs, &actor.user_id, today());
             self.save(&nature).await
         })
         .await

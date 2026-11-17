@@ -173,6 +173,46 @@ tables:
       - { legacy: geh03, type: varchar2(15), sch: 檔案名稱, reason: "由類別決定的固定值、畫面不能輸入（FUN-7C0084）；TTRS 由程式依類別決定號碼用在哪張表（EN5）", verify: true, verify_note: "轉檔時若正式區有不是固定值（ima_file、occ_file、pmc_file、faj_file、rvbs_file）的舊資料，請 Key User 確認怎麼處理" }
       - { legacy: geh05, type: varchar2(10), sch: 索引值, reason: "同 geh03；s_auno 用它組 SQL 找最大號，TTRS 不以字串組 SQL（EN5）", verify: true, verify_note: "同 geh03：非固定值（ima01、occ01、pmc01、faj02、rvbs04、rvbs03）的舊資料待確認" }
 
+  - legacy: gei_file
+    target: encoding_class
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（EC2），轉入以總公司資料為準，差異請 Key User 確認"
+    verify: true
+    program: aooi402（Encoding Class Maintenance 編碼類別維護）
+    spec: specs/features/aoo/encoding_class.feature
+    note: "編碼類別資料單頭檔；migrations/0060_encoding_class.sql。性質參照 encoding_nature（外鍵）；編碼規則 gef_file（aooi400）引用"
+    columns:
+      - { legacy: gei01,   type: varchar2(10) PK NOT NULL, target: class_code, sch: 編碼類別, note: "區分大小寫、最多 10 字、建立後不可修改（EC3；TipTop g_chkey 可開放改鍵值，TTRS 不開放）" }
+      - { legacy: gei02,   type: varchar2(80), target: name, sch: 名稱, note: "必填（aooi402.per REQUIRED）" }
+      - { legacy: gei03,   type: varchar2(2), target: nature_code, sch: 性質, note: "須是存在且有效的編碼性質（aoo-131）；外鍵 encoding_nature" }
+      - { legacy: geiacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean；停用的不可修改（EC7）" }
+      - { legacy: geiuser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: geigrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
+      - { legacy: geimodu, type: varchar2(10), target: updated_by, sch: 資料修改者, note: "修改單身時一併更新（FUN-5B0136）" }
+      - { legacy: geidate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）；轉入的既有資料視為已確認" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+    not_ported:
+      - { legacy: gei04, type: number(5), sch: 總段數, reason: "由單身段數即時算出，不另存（EC3、EC10）" }
+      - { legacy: gei05, type: number(5), sch: 總長度, reason: "由單身長度合計即時算出，不另存（EC3、EC10）" }
+      - { legacy: gei06, type: varchar2(1), sch: No Use, reason: ".sch 註明 No Use（EC10）" }
+      - { legacy: gei07, type: varchar2(1), sch: No Use, reason: ".sch 註明 No Use（EC10）" }
+
+  - legacy: gel_file
+    target: encoding_class_segment
+    scope: system
+    program: aooi402 單身
+    spec: specs/features/aoo/encoding_class.feature
+    note: "編碼類別資料單身檔；一段一列，刪除單頭時一併刪除"
+    columns:
+      - { legacy: gel01, type: varchar2(10) PK NOT NULL, target: class_code, sch: 編碼類別 }
+      - { legacy: gel02, type: number(5) PK NOT NULL, target: seq_no, sch: 段次, note: "正整數、同一類別內不可重複；預設最大＋1；可插入、重排（EC4）" }
+      - { legacy: gel03, type: number(5), target: length, sch: 長度, note: "1–30；獨立段取獨立段長度、季月週日固定 2（EC5）" }
+      - { legacy: gel04, type: varchar2(1), target: segment_type, sch: 型態, note: "1 固定值、2 獨立段、3 流水號、4 欄位值、5 年、6 季、7 月、8 週、9 日；型態 4 第一版不開放（EC6）", verify: true, verify_note: "轉檔前請確認正式區有沒有型態 4（欄位值）的資料，有的話請 Key User 決定怎麼處理" }
+      - { legacy: gel05, type: varchar2(10), target: "fixed_value / independent_segment", sch: 固定值/獨立段編號, note: "型態 1 存 fixed_value、型態 2 存 independent_segment（外鍵 encoding_segment）；其他型態不存（EC5、EC9）" }
+      - { legacy: gel06, type: varchar2(80), target: description, sch: 段次說明 }
+      - { legacy: gel07, type: varchar2(1), target: show_name, sch: 名稱顯示否, note: "Y/N → boolean，預設否" }
+
   - legacy: gff_file
     target: encoding_year_code
     scope: system

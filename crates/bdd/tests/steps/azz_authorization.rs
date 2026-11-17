@@ -783,6 +783,89 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 編碼類別維護（aooi402；資料不存在時回 ENCODING_CLASS_NOT_FOUND 或性質無效，不是權限拒絕）
+        ["查詢編碼類別"] => w
+            .encoding_classes
+            .query(a, QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增編碼類別", code] => w
+            .encoding_classes
+            .create(
+                a,
+                ttrs_shared::EncodingClassInput {
+                    class_code: (*code).to_owned(),
+                    name: Some("成品".into()),
+                    nature_code: "A1".into(),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["修改編碼類別", code] => w
+            .encoding_classes
+            .update(
+                a,
+                code,
+                ttrs_shared::EncodingClassInput {
+                    class_code: (*code).to_owned(),
+                    name: Some("成品".into()),
+                    nature_code: "A1".into(),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["失效編碼類別", code] => w
+            .encoding_classes
+            .set_active(a, code, false, None)
+            .await
+            .map(drop),
+        ["刪除編碼類別", code] => w.encoding_classes.delete(a, code, None).await,
+        ["複製編碼類別", code] => w.encoding_classes.copy(a, code, "COPY").await.map(drop),
+        ["維護編碼類別", code, "的各段"] => w
+            .encoding_classes
+            .add_segment(
+                a,
+                code,
+                ttrs_shared::EncodingClassSegmentInput {
+                    segment_type: "3".into(),
+                    length: Some(4),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["確認編碼類別", code] => w
+            .encoding_classes
+            .confirm(a, code, true, None)
+            .await
+            .map(drop),
+        ["取消確認編碼類別", code] => w
+            .encoding_classes
+            .confirm(a, code, false, None)
+            .await
+            .map(drop),
+        ["列印編碼類別"] => w
+            .encoding_classes
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出編碼類別為", "Excel"] => w
+            .encoding_classes
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         // 編碼年對照維護（aooi404；資料不存在時回 ENCODING_YEAR_NOT_FOUND，不是權限拒絕）
         ["查詢編碼年對照"] => w
             .encoding_years

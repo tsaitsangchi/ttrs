@@ -178,11 +178,18 @@ impl EncodingSegmentService {
             self.authorize(actor, "modify").await?;
             let mut segment = self.load(code).await?;
             segment.stamp.check(input.version)?;
-            segment.update(
-                SegmentAttrs::new(input.name, input.length)?,
-                &actor.user_id,
-                today(),
-            )?;
+            let attrs = SegmentAttrs::new(input.name, input.length)?;
+            // 被編碼類別使用時不可改長度（EC9(b)），以免和類別的段長度不符
+            if attrs.length != segment.attrs.length
+                && self
+                    .segments
+                    .encoding_segment_in_use(&segment.code)
+                    .await
+                    .map_err(infra)?
+            {
+                return Err(DomainError::EncodingSegmentInUse.into());
+            }
+            segment.update(attrs, &actor.user_id, today())?;
             self.save(&segment).await
         })
         .await

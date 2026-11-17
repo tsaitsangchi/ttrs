@@ -1008,6 +1008,11 @@ pub trait EncodingNatureRepository: Send + Sync {
         &self,
         nature: &ttrs_domain::encoding_nature::EncodingNature,
     ) -> Result<(), RepoError>;
+    /// 是否已被編碼類別使用（EN4、EC9）
+    async fn encoding_nature_in_use(
+        &self,
+        code: &ttrs_domain::encoding_nature::NatureCode,
+    ) -> Result<bool, RepoError>;
     /// 已被編碼類別引用時回 `InUse`（EN6）；回傳是否有刪到
     async fn delete_encoding_nature(
         &self,
@@ -1036,6 +1041,11 @@ pub trait EncodingSegmentRepository: Send + Sync {
         &self,
         segment: &ttrs_domain::encoding_segment::EncodingSegment,
     ) -> Result<(), RepoError>;
+    /// 是否已被編碼類別的獨立段使用（IS6、EC9）
+    async fn encoding_segment_in_use(
+        &self,
+        code: &ttrs_domain::encoding_segment::SegmentCode,
+    ) -> Result<bool, RepoError>;
     /// 連同單身刪除；已被編碼類別引用時回 `InUse`（IS6）；回傳是否有刪到
     async fn delete_encoding_segment(
         &self,
@@ -1067,6 +1077,34 @@ pub trait EncodingYearRepository: Send + Sync {
     ) -> Result<(), RepoError>;
     /// 回傳是否有刪到
     async fn delete_encoding_year(&self, year: i32, length: i16) -> Result<bool, RepoError>;
+}
+
+/// 編碼類別（gei_file 單頭、gel_file 單身；encoding_class.feature）。共用 schema；單頭與單身一起存取
+#[async_trait]
+pub trait EncodingClassRepository: Send + Sync {
+    /// 全部類別（含單身），依代碼排序
+    async fn list_encoding_classes(
+        &self,
+    ) -> Result<Vec<ttrs_domain::encoding_class::EncodingClass>, RepoError>;
+    async fn get_encoding_class(
+        &self,
+        code: &ttrs_domain::encoding_class::ClassCode,
+    ) -> Result<Option<ttrs_domain::encoding_class::EncodingClass>, RepoError>;
+    /// 單頭與單身一起新增；代碼重複回 `Conflict`
+    async fn insert_encoding_class(
+        &self,
+        class: &ttrs_domain::encoding_class::EncodingClass,
+    ) -> Result<(), RepoError>;
+    /// 單頭版本不符回 `Stale`；單身只寫入有變動的段
+    async fn update_encoding_class(
+        &self,
+        class: &ttrs_domain::encoding_class::EncodingClass,
+    ) -> Result<(), RepoError>;
+    /// 連同單身刪除；回傳是否有刪到
+    async fn delete_encoding_class(
+        &self,
+        code: &ttrs_domain::encoding_class::ClassCode,
+    ) -> Result<bool, RepoError>;
 }
 
 /// 我的 GitHub 書庫的一筆（epub_github_library.feature ML1、ML6；表 epub_github_library）

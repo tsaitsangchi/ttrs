@@ -144,6 +144,14 @@ impl EncodingNatureRepository for PgStore {
         Ok(())
     }
 
+    async fn encoding_nature_in_use(&self, code: &NatureCode) -> Result<bool, RepoError> {
+        sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM encoding_class WHERE nature_code = $1)")
+            .bind(code.as_str())
+            .fetch_one(&self.pool)
+            .await
+            .map_err(db_err)
+    }
+
     async fn delete_encoding_nature(&self, code: &NatureCode) -> Result<bool, RepoError> {
         // 被編碼類別引用時由外鍵擋下、db_err 轉成 InUse（EN6；aooi402 移植時加外鍵）
         let n = sqlx::query("DELETE FROM encoding_nature WHERE nature_code = $1")

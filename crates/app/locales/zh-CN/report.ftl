@@ -256,3 +256,27 @@ encoding-year-col-year = 年
 encoding-year-col-length = 长度
 encoding-year-col-code = 编码编号
 encoding-year-col-active = 资料有效
+
+# 編碼類別（aooi402）
+encoding-class-report-title = 编码类别
+encoding-class-col-code = 编码类别
+encoding-class-col-name = 名称
+encoding-class-col-nature = 性质
+encoding-class-col-active = 资料有效
+encoding-class-col-seq = 段次
+encoding-class-col-description = 段次说明
+encoding-class-col-length = 长度
+encoding-class-col-type = 型态
+encoding-class-col-value = 固定值／独立段编号
+encoding-class-col-show-name = 名称显示
+encoding-class-type-1 = 1.固定值
+encoding-class-type-2 = 2.独立段
+encoding-class-type-3 = 3.流水号
+encoding-class-type-4 = 4.栏位值
+encoding-class-type-5 = 5.年
+encoding-class-type-6 = 6.季
+encoding-class-type-7 = 7.月
+encoding-class-type-8 = 8.周
+encoding-class-type-9 = 9.日
+encoding-class-yes = 是
+encoding-class-no = 否

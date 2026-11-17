@@ -1840,6 +1840,139 @@ pub async fn delete_encoding_nature(code: &str, version: i32) -> Result<(), Stri
     no_content(res).await
 }
 
+// ----- Encoding Class Maintenance 編碼類別維護（TipTop aooi402；共用） -----
+
+fn encoding_class_url(code: &str, suffix: &str) -> String {
+    if code.is_empty() {
+        url(&format!("/api/encoding-classes{suffix}"))
+    } else {
+        url(&format!(
+            "/api/encoding-classes/{}{suffix}",
+            urlencoding(code)
+        ))
+    }
+}
+
+pub async fn query_encoding_classes(
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::EncodingClassDto>, String> {
+    post_query(encoding_class_url("", "/query"), req).await
+}
+
+pub async fn create_encoding_class(
+    req: &ttrs_shared::EncodingClassInput,
+) -> Result<ttrs_shared::EncodingClassDto, String> {
+    send_json(reqwest::Method::POST, encoding_class_url("", ""), Some(req)).await
+}
+
+pub async fn update_encoding_class(
+    code: &str,
+    req: &ttrs_shared::EncodingClassInput,
+) -> Result<ttrs_shared::EncodingClassDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        encoding_class_url(code, ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn copy_encoding_class(
+    code: &str,
+    new_code: &str,
+) -> Result<ttrs_shared::EncodingClassDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        encoding_class_url(code, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+/// 停用／啟用（activate、deactivate）、確認／取消確認（confirm、unconfirm）
+pub async fn set_encoding_class_state(
+    code: &str,
+    state: &str,
+    version: i32,
+) -> Result<ttrs_shared::EncodingClassDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            encoding_class_url(code, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_encoding_class(code: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            encoding_class_url(code, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 單身編輯的方式
+#[derive(Clone, Copy, PartialEq)]
+pub enum SegmentEdit {
+    /// 新增在最後（段次空白時為最大＋1）
+    Add,
+    /// 在指定段次插入，之後的段次加 1
+    Insert(i32),
+    /// 修改指定段次
+    Update(i32),
+}
+
+pub async fn save_encoding_class_segment(
+    code: &str,
+    edit: SegmentEdit,
+    req: &ttrs_shared::EncodingClassSegmentInput,
+) -> Result<ttrs_shared::EncodingClassDto, String> {
+    let (method, suffix) = match edit {
+        SegmentEdit::Add => (reqwest::Method::POST, "/segments".to_owned()),
+        SegmentEdit::Insert(n) => (reqwest::Method::POST, format!("/segments/{n}/insert")),
+        SegmentEdit::Update(n) => (reqwest::Method::PUT, format!("/segments/{n}")),
+    };
+    send_json(method, encoding_class_url(code, &suffix), Some(req)).await
+}
+
+pub async fn remove_encoding_class_segment(
+    code: &str,
+    no: i32,
+    version: i32,
+) -> Result<ttrs_shared::EncodingClassDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::DELETE,
+        format!(
+            "{}?version={version}",
+            encoding_class_url(code, &format!("/segments/{no}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn renumber_encoding_class(
+    code: &str,
+    version: i32,
+) -> Result<ttrs_shared::EncodingClassDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            encoding_class_url(code, "/segments/renumber")
+        ),
+        None,
+    )
+    .await
+}
+
 // ----- Encoding Year Maintenance 編碼年對照維護（TipTop aooi404；共用） -----
 // 鍵值 key 為「年/長度」（EncodingYearDto::key），直接當路徑使用
 

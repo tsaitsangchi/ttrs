@@ -83,7 +83,7 @@
 |---|---|---|---|---|
 | aooi400 | 編碼規則 | gef_file | L | 移植 |
 | aooi401 | 編碼性質 | geh_file | S | 移植（2026-11-17 完成，`encoding_nature.feature` EN1–EN8）：檔案名稱、索引值不移植；被編碼類別引用的檢查待 aooi402 接上 |
-| aooi402 | 編碼類別 | gei_file | L | 移植 |
+| aooi402 | 編碼類別 | gei_file、gel_file | L | 移植（2026-11-17 完成，`encoding_class.feature` EC1–EC11）：型態 4 欄位值延後到批／序號管理；接上編碼性質、獨立段的被引用檢查；已有編碼規則時的限制待 aooi400 |
 | aooi403 | 編碼獨立段 | gej_file、gek_file | M | 移植（2026-11-17 完成，`encoding_segment.feature` IS1–IS8）：新增「編碼編號不可重複」「有單身不可改長度」兩項檢查；被編碼類別引用的檢查待 aooi402 接上 |
 | aooi404 | 年－編碼對照 | gff_file | S | 移植（2026-11-17 完成，`encoding_year.feature` EY1–EY8）：主鍵年＋長度；補上資料有效、所有者等標準欄位 |
 

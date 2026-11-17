@@ -165,6 +165,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "insert, query, modify, delete, invalid, reproduce, detail, history, confirm, notconfirm, output, exporttoexcel",
     ),
+    // 編碼類別（EC11）：單頭單身，沿用 TipTop 功能代號並補上確認與異動記錄
+    (
+        "encoding-class-maintenance",
+        "aooi402",
+        "AOO",
+        "insert, query, modify, delete, invalid, reproduce, detail, history, confirm, notconfirm, output, exporttoexcel",
+    ),
     // 編碼年對照（EY8）：比照單位維護
     (
         "encoding-year-maintenance",

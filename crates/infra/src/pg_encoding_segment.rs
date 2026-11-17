@@ -213,6 +213,16 @@ impl EncodingSegmentRepository for PgStore {
         tx.commit().await.map_err(db_err)
     }
 
+    async fn encoding_segment_in_use(&self, code: &SegmentCode) -> Result<bool, RepoError> {
+        sqlx::query_scalar(
+            "SELECT EXISTS (SELECT 1 FROM encoding_class_segment WHERE independent_segment = $1)",
+        )
+        .bind(code.as_str())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(db_err)
+    }
+
     async fn delete_encoding_segment(&self, code: &SegmentCode) -> Result<bool, RepoError> {
         let mut tx = self.pool.begin().await.map_err(db_err)?;
         sqlx::query("DELETE FROM encoding_segment_code WHERE segment_code = $1")

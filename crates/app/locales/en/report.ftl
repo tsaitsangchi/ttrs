@@ -256,3 +256,27 @@ encoding-year-col-year = Year
 encoding-year-col-length = Length
 encoding-year-col-code = Code No.
 encoding-year-col-active = Active
+
+# 編碼類別（aooi402）
+encoding-class-report-title = Encoding Classes
+encoding-class-col-code = Class
+encoding-class-col-name = Name
+encoding-class-col-nature = Nature
+encoding-class-col-active = Active
+encoding-class-col-seq = Segment No.
+encoding-class-col-description = Description
+encoding-class-col-length = Length
+encoding-class-col-type = Type
+encoding-class-col-value = Fixed Value / Segment
+encoding-class-col-show-name = Show Name
+encoding-class-type-1 = 1.Fixed value
+encoding-class-type-2 = 2.Independent segment
+encoding-class-type-3 = 3.Running number
+encoding-class-type-4 = 4.Field value
+encoding-class-type-5 = 5.Year
+encoding-class-type-6 = 6.Quarter
+encoding-class-type-7 = 7.Month
+encoding-class-type-8 = 8.Week
+encoding-class-type-9 = 9.Day
+encoding-class-yes = Yes
+encoding-class-no = No

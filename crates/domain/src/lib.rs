@@ -10,6 +10,7 @@ pub mod currency;
 pub mod department;
 pub mod dictionary;
 pub mod employee;
+pub mod encoding_class;
 pub mod encoding_nature;
 pub mod encoding_segment;
 pub mod encoding_year;

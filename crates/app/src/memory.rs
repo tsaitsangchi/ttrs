@@ -106,6 +106,8 @@ struct State {
     encoding_segments: BTreeMap<String, ttrs_domain::encoding_segment::EncodingSegment>,
     /// 編碼年對照（gff_file；encoding_year.feature），鍵為（年, 長度）
     encoding_years: BTreeMap<(i32, i16), ttrs_domain::encoding_year::EncodingYear>,
+    /// 編碼類別（gei_file、gel_file；encoding_class.feature）
+    encoding_classes: BTreeMap<String, ttrs_domain::encoding_class::EncodingClass>,
     /// (種類, 代號) → 基本代碼（gea、geb、geo、ged、azh，共用）
     basic_codes: BTreeMap<(BasicCodeKind, String), BasicCode>,
     /// 幣別（azi_file，共用）
@@ -244,6 +246,7 @@ impl InMemoryStore {
                     "encoding-nature-maintenance",
                     "encoding-segment-maintenance",
                     "encoding-year-maintenance",
+                    "encoding-class-maintenance",
                 ],
             ),
             (
@@ -291,7 +294,11 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 35] = [
+        let names: [(&str, [&str; 3]); 36] = [
+            (
+                "encoding-class-maintenance",
+                ["編碼類別維護", "Encoding Classes", "编码类别维护"],
+            ),
             (
                 "encoding-year-maintenance",
                 ["編碼年對照維護", "Encoding Year Codes", "编码年对照维护"],
@@ -3039,11 +3046,29 @@ impl crate::ports::EncodingNatureRepository for InMemoryStore {
         Ok(())
     }
 
+    async fn encoding_nature_in_use(
+        &self,
+        code: &ttrs_domain::encoding_nature::NatureCode,
+    ) -> Result<bool, RepoError> {
+        Ok(self
+            .lock()
+            .encoding_classes
+            .values()
+            .any(|c| c.attrs.nature == code.as_str()))
+    }
+
     async fn delete_encoding_nature(
         &self,
         code: &ttrs_domain::encoding_nature::NatureCode,
     ) -> Result<bool, RepoError> {
         let mut s = self.lock();
+        // 與 PostgreSQL 的外鍵一致：被編碼類別使用時不可刪除（EN6、EC9）
+        if s.encoding_classes
+            .values()
+            .any(|c| c.attrs.nature == code.as_str())
+        {
+            return Err(RepoError::InUse);
+        }
         let Some(old) = s.encoding_natures.remove(code.as_str()) else {
             return Ok(false);
         };
@@ -3199,11 +3224,22 @@ impl crate::ports::EncodingSegmentRepository for InMemoryStore {
         Ok(())
     }
 
+    async fn encoding_segment_in_use(
+        &self,
+        code: &ttrs_domain::encoding_segment::SegmentCode,
+    ) -> Result<bool, RepoError> {
+        Ok(segment_used(&self.lock(), code.as_str()))
+    }
+
     async fn delete_encoding_segment(
         &self,
         code: &ttrs_domain::encoding_segment::SegmentCode,
     ) -> Result<bool, RepoError> {
         let mut s = self.lock();
+        // 與 PostgreSQL 的外鍵一致：被編碼類別的獨立段使用時不可刪除（IS6、EC9）
+        if segment_used(&s, code.as_str()) {
+            return Err(RepoError::InUse);
+        }
         let Some(old) = s.encoding_segments.remove(code.as_str()) else {
             return Ok(false);
         };
@@ -3213,6 +3249,189 @@ impl crate::ports::EncodingSegmentRepository for InMemoryStore {
             "encoding_segment",
             segment_key(&old),
             Some(segment_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+/// 獨立段是否被編碼類別的型態 2 使用
+fn segment_used(s: &State, code: &str) -> bool {
+    s.encoding_classes.values().any(|c| {
+        c.segments.iter().any(|g| {
+            g.kind == ttrs_domain::encoding_class::SegmentType::Independent
+                && g.value.as_deref() == Some(code)
+        })
+    })
+}
+
+// ----- 編碼類別（gei_file、gel_file；encoding_class.feature） -----
+
+fn enc_class_key(c: &ttrs_domain::encoding_class::EncodingClass) -> Vec<(&'static str, String)> {
+    vec![("class_code", c.code.as_str().to_owned())]
+}
+
+fn enc_class_row(c: &ttrs_domain::encoding_class::EncodingClass) -> Row {
+    let mut cols = vec![
+        ("class_code", text::s(c.code.as_str())),
+        ("name", text::s(&c.attrs.name)),
+        ("nature_code", text::s(&c.attrs.nature)),
+        ("confirmed", text::b(c.confirmation.confirmed)),
+        ("confirmed_by", text::opt(c.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        c.active,
+        &c.created_by,
+        &c.created_dept,
+        c.created_on,
+        c.updated_by.as_deref(),
+        c.updated_on,
+        &c.stamp,
+    ));
+    row(cols)
+}
+
+fn class_segment_key(
+    code: &str,
+    g: &ttrs_domain::encoding_class::ClassSegment,
+) -> Vec<(&'static str, String)> {
+    vec![
+        ("class_code", code.to_owned()),
+        ("seq_no", g.no.to_string()),
+    ]
+}
+
+/// 單身一段的欄位：固定值與獨立段分兩欄（獨立段有外鍵）
+fn class_segment_row(code: &str, g: &ttrs_domain::encoding_class::ClassSegment) -> Row {
+    let independent = g.kind == ttrs_domain::encoding_class::SegmentType::Independent;
+    row(vec![
+        ("class_code", text::s(code)),
+        ("seq_no", text::int(i64::from(g.no))),
+        ("description", text::opt(g.description.as_deref())),
+        ("length", text::int(i64::from(g.length))),
+        ("segment_type", text::s(g.kind.code())),
+        (
+            "fixed_value",
+            text::opt(g.value.as_deref().filter(|_| !independent)),
+        ),
+        (
+            "independent_segment",
+            text::opt(g.value.as_deref().filter(|_| independent)),
+        ),
+        ("show_name", text::b(g.show_name)),
+    ])
+}
+
+impl State {
+    /// 單身的異動記錄：只記有變動的段（與 PostgreSQL 觸發器相同）
+    fn log_class_segments(
+        &mut self,
+        code: &str,
+        old: &[ttrs_domain::encoding_class::ClassSegment],
+        new: &[ttrs_domain::encoding_class::ClassSegment],
+    ) {
+        for o in old.iter().filter(|o| !new.iter().any(|n| n.no == o.no)) {
+            self.log_change(
+                None,
+                "encoding_class_segment",
+                class_segment_key(code, o),
+                Some(class_segment_row(code, o)),
+                None,
+                &[],
+            );
+        }
+        for n in new {
+            let before = old.iter().find(|o| o.no == n.no);
+            if before != Some(n) {
+                self.log_change(
+                    None,
+                    "encoding_class_segment",
+                    class_segment_key(code, n),
+                    before.map(|b| class_segment_row(code, b)),
+                    Some(class_segment_row(code, n)),
+                    &[],
+                );
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl crate::ports::EncodingClassRepository for InMemoryStore {
+    async fn list_encoding_classes(
+        &self,
+    ) -> Result<Vec<ttrs_domain::encoding_class::EncodingClass>, RepoError> {
+        Ok(self.lock().encoding_classes.values().cloned().collect())
+    }
+
+    async fn get_encoding_class(
+        &self,
+        code: &ttrs_domain::encoding_class::ClassCode,
+    ) -> Result<Option<ttrs_domain::encoding_class::EncodingClass>, RepoError> {
+        Ok(self.lock().encoding_classes.get(code.as_str()).cloned())
+    }
+
+    async fn insert_encoding_class(
+        &self,
+        class: &ttrs_domain::encoding_class::EncodingClass,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.encoding_classes.contains_key(class.code.as_str()) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = class.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            None,
+            "encoding_class",
+            enc_class_key(&n),
+            None,
+            Some(enc_class_row(&n)),
+            &[],
+        );
+        s.log_class_segments(n.code.as_str(), &[], &n.segments);
+        s.encoding_classes.insert(n.code.as_str().to_owned(), n);
+        Ok(())
+    }
+
+    async fn update_encoding_class(
+        &self,
+        class: &ttrs_domain::encoding_class::EncodingClass,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.encoding_classes.get(class.code.as_str()).cloned() else {
+            return Ok(());
+        };
+        let mut n = class.clone();
+        n.stamp = bumped(&old.stamp, &class.stamp)?;
+        s.log_change(
+            None,
+            "encoding_class",
+            enc_class_key(&n),
+            Some(enc_class_row(&old)),
+            Some(enc_class_row(&n)),
+            &[],
+        );
+        s.log_class_segments(n.code.as_str(), &old.segments, &n.segments);
+        s.encoding_classes.insert(n.code.as_str().to_owned(), n);
+        Ok(())
+    }
+
+    async fn delete_encoding_class(
+        &self,
+        code: &ttrs_domain::encoding_class::ClassCode,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.encoding_classes.remove(code.as_str()) else {
+            return Ok(false);
+        };
+        s.log_class_segments(old.code.as_str(), &old.segments, &[]);
+        s.log_change(
+            None,
+            "encoding_class",
+            enc_class_key(&old),
+            Some(enc_class_row(&old)),
             None,
             &[],
         );
