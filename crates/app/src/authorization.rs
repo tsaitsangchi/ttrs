@@ -151,6 +151,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AZZ",
         "insert, query, delete, run, share",
     ),
+    // 編碼性質（EN7）：比照單位維護
+    (
+        "encoding-nature-maintenance",
+        "aooi401",
+        "AOO",
+        "query, detail, history, reproduce, confirm, notconfirm, output, exporttoexcel",
+    ),
     // 單位換算（UC9）：比照單位維護
     (
         "unit-conversion-maintenance",

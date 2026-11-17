@@ -305,3 +305,11 @@ error-GITHUB_UNAVAILABLE = Cannot connect to GitHub.
 error-GITHUB_NOT_FOUND = Not found on GitHub.
 error-EPUB_LIBRARY_DUPLICATE = This repo is already in your GitHub library.
 error-EPUB_LIBRARY_FULL = Your GitHub library is full (at most 20 repos).
+
+# 編碼性質（aooi401）
+error-ENCODING_NATURE_CODE_EMPTY = Encoding nature is required.
+error-ENCODING_NATURE_CODE_TOO_LONG = The encoding nature is too long (at most 2 characters).
+error-ENCODING_NATURE_CATEGORY_INVALID = Category must be 1 to 6.
+error-ENCODING_NATURE_ALREADY_EXISTS = The encoding nature already exists.
+error-ENCODING_NATURE_NOT_FOUND = Encoding nature not found.
+error-ENCODING_NATURE_IN_USE = The encoding nature is used by an encoding class; deactivate it instead.

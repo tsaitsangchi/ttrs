@@ -176,6 +176,7 @@ has_status!(
     ttrs_shared::EmployeeDto,
     ttrs_shared::ClassificationCodeDto,
     ttrs_shared::UnitDto,
+    ttrs_shared::EncodingNatureDto,
     ttrs_shared::BasicCodeDto,
     ttrs_shared::CurrencyDto,
     ttrs_shared::MonthlyRateDto,

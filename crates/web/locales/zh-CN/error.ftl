@@ -305,3 +305,11 @@ error-GITHUB_UNAVAILABLE = 无法连接 GitHub。
 error-GITHUB_NOT_FOUND = GitHub 上找不到。
 error-EPUB_LIBRARY_DUPLICATE = 这个 repo 已在你的 GitHub 书库。
 error-EPUB_LIBRARY_FULL = GitHub 书库最多 20 个 repo。
+
+# 編碼性質（aooi401）
+error-ENCODING_NATURE_CODE_EMPTY = 编码性质不可空白。
+error-ENCODING_NATURE_CODE_TOO_LONG = 编码性质长度超过上限（最多 2 码）。
+error-ENCODING_NATURE_CATEGORY_INVALID = 类别只能是 1 到 6。
+error-ENCODING_NATURE_ALREADY_EXISTS = 编码性质已存在。
+error-ENCODING_NATURE_NOT_FOUND = 编码性质不存在。
+error-ENCODING_NATURE_IN_USE = 编码性质已被编码类别使用，不可删除或变更类别；请改为停用。

@@ -1,0 +1,26 @@
+# 編碼性質維護（TipTop aooi401；specs/features/aoo/encoding_nature.feature）
+encoding-nature-breadcrumb = 整體管理 / Encoding Nature Maintenance
+encoding-nature-title = 編碼性質維護
+encoding-nature-list-title = 編碼性質
+encoding-nature-field-code = 性質
+encoding-nature-field-name = 說明
+encoding-nature-field-category = 類別
+encoding-nature-action-activate = 啟用
+encoding-nature-action-deactivate = 停用
+encoding-nature-dialog-new = 新增編碼性質
+encoding-nature-dialog-edit = 修改編碼性質 { $code }
+encoding-nature-msg-saved = 編碼性質 { $code } 已儲存
+encoding-nature-msg-deleted = 編碼性質 { $code } 已刪除
+encoding-nature-msg-activated = 編碼性質 { $code } 已啟用
+encoding-nature-msg-deactivated = 編碼性質 { $code } 已停用
+encoding-nature-msg-confirmed = 已確認編碼性質 { $code }
+encoding-nature-msg-unconfirmed = 已取消確認編碼性質 { $code }
+encoding-nature-msg-copied = 已將編碼性質 { $from } 複製為 { $to }
+encoding-nature-field-copy-as = 複製為
+encoding-nature-hint = 性質最多 2 字，建立後不可修改；類別決定號碼用在哪一種資料。
+encoding-nature-category-1 = 1.料件編號
+encoding-nature-category-2 = 2.客戶編號
+encoding-nature-category-3 = 3.供應商編號
+encoding-nature-category-4 = 4.固定資產編號
+encoding-nature-category-5 = 5.批號
+encoding-nature-category-6 = 6.序號

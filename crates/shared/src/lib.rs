@@ -1655,6 +1655,43 @@ pub struct UnitDto {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
+/// 編碼性質（aooi401 / geh_file；encoding_nature.feature）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EncodingNatureDto {
+    pub nature_code: String,
+    pub name: Option<String>,
+    /// 類別 1–6：料件編號、客戶編號、供應商編號、固定資產編號、批號、序號
+    pub category: String,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EncodingNatureInput {
+    pub nature_code: String,
+    pub name: Option<String>,
+    pub category: String,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UnitInput {
@@ -1664,6 +1701,23 @@ pub struct UnitInput {
     pub decimals: Option<i16>,
     /// 修改時帶回的版本號（ADR 0012 §4）
     pub version: Option<i32>,
+}
+
+impl EncodingNatureDto {
+    pub fn to_input(&self) -> EncodingNatureInput {
+        EncodingNatureInput {
+            nature_code: self.nature_code.clone(),
+            name: self.name.clone(),
+            category: self.category.clone(),
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::encoding_nature 一致）
+pub mod encoding_nature_max_len {
+    pub const CODE: usize = 2;
+    pub const NAME: usize = 80;
 }
 
 impl UnitDto {

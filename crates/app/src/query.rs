@@ -1261,6 +1261,55 @@ pub mod accounting_year {
 }
 
 /// 單位換算（aooi102.4gl:115-178 的 CONSTRUCT；ADR 0013 SA1 擴及狀態欄位）
+pub mod encoding_nature {
+    use ttrs_domain::{encoding_nature::EncodingNature, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    /// aooi401.4gl:471-517 的查詢欄位（geh03、geh05 不移植，EN5）加上確認與「狀態」欄位
+    pub const FIELDS: &[Field] = &[
+        field("nature_code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("category", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(n: &EncodingNature, field: &str) -> FieldValue {
+        match field {
+            "nature_code" => text(n.code.as_str()),
+            "name" => opt_text(n.attrs.name.as_deref()),
+            "category" => text(n.attrs.category.code()),
+            other => confirm_value(other, &n.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(n.active),
+                        &n.created_by,
+                        &n.created_dept,
+                        Some(n.created_on),
+                        n.updated_by.as_deref(),
+                        n.updated_on,
+                        n.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
 pub mod unit_conversion {
     use ttrs_domain::{qbe::FieldType, unit_conversion::UnitConversion};
     use ttrs_shared::QbeCondition;

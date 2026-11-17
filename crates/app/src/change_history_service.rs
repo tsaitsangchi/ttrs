@@ -39,6 +39,11 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
     ("plant-maintenance", &["plant"], "plant_id"),
     ("menu-maintenance", &["menu_item"], "menu_no"),
     ("unit-maintenance", &["unit"], "unit_code"),
+    (
+        "encoding-nature-maintenance",
+        &["encoding_nature"],
+        "nature_code",
+    ),
     // 單位換算以來源單位查詢
     (
         "unit-conversion-maintenance",

@@ -727,6 +727,62 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             w.classification.delete(a, "TW01", kind, code, None).await
         }
         // aooi101 單位維護（共用層）
+        // 編碼性質維護（aooi401；資料不存在時回 ENCODING_NATURE_NOT_FOUND，不是權限拒絕）
+        ["查詢編碼性質"] => w
+            .encoding_natures
+            .query(a, QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增編碼性質", code] | ["修改編碼性質", code] => {
+            let req = ttrs_shared::EncodingNatureInput {
+                nature_code: (*code).to_owned(),
+                name: Some("料號".into()),
+                category: "1".into(),
+                version: None,
+            };
+            if words[0] == "新增編碼性質" {
+                w.encoding_natures.create(a, req).await.map(drop)
+            } else {
+                w.encoding_natures.update(a, code, req).await.map(drop)
+            }
+        }
+        ["停用編碼性質", code] => w
+            .encoding_natures
+            .set_active(a, code, false, None)
+            .await
+            .map(drop),
+        ["刪除編碼性質", code] => w.encoding_natures.delete(a, code, None).await,
+        ["複製編碼性質", code] => w.encoding_natures.copy(a, code, "ZZ").await.map(drop),
+        ["確認編碼性質", code] => w
+            .encoding_natures
+            .confirm(a, code, true, None)
+            .await
+            .map(drop),
+        ["取消確認編碼性質", code] => w
+            .encoding_natures
+            .confirm(a, code, false, None)
+            .await
+            .map(drop),
+        ["列印編碼性質"] => w
+            .encoding_natures
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出編碼性質為", "Excel"] => w
+            .encoding_natures
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         ["查詢單位"] => w.units.query(a, QueryRequest::default()).await.map(drop),
         ["新增單位", code] => {
             let req = ttrs_shared::UnitInput {

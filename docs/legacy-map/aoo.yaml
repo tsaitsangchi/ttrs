@@ -150,6 +150,29 @@ tables:
       - { legacy: gfedate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
       - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
 
+  - legacy: geh_file
+    target: encoding_nature
+    scope: system
+    scope_note: "TipTop 各營運中心資料庫各一份；TTRS 全公司共用（EN2），轉入以總公司資料為準，差異請 Key User 確認"
+    verify: true
+    program: aooi401（Encoding Nature Maintenance 編碼性質維護）
+    spec: specs/features/aoo/encoding_nature.feature
+    note: "編碼性質檔；migrations/0057_encoding_nature.sql。批次 5 編碼規則的最上層，編碼類別 gei03 引用"
+    columns:
+      - { legacy: geh01,   type: varchar2(2) PK NOT NULL, target: nature_code, sch: 性質, note: "區分大小寫、最多 2 字、建立後不可修改（EN3）" }
+      - { legacy: geh02,   type: varchar2(80), target: name, sch: 說明 }
+      - { legacy: geh04,   type: varchar2(1), target: category, sch: 類別, note: "1 料件編號、2 客戶編號、3 供應商編號、4 固定資產編號、5 批號、6 序號；必填（EN4）" }
+      - { legacy: gehacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean" }
+      - { legacy: gehuser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: gehgrup, type: varchar2(10), target: created_dept, sch: 資料所有部門 }
+      - { legacy: gehmodu, type: varchar2(10), target: updated_by, sch: 資料修改者 }
+      - { legacy: gehdate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）；轉入的既有資料視為已確認" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+    not_ported:
+      - { legacy: geh03, type: varchar2(15), sch: 檔案名稱, reason: "由類別決定的固定值、畫面不能輸入（FUN-7C0084）；TTRS 由程式依類別決定號碼用在哪張表（EN5）", verify: true, verify_note: "轉檔時若正式區有不是固定值（ima_file、occ_file、pmc_file、faj_file、rvbs_file）的舊資料，請 Key User 確認怎麼處理" }
+      - { legacy: geh05, type: varchar2(10), sch: 索引值, reason: "同 geh03；s_auno 用它組 SQL 找最大號，TTRS 不以字串組 SQL（EN5）", verify: true, verify_note: "同 geh03：非固定值（ima01、occ01、pmc01、faj02、rvbs04、rvbs03）的舊資料待確認" }
+
   # ----- 基本代碼（migrations/0041_basic_codes.sql；basic_code_service.rs） -----
   - legacy: gea_file
     target: region
@@ -387,6 +410,17 @@ tables:
       - { legacy: azz08, type: varchar2(1), sch: "No Use", reason: "No Use" }
       - { legacy: azz09, type: varchar2(1), sch: "No Use", reason: "No Use" }
       - { legacy: azz10, type: varchar2(1), sch: "No Use", reason: "No Use" }
+
+  - legacy: azr_file
+    target: "(不移植)"
+    scope: system
+    program: aooi902（工廠使用系統關連性設定；批次 3）
+    reason: "2008 年修改單 CHI-880003 起，s_chknplt、s_chknplt2、aapt600、saapt310、saapt110（含客製 cap）讀取 azr_file 的程式段都已註解、改讀 azp_file；全部 4gl 已無程式讀取此表，維護它不影響任何行為（Key User 確認不移植，2026-11-17）"
+    not_ported:
+      - { legacy: azr01, type: varchar2(10), sch: "營運中心編號 (FROM)", reason: "改讀 azp_file 後已無程式讀取（CHI-880003）" }
+      - { legacy: azr02, type: varchar2(20), sch: "營運中心使用系統 (FROM)", reason: "改讀 azp_file 後已無程式讀取（CHI-880003）" }
+      - { legacy: azr03, type: varchar2(10), sch: "營運中心編號 (TO)", reason: "改讀 azp_file 後已無程式讀取（CHI-880003）" }
+      - { legacy: azr04, type: varchar2(20), sch: "營運中心使用系統 (TO)", reason: "改讀 azp_file 後已無程式讀取（CHI-880003）" }
 
   - legacy: smc_file
     target: unit_conversion

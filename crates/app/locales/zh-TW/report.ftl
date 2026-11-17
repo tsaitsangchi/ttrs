@@ -226,3 +226,16 @@ conversion-col-to-unit = 目的單位
 conversion-col-to-quantity = 目的數量
 conversion-col-note = 說明
 conversion-col-active = 有效
+
+# 編碼性質（aooi401）
+encoding-nature-report-title = 編碼性質
+encoding-nature-col-code = 性質
+encoding-nature-col-name = 說明
+encoding-nature-col-category = 類別
+encoding-nature-col-active = 資料有效
+encoding-nature-category-1 = 1.料件編號
+encoding-nature-category-2 = 2.客戶編號
+encoding-nature-category-3 = 3.供應商編號
+encoding-nature-category-4 = 4.固定資產編號
+encoding-nature-category-5 = 5.批號
+encoding-nature-category-6 = 6.序號

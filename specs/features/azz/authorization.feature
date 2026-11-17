@@ -414,6 +414,17 @@
       | unit-maintenance | output                     | 列印單位                   |
       | unit-maintenance | exporttoexcel              | 匯出單位為 Excel           |
       | unit-maintenance | history                    | 查詢作業 unit-maintenance KG 的異動記錄 |
+      | encoding-nature-maintenance | query         | 查詢編碼性質               |
+      | encoding-nature-maintenance | detail        | 新增編碼性質 A1            |
+      | encoding-nature-maintenance | detail        | 修改編碼性質 A1            |
+      | encoding-nature-maintenance | detail        | 停用編碼性質 A1            |
+      | encoding-nature-maintenance | detail        | 刪除編碼性質 A1            |
+      | encoding-nature-maintenance | reproduce     | 複製編碼性質 A1            |
+      | encoding-nature-maintenance | confirm       | 確認編碼性質 A1            |
+      | encoding-nature-maintenance | notconfirm    | 取消確認編碼性質 A1        |
+      | encoding-nature-maintenance | output        | 列印編碼性質               |
+      | encoding-nature-maintenance | exporttoexcel | 匯出編碼性質為 Excel       |
+      | encoding-nature-maintenance | history       | 查詢作業 encoding-nature-maintenance A1 的異動記錄 |
       | project-maintenance | query | 查詢專案 |
       | project-maintenance | insert | 新增專案 P1 |
       | project-maintenance | modify | 修改專案 P1 |

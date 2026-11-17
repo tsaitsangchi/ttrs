@@ -987,6 +987,34 @@ pub trait GithubSource: Send + Sync {
     ) -> Result<Vec<GithubCodeHit>, ttrs_domain::DomainError>;
 }
 
+/// 編碼性質（geh_file；encoding_nature.feature）。共用 schema
+#[async_trait]
+pub trait EncodingNatureRepository: Send + Sync {
+    /// 全部性質，依代碼排序
+    async fn list_encoding_natures(
+        &self,
+    ) -> Result<Vec<ttrs_domain::encoding_nature::EncodingNature>, RepoError>;
+    async fn get_encoding_nature(
+        &self,
+        code: &ttrs_domain::encoding_nature::NatureCode,
+    ) -> Result<Option<ttrs_domain::encoding_nature::EncodingNature>, RepoError>;
+    /// 代碼重複回 `Conflict`
+    async fn insert_encoding_nature(
+        &self,
+        nature: &ttrs_domain::encoding_nature::EncodingNature,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`
+    async fn update_encoding_nature(
+        &self,
+        nature: &ttrs_domain::encoding_nature::EncodingNature,
+    ) -> Result<(), RepoError>;
+    /// 已被編碼類別引用時回 `InUse`（EN6）；回傳是否有刪到
+    async fn delete_encoding_nature(
+        &self,
+        code: &ttrs_domain::encoding_nature::NatureCode,
+    ) -> Result<bool, RepoError>;
+}
+
 /// 我的 GitHub 書庫的一筆（epub_github_library.feature ML1、ML6；表 epub_github_library）
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EpubLibraryEntry {

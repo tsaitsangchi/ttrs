@@ -16,7 +16,7 @@ use pages::{
     aoo::{
         AccountingPeriodMaintenance, AreaMaintenance, ClassificationCodeMaintenance,
         CountryMaintenance, CurrencyMaintenance, DailyRateCopy, DailyRateMaintenance,
-        DepartmentMaintenance, EmployeeMaintenance, GeneralParameters,
+        DepartmentMaintenance, EmployeeMaintenance, EncodingNatureMaintenance, GeneralParameters,
         ItemUnitConversionMaintenance, MonthlyRateMaintenance, PlantMaintenance,
         ProjectMaintenance, RegionMaintenance, ReportTitleMaintenance, ShippingMethodMaintenance,
         TaxTypeMaintenance, UnitConversionMaintenance, UnitMaintenance,
@@ -61,6 +61,9 @@ enum Route {
         /// Classification Code Maintenance 分類碼維護（TipTop aooi300）
         #[route("/aoo/classification-code-maintenance")]
         ClassificationCodeMaintenance {},
+        /// Encoding Nature Maintenance 編碼性質維護（TipTop aooi401）
+        #[route("/aoo/encoding-nature-maintenance")]
+        EncodingNatureMaintenance {},
         /// Unit Maintenance 單位維護（TipTop aooi101）
         #[route("/aoo/unit-maintenance")]
         UnitMaintenance {},
@@ -221,6 +224,11 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
             Tone::Success,
         ),
         "unit-maintenance" => (Route::UnitMaintenance {}, icons::STRAIGHTEN, Tone::Success),
+        "encoding-nature-maintenance" => (
+            Route::EncodingNatureMaintenance {},
+            icons::CATEGORY,
+            Tone::Success,
+        ),
         "currency-maintenance" => (
             Route::CurrencyMaintenance {},
             icons::PAYMENTS,

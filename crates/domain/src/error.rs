@@ -393,6 +393,19 @@ pub enum DomainError {
     GithubUnavailable(String),
     #[error("GitHub 上找不到：{0}")]
     GithubNotFound(String),
+    // ----- 編碼性質（aooi401 / geh_file；encoding_nature.feature） -----
+    #[error("編碼性質不可空白")]
+    EncodingNatureCodeEmpty,
+    #[error("編碼性質長度不可超過 {max} 碼")]
+    EncodingNatureCodeTooLong { max: usize },
+    #[error("類別只能是 1 到 6（料件編號、客戶編號、供應商編號、固定資產編號、批號、序號）")]
+    EncodingNatureCategoryInvalid,
+    #[error("編碼性質已存在")]
+    EncodingNatureAlreadyExists,
+    #[error("編碼性質不存在")]
+    EncodingNatureNotFound,
+    #[error("編碼性質已被編碼類別使用，不可刪除或變更類別；請改為停用")]
+    EncodingNatureInUse,
     // ----- 我的 GitHub 書庫（epub_github_library.feature） -----
     #[error("「{0}」已在你的 GitHub 書庫")]
     EpubLibraryDuplicate(String),
@@ -782,6 +795,12 @@ impl DomainError {
             Self::GithubRateLimited { .. } => "GITHUB_RATE_LIMITED",
             Self::GithubUnavailable(_) => "GITHUB_UNAVAILABLE",
             Self::GithubNotFound(_) => "GITHUB_NOT_FOUND",
+            Self::EncodingNatureCodeEmpty => "ENCODING_NATURE_CODE_EMPTY",
+            Self::EncodingNatureCodeTooLong { .. } => "ENCODING_NATURE_CODE_TOO_LONG",
+            Self::EncodingNatureCategoryInvalid => "ENCODING_NATURE_CATEGORY_INVALID",
+            Self::EncodingNatureAlreadyExists => "ENCODING_NATURE_ALREADY_EXISTS",
+            Self::EncodingNatureNotFound => "ENCODING_NATURE_NOT_FOUND",
+            Self::EncodingNatureInUse => "ENCODING_NATURE_IN_USE",
             Self::EpubLibraryDuplicate(_) => "EPUB_LIBRARY_DUPLICATE",
             Self::EpubLibraryFull { .. } => "EPUB_LIBRARY_FULL",
             Self::UnitCodeEmpty => "UNIT_CODE_EMPTY",

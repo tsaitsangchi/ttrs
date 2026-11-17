@@ -226,3 +226,16 @@ conversion-col-to-unit = To unit
 conversion-col-to-quantity = To quantity
 conversion-col-note = Note
 conversion-col-active = Active
+
+# 編碼性質（aooi401）
+encoding-nature-report-title = Encoding Natures
+encoding-nature-col-code = Nature
+encoding-nature-col-name = Description
+encoding-nature-col-category = Category
+encoding-nature-col-active = Active
+encoding-nature-category-1 = 1.Item No.
+encoding-nature-category-2 = 2.Customer No.
+encoding-nature-category-3 = 3.Supplier No.
+encoding-nature-category-4 = 4.Fixed Asset No.
+encoding-nature-category-5 = 5.Lot No.
+encoding-nature-category-6 = 6.Serial No.

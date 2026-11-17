@@ -100,6 +100,8 @@ struct State {
     changes: Vec<(Option<PlantId>, ChangeRecord)>,
     /// 單位（gfe_file，共用）
     units: BTreeMap<String, Unit>,
+    /// 編碼性質（geh_file；encoding_nature.feature）
+    encoding_natures: BTreeMap<String, ttrs_domain::encoding_nature::EncodingNature>,
     /// (種類, 代號) → 基本代碼（gea、geb、geo、ged、azh，共用）
     basic_codes: BTreeMap<(BasicCodeKind, String), BasicCode>,
     /// 幣別（azi_file，共用）
@@ -235,6 +237,7 @@ impl InMemoryStore {
                     "accounting-period-maintenance",
                     "unit-conversion-maintenance",
                     "item-unit-conversion-maintenance",
+                    "encoding-nature-maintenance",
                 ],
             ),
             (
@@ -282,7 +285,11 @@ impl InMemoryStore {
             }
         }
         // 已移植作業的名稱（同 migrations/0026）；已有名稱或程式未登錄時略過
-        let names: [(&str, [&str; 3]); 32] = [
+        let names: [(&str, [&str; 3]); 33] = [
+            (
+                "encoding-nature-maintenance",
+                ["編碼性質維護", "Encoding Natures", "编码性质维护"],
+            ),
             (
                 "monthly-exchange-rate-maintenance",
                 ["每月匯率維護", "Monthly Exchange Rates", "每月汇率维护"],
@@ -2931,6 +2938,111 @@ fn unit_row(u: &Unit) -> Row {
         &u.stamp,
     ));
     row(cols)
+}
+
+// ----- 編碼性質（geh_file；encoding_nature.feature） -----
+
+fn nature_key(n: &ttrs_domain::encoding_nature::EncodingNature) -> Vec<(&'static str, String)> {
+    vec![("nature_code", n.code.as_str().to_owned())]
+}
+
+fn nature_row(n: &ttrs_domain::encoding_nature::EncodingNature) -> Row {
+    let mut cols = vec![
+        ("nature_code", text::s(n.code.as_str())),
+        ("name", text::opt(n.attrs.name.as_deref())),
+        ("category", text::s(n.attrs.category.code())),
+        ("confirmed", text::b(n.confirmation.confirmed)),
+        ("confirmed_by", text::opt(n.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        n.active,
+        &n.created_by,
+        &n.created_dept,
+        n.created_on,
+        n.updated_by.as_deref(),
+        n.updated_on,
+        &n.stamp,
+    ));
+    row(cols)
+}
+
+#[async_trait]
+impl crate::ports::EncodingNatureRepository for InMemoryStore {
+    async fn list_encoding_natures(
+        &self,
+    ) -> Result<Vec<ttrs_domain::encoding_nature::EncodingNature>, RepoError> {
+        Ok(self.lock().encoding_natures.values().cloned().collect())
+    }
+
+    async fn get_encoding_nature(
+        &self,
+        code: &ttrs_domain::encoding_nature::NatureCode,
+    ) -> Result<Option<ttrs_domain::encoding_nature::EncodingNature>, RepoError> {
+        Ok(self.lock().encoding_natures.get(code.as_str()).cloned())
+    }
+
+    async fn insert_encoding_nature(
+        &self,
+        nature: &ttrs_domain::encoding_nature::EncodingNature,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.encoding_natures.contains_key(nature.code.as_str()) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = nature.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            None,
+            "encoding_nature",
+            nature_key(&n),
+            None,
+            Some(nature_row(&n)),
+            &[],
+        );
+        s.encoding_natures.insert(n.code.as_str().to_owned(), n);
+        Ok(())
+    }
+
+    async fn update_encoding_nature(
+        &self,
+        nature: &ttrs_domain::encoding_nature::EncodingNature,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.encoding_natures.get(nature.code.as_str()).cloned() else {
+            return Ok(());
+        };
+        let mut n = nature.clone();
+        n.stamp = bumped(&old.stamp, &nature.stamp)?;
+        s.log_change(
+            None,
+            "encoding_nature",
+            nature_key(&n),
+            Some(nature_row(&old)),
+            Some(nature_row(&n)),
+            &[],
+        );
+        s.encoding_natures.insert(n.code.as_str().to_owned(), n);
+        Ok(())
+    }
+
+    async fn delete_encoding_nature(
+        &self,
+        code: &ttrs_domain::encoding_nature::NatureCode,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.encoding_natures.remove(code.as_str()) else {
+            return Ok(false);
+        };
+        s.log_change(
+            None,
+            "encoding_nature",
+            nature_key(&old),
+            Some(nature_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
 }
 
 // ----- 專案（gja_file；project_maintenance.feature；工廠層） -----

@@ -67,6 +67,7 @@ pub trait Store:
     + crate::ports::GithubSource
     + crate::ports::TranslationJobRepository
     + crate::ports::EpubLibraryRepository
+    + crate::ports::EncodingNatureRepository
     + crate::ports::EpubSharedLibraryRepository
     + 'static
 {
@@ -109,6 +110,8 @@ impl<T> Store for T where
         + crate::ports::GithubSource
         + crate::ports::TranslationJobRepository
         + crate::ports::EpubLibraryRepository
+        + crate::ports::EncodingNatureRepository
+        + crate::ports::EncodingNatureRepository
         + crate::ports::EpubSharedLibraryRepository
         + crate::ports::EpubSharedLibraryRepository
         + 'static
@@ -141,6 +144,7 @@ pub struct Services {
     pub menus: MenuService,
     /// 單位維護（aooi101）
     pub units: UnitService,
+    pub encoding_natures: crate::EncodingNatureService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210）
     pub basic_codes: BasicCodeService,
     /// 幣別維護（aooi050）
@@ -276,6 +280,11 @@ impl Services {
             ),
             history: ChangeHistoryService::new(a.clone(), history.clone()),
             units: UnitService::new(a.clone(), store.clone(), reports.clone()),
+            encoding_natures: crate::EncodingNatureService::new(
+                a.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
             basic_codes: BasicCodeService::new(a.clone(), store.clone(), reports.clone()),
             currencies: CurrencyService::new(a.clone(), store.clone(), reports.clone()),
             rates: ExchangeRateService::new(

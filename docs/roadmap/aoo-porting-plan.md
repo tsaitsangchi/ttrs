@@ -23,6 +23,7 @@
 | ✔ | 批次 1：aooi050 幣別、aooi090 國別、aooi100 區域別、aooi110 地區、aooi150 稅別、aooi160 交運方式、aooi200 專案、aooi210 報表抬頭、aooi080★ 碼別 | 2026-11-10 完成；區域別、國別、地區、交運方式、報表抬頭共用「基本代碼」畫面與 use case（`basic_code_service.rs`） |
 | ✔ | 批次 2：aooi060 每月匯率、aooi070 每日匯率、aoop010 每日匯率複製 | 2026-11-11 完成；匯率放共用 schema、不移植拋轉（ER1）；本國幣別先放 `system_parameter.base_currency`（aza17，ER2；aoos010 移植時在同一張表補其他參數）。自動匯入見下一列 |
 | ✔ | aooi070★ 匯率自動匯入 | 2026-11-12 完成（IM1–IM9，`exchange_rate_import.feature` IM-1–IM-15）：每日匯率維護的「自動匯入」（台銀即期／現金、海關，可上傳台銀 CSV，今天已有匯率時先確認覆寫）；API `POST /api/daily-rates/import/bank`、`/import/customs`；每日排程 `TTRS_RATE_JOB_AT`（API 伺服器）或 `ttrs-admin rate-job`（cron），服務帳號 `TTRS_RATE_JOB_USER`（預設 ttrs-batch），有步驟失敗時寄信給 `TTRS_ADMIN_MAIL`。台銀網站對程式下載有機器人驗證，開發機只拿到驗證頁，上線前在公司網路再測一次 |
+| ✔ | 批次 3、4：aoos010 系統參數、aoos020 會計期間、aooi102 單位換算、aooi103 料件單位換算 | 2026-11-12 完成。批次 3 其餘：aoos900、aooi902 不移植；aoos021、aoos031、aooq011、aooq021 延後到總帳；aoos030、aooq010 由會計期間維護取代（2026-11-17 批次 3 結案） |
 
 ## 3. 程式清單與處理方式
 
@@ -65,9 +66,9 @@
 | aoos030 | 週期期間產生 | azm、azn | S | 取代：日期所屬年度、季、期、週改為即時計算，不另存 azn_file（PD3） |
 | aoos031 | 帳套週期期間產生 | azmm、aznn | S | 延後：同 aoos021（PD1） |
 | aooq010、aooq011 | 週期期間查詢、帳套週期期間查詢 | azn、aznn | S | aooq010 併入會計期間維護的「週期期間查詢」（PD3）；aooq011 延後同 aoos021 |
-| aooq021 | 歷年帳套 | tna_file | S | 移植 |
+| aooq021 | 歷年帳套 | tna_file | S | 延後（2026-11-17 確認）：tna_file 是總帳（agl）的歷年主會計帳別，還要讀帳別主檔 aaa_file；同 aoos021，總帳移植時再做 |
 | aoos900 | 多營運中心控制參數 | azz_file | S | 不移植（2026-11-12 確認）：由 ADR 0007 多營運中心、登入選營運中心、營運中心時區與環境設定取代 |
-| aooi902 | 工廠使用系統關聯 | azp_file | S | 合併到營運中心維護 |
+| aooi902 | 工廠使用系統關聯 | azr_file（原誤植為 azp_file） | S | 不移植（2026-11-17 確認）：azr_file 自 2008 年 CHI-880003 起已無任何程式讀取（s_chknplt、aapt600、saapt310、saapt110 都改讀 azp_file），維護它不影響任何行為 |
 
 ### 批次 4　單位換算（依賴料件）
 
@@ -81,7 +82,7 @@
 | 程式 | 名稱 | 主要表 | 規模 | 處理 |
 |---|---|---|---|---|
 | aooi400 | 編碼規則 | gef_file | L | 移植 |
-| aooi401 | 編碼性質 | geh_file | S | 移植 |
+| aooi401 | 編碼性質 | geh_file | S | 移植（2026-11-17 完成，`encoding_nature.feature` EN1–EN8）：檔案名稱、索引值不移植；被編碼類別引用的檢查待 aooi402 接上 |
 | aooi402 | 編碼類別 | gei_file | L | 移植 |
 | aooi403 | 編碼獨立段 | gej_file | M | 移植 |
 | aooi404 | 年－編碼對照 | gff_file | S | 移植 |

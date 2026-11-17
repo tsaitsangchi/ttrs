@@ -12,6 +12,7 @@ mod aoo_classification_code;
 mod aoo_currency_maintenance;
 mod aoo_department_employee;
 mod aoo_department_report;
+mod aoo_encoding_nature;
 mod aoo_exchange_rate;
 mod aoo_general_parameters;
 mod aoo_plant_maintenance;

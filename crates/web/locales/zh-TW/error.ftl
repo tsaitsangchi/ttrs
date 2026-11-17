@@ -305,3 +305,11 @@ error-GITHUB_UNAVAILABLE = （使用伺服器訊息）
 error-GITHUB_NOT_FOUND = （使用伺服器訊息）
 error-EPUB_LIBRARY_DUPLICATE = （使用伺服器訊息）
 error-EPUB_LIBRARY_FULL = （使用伺服器訊息）
+
+# 編碼性質（aooi401）
+error-ENCODING_NATURE_CODE_EMPTY = （使用伺服器訊息）
+error-ENCODING_NATURE_CODE_TOO_LONG = （使用伺服器訊息）
+error-ENCODING_NATURE_CATEGORY_INVALID = （使用伺服器訊息）
+error-ENCODING_NATURE_ALREADY_EXISTS = （使用伺服器訊息）
+error-ENCODING_NATURE_NOT_FOUND = （使用伺服器訊息）
+error-ENCODING_NATURE_IN_USE = （使用伺服器訊息）

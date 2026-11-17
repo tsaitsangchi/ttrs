@@ -1743,6 +1743,103 @@ pub async fn delete_unit(code: &str, version: i32) -> Result<(), String> {
     no_content(res).await
 }
 
+// ----- Encoding Nature Maintenance 編碼性質維護（TipTop aooi401；共用） -----
+
+fn encoding_nature_url(code: &str, suffix: &str) -> String {
+    if code.is_empty() {
+        url(&format!("/api/encoding-natures{suffix}"))
+    } else {
+        url(&format!(
+            "/api/encoding-natures/{}{suffix}",
+            urlencoding(code)
+        ))
+    }
+}
+
+/// QBE 查詢（ADR 0013 SA1）
+pub async fn query_encoding_natures(
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::EncodingNatureDto>, String> {
+    post_query(encoding_nature_url("", "/query"), req).await
+}
+
+/// 複製（ADR 0013 SA5）
+pub async fn copy_encoding_nature(
+    code: &str,
+    new_code: &str,
+) -> Result<ttrs_shared::EncodingNatureDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        encoding_nature_url(code, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+/// 確認或取消確認（ADR 0013 SA9）
+pub async fn confirm_encoding_nature(
+    code: &str,
+    confirm: bool,
+    version: i32,
+) -> Result<ttrs_shared::EncodingNatureDto, String> {
+    let suffix = if confirm { "/confirm" } else { "/unconfirm" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!("{}?version={version}", encoding_nature_url(code, suffix)),
+        None,
+    )
+    .await
+}
+
+pub async fn create_encoding_nature(
+    req: &ttrs_shared::EncodingNatureInput,
+) -> Result<ttrs_shared::EncodingNatureDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        encoding_nature_url("", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_encoding_nature(
+    code: &str,
+    req: &ttrs_shared::EncodingNatureInput,
+) -> Result<ttrs_shared::EncodingNatureDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        encoding_nature_url(code, ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn set_encoding_nature_active(
+    code: &str,
+    active: bool,
+    version: i32,
+) -> Result<ttrs_shared::EncodingNatureDto, String> {
+    let suffix = if active { "/activate" } else { "/deactivate" };
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!("{}?version={version}", encoding_nature_url(code, suffix)),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_encoding_nature(code: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            encoding_nature_url(code, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
 // ----- Product Classification 產品分類維護（TipTop axmi110；工廠層） -----
 
 pub async fn create_product_class(

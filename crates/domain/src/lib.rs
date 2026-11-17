@@ -10,6 +10,7 @@ pub mod currency;
 pub mod department;
 pub mod dictionary;
 pub mod employee;
+pub mod encoding_nature;
 pub mod error;
 pub mod exchange_rate;
 pub mod general_parameter;

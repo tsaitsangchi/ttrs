@@ -1,0 +1,26 @@
+# 編碼性質維護（TipTop aooi401；specs/features/aoo/encoding_nature.feature）
+encoding-nature-breadcrumb = General Management / Encoding Nature Maintenance
+encoding-nature-title = Encoding Natures
+encoding-nature-list-title = Encoding natures
+encoding-nature-field-code = Nature
+encoding-nature-field-name = Description
+encoding-nature-field-category = Category
+encoding-nature-action-activate = Activate
+encoding-nature-action-deactivate = Deactivate
+encoding-nature-dialog-new = New encoding nature
+encoding-nature-dialog-edit = Edit encoding nature { $code }
+encoding-nature-msg-saved = Encoding nature { $code } saved
+encoding-nature-msg-deleted = Encoding nature { $code } deleted
+encoding-nature-msg-activated = Encoding nature { $code } activated
+encoding-nature-msg-deactivated = Encoding nature { $code } deactivated
+encoding-nature-msg-confirmed = Encoding nature { $code } confirmed
+encoding-nature-msg-unconfirmed = Encoding nature { $code } unconfirmed
+encoding-nature-msg-copied = Copied encoding nature { $from } to { $to }
+encoding-nature-field-copy-as = Copy as
+encoding-nature-hint = The nature is at most 2 characters and cannot be changed once created. The category decides which kind of data the numbers are for.
+encoding-nature-category-1 = 1.Item No.
+encoding-nature-category-2 = 2.Customer No.
+encoding-nature-category-3 = 3.Supplier No.
+encoding-nature-category-4 = 4.Fixed Asset No.
+encoding-nature-category-5 = 5.Lot No.
+encoding-nature-category-6 = 6.Serial No.

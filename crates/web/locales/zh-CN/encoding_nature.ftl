@@ -1,0 +1,26 @@
+# 編碼性質維護（TipTop aooi401；specs/features/aoo/encoding_nature.feature）
+encoding-nature-breadcrumb = 整体管理 / Encoding Nature Maintenance
+encoding-nature-title = 编码性质维护
+encoding-nature-list-title = 编码性质
+encoding-nature-field-code = 性质
+encoding-nature-field-name = 说明
+encoding-nature-field-category = 类别
+encoding-nature-action-activate = 启用
+encoding-nature-action-deactivate = 停用
+encoding-nature-dialog-new = 新增编码性质
+encoding-nature-dialog-edit = 修改编码性质 { $code }
+encoding-nature-msg-saved = 编码性质 { $code } 已保存
+encoding-nature-msg-deleted = 编码性质 { $code } 已删除
+encoding-nature-msg-activated = 编码性质 { $code } 已启用
+encoding-nature-msg-deactivated = 编码性质 { $code } 已停用
+encoding-nature-msg-confirmed = 已确认编码性质 { $code }
+encoding-nature-msg-unconfirmed = 已取消确认编码性质 { $code }
+encoding-nature-msg-copied = 已将编码性质 { $from } 复制为 { $to }
+encoding-nature-field-copy-as = 复制为
+encoding-nature-hint = 性质最多 2 字，建立后不可修改；类别决定号码用在哪一种资料。
+encoding-nature-category-1 = 1.料件编号
+encoding-nature-category-2 = 2.客户编号
+encoding-nature-category-3 = 3.供应商编号
+encoding-nature-category-4 = 4.固定资产编号
+encoding-nature-category-5 = 5.批号
+encoding-nature-category-6 = 6.序号
