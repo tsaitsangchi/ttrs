@@ -1,0 +1,97 @@
+# TTRS 自動檢查：每次 push 到 main 與每個 pull request 都跑。
+# - check：與本機 `make check` 相同（fmt、clippy -D warnings、全部測試含記憶體 BDD、legacy-map 檢查），
+#          另以 wasm 目標檢查前端（cfg(target_arch = "wasm32") 的程式只有這樣才會編譯到）。
+# - bdd-pg：對 PostgreSQL 跑同一份 BDD 規格（同本機 `make bdd-pg`，CLAUDE.md 要求兩種後端都要通過）。
+# legacy/ 不進版控，legacy-map 檢查在 CI 會自動略過（scripts/tiptop/legacy_map_check.py）。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # 與本機開發用的版本一致，避免新版 clippy 規則造成本機過、CI 不過
+  RUST_TOOLCHAIN: "1.99.1"
+
+jobs:
+  check:
+    name: make check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安裝 Rust
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal --component rustfmt,clippy
+          rustup default "$RUST_TOOLCHAIN"
+          rustup target add wasm32-unknown-unknown
+
+      # PDF 規格（@font）需要中文字型；沒有字型時那些情境會略過
+      - name: 安裝中文字型
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: check
+
+      - name: 格式
+        run: cargo fmt --all --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: clippy（前端 wasm）
+        run: cargo clippy -p ttrs-web --target wasm32-unknown-unknown -- -D warnings
+
+      - name: 測試（單元、API 契約、記憶體 BDD）
+        run: cargo test --workspace
+
+      - name: legacy-map 檢查
+        run: python3 scripts/tiptop/legacy_map_check.py
+
+  bdd-pg:
+    name: BDD（PostgreSQL）
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ttrs_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      # 只在 CI 的臨時資料庫使用，不是正式環境的帳密
+      TTRS_BDD_DATABASE_URL: postgres://postgres:postgres@localhost:5432/ttrs_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安裝 Rust
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
+
+      - name: 安裝中文字型
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bdd-pg
+
+      - name: BDD（PostgreSQL）
+        run: cargo test -p ttrs-bdd --test acceptance
