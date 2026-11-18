@@ -275,6 +275,11 @@ pub fn router(state: AppState) -> Router {
         )
         // QBE 查詢（item_maintenance_query.feature IQ1–IQ10）
         .route("/api/plants/{plant}/items/query", post(query_items))
+        // 料件自動編號（item_auto_number.feature AN2–AN6）：取號選單、取料號（不保留號碼）
+        .route(
+            "/api/plants/{plant}/items/auto-number",
+            get(item_number_options).post(next_item_number),
+        )
         // 列印、匯出 Excel（ADR 0013 SA3；item_maintenance_report.feature）
         .route(
             "/api/plants/{plant}/items/report.{format}",
@@ -1761,6 +1766,7 @@ impl IntoResponse for HttpError {
             | "ENCODING_CLASS_INACTIVE"
             | "ENCODING_CLASS_SERIAL_DUPLICATE"
             | "ENCODING_RULE_SERIAL_EXHAUSTED"
+            | "ITEM_AUTO_NUMBER_DISABLED"
             | "ENCODING_CLASS_LINE_DUPLICATE"
             | "ENCODING_SEGMENT_IN_USE"
             | "ENCODING_SEGMENT_INACTIVE"
@@ -3553,6 +3559,29 @@ async fn preview_encoding_class(
     Ok(Json(
         s.encoding_classes
             .preview(&s.actor, &req.plant, &code, &req.selections)
+            .await?,
+    ))
+}
+
+/// 料件取號選單（AN2、AN6）：參數未開啟時 enabled＝false
+async fn item_number_options(
+    Ctx(s): Ctx,
+    Path(_plant): Path<String>,
+) -> ApiResult<Json<ttrs_shared::ItemNumberOptionsDto>> {
+    Ok(Json(
+        s.encoding_classes.item_number_options(&s.actor).await?,
+    ))
+}
+
+/// 取料號（AN2–AN5）：不保留號碼
+async fn next_item_number(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<ttrs_shared::ItemNumberRequest>,
+) -> ApiResult<Json<ttrs_shared::EncodingPreviewDto>> {
+    Ok(Json(
+        s.encoding_classes
+            .next_item_number(&s.actor, &plant, &req.class_code, &req.selections)
             .await?,
     ))
 }

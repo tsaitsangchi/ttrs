@@ -369,3 +369,7 @@ error-ENCODING_RULE_VALUE_REQUIRED = Pick a valid code for each independent segm
 error-ENCODING_RULE_SERIAL_EXHAUSTED = The running number is used up; lengthen it or use another encoding class.
 error-ENCODING_RULE_YEAR_CODE_MISSING = There is no year code for this year; add it in Encoding Year Codes first.
 error-ENCODING_RULE_PERIOD_MISSING = Today is not in any accounting period, so the quarter is unknown; add the accounting periods first.
+
+# 料件自動編號（aimi100 / aza28）
+error-ITEM_AUTO_NUMBER_DISABLED = Item auto-numbering is turned off in the general management parameters.
+error-ENCODING_CLASS_NOT_FOR_ITEM = This encoding class cannot be used for item numbers; it must be an active class whose nature is item number.

@@ -4102,6 +4102,7 @@ fn general_row(p: &GeneralParameters) -> Row {
         ),
         ("base_currency", text::s(p.base_currency.as_str())),
         ("rate_basis", text::s(p.rate_basis.code())),
+        ("auto_item_number", text::b(p.auto_item_number)),
         ("created_by", text::s(&p.created_by)),
         ("created_dept", text::s(&p.created_dept)),
         ("created_on", text::date(p.created_on)),

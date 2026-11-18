@@ -369,3 +369,7 @@ error-ENCODING_RULE_VALUE_REQUIRED = （使用伺服器訊息）
 error-ENCODING_RULE_SERIAL_EXHAUSTED = （使用伺服器訊息）
 error-ENCODING_RULE_YEAR_CODE_MISSING = （使用伺服器訊息）
 error-ENCODING_RULE_PERIOD_MISSING = （使用伺服器訊息）
+
+# 料件自動編號（aimi100 / aza28）
+error-ITEM_AUTO_NUMBER_DISABLED = （使用伺服器訊息）
+error-ENCODING_CLASS_NOT_FOR_ITEM = （使用伺服器訊息）

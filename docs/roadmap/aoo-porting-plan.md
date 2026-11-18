@@ -82,7 +82,7 @@
 
 | 程式 | 名稱 | 主要表 | 規模 | 處理 |
 |---|---|---|---|---|
-| aooi400 | 編碼規則 | gef_file、geg_file | L | 取代（2026-11-17 確認，`encoding_rule.feature` ER1–ER7）：規則是依編碼類別「擷取」出的展開結果、TipTop 也鎖住不可改，改為即時計算；自動編號（s_auno）做成共用服務，編碼類別維護提供「編碼試算」；料件新增時的自動編號另寫規格（需整體參數 aza28） |
+| aooi400 | 編碼規則 | gef_file、geg_file | L | 取代（2026-11-17 確認，`encoding_rule.feature` ER1–ER7）：規則是依編碼類別「擷取」出的展開結果、TipTop 也鎖住不可改，改為即時計算；自動編號（s_auno）做成共用服務，編碼類別維護提供「編碼試算」；料件新增時的自動編號已於 2026-11-17 完成（`item_auto_number.feature` AN1–AN7，整體參數 aza28） |
 | aooi401 | 編碼性質 | geh_file | S | 移植（2026-11-17 完成，`encoding_nature.feature` EN1–EN8）：檔案名稱、索引值不移植；被編碼類別引用的檢查待 aooi402 接上 |
 | aooi402 | 編碼類別 | gei_file、gel_file | L | 移植（2026-11-17 完成，`encoding_class.feature` EC1–EC11）：型態 4 欄位值延後到批／序號管理；接上編碼性質、獨立段的被引用檢查；已有編碼規則時的限制待 aooi400 |
 | aooi403 | 編碼獨立段 | gej_file、gek_file | M | 移植（2026-11-17 完成，`encoding_segment.feature` IS1–IS8）：新增「編碼編號不可重複」「有單身不可改長度」兩項檢查；被編碼類別引用的檢查待 aooi402 接上 |

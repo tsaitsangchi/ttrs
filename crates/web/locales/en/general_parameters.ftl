@@ -14,3 +14,4 @@ gp-dialog-edit = Edit General Management Parameters
 gp-dialog-hint = The home currency must be an active currency and cannot be changed once monthly or daily rates exist.
 gp-msg-saved = General management parameters saved
 gp-msg-periods-invalid = Accounting periods must be 12 or 13
+gp-field-auto-item-number = Auto-number item numbers

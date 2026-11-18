@@ -124,6 +124,110 @@ async fn has_segment(
         .unwrap_or_else(|e| panic!("新增一段失敗：{e}"));
 }
 
+// ----- 料件自動編號（item_auto_number.feature） -----
+
+#[given(regex = r#"^整體管理系統參數的料件編號自動編碼為 "(是|否)"$"#)]
+async fn set_auto(w: &mut ErpWorld, v: String) {
+    let cur = w.general.get(&w.actor).await.expect("參數");
+    let input = ttrs_shared::GeneralParametersInput {
+        accounting_periods: cur.accounting_periods,
+        base_currency: cur.base_currency.clone(),
+        rate_basis: cur.rate_basis.clone(),
+        auto_item_number: Some(v == "是"),
+        version: Some(cur.version),
+    };
+    w.general.update(&w.actor, input).await.expect("修改參數");
+}
+
+#[then(regex = r#"^整體管理系統參數的料件編號自動編碼應為 "(是|否)"$"#)]
+async fn auto_is(w: &mut ErpWorld, v: String) {
+    let cur = w.general.get(&w.actor).await.expect("參數");
+    assert_eq!(yes_no(cur.auto_item_number), v);
+}
+
+#[when(
+    regex = r#"^使用者在營運中心 "([^"]+)" 以編碼類別 "([^"]+)" 取料號(?:，獨立段選 "([^"]*)")?$"#
+)]
+async fn next_item_no(w: &mut ErpWorld, plant: String, code: String, pick: String) {
+    let picks: Vec<String> = if pick.is_empty() {
+        Vec::new()
+    } else {
+        pick.split('、').map(str::to_owned).collect()
+    };
+    let r = w
+        .encoding_classes
+        .next_item_number(&w.actor, &plant, &code, &picks)
+        .await;
+    w.encoding_preview = r.as_ref().ok().cloned();
+    w.last = Some(r.map(drop));
+}
+
+#[then(regex = r#"^取得的料號應為 "([^"]+)"，品名 "([^"]*)"$"#)]
+async fn item_no_is(w: &mut ErpWorld, no: String, name: String) {
+    ok(w);
+    let p = w.encoding_preview.as_ref().expect("尚未取號");
+    assert_eq!(
+        (p.number.as_str(), p.name.as_str()),
+        (no.as_str(), name.as_str())
+    );
+}
+
+#[when(regex = r#"^使用者在營運中心 "([^"]+)" 用取得的料號新增料件$"#)]
+async fn create_with_number(w: &mut ErpWorld, plant: String) {
+    let p = w.encoding_preview.clone().expect("尚未取號");
+    let class = ttrs_shared::ProductClassInput {
+        class_code: "P01".into(),
+        name: Some("產品".into()),
+        ..Default::default()
+    };
+    let _ = w.product_classes.create(&w.actor, &plant, class).await;
+    let req = ttrs_shared::ItemInput {
+        item_no: p.number.clone(),
+        name: Some(p.name.clone()),
+        stock_unit: Some("PCS".into()),
+        product_class: Some("P01".into()),
+        ..Default::default()
+    };
+    let r = w.items.create(&w.actor, &plant, req).await;
+    w.last = Some(r.map(drop));
+}
+
+#[when(regex = r#"^使用者在營運中心 "([^"]+)" 查詢可取料號的編碼類別$"#)]
+async fn item_options(w: &mut ErpWorld, _plant: String) {
+    let r = w.encoding_classes.item_number_options(&w.actor).await;
+    w.item_number_options = r.as_ref().ok().cloned();
+    w.last = Some(r.map(drop));
+}
+
+#[then(regex = r#"^可取料號的編碼類別應為 "([^"]*)"$"#)]
+async fn options_are(w: &mut ErpWorld, expected: String) {
+    ok(w);
+    let o = w.item_number_options.as_ref().expect("尚未查詢");
+    let got: Vec<&str> = o.classes.iter().map(|c| c.class_code.as_str()).collect();
+    assert_eq!(got.join("、"), expected);
+}
+
+#[then(regex = r#"^編碼類別 "([^"]+)" 的獨立段 "([^"]+)" 可選 "([^"]*)"$"#)]
+async fn options_values(w: &mut ErpWorld, code: String, seg: String, expected: String) {
+    let o = w.item_number_options.as_ref().expect("尚未查詢");
+    let c = o
+        .classes
+        .iter()
+        .find(|c| c.class_code == code)
+        .expect("沒有這個類別");
+    let s = c
+        .segments
+        .iter()
+        .find(|s| s.segment_code == seg)
+        .expect("沒有這個獨立段");
+    let got: Vec<String> = s
+        .values
+        .iter()
+        .map(|(v, n)| format!("{v} {}", n.clone().unwrap_or_default()))
+        .collect();
+    assert_eq!(got.join("、"), expected);
+}
+
 // ----- 編碼試算（encoding_rule.feature） -----
 
 #[when(

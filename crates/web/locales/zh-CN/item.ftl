@@ -89,3 +89,5 @@ item-msg-group-applied = 已带入料件分群 { $group } 的默认值，请检�
 item-dialog-copy = 复制料件 { $no }
 item-hint-planning = 单位须为有效的单位；材料类别须为分类码类别 8；仓管员须为本营运中心有效的员工；仓库、储位尚未移植，暂不检查。
 item-hint-dates = 参考日期由入出库、盘点等作业写入，此处只读。
+item-auto-number-class = 自动编号的编码类别
+item-auto-number-take = 取号

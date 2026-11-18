@@ -1950,6 +1950,40 @@ pub struct EncodingPreviewDto {
     pub notices: Vec<String>,
 }
 
+/// 料件取號用的選單資料（item_auto_number.feature AN2、AN6）：參數是否開啟、可用的編碼類別
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ItemNumberOptionsDto {
+    /// 整體參數 aza28 料件編號自動編碼
+    pub enabled: bool,
+    pub classes: Vec<ItemNumberClassDto>,
+}
+
+/// 可取料號的編碼類別（有效、性質為料件編號）與其各獨立段可選的編碼編號
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemNumberClassDto {
+    pub class_code: String,
+    pub name: String,
+    pub nature_code: String,
+    pub segments: Vec<ItemNumberSegmentDto>,
+}
+
+/// 類別中的一個獨立段：段次、說明、獨立段編號、可選的（編碼編號, 名稱）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemNumberSegmentDto {
+    pub seq_no: i32,
+    pub description: Option<String>,
+    pub segment_code: String,
+    pub values: Vec<(String, Option<String>)>,
+}
+
+/// 取料號（AN2、AN3）：編碼類別與各獨立段依序挑選的編碼編號
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ItemNumberRequest {
+    pub class_code: String,
+    pub selections: Vec<String>,
+}
+
 /// 畫面 maxlength（與 ttrs_domain::encoding_class 一致）
 pub mod encoding_class_max_len {
     pub const CODE: usize = 10;
@@ -2780,6 +2814,9 @@ pub struct GeneralParametersDto {
     pub base_currency_name: Option<String>,
     /// 匯率採用：monthly 每月、daily 每日（aza19）
     pub rate_basis: String,
+    /// 料件編號自動編碼（aza28；item_auto_number.feature AN1）
+    #[serde(default)]
+    pub auto_item_number: bool,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -2798,6 +2835,9 @@ pub struct GeneralParametersInput {
     pub accounting_periods: i16,
     pub base_currency: String,
     pub rate_basis: String,
+    /// 料件編號自動編碼（aza28）；未給時維持原值
+    #[serde(default)]
+    pub auto_item_number: Option<bool>,
     /// 修改時帶回的版本號（ADR 0012 §4）
     pub version: Option<i32>,
 }

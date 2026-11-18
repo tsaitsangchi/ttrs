@@ -369,3 +369,7 @@ error-ENCODING_RULE_VALUE_REQUIRED = 请为每个独立段挑选一个有效的�
 error-ENCODING_RULE_SERIAL_EXHAUSTED = 流水号已用完，请加长流水号或改用其他编码类别。
 error-ENCODING_RULE_YEAR_CODE_MISSING = 编码年对照没有今年的资料，请先在编码年对照维护建立。
 error-ENCODING_RULE_PERIOD_MISSING = 今天不在任何会计期间内，无法取得季别；请先在会计期间维护建立。
+
+# 料件自動編號（aimi100 / aza28）
+error-ITEM_AUTO_NUMBER_DISABLED = 整体管理系统参数未开启料件编号自动编码。
+error-ENCODING_CLASS_NOT_FOR_ITEM = 这个编码类别不能用来取料号：须是有效、性质为料件编号的类别。

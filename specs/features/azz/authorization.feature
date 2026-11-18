@@ -177,6 +177,17 @@
     當 目前使用者執行 "查詢使用者"
     那麼 應被拒絕，作業 "user-maintenance"、功能 "query"、原因 "沒有本作業權限"
 
+  # item_auto_number.feature AN6：取料號屬於料件維護的新增（insert）或複製（reproduce），有其中一個就能取號
+  場景: 取料號需要料件維護的新增或複製功能
+    假設 權限類別 "SALES" 對作業 "item-maintenance" 的權限為 "query"，他人資料 "0"，他部門資料 "0"，單身 "0"
+    當 目前使用者執行 "取料號 FG"
+    那麼 應被拒絕，作業 "item-maintenance"、功能 "reproduce"、原因 "沒有此功能"
+
+  場景: 只有料件複製功能也能取料號
+    假設 權限類別 "SALES" 對作業 "item-maintenance" 的權限為 "query, reproduce"，他人資料 "0"，他部門資料 "0"，單身 "0"
+    當 目前使用者執行 "取料號 FG"
+    那麼 不應被權限拒絕
+
   # cl_setup.4gl:569-589 有特殊權限時只用特殊權限，不看自己的權限類別（AQ1）
   場景: 有特殊權限的使用者只用特殊權限
     假設 權限類別 "SALES" 對作業 "user-maintenance" 的權限為 "query"，他人資料 "0"，他部門資料 "0"，單身 "0"

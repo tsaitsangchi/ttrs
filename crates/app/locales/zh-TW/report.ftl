@@ -206,6 +206,9 @@ general-params-base-currency = 本國幣別
 general-params-rate-basis = 匯率採用
 general-params-rate-monthly = 每月匯率
 general-params-rate-daily = 每日匯率
+general-params-auto-item-number = 料件編號自動編碼
+general-params-yes = 是
+general-params-no = 否
 
 # 會計期間（aoos020）
 period-report-title = 會計期間

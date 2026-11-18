@@ -591,6 +591,7 @@ tables:
     spec: specs/features/aoo/general_parameters.feature（GP1–GP10 依建議確認，2026-11-12）
     note: "全公司一份（GP2）；只移植目前用到的參數（GP3），其他參數延後到用到的模組再加欄位（GP9）"
     columns:
+      - { legacy: aza28, type: varchar2(1), target: auto_item_number, sch: "料件編號自動編碼否", note: "Y/N → boolean，預設否；是時料件新增、複製可依編碼類別取料號（item_auto_number.feature AN1，2026-11-17 由 GP9 延後改為移植）" }
       - { legacy: aza01, type: varchar2(1) PK NOT NULL, target: parameter_key, sch: "KEY VALUE (0)" }
       - { legacy: aza02, type: varchar2(1), target: accounting_periods, sch: "會計期間", note: "1＝12 期、2＝13 期 → 12／13（GP4）" }
       - { legacy: aza17, type: varchar2(4), target: base_currency, sch: "本國幣別", note: "起始資料 TWD（ER2）；須為有效幣別、已有匯率時不可變更（GP5）" }
@@ -623,7 +624,6 @@ tables:
       - { legacy: aza25, type: varchar2(1), sch: "是否使用防偽稅控接口系統", reason: "只做台灣版（同稅別 TX3）（GP10）" }
       - { legacy: aza26, type: varchar2(1), sch: "使用功能別", reason: "只做台灣版（同稅別 TX3）（GP10）" }
       - { legacy: aza27, type: varchar2(1), sch: "是否使用海關合約系統", reason: "只做台灣版（同稅別 TX3）（GP10）" }
-      - { legacy: aza28, type: varchar2(1), sch: "料件編號自動編碼否", reason: "延後：批次 5 編碼規則（料件 IM15 第一階段不自動編碼）（GP9）" }
       - { legacy: aza29, type: varchar2(1), sch: "客戶編號自動編碼否", reason: "延後：批次 5 編碼規則（料件 IM15 第一階段不自動編碼）（GP9）" }
       - { legacy: aza30, type: varchar2(1), sch: "供應商編號自動編碼否", reason: "延後：批次 5 編碼規則（料件 IM15 第一階段不自動編碼）（GP9）" }
       - { legacy: aza31, type: varchar2(1), sch: "固定資產編號自動編碼否", reason: "延後：批次 5 編碼規則（料件 IM15 第一階段不自動編碼）（GP9）" }

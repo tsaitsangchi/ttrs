@@ -338,6 +338,7 @@ impl Services {
                     years: store.clone(),
                     items: store.clone(),
                     periods: store.clone(),
+                    params: store.clone(),
                 },
                 reports.clone(),
             ),

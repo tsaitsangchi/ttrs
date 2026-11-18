@@ -27,6 +27,7 @@ use crate::components::qbe::{
 use crate::components::status::{HasStatus, StatusForm, TAB_STATUS};
 use crate::components::toolbar::{Act, MaintenanceToolbar};
 use crate::i18n::{UiLang, t, tf};
+use crate::pages::aim::item_auto_number::ItemAutoNumber;
 
 /// 權限檢查用的程式代號
 const PROGRAM: &str = "item-maintenance";
@@ -715,6 +716,19 @@ fn ItemPage(item_no: String) -> Element {
                     3 if q => rsx! { QueryGrid { fields: Q_ITEM_STATUS, qbe } },
                     4 if q => rsx! { QueryGrid { fields: Q_DATES, qbe } },
                     0 => rsx! {
+                        // 料件自動編號（item_auto_number.feature AN2）：取號後帶入料號，品名空白時帶入名稱
+                        if m == Mode::New {
+                            ItemAutoNumber {
+                                plant: plant(),
+                                onpicked: move |(no, name): (String, String)| {
+                                    let mut f = form.write();
+                                    f.item_no = no;
+                                    if f.name.as_deref().is_none_or(|n| n.trim().is_empty()) && !name.is_empty() {
+                                        f.name = Some(name);
+                                    }
+                                },
+                            }
+                        }
                         div { class: "form-grid",
                             TextField { id: "ima01", label: t("item-field-item-no"), maxlength: max_len::ITEM_NO, value: v.item_no.clone(), readonly: m != Mode::New, oninput: move |x| form.write().item_no = x }
                             TextField {
@@ -910,6 +924,16 @@ fn ItemPage(item_no: String) -> Element {
                         Notification { kind: NotificationKind::Error, title: msg, onclose: move |_| copy_error.set(None) }
                     }
                     div { class: "form-grid",
+                        // 料件自動編號（AN3）：取號後帶入新料號，名稱空白時帶入
+                        ItemAutoNumber {
+                            plant: plant(),
+                            onpicked: move |(no, name): (String, String)| {
+                                copy_no.set(no);
+                                if copy_name().trim().is_empty() && !name.is_empty() {
+                                    copy_name.set(name);
+                                }
+                            },
+                        }
                         TextField { id: "ima01_new", label: t("item-field-new-item-no"), maxlength: max_len::ITEM_NO, value: copy_no(), oninput: move |x| copy_no.set(x) }
                         TextField { id: "ima02_new", label: t("item-field-name"), maxlength: max_len::NAME, value: copy_name(), oninput: move |x| copy_name.set(x) }
                     }

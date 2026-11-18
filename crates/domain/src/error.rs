@@ -453,6 +453,11 @@ pub enum DomainError {
     EncodingClassLineDuplicate,
     #[error("找不到這個段次")]
     EncodingClassLineNotFound,
+    // ----- 料件自動編號（aimi100 / aza28；item_auto_number.feature） -----
+    #[error("整體管理系統參數未開啟料件編號自動編碼")]
+    ItemAutoNumberDisabled,
+    #[error("這個編碼類別不能用來取料號：須是有效、性質為料件編號的類別")]
+    EncodingClassNotForItem,
     // ----- 自動編號（aooi400 / s_auno；encoding_rule.feature） -----
     #[error("請為每個獨立段挑選一個有效的編碼編號")]
     EncodingRuleValueRequired,
@@ -929,6 +934,8 @@ impl DomainError {
             Self::EncodingClassLineInvalid => "ENCODING_CLASS_LINE_INVALID",
             Self::EncodingClassLineDuplicate => "ENCODING_CLASS_LINE_DUPLICATE",
             Self::EncodingClassLineNotFound => "ENCODING_CLASS_LINE_NOT_FOUND",
+            Self::ItemAutoNumberDisabled => "ITEM_AUTO_NUMBER_DISABLED",
+            Self::EncodingClassNotForItem => "ENCODING_CLASS_NOT_FOR_ITEM",
             Self::EncodingRuleValueRequired => "ENCODING_RULE_VALUE_REQUIRED",
             Self::EncodingRuleSerialExhausted => "ENCODING_RULE_SERIAL_EXHAUSTED",
             Self::EncodingRuleYearCodeMissing { .. } => "ENCODING_RULE_YEAR_CODE_MISSING",

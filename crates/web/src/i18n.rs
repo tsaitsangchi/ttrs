@@ -345,7 +345,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 41] = [
+        const TRANSLATED: [(&str, &str); 42] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/session.rs",
@@ -375,6 +375,10 @@ mod tests {
             (
                 "pages/aim/item_group_maintenance.rs",
                 include_str!("pages/aim/item_group_maintenance.rs"),
+            ),
+            (
+                "pages/aim/item_auto_number.rs",
+                include_str!("pages/aim/item_auto_number.rs"),
             ),
             (
                 "pages/aoo/encoding_class_maintenance.rs",

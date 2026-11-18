@@ -47,6 +47,8 @@ pub struct GeneralParameters {
     /// aza17 本國幣別
     pub base_currency: CurrencyCode,
     pub rate_basis: RateBasis,
+    /// aza28 料件編號自動編碼否（item_auto_number.feature AN1）
+    pub auto_item_number: bool,
     /// azauser 資料所有者
     pub created_by: String,
     /// azagrup 資料所有群
@@ -66,6 +68,7 @@ impl GeneralParameters {
             accounting_periods: AccountingPeriods::TWELVE,
             base_currency: CurrencyCode::parse("TWD").expect("TWD"),
             rate_basis: RateBasis::Daily,
+            auto_item_number: false,
             created_by: user.to_owned(),
             created_dept: dept.to_owned(),
             created_on: today,

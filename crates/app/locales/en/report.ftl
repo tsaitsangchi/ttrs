@@ -206,6 +206,9 @@ general-params-base-currency = Home currency
 general-params-rate-basis = Exchange rates used
 general-params-rate-monthly = Monthly rates
 general-params-rate-daily = Daily rates
+general-params-auto-item-number = Auto-number item numbers
+general-params-yes = Yes
+general-params-no = No
 
 # 會計期間（aoos020）
 period-report-title = Accounting Periods

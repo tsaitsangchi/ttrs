@@ -89,3 +89,5 @@ item-msg-group-applied = 已帶入料件分群 { $group } 的預設值，請檢�
 item-dialog-copy = 複製料件 { $no }
 item-hint-planning = 單位須為有效的單位；材料類別須為分類碼類別 8；倉管員須為本營運中心有效的員工；倉庫、儲位尚未移植，暫不檢查。
 item-hint-dates = 參考日期由入出庫、盤點等作業寫入，此處唯讀。
+item-auto-number-class = 自動編號的編碼類別
+item-auto-number-take = 取號

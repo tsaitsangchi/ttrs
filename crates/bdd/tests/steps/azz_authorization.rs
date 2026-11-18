@@ -784,6 +784,12 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             .await
             .map(drop),
         // 編碼類別維護（aooi402；資料不存在時回 ENCODING_CLASS_NOT_FOUND 或性質無效，不是權限拒絕）
+        // 料件自動編號（item_auto_number.feature AN6）：參數未開啟時回 ITEM_AUTO_NUMBER_DISABLED，不是權限拒絕
+        ["取料號", code] => w
+            .encoding_classes
+            .next_item_number(a, "TW01", code, &[])
+            .await
+            .map(drop),
         ["試算編碼類別", code] => w
             .encoding_classes
             .preview(a, "TW01", code, &[])
@@ -1586,6 +1592,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
                 accounting_periods: 12,
                 base_currency: "TWD".into(),
                 rate_basis: "daily".into(),
+                auto_item_number: None,
                 version: None,
             };
             w.general.update(a, input).await.map(drop)

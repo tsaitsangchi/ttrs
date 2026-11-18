@@ -93,6 +93,24 @@ pub async fn get_item(plant: &str, no: &str) -> Result<ItemDto, String> {
     get_json(item_url(plant, no, "")).await
 }
 
+/// 料件取號選單（item_auto_number.feature AN2、AN6）
+pub async fn item_number_options(plant: &str) -> Result<ttrs_shared::ItemNumberOptionsDto, String> {
+    get_json(item_url(plant, "auto-number", "")).await
+}
+
+/// 取料號（AN2–AN5）：不保留號碼
+pub async fn next_item_number(
+    plant: &str,
+    req: &ttrs_shared::ItemNumberRequest,
+) -> Result<ttrs_shared::EncodingPreviewDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        item_url(plant, "auto-number", ""),
+        Some(req),
+    )
+    .await
+}
+
 pub async fn create_item(plant: &str, req: &ttrs_shared::ItemInput) -> Result<ItemDto, String> {
     send_json(reqwest::Method::POST, item_url(plant, "", ""), Some(req)).await
 }

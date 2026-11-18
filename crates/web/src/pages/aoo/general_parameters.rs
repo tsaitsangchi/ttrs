@@ -8,8 +8,8 @@ use ttrs_shared::{GeneralParametersDto, GeneralParametersInput, QueryRequest};
 use crate::api;
 use crate::components::history::HistoryDialog;
 use crate::components::material::{
-    Button, ButtonVariant, Card, Dialog, Notification, NotificationKind, Select, Tabs, TextField,
-    Tone, icons,
+    Button, ButtonVariant, Card, Checkbox, Dialog, Notification, NotificationKind, Select, Tabs,
+    TextField, Tone, icons,
 };
 use crate::components::permission::ProgramGate;
 use crate::components::status::{self, HasStatus, StatusForm};
@@ -49,6 +49,8 @@ struct Form {
     periods: String,
     base_currency: String,
     rate_basis: String,
+    /// aza28 料件編號自動編碼（item_auto_number.feature AN1）
+    auto_item_number: bool,
 }
 
 #[component]
@@ -131,6 +133,7 @@ fn ParametersPage() -> Element {
             accounting_periods: periods,
             base_currency: f.base_currency.trim().to_owned(),
             rate_basis: f.rate_basis.clone(),
+            auto_item_number: Some(f.auto_item_number),
             version: Some(c.version),
         };
         spawn(async move {
@@ -163,6 +166,7 @@ fn ParametersPage() -> Element {
                             periods: c.accounting_periods.to_string(),
                             base_currency: c.base_currency.clone(),
                             rate_basis: c.rate_basis.clone(),
+                            auto_item_number: c.auto_item_number,
                         });
                         editing.set(true);
                     }),
@@ -210,6 +214,7 @@ fn ParametersPage() -> Element {
                                     readonly: true,
                                 }
                                 TextField { id: "aza19", label: t("gp-field-rate-basis"), value: basis_label(&p.rate_basis), readonly: true }
+                                Checkbox { id: "aza28", label: t("gp-field-auto-item-number"), checked: p.auto_item_number, readonly: true }
                             }
                             p { class: "muted", {t("gp-hint")} }
                         },
@@ -261,6 +266,7 @@ fn ParametersPage() -> Element {
                             value: form().rate_basis,
                             onchange: move |v| form.write().rate_basis = v,
                         }
+                        Checkbox { id: "gp-auto-item-number", label: t("gp-field-auto-item-number"), checked: form().auto_item_number, onchange: move |v| form.write().auto_item_number = v }
                     }
                     p { class: "muted", {t("gp-dialog-hint")} }
                 }

@@ -89,3 +89,5 @@ item-msg-group-applied = Defaults of item group { $group } applied. Please check
 item-dialog-copy = Copy item { $no }
 item-hint-planning = Units must be active units; material category must be a classification code of kind 8; the stock keeper must be an active employee of this plant; warehouses and locations are not checked yet.
 item-hint-dates = Reference dates are written by receiving, issuing and counting; read-only here.
+item-auto-number-class = Encoding class for auto-numbering
+item-auto-number-take = Get number

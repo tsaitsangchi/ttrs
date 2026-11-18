@@ -21,7 +21,8 @@ use ttrs_domain::{
 };
 use ttrs_shared::{
     EncodingClassDto, EncodingClassInput, EncodingClassSegmentDto, EncodingClassSegmentInput,
-    EncodingPreviewDto, Page, QbeCondition, QueryRequest,
+    EncodingPreviewDto, ItemNumberClassDto, ItemNumberOptionsDto, ItemNumberSegmentDto, Page,
+    QbeCondition, QueryRequest,
 };
 
 use crate::{
@@ -32,6 +33,7 @@ use crate::{
     ports::{
         AccountingPeriodRepository, EncodingClassRepository, EncodingNatureRepository,
         EncodingSegmentRepository, EncodingYearRepository, ItemRepository,
+        SystemParameterRepository,
     },
     query,
     report::{self, ReportData, ReportFormat},
@@ -71,7 +73,12 @@ pub struct EncodingClassRepos {
     pub years: Arc<dyn EncodingYearRepository>,
     pub items: Arc<dyn ItemRepository>,
     pub periods: Arc<dyn AccountingPeriodRepository>,
+    /// 整體管理系統參數 aza28 料件編號自動編碼（item_auto_number.feature AN1）
+    pub params: Arc<dyn SystemParameterRepository>,
 }
+
+/// 料件維護的程式代號：取料號的權限屬於料件維護的新增或複製（item_auto_number.feature AN6）
+const ITEM_PROGRAM: &str = "item-maintenance";
 
 #[derive(Clone)]
 pub struct EncodingClassService {
@@ -112,8 +119,137 @@ impl EncodingClassService {
         selections: &[String],
     ) -> Result<EncodingPreviewDto, AppError> {
         self.authorize(actor, "query").await?;
-        let plant = PlantId::parse(plant)?;
         let class = self.load(code).await?;
+        self.compose_next(plant, &class, selections).await
+    }
+
+    /// 取料號的權限：料件維護的新增（insert）或複製（reproduce）任一即可（AN6）
+    async fn authorize_item(&self, actor: &Actor) -> Result<(), AppError> {
+        match self.authz.authorize(actor, ITEM_PROGRAM, "insert").await {
+            Ok(_) => Ok(()),
+            Err(e) if e.code() == "PERMISSION_DENIED" => self
+                .authz
+                .authorize(actor, ITEM_PROGRAM, "reproduce")
+                .await
+                .map(drop),
+            Err(e) => Err(e),
+        }
+    }
+
+    async fn auto_item_number(&self) -> Result<bool, AppError> {
+        Ok(self
+            .repos
+            .params
+            .general_parameters()
+            .await
+            .map_err(infra)?
+            .is_some_and(|p| p.auto_item_number))
+    }
+
+    /// 可取料號的編碼類別：有效、性質為料件編號（AN2、AN6）
+    async fn item_classes(&self) -> Result<Vec<EncodingClass>, AppError> {
+        let natures: Vec<String> = self
+            .repos
+            .natures
+            .list_encoding_natures()
+            .await
+            .map_err(infra)?
+            .into_iter()
+            .filter(|n| n.active && n.attrs.category == NatureCategory::Item)
+            .map(|n| n.code.as_str().to_owned())
+            .collect();
+        Ok(self
+            .sorted()
+            .await?
+            .into_iter()
+            .filter(|c| c.active && natures.contains(&c.attrs.nature))
+            .collect())
+    }
+
+    /// 料件新增、複製時的取號選單（item_auto_number.feature AN2、AN6）：參數未開啟時 enabled＝false、不列類別
+    pub async fn item_number_options(
+        &self,
+        actor: &Actor,
+    ) -> Result<ItemNumberOptionsDto, AppError> {
+        self.authorize_item(actor).await?;
+        if !self.auto_item_number().await? {
+            return Ok(ItemNumberOptionsDto::default());
+        }
+        let segments = self
+            .repos
+            .segments
+            .list_encoding_segments()
+            .await
+            .map_err(infra)?;
+        let classes = self
+            .item_classes()
+            .await?
+            .into_iter()
+            .map(|c| ItemNumberClassDto {
+                class_code: c.code.as_str().to_owned(),
+                name: c.attrs.name.clone(),
+                nature_code: c.attrs.nature.clone(),
+                segments: c
+                    .segments
+                    .iter()
+                    .filter(|s| s.kind == SegmentType::Independent)
+                    .map(|s| {
+                        let code = s.value.clone().unwrap_or_default();
+                        let values = segments
+                            .iter()
+                            .find(|g| g.active && g.code.as_str() == code)
+                            .map(|g| {
+                                g.values
+                                    .iter()
+                                    .map(|v| (v.value.clone(), v.name.clone()))
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        ItemNumberSegmentDto {
+                            seq_no: s.no,
+                            description: s.description.clone(),
+                            segment_code: code,
+                            values,
+                        }
+                    })
+                    .collect(),
+            })
+            .collect();
+        Ok(ItemNumberOptionsDto {
+            enabled: true,
+            classes,
+        })
+    }
+
+    /// 取料號（item_auto_number.feature AN2–AN5；取代 aimi100 呼叫的 s_auno）：不保留號碼
+    pub async fn next_item_number(
+        &self,
+        actor: &Actor,
+        plant: &str,
+        code: &str,
+        selections: &[String],
+    ) -> Result<EncodingPreviewDto, AppError> {
+        self.authorize_item(actor).await?;
+        if !self.auto_item_number().await? {
+            return Err(DomainError::ItemAutoNumberDisabled.into());
+        }
+        let class = self
+            .item_classes()
+            .await?
+            .into_iter()
+            .find(|c| c.code.as_str() == code.trim())
+            .ok_or(DomainError::EncodingClassNotForItem)?;
+        self.compose_next(plant, &class, selections).await
+    }
+
+    /// 依類別組下一個號碼（試算與取料號共用；不檢查權限）
+    async fn compose_next(
+        &self,
+        plant: &str,
+        class: &EncodingClass,
+        selections: &[String],
+    ) -> Result<EncodingPreviewDto, AppError> {
+        let plant = PlantId::parse(plant)?;
         let today = self.today.unwrap_or_else(today);
         let nature = self
             .repos
@@ -185,7 +321,7 @@ impl EncodingClassService {
             today,
             existing,
         };
-        let r = compose(&class, selections, &ctx)?;
+        let r = compose(class, selections, &ctx)?;
         Ok(EncodingPreviewDto {
             number: r.number,
             name: r.name,

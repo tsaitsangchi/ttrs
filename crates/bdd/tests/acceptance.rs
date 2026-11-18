@@ -114,6 +114,8 @@ pub struct ErpWorld {
     pub class_version: Option<i32>,
     /// 編碼試算的結果（encoding_rule.feature）
     pub encoding_preview: Option<ttrs_shared::EncodingPreviewDto>,
+    /// 料件取號的選單資料（item_auto_number.feature）
+    pub item_number_options: Option<ttrs_shared::ItemNumberOptionsDto>,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭
     pub basic_codes: ttrs_app::BasicCodeService,
     /// 幣別維護（currency_maintenance.feature）
@@ -214,7 +216,7 @@ impl ErpWorld {
                     .expect("truncate tables");
                 // 帳號稽核原則回到起始值（migration 0020，ADR 0009 W5）
                 for sql in [
-                    "UPDATE system_parameter SET base_currency = 'TWD', accounting_periods = 12, rate_basis = 'daily'",
+                    "UPDATE system_parameter SET base_currency = 'TWD', accounting_periods = 12, rate_basis = 'daily', auto_item_number = false",
                     "DELETE FROM account_policy",
                     "INSERT INTO account_policy (policy_key) VALUES ('0')",
                 ] {
@@ -341,6 +343,7 @@ impl ErpWorld {
             encoding_classes,
             class_version: None,
             encoding_preview: None,
+            item_number_options: None,
             basic_codes,
             currencies,
             rates,

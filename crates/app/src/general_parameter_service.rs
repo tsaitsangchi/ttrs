@@ -118,6 +118,10 @@ impl GeneralParameterService {
                 return Err(DomainError::BaseCurrencyInUse.into());
             }
             p.update(periods, base, basis, &actor.user_id, today());
+            // aza28 料件編號自動編碼（item_auto_number.feature AN1）；未給時維持原值
+            if let Some(auto) = input.auto_item_number {
+                p.auto_item_number = auto;
+            }
             self.params
                 .update_general_parameters(&p)
                 .await
@@ -152,6 +156,14 @@ impl GeneralParameterService {
             ],
             vec![t("general-params-base-currency"), base],
             vec![
+                t("general-params-auto-item-number"),
+                t(if p.auto_item_number {
+                    "general-params-yes"
+                } else {
+                    "general-params-no"
+                }),
+            ],
+            vec![
                 t("general-params-rate-basis"),
                 t(match p.rate_basis {
                     RateBasis::Monthly => "general-params-rate-monthly",
@@ -185,6 +197,7 @@ impl GeneralParameterService {
             base_currency: p.base_currency.as_str().to_owned(),
             base_currency_name: name,
             rate_basis: p.rate_basis.code().to_owned(),
+            auto_item_number: p.auto_item_number,
             created_by: p.created_by.clone(),
             created_dept: p.created_dept.clone(),
             created_on: p.created_on,
