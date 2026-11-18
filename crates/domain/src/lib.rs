@@ -17,6 +17,7 @@ pub mod encoding_year;
 pub mod error;
 pub mod exchange_rate;
 pub mod general_parameter;
+pub mod group_center;
 pub mod item;
 pub mod item_group;
 pub mod lang;

@@ -954,6 +954,87 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 集團中心維護（aooi600；資料不存在時回 GROUP_CENTER_NOT_FOUND，不是權限拒絕）
+        ["查詢集團中心"] => w
+            .group_centers
+            .query(a, QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增集團中心", code] => w
+            .group_centers
+            .create(
+                a,
+                ttrs_shared::GroupCenterInput {
+                    center_code: (*code).to_owned(),
+                    name: None,
+                    category: Some("1".into()),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["修改集團中心", code] => w
+            .group_centers
+            .update(
+                a,
+                code,
+                ttrs_shared::GroupCenterInput {
+                    center_code: (*code).to_owned(),
+                    name: None,
+                    category: Some("1".into()),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["失效集團中心", code] => w
+            .group_centers
+            .set_active(a, code, false, None)
+            .await
+            .map(drop),
+        ["刪除集團中心", code] => w.group_centers.delete(a, code, None).await,
+        ["複製集團中心", code] => w.group_centers.copy(a, code, "COPY").await.map(drop),
+        ["設定集團中心", code, "的資料類別"] => w
+            .group_centers
+            .add_data_type(
+                a,
+                code,
+                ttrs_shared::DataCenterTypeInput {
+                    data_type: "1".into(),
+                    plant: "TW01".into(),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["確認集團中心", code] => {
+            w.group_centers.confirm(a, code, true, None).await.map(drop)
+        }
+        ["取消確認集團中心", code] => w
+            .group_centers
+            .confirm(a, code, false, None)
+            .await
+            .map(drop),
+        ["列印集團中心"] => w
+            .group_centers
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出集團中心為", "Excel"] => w
+            .group_centers
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         // 編碼獨立段維護（aooi403；資料不存在時回 ENCODING_SEGMENT_NOT_FOUND，不是權限拒絕）
         ["查詢編碼獨立段"] => w
             .encoding_segments

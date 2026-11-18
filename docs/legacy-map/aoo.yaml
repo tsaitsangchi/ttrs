@@ -308,6 +308,39 @@ tables:
       - { legacy: gek07, type: varchar2(1), sch: No Use, reason: ".sch 註明 No Use（IS7）" }
       - { legacy: gek08, type: varchar2(1), sch: No Use, reason: ".sch 註明 No Use（IS7）" }
 
+  - legacy: geu_file
+    target: group_center
+    scope: group
+    scope_note: "集團層，放共用 schema（GC2，ADR 0007 §8）；TipTop 各營運中心資料庫各一份，轉入以資料中心所在營運中心的資料為準，差異請 Key User 確認"
+    verify: true
+    program: aooi600（Group Center Maintenance 集團中心維護）
+    spec: specs/features/aoo/group_center.feature
+    note: "集團中心資料檔（.sch 在 tiptop/apm/sch）；migrations/0062_group_center.sql。aooi602、aoop603、amrp601 等引用（各自移植時接上）"
+    columns:
+      - { legacy: geu00,   type: varchar2(1), target: category, sch: 集團中心類別, note: "1 資料中心、2 預測中心、3 訂單中心、4 採購中心、5 信用控管中心、6 帳務中心、7 資金中心（GC4；中文名稱依 4fd 英文標籤翻譯）" }
+      - { legacy: geu01,   type: varchar2(10) PK NOT NULL, target: center_code, sch: 集團中心代碼, note: "區分大小寫、最多 10 字、建立後不可修改（GC3；TipTop g_chkey 可改並連動 gev04，TTRS 不開放）" }
+      - { legacy: geu02,   type: varchar2(80), target: name, sch: 集團中心名稱 }
+      - { legacy: geuacti, type: varchar2(1), target: active, sch: 資料有效碼, note: "Y/N → boolean；停用的資料中心不能設定資料類別（GC9）" }
+      - { legacy: geuuser, type: varchar2(10), target: created_by, sch: 資料所有者 }
+      - { legacy: geugrup, type: varchar2(10), target: created_dept, sch: 資料所有群, note: "TipTop 新增時沒有寫入（aooi600.4gl:224-227）；轉入時空白", verify: true }
+      - { legacy: geumodu, type: varchar2(10), target: updated_by, sch: 資料更改者 }
+      - { legacy: geudate, type: date, target: "created_on / updated_on", sch: 最近修改日, note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9）；轉入的既有資料視為已確認" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
+
+  - legacy: gev_file
+    target: data_center_type
+    scope: group
+    program: aooi600 資料類別設定（aooi600_1）；aooi601 資料控管原則
+    spec: specs/features/aoo/group_center.feature
+    note: "資料控管維護檔。本表只移入 gev03＝Y 的列（資料中心負責的資料類別）；gev03＝N 的列（各營運中心受哪個資料中心管控）在 aooi601 移植時另外決定放法"
+    verify: true
+    columns:
+      - { legacy: gev01, type: varchar2(1) PK NOT NULL, target: data_type, sch: 資料類別, note: "0 基本資料、1 料件、2 BOM、3 ECN、4 客戶、5 供應商、6 會計科目、7 價格、8 匯率（GC5；aooi601.4fd 只有 0–7）" }
+      - { legacy: gev02, type: varchar2(10) PK NOT NULL, target: plant_id, sch: 營運中心, note: "須存在於 plant（aooi600.4gl:805-811）" }
+      - { legacy: gev03, type: varchar2(1), target: "(本表存在即為 Y)", sch: 資料中心否, note: "Y 的列移入 data_center_type；N 的列待 aooi601", verify: true }
+      - { legacy: gev04, type: varchar2(10), target: center_code, sch: 資料中心代碼, note: "外鍵 group_center，刪除集團中心時一併刪除（GC8）" }
+
   # ----- 基本代碼（migrations/0041_basic_codes.sql；basic_code_service.rs） -----
   - legacy: gea_file
     target: region

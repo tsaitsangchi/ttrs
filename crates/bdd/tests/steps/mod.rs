@@ -18,6 +18,7 @@ mod aoo_encoding_segment;
 mod aoo_encoding_year;
 mod aoo_exchange_rate;
 mod aoo_general_parameters;
+mod aoo_group_center;
 mod aoo_plant_maintenance;
 mod aoo_plant_maintenance_query;
 mod aoo_project_maintenance;

@@ -165,6 +165,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "insert, query, modify, delete, invalid, reproduce, detail, history, confirm, notconfirm, output, exporttoexcel",
     ),
+    // 集團中心（GC10）：資料類別設定沿用 TipTop 的 data_type_setting；拋轉設定 carry_setting 在 aooi602 移植時加入
+    (
+        "group-center-maintenance",
+        "aooi600",
+        "AOO",
+        "insert, query, modify, delete, invalid, reproduce, data_type_setting, history, confirm, notconfirm, output, exporttoexcel",
+    ),
     // 編碼類別（EC11）：單頭單身，沿用 TipTop 功能代號並補上確認與異動記錄
     (
         "encoding-class-maintenance",

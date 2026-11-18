@@ -1053,6 +1053,46 @@ pub trait EncodingSegmentRepository: Send + Sync {
     ) -> Result<bool, RepoError>;
 }
 
+/// 集團中心（geu_file）與資料中心的資料類別（gev_file 中 gev03＝Y 的列；group_center.feature）。共用 schema（GC2）
+#[async_trait]
+pub trait GroupCenterRepository: Send + Sync {
+    /// 全部集團中心（含資料類別設定）
+    async fn list_group_centers(
+        &self,
+    ) -> Result<Vec<ttrs_domain::group_center::GroupCenter>, RepoError>;
+    async fn get_group_center(
+        &self,
+        code: &ttrs_domain::group_center::GroupCenterCode,
+    ) -> Result<Option<ttrs_domain::group_center::GroupCenter>, RepoError>;
+    /// 只新增集團中心本身；代碼重複回 `Conflict`
+    async fn insert_group_center(
+        &self,
+        center: &ttrs_domain::group_center::GroupCenter,
+    ) -> Result<(), RepoError>;
+    /// 只更新集團中心本身（不含資料類別）；版本不符回 `Stale`
+    async fn update_group_center(
+        &self,
+        center: &ttrs_domain::group_center::GroupCenter,
+    ) -> Result<(), RepoError>;
+    /// 新增一個資料類別；同一資料類別＋營運中心已屬於任何資料中心時回 `Conflict`（GC5）
+    async fn add_data_center_type(
+        &self,
+        code: &ttrs_domain::group_center::GroupCenterCode,
+        row: &ttrs_domain::group_center::DataCenterType,
+    ) -> Result<(), RepoError>;
+    /// 刪除一個資料類別；回傳是否有刪到（GC6；拋轉設定移植後一併刪除同一資料類別＋營運中心的設定）
+    async fn remove_data_center_type(
+        &self,
+        code: &ttrs_domain::group_center::GroupCenterCode,
+        row: &ttrs_domain::group_center::DataCenterType,
+    ) -> Result<bool, RepoError>;
+    /// 連同資料類別設定一起刪除（GC8）；回傳是否有刪到
+    async fn delete_group_center(
+        &self,
+        code: &ttrs_domain::group_center::GroupCenterCode,
+    ) -> Result<bool, RepoError>;
+}
+
 /// 編碼年對照（gff_file；encoding_year.feature）。共用 schema；主鍵為年＋長度
 #[async_trait]
 pub trait EncodingYearRepository: Send + Sync {

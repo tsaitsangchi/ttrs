@@ -64,6 +64,8 @@ pub struct AppState {
     pub units: ttrs_app::UnitService,
     pub encoding_natures: ttrs_app::EncodingNatureService,
     pub encoding_segments: ttrs_app::EncodingSegmentService,
+    /// 集團中心維護（aooi600；group_center.feature）
+    pub group_centers: ttrs_app::GroupCenterService,
     pub encoding_years: ttrs_app::EncodingYearService,
     pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
@@ -160,6 +162,7 @@ impl AppState {
             units,
             encoding_natures,
             encoding_segments,
+            group_centers,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -200,6 +203,7 @@ impl AppState {
             units,
             encoding_natures,
             encoding_segments,
+            group_centers,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -615,6 +619,32 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/encoding-segments/{code}/{state}",
             post(set_encoding_segment_state),
+        )
+        // Group Center Maintenance 集團中心維護（TipTop aooi600；共用；group_center.feature）
+        .route("/api/group-centers", post(create_group_center))
+        .route("/api/group-centers/query", post(query_group_centers))
+        .route(
+            "/api/group-centers/report.{format}",
+            get(group_center_report),
+        )
+        .route("/api/group-centers/{code}/copy", post(copy_group_center))
+        .route(
+            "/api/group-centers/{code}/data-types",
+            post(add_group_center_data_type),
+        )
+        .route(
+            "/api/group-centers/{code}/data-types/{data_type}/{plant}",
+            axum::routing::delete(remove_group_center_data_type),
+        )
+        .route(
+            "/api/group-centers/{code}",
+            get(get_group_center)
+                .put(update_group_center)
+                .delete(delete_group_center),
+        )
+        .route(
+            "/api/group-centers/{code}/{state}",
+            post(set_group_center_state),
         )
         // Tax Type Maintenance 稅別維護（TipTop aooi150；共用）：鍵值為稅別碼＋進銷項
         .route("/api/tax-types", get(list_tax_types).post(create_tax_type))
@@ -1698,6 +1728,8 @@ impl IntoResponse for HttpError {
             | "CODE_NOT_FOUND"
             | "UNIT_NOT_FOUND"
             | "ENCODING_NATURE_NOT_FOUND"
+            | "GROUP_CENTER_NOT_FOUND"
+            | "DATA_CENTER_TYPE_NOT_FOUND"
             | "ENCODING_SEGMENT_NOT_FOUND"
             | "ENCODING_YEAR_NOT_FOUND"
             | "ENCODING_CLASS_NOT_FOUND"
@@ -1760,6 +1792,10 @@ impl IntoResponse for HttpError {
             | "ENCODING_NATURE_ALREADY_EXISTS"
             | "ENCODING_NATURE_IN_USE"
             | "ENCODING_SEGMENT_ALREADY_EXISTS"
+            | "GROUP_CENTER_ALREADY_EXISTS"
+            | "GROUP_CENTER_IN_USE"
+            | "GROUP_CENTER_HAS_DATA_TYPES"
+            | "DATA_CENTER_TYPE_ALREADY_EXISTS"
             | "ENCODING_YEAR_ALREADY_EXISTS"
             | "ENCODING_CLASS_ALREADY_EXISTS"
             | "ENCODING_CLASS_IN_USE"
@@ -3858,6 +3894,121 @@ async fn delete_encoding_segment(
 ) -> ApiResult<StatusCode> {
     let version = Some(require_version(v.version)?);
     s.encoding_segments.delete(&s.actor, &code, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- Group Center Maintenance 集團中心維護（aooi600） -----
+
+use ttrs_shared::{DataCenterTypeInput, GroupCenterDto, GroupCenterInput};
+
+async fn get_group_center(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+) -> ApiResult<Json<GroupCenterDto>> {
+    Ok(Json(s.group_centers.get(&s.actor, &code).await?))
+}
+
+async fn create_group_center(
+    Ctx(s): Ctx,
+    Json(req): Json<GroupCenterInput>,
+) -> ApiResult<(StatusCode, Json<GroupCenterDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.group_centers.create(&s.actor, req).await?),
+    ))
+}
+
+async fn update_group_center(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<GroupCenterInput>,
+) -> ApiResult<Json<GroupCenterDto>> {
+    require_version(req.version)?;
+    Ok(Json(s.group_centers.update(&s.actor, &code, req).await?))
+}
+
+/// 資料類別設定新增一列（data_type_setting）
+async fn add_group_center_data_type(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<DataCenterTypeInput>,
+) -> ApiResult<Json<GroupCenterDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.group_centers.add_data_type(&s.actor, &code, req).await?,
+    ))
+}
+
+/// 資料類別設定刪除一列（data_type_setting）
+async fn remove_group_center_data_type(
+    Ctx(s): Ctx,
+    Path((code, data_type, plant)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<GroupCenterDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.group_centers
+            .remove_data_type(&s.actor, &code, &data_type, &plant, version)
+            .await?,
+    ))
+}
+
+/// 停用（deactivate）、啟用（activate）、確認（confirm）、取消確認（unconfirm）
+async fn set_group_center_state(
+    Ctx(s): Ctx,
+    Path((code, state)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let g = &s.group_centers;
+    let dto = match state.as_str() {
+        "activate" => g.set_active(&s.actor, &code, true, version).await?,
+        "deactivate" => g.set_active(&s.actor, &code, false, version).await?,
+        "confirm" => g.confirm(&s.actor, &code, true, version).await?,
+        "unconfirm" => g.confirm(&s.actor, &code, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn query_group_centers(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<GroupCenterDto>>> {
+    Ok(Json(s.group_centers.query(&s.actor, req).await?))
+}
+
+async fn copy_group_center(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<GroupCenterDto>)> {
+    let g = s.group_centers.copy(&s.actor, &code, &req.new_code).await?;
+    Ok((StatusCode::CREATED, Json(g)))
+}
+
+async fn group_center_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .group_centers
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+async fn delete_group_center(
+    Ctx(s): Ctx,
+    Path(code): Path<String>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.group_centers.delete(&s.actor, &code, version).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

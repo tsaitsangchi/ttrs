@@ -178,6 +178,7 @@ has_status!(
     ttrs_shared::UnitDto,
     ttrs_shared::EncodingNatureDto,
     ttrs_shared::EncodingSegmentDto,
+    ttrs_shared::GroupCenterDto,
     ttrs_shared::EncodingYearDto,
     ttrs_shared::EncodingClassDto,
     ttrs_shared::BasicCodeDto,

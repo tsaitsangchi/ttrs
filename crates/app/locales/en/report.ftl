@@ -283,3 +283,17 @@ encoding-class-type-8 = 8.Week
 encoding-class-type-9 = 9.Day
 encoding-class-yes = Yes
 encoding-class-no = No
+
+# 集團中心維護（aooi600；group_center.feature）
+group-center-report-title = Group Centers
+group-center-col-category = Category
+group-center-col-code = Code
+group-center-col-name = Name
+group-center-col-active = Active
+group-center-category-1 = 1.Data Center
+group-center-category-2 = 2.Forecast Center
+group-center-category-3 = 3.Order Center
+group-center-category-4 = 4.Purchase Center
+group-center-category-5 = 5.Credit Control Center
+group-center-category-6 = 6.Account Center
+group-center-category-7 = 7.Funds Center

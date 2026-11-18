@@ -72,6 +72,7 @@ pub trait Store:
     + crate::ports::EncodingYearRepository
     + crate::ports::EncodingClassRepository
     + crate::ports::EpubSharedLibraryRepository
+    + crate::ports::GroupCenterRepository
     + 'static
 {
 }
@@ -144,7 +145,7 @@ impl<T> Store for T where
         + crate::ports::EncodingClassRepository
         + crate::ports::EncodingClassRepository
         + crate::ports::EpubSharedLibraryRepository
-        + crate::ports::EpubSharedLibraryRepository
+        + crate::ports::GroupCenterRepository
         + 'static
 {
 }
@@ -179,6 +180,8 @@ pub struct Services {
     pub encoding_segments: crate::EncodingSegmentService,
     pub encoding_years: crate::EncodingYearService,
     pub encoding_classes: crate::EncodingClassService,
+    /// 集團中心維護（aooi600）
+    pub group_centers: crate::GroupCenterService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210）
     pub basic_codes: BasicCodeService,
     /// 幣別維護（aooi050）
@@ -326,6 +329,12 @@ impl Services {
             ),
             encoding_years: crate::EncodingYearService::new(
                 a.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
+            group_centers: crate::GroupCenterService::new(
+                a.clone(),
+                store.clone(),
                 store.clone(),
                 reports.clone(),
             ),

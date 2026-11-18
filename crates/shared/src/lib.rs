@@ -1790,6 +1790,80 @@ pub mod encoding_segment_max_len {
     pub const VALUE: usize = 30;
 }
 
+/// 集團中心（aooi600 / geu_file、gev_file；group_center.feature）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GroupCenterDto {
+    pub center_code: String,
+    pub name: Option<String>,
+    /// 類別 geu00：1 資料中心 … 7 資金中心（GC4）
+    pub category: String,
+    /// 資料類別設定（只有資料中心有），依資料類別、營運中心排序
+    pub data_types: Vec<DataCenterTypeDto>,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 資料中心負責的資料類別（gev01 資料類別 0–8、gev02 營運中心）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DataCenterTypeDto {
+    pub data_type: String,
+    pub plant: String,
+}
+
+/// 新增、修改集團中心
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GroupCenterInput {
+    pub center_code: String,
+    pub name: Option<String>,
+    pub category: Option<String>,
+    /// 修改時帶回的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+/// 新增資料類別設定一列
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DataCenterTypeInput {
+    pub data_type: String,
+    pub plant: String,
+    /// 集團中心的版本號（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+impl GroupCenterDto {
+    pub fn to_input(&self) -> GroupCenterInput {
+        GroupCenterInput {
+            center_code: self.center_code.clone(),
+            name: self.name.clone(),
+            category: Some(self.category.clone()),
+            version: Some(self.version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::group_center 一致）
+pub mod group_center_max_len {
+    pub const CODE: usize = 10;
+    pub const NAME: usize = 80;
+}
+
 /// 編碼年對照（aooi404 / gff_file；encoding_year.feature）：主鍵為年＋長度
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EncodingYearDto {

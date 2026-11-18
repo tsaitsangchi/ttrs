@@ -53,6 +53,12 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
         &["encoding_segment", "encoding_segment_code"],
         "segment_code",
     ),
+    // 集團中心：資料類別設定一併列出
+    (
+        "group-center-maintenance",
+        &["group_center", "data_center_type"],
+        "center_code",
+    ),
     (
         "encoding-nature-maintenance",
         &["encoding_nature"],

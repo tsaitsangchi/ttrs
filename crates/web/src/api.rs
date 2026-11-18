@@ -2078,6 +2078,111 @@ pub async fn delete_encoding_year(key: &str, version: i32) -> Result<(), String>
     no_content(res).await
 }
 
+// ----- Group Center Maintenance 集團中心維護（TipTop aooi600；共用） -----
+
+fn group_center_url(code: &str, suffix: &str) -> String {
+    if code.is_empty() {
+        url(&format!("/api/group-centers{suffix}"))
+    } else {
+        url(&format!("/api/group-centers/{}{suffix}", urlencoding(code)))
+    }
+}
+
+pub async fn query_group_centers(
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::GroupCenterDto>, String> {
+    post_query(group_center_url("", "/query"), req).await
+}
+
+pub async fn create_group_center(
+    req: &ttrs_shared::GroupCenterInput,
+) -> Result<ttrs_shared::GroupCenterDto, String> {
+    send_json(reqwest::Method::POST, group_center_url("", ""), Some(req)).await
+}
+
+pub async fn update_group_center(
+    code: &str,
+    req: &ttrs_shared::GroupCenterInput,
+) -> Result<ttrs_shared::GroupCenterDto, String> {
+    send_json(reqwest::Method::PUT, group_center_url(code, ""), Some(req)).await
+}
+
+pub async fn copy_group_center(
+    code: &str,
+    new_code: &str,
+) -> Result<ttrs_shared::GroupCenterDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        group_center_url(code, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+/// 停用／啟用（activate、deactivate）、確認／取消確認（confirm、unconfirm）
+pub async fn set_group_center_state(
+    code: &str,
+    state: &str,
+    version: i32,
+) -> Result<ttrs_shared::GroupCenterDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            group_center_url(code, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn delete_group_center(code: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!("{}?version={version}", group_center_url(code, "")))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 資料類別設定：新增一列（data_type_setting）
+pub async fn add_group_center_data_type(
+    code: &str,
+    req: &ttrs_shared::DataCenterTypeInput,
+) -> Result<ttrs_shared::GroupCenterDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        group_center_url(code, "/data-types"),
+        Some(req),
+    )
+    .await
+}
+
+/// 資料類別設定：刪除一列（data_type_setting）
+pub async fn remove_group_center_data_type(
+    code: &str,
+    data_type: &str,
+    plant: &str,
+    version: i32,
+) -> Result<ttrs_shared::GroupCenterDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::DELETE,
+        format!(
+            "{}?version={version}",
+            group_center_url(
+                code,
+                &format!(
+                    "/data-types/{}/{}",
+                    urlencoding(data_type),
+                    urlencoding(plant)
+                )
+            )
+        ),
+        None,
+    )
+    .await
+}
+
 // ----- Encoding Segment Maintenance 編碼獨立段維護（TipTop aooi403；共用） -----
 
 fn encoding_segment_url(code: &str, suffix: &str) -> String {

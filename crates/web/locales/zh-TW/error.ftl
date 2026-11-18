@@ -373,3 +373,16 @@ error-ENCODING_RULE_PERIOD_MISSING = （使用伺服器訊息）
 # 料件自動編號（aimi100 / aza28）
 error-ITEM_AUTO_NUMBER_DISABLED = （使用伺服器訊息）
 error-ENCODING_CLASS_NOT_FOR_ITEM = （使用伺服器訊息）
+
+# 集團中心（aooi600 / geu_file、gev_file）
+error-GROUP_CENTER_CODE_EMPTY = （使用伺服器訊息）
+error-GROUP_CENTER_CODE_TOO_LONG = （使用伺服器訊息）
+error-GROUP_CENTER_CATEGORY_INVALID = （使用伺服器訊息）
+error-GROUP_CENTER_ALREADY_EXISTS = （使用伺服器訊息）
+error-GROUP_CENTER_NOT_FOUND = （使用伺服器訊息）
+error-GROUP_CENTER_IN_USE = （使用伺服器訊息）
+error-GROUP_CENTER_HAS_DATA_TYPES = （使用伺服器訊息）
+error-GROUP_CENTER_NOT_DATA_CENTER = （使用伺服器訊息）
+error-DATA_CENTER_TYPE_INVALID = （使用伺服器訊息）
+error-DATA_CENTER_TYPE_ALREADY_EXISTS = （使用伺服器訊息）
+error-DATA_CENTER_TYPE_NOT_FOUND = （使用伺服器訊息）

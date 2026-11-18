@@ -1310,6 +1310,55 @@ pub mod encoding_nature {
     }
 }
 
+pub mod group_center {
+    use ttrs_domain::{group_center::GroupCenter, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    /// aooi600.4gl 的查詢欄位 geu00、geu01、geu02、geuacti（GC10）加上確認與「狀態」欄位
+    pub const FIELDS: &[Field] = &[
+        field("category", FieldType::Text),
+        field("center_code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(c: &GroupCenter, field: &str) -> FieldValue {
+        match field {
+            "category" => text(&c.category.code()),
+            "center_code" => text(c.code.as_str()),
+            "name" => opt_text(c.name.as_deref()),
+            other => confirm_value(other, &c.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(c.active),
+                        &c.created_by,
+                        &c.created_dept,
+                        Some(c.created_on),
+                        c.updated_by.as_deref(),
+                        c.updated_on,
+                        c.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
 pub mod encoding_segment {
     use ttrs_domain::{encoding_segment::EncodingSegment, qbe::FieldType};
     use ttrs_shared::QbeCondition;

@@ -104,6 +104,8 @@ struct State {
     encoding_natures: BTreeMap<String, ttrs_domain::encoding_nature::EncodingNature>,
     /// 編碼獨立段（gej_file、gek_file；encoding_segment.feature）
     encoding_segments: BTreeMap<String, ttrs_domain::encoding_segment::EncodingSegment>,
+    /// 集團中心（geu_file）與資料中心的資料類別（gev_file；group_center.feature）
+    group_centers: BTreeMap<String, ttrs_domain::group_center::GroupCenter>,
     /// 編碼年對照（gff_file；encoding_year.feature），鍵為（年, 長度）
     encoding_years: BTreeMap<(i32, i16), ttrs_domain::encoding_year::EncodingYear>,
     /// 編碼類別（gei_file、gel_file；encoding_class.feature）
@@ -1597,7 +1599,11 @@ impl PlantRepository for InMemoryStore {
             || s.user_plants.values().any(|ps| ps.contains(id))
             || s.items.keys().any(|(p, _)| p == id)
             || s.departments.keys().any(|(p, _)| p == id)
-            || s.employees.keys().any(|(p, _)| p == id))
+            || s.employees.keys().any(|(p, _)| p == id)
+            // 資料中心的資料類別設定（外鍵 data_center_type.plant_id，group_center.feature）
+            || s.group_centers
+                .values()
+                .any(|c| c.data_types.iter().any(|t| t.plant == id.as_str())))
     }
 }
 
@@ -5748,5 +5754,197 @@ impl WebClient for FakeWeb {
                 })
             }
         }
+    }
+}
+
+// ----- 集團中心（geu_file、gev_file；group_center.feature） -----
+
+fn group_center_key(c: &ttrs_domain::group_center::GroupCenter) -> Vec<(&'static str, String)> {
+    vec![("center_code", c.code.as_str().to_owned())]
+}
+
+fn group_center_row(c: &ttrs_domain::group_center::GroupCenter) -> Row {
+    let mut cols = vec![
+        ("center_code", text::s(c.code.as_str())),
+        ("name", text::opt(c.name.as_deref())),
+        ("category", text::s(&c.category.code())),
+        ("confirmed", text::b(c.confirmation.confirmed)),
+        ("confirmed_by", text::opt(c.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        c.active,
+        &c.created_by,
+        &c.created_dept,
+        c.created_on,
+        c.updated_by.as_deref(),
+        c.updated_on,
+        &c.stamp,
+    ));
+    row(cols)
+}
+
+fn data_center_type_key(
+    code: &str,
+    t: &ttrs_domain::group_center::DataCenterType,
+) -> Vec<(&'static str, String)> {
+    vec![
+        ("center_code", code.to_owned()),
+        ("data_type", t.data_type.code()),
+        ("plant_id", t.plant.clone()),
+    ]
+}
+
+fn data_center_type_row(code: &str, t: &ttrs_domain::group_center::DataCenterType) -> Row {
+    row(vec![
+        ("center_code", text::s(code)),
+        ("data_type", text::s(&t.data_type.code())),
+        ("plant_id", text::s(&t.plant)),
+    ])
+}
+
+#[async_trait]
+impl crate::ports::GroupCenterRepository for InMemoryStore {
+    async fn list_group_centers(
+        &self,
+    ) -> Result<Vec<ttrs_domain::group_center::GroupCenter>, RepoError> {
+        Ok(self.lock().group_centers.values().cloned().collect())
+    }
+
+    async fn get_group_center(
+        &self,
+        code: &ttrs_domain::group_center::GroupCenterCode,
+    ) -> Result<Option<ttrs_domain::group_center::GroupCenter>, RepoError> {
+        Ok(self.lock().group_centers.get(code.as_str()).cloned())
+    }
+
+    async fn insert_group_center(
+        &self,
+        center: &ttrs_domain::group_center::GroupCenter,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if s.group_centers.contains_key(center.code.as_str()) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = center.clone();
+        n.stamp = new_stamp();
+        n.data_types.clear();
+        s.log_change(
+            None,
+            "group_center",
+            group_center_key(&n),
+            None,
+            Some(group_center_row(&n)),
+            &[],
+        );
+        s.group_centers.insert(n.code.as_str().to_owned(), n);
+        Ok(())
+    }
+
+    async fn update_group_center(
+        &self,
+        center: &ttrs_domain::group_center::GroupCenter,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.group_centers.get(center.code.as_str()).cloned() else {
+            return Ok(());
+        };
+        let mut n = center.clone();
+        n.stamp = bumped(&old.stamp, &center.stamp)?;
+        // 資料類別另以 add／remove 維護，這裡保留現有的設定
+        n.data_types = old.data_types.clone();
+        s.log_change(
+            None,
+            "group_center",
+            group_center_key(&n),
+            Some(group_center_row(&old)),
+            Some(group_center_row(&n)),
+            &[],
+        );
+        s.group_centers.insert(n.code.as_str().to_owned(), n);
+        Ok(())
+    }
+
+    async fn add_data_center_type(
+        &self,
+        code: &ttrs_domain::group_center::GroupCenterCode,
+        t: &ttrs_domain::group_center::DataCenterType,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        // 與 PostgreSQL 的主鍵（資料類別＋營運中心）一致：全集團只能屬於一個資料中心（GC5）
+        if s.group_centers.values().any(|c| c.data_types.contains(t)) {
+            return Err(RepoError::Conflict);
+        }
+        let Some(c) = s.group_centers.get_mut(code.as_str()) else {
+            return Err(RepoError::Other(format!(
+                "集團中心不存在：{}",
+                code.as_str()
+            )));
+        };
+        c.data_types.push(t.clone());
+        c.data_types.sort();
+        s.log_change(
+            None,
+            "data_center_type",
+            data_center_type_key(code.as_str(), t),
+            None,
+            Some(data_center_type_row(code.as_str(), t)),
+            &[],
+        );
+        Ok(())
+    }
+
+    async fn remove_data_center_type(
+        &self,
+        code: &ttrs_domain::group_center::GroupCenterCode,
+        t: &ttrs_domain::group_center::DataCenterType,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(c) = s.group_centers.get_mut(code.as_str()) else {
+            return Ok(false);
+        };
+        let before = c.data_types.len();
+        c.data_types.retain(|x| x != t);
+        if c.data_types.len() == before {
+            return Ok(false);
+        }
+        s.log_change(
+            None,
+            "data_center_type",
+            data_center_type_key(code.as_str(), t),
+            Some(data_center_type_row(code.as_str(), t)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+
+    async fn delete_group_center(
+        &self,
+        code: &ttrs_domain::group_center::GroupCenterCode,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.group_centers.remove(code.as_str()) else {
+            return Ok(false);
+        };
+        // 與 PostgreSQL 的 ON DELETE CASCADE 一致：資料類別設定一起刪除並記錄異動
+        for t in &old.data_types {
+            s.log_change(
+                None,
+                "data_center_type",
+                data_center_type_key(code.as_str(), t),
+                Some(data_center_type_row(code.as_str(), t)),
+                None,
+                &[],
+            );
+        }
+        s.log_change(
+            None,
+            "group_center",
+            group_center_key(&old),
+            Some(group_center_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
     }
 }

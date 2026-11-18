@@ -106,6 +106,9 @@ pub struct ErpWorld {
     /// 編碼獨立段維護（encoding_segment.feature）與「另一位使用者修改」前的版本
     pub encoding_segments: ttrs_app::EncodingSegmentService,
     pub segment_version: Option<i32>,
+    /// 集團中心維護（group_center.feature）與「另一位使用者修改」前的版本
+    pub group_centers: ttrs_app::GroupCenterService,
+    pub group_center_version: Option<i32>,
     /// 編碼年對照維護（encoding_year.feature）與「另一位使用者修改」前的版本
     pub encoding_years: ttrs_app::EncodingYearService,
     pub year_version: Option<i32>,
@@ -209,7 +212,7 @@ impl ErpWorld {
                     .expect("drop plant schemas");
                 sqlx::query("TRUNCATE change_log, user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, unit, plant, \
-                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year, unit_conversion, translation_job, epub_github_library, epub_github_shared_library, encoding_class_segment, encoding_class, encoding_nature, encoding_segment_code, encoding_segment, encoding_year_code \
+                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year, unit_conversion, translation_job, epub_github_library, epub_github_shared_library, encoding_class_segment, encoding_class, encoding_nature, encoding_segment_code, encoding_segment, encoding_year_code, data_center_type, group_center \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
@@ -260,6 +263,7 @@ impl ErpWorld {
             units,
             encoding_natures,
             encoding_segments,
+            group_centers,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -338,6 +342,8 @@ impl ErpWorld {
             encoding_segments,
             nature_version: None,
             segment_version: None,
+            group_centers,
+            group_center_version: None,
             encoding_years,
             year_version: None,
             encoding_classes,

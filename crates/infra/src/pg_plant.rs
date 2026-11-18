@@ -238,11 +238,13 @@ impl PlantRepository for PgStore {
         Ok(())
     }
 
-    /// 使用者預設／可使用營運中心（外鍵 user_account、user_plant）或工廠 schema 內有資料（P10）
+    /// 使用者預設／可使用營運中心（外鍵 user_account、user_plant）、資料中心的資料類別（外鍵 data_center_type，
+    /// group_center.feature）或工廠 schema 內有資料（P10）
     async fn in_use(&self, id: &PlantId) -> Result<bool, RepoError> {
         sqlx::query_scalar(
             "SELECT EXISTS (SELECT 1 FROM user_account WHERE default_plant = p.plant_id)
                  OR EXISTS (SELECT 1 FROM user_plant WHERE plant_id = p.plant_id)
+                 OR EXISTS (SELECT 1 FROM data_center_type WHERE plant_id = p.plant_id)
                  OR ttrs_plant_schema_has_data(p.schema_name)
                FROM plant p WHERE p.plant_id = $1",
         )

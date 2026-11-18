@@ -453,6 +453,33 @@ pub enum DomainError {
     EncodingClassLineDuplicate,
     #[error("找不到這個段次")]
     EncodingClassLineNotFound,
+    // ----- 集團中心（aooi600 / geu_file、gev_file；group_center.feature） -----
+    #[error("集團中心代碼不可空白")]
+    GroupCenterCodeEmpty,
+    #[error("集團中心代碼長度不可超過 {max} 碼")]
+    GroupCenterCodeTooLong { max: usize },
+    #[error(
+        "類別只能是 1 到 7（資料中心、預測中心、訂單中心、採購中心、信用控管中心、帳務中心、資金中心）"
+    )]
+    GroupCenterCategoryInvalid,
+    #[error("集團中心已存在")]
+    GroupCenterAlreadyExists,
+    #[error("集團中心不存在")]
+    GroupCenterNotFound,
+    #[error("集團中心已被使用（有拋轉紀錄或有營運中心受它管控），不可刪除；請改為停用")]
+    GroupCenterInUse,
+    #[error("這個資料中心已有資料類別設定，不可改成資料中心以外的類別")]
+    GroupCenterHasDataTypes,
+    #[error("只有有效的資料中心（類別 1）才能設定資料類別與拋轉設定")]
+    GroupCenterNotDataCenter,
+    #[error(
+        "資料類別只能是 0 到 8（基本資料、料件、BOM、ECN、客戶、供應商、會計科目、價格、匯率）"
+    )]
+    DataCenterTypeInvalid,
+    #[error("這個資料類別與營運中心已屬於某個資料中心")]
+    DataCenterTypeAlreadyExists,
+    #[error("找不到這個資料類別與營運中心")]
+    DataCenterTypeNotFound,
     // ----- 料件自動編號（aimi100 / aza28；item_auto_number.feature） -----
     #[error("整體管理系統參數未開啟料件編號自動編碼")]
     ItemAutoNumberDisabled,
@@ -934,6 +961,17 @@ impl DomainError {
             Self::EncodingClassLineInvalid => "ENCODING_CLASS_LINE_INVALID",
             Self::EncodingClassLineDuplicate => "ENCODING_CLASS_LINE_DUPLICATE",
             Self::EncodingClassLineNotFound => "ENCODING_CLASS_LINE_NOT_FOUND",
+            Self::GroupCenterCodeEmpty => "GROUP_CENTER_CODE_EMPTY",
+            Self::GroupCenterCodeTooLong { .. } => "GROUP_CENTER_CODE_TOO_LONG",
+            Self::GroupCenterCategoryInvalid => "GROUP_CENTER_CATEGORY_INVALID",
+            Self::GroupCenterAlreadyExists => "GROUP_CENTER_ALREADY_EXISTS",
+            Self::GroupCenterNotFound => "GROUP_CENTER_NOT_FOUND",
+            Self::GroupCenterInUse => "GROUP_CENTER_IN_USE",
+            Self::GroupCenterHasDataTypes => "GROUP_CENTER_HAS_DATA_TYPES",
+            Self::GroupCenterNotDataCenter => "GROUP_CENTER_NOT_DATA_CENTER",
+            Self::DataCenterTypeInvalid => "DATA_CENTER_TYPE_INVALID",
+            Self::DataCenterTypeAlreadyExists => "DATA_CENTER_TYPE_ALREADY_EXISTS",
+            Self::DataCenterTypeNotFound => "DATA_CENTER_TYPE_NOT_FOUND",
             Self::ItemAutoNumberDisabled => "ITEM_AUTO_NUMBER_DISABLED",
             Self::EncodingClassNotForItem => "ENCODING_CLASS_NOT_FOR_ITEM",
             Self::EncodingRuleValueRequired => "ENCODING_RULE_VALUE_REQUIRED",

@@ -283,3 +283,17 @@ encoding-class-type-8 = 8.周
 encoding-class-type-9 = 9.日
 encoding-class-yes = 是
 encoding-class-no = 否
+
+# 集團中心維護（aooi600；group_center.feature）
+group-center-report-title = 集团中心
+group-center-col-category = 类别
+group-center-col-code = 代码
+group-center-col-name = 名称
+group-center-col-active = 资料有效
+group-center-category-1 = 1.资料中心
+group-center-category-2 = 2.预测中心
+group-center-category-3 = 3.订单中心
+group-center-category-4 = 4.采购中心
+group-center-category-5 = 5.信用控管中心
+group-center-category-6 = 6.账务中心
+group-center-category-7 = 7.资金中心

@@ -18,9 +18,10 @@ use pages::{
         CountryMaintenance, CurrencyMaintenance, DailyRateCopy, DailyRateMaintenance,
         DepartmentMaintenance, EmployeeMaintenance, EncodingClassMaintenance,
         EncodingNatureMaintenance, EncodingSegmentMaintenance, EncodingYearMaintenance,
-        GeneralParameters, ItemUnitConversionMaintenance, MonthlyRateMaintenance, PlantMaintenance,
-        ProjectMaintenance, RegionMaintenance, ReportTitleMaintenance, ShippingMethodMaintenance,
-        TaxTypeMaintenance, UnitConversionMaintenance, UnitMaintenance,
+        GeneralParameters, GroupCenterMaintenance, ItemUnitConversionMaintenance,
+        MonthlyRateMaintenance, PlantMaintenance, ProjectMaintenance, RegionMaintenance,
+        ReportTitleMaintenance, ShippingMethodMaintenance, TaxTypeMaintenance,
+        UnitConversionMaintenance, UnitMaintenance,
     },
     axm::ProductClassificationMaintenance,
     azz::{
@@ -68,6 +69,9 @@ enum Route {
         /// Encoding Segment Maintenance 編碼獨立段維護（TipTop aooi403）
         #[route("/aoo/encoding-segment-maintenance")]
         EncodingSegmentMaintenance {},
+        /// Group Center Maintenance 集團中心維護（TipTop aooi600）
+        #[route("/aoo/group-center-maintenance")]
+        GroupCenterMaintenance {},
         /// Encoding Class Maintenance 編碼類別維護（TipTop aooi402）
         #[route("/aoo/encoding-class-maintenance")]
         EncodingClassMaintenance {},
@@ -242,6 +246,11 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
         "encoding-year-maintenance" => (
             Route::EncodingYearMaintenance {},
             icons::CALENDAR_MONTH,
+            Tone::Success,
+        ),
+        "group-center-maintenance" => (
+            Route::GroupCenterMaintenance {},
+            icons::ACCOUNT_TREE,
             Tone::Success,
         ),
         "encoding-segment-maintenance" => (

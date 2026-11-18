@@ -21,6 +21,7 @@ mod pg_encoding_year;
 mod pg_epub_library;
 mod pg_epub_shared_library;
 mod pg_exchange_rate;
+mod pg_group_center;
 mod pg_item;
 mod pg_item_group;
 mod pg_legacy;

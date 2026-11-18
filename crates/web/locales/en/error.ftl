@@ -373,3 +373,16 @@ error-ENCODING_RULE_PERIOD_MISSING = Today is not in any accounting period, so t
 # 料件自動編號（aimi100 / aza28）
 error-ITEM_AUTO_NUMBER_DISABLED = Item auto-numbering is turned off in the general management parameters.
 error-ENCODING_CLASS_NOT_FOR_ITEM = This encoding class cannot be used for item numbers; it must be an active class whose nature is item number.
+
+# 集團中心（aooi600 / geu_file、gev_file）
+error-GROUP_CENTER_CODE_EMPTY = The group center code is required.
+error-GROUP_CENTER_CODE_TOO_LONG = The group center code can have at most 10 characters.
+error-GROUP_CENTER_CATEGORY_INVALID = The category must be 1 to 7 (data, forecast, order, purchase, credit control, account or funds center).
+error-GROUP_CENTER_ALREADY_EXISTS = This group center already exists.
+error-GROUP_CENTER_NOT_FOUND = This group center does not exist.
+error-GROUP_CENTER_IN_USE = This group center is in use (it has transfer records or plants it controls) and cannot be deleted; deactivate it instead.
+error-GROUP_CENTER_HAS_DATA_TYPES = This data center has data types, so it cannot be changed to another category.
+error-GROUP_CENTER_NOT_DATA_CENTER = Only an active data center (category 1) can have data types and transfer settings.
+error-DATA_CENTER_TYPE_INVALID = The data type must be 0 to 8 (basic data, item, BOM, ECN, customer, vendor, account, price or exchange rate).
+error-DATA_CENTER_TYPE_ALREADY_EXISTS = This data type and plant already belong to a data center.
+error-DATA_CENTER_TYPE_NOT_FOUND = This data type and plant were not found.

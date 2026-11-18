@@ -447,6 +447,18 @@
       | encoding-segment-maintenance | notconfirm   | 取消確認編碼獨立段 COLOR   |
       | encoding-segment-maintenance | output       | 列印編碼獨立段             |
       | encoding-segment-maintenance | exporttoexcel | 匯出編碼獨立段為 Excel    |
+      | group-center-maintenance     | query        | 查詢集團中心               |
+      | group-center-maintenance     | insert       | 新增集團中心 DC            |
+      | group-center-maintenance     | modify       | 修改集團中心 DC            |
+      | group-center-maintenance     | invalid      | 失效集團中心 DC            |
+      | group-center-maintenance     | delete       | 刪除集團中心 DC            |
+      | group-center-maintenance     | reproduce    | 複製集團中心 DC            |
+      | group-center-maintenance     | data_type_setting | 設定集團中心 DC 的資料類別 |
+      | group-center-maintenance     | confirm      | 確認集團中心 DC            |
+      | group-center-maintenance     | notconfirm   | 取消確認集團中心 DC        |
+      | group-center-maintenance     | output       | 列印集團中心               |
+      | group-center-maintenance     | exporttoexcel | 匯出集團中心為 Excel      |
+      | group-center-maintenance     | history      | 查詢作業 group-center-maintenance DC 的異動記錄 |
       | encoding-segment-maintenance | history      | 查詢作業 encoding-segment-maintenance COLOR 的異動記錄 |
       | encoding-class-maintenance | query        | 查詢編碼類別               |
       | encoding-class-maintenance | query        | 試算編碼類別 FG            |

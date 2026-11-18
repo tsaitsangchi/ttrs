@@ -373,3 +373,16 @@ error-ENCODING_RULE_PERIOD_MISSING = 今天不在任何会计期间内，无法�
 # 料件自動編號（aimi100 / aza28）
 error-ITEM_AUTO_NUMBER_DISABLED = 整体管理系统参数未开启料件编号自动编码。
 error-ENCODING_CLASS_NOT_FOR_ITEM = 这个编码类别不能用来取料号：须是有效、性质为料件编号的类别。
+
+# 集團中心（aooi600 / geu_file、gev_file）
+error-GROUP_CENTER_CODE_EMPTY = 集团中心代码不可空白。
+error-GROUP_CENTER_CODE_TOO_LONG = 集团中心代码长度不可超过 10 码。
+error-GROUP_CENTER_CATEGORY_INVALID = 类别只能是 1 到 7（资料中心、预测中心、订单中心、采购中心、信用控管中心、账务中心、资金中心）。
+error-GROUP_CENTER_ALREADY_EXISTS = 集团中心已存在。
+error-GROUP_CENTER_NOT_FOUND = 集团中心不存在。
+error-GROUP_CENTER_IN_USE = 集团中心已被使用（有抛转记录或有营运中心受它管控），不可删除；请改为停用。
+error-GROUP_CENTER_HAS_DATA_TYPES = 这个资料中心已有资料类别设置，不可改成资料中心以外的类别。
+error-GROUP_CENTER_NOT_DATA_CENTER = 只有有效的资料中心（类别 1）才能设置资料类别与抛转设置。
+error-DATA_CENTER_TYPE_INVALID = 资料类别只能是 0 到 8（基本资料、料件、BOM、ECN、客户、供应商、会计科目、价格、汇率）。
+error-DATA_CENTER_TYPE_ALREADY_EXISTS = 这个资料类别与营运中心已属于某个资料中心。
+error-DATA_CENTER_TYPE_NOT_FOUND = 找不到这个资料类别与营运中心。
