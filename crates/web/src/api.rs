@@ -2078,6 +2078,109 @@ pub async fn delete_encoding_year(key: &str, version: i32) -> Result<(), String>
     no_content(res).await
 }
 
+// ----- Data Control Maintenance 資料控管原則維護（TipTop aooi601；共用） -----
+
+fn data_control_url(suffix: &str) -> String {
+    url(&format!("/api/data-controls{suffix}"))
+}
+
+fn data_control_plant_url(data_type: &str, plant: &str, suffix: &str) -> String {
+    data_control_url(&format!(
+        "/{}/plants/{}{suffix}",
+        urlencoding(data_type),
+        urlencoding(plant)
+    ))
+}
+
+pub async fn query_data_controls(
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::DataControlDto>, String> {
+    post_query(data_control_url("/query"), req).await
+}
+
+/// 新增受控營運中心（detail）
+pub async fn add_data_control_plant(
+    req: &ttrs_shared::DataControlPlantInput,
+) -> Result<ttrs_shared::DataControlDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        data_control_url("/plants"),
+        Some(req),
+    )
+    .await
+}
+
+/// 刪除受控營運中心連同欄位條件（detail）
+pub async fn remove_data_control_plant(
+    data_type: &str,
+    plant: &str,
+    version: i32,
+) -> Result<ttrs_shared::DataControlDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::DELETE,
+        format!(
+            "{}?version={version}",
+            data_control_plant_url(data_type, plant, "")
+        ),
+        None,
+    )
+    .await
+}
+
+/// 把欄位條件複製到另一個營運中心（reproduce）
+pub async fn copy_data_control_rules(
+    data_type: &str,
+    plant: &str,
+    to_plant: &str,
+) -> Result<ttrs_shared::DataControlDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        data_control_plant_url(data_type, plant, "/copy"),
+        Some(&ttrs_shared::DataControlCopyInput {
+            to_plant: to_plant.to_owned(),
+        }),
+    )
+    .await
+}
+
+/// 新增（edit＝false）或修改欄位條件（condition_detail）
+pub async fn save_data_control_rule(
+    data_type: &str,
+    plant: &str,
+    edit: bool,
+    req: &ttrs_shared::DataControlRuleInput,
+) -> Result<ttrs_shared::DataControlDto, String> {
+    let method = if edit {
+        reqwest::Method::PUT
+    } else {
+        reqwest::Method::POST
+    };
+    send_json(
+        method,
+        data_control_plant_url(data_type, plant, "/rules"),
+        Some(req),
+    )
+    .await
+}
+
+/// 刪除欄位條件（condition_detail）
+pub async fn remove_data_control_rule(
+    data_type: &str,
+    plant: &str,
+    field: &str,
+    version: i32,
+) -> Result<ttrs_shared::DataControlDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::DELETE,
+        format!(
+            "{}?version={version}",
+            data_control_plant_url(data_type, plant, &format!("/rules/{}", urlencoding(field)))
+        ),
+        None,
+    )
+    .await
+}
+
 // ----- Group Center Maintenance 集團中心維護（TipTop aooi600；共用） -----
 
 fn group_center_url(code: &str, suffix: &str) -> String {

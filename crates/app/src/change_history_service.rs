@@ -53,6 +53,12 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
         &["encoding_segment", "encoding_segment_code"],
         "segment_code",
     ),
+    // 資料控管原則：以資料類別查詢（受控營運中心與欄位條件一併列出）
+    (
+        "data-control-maintenance",
+        &["data_control_plant", "data_control_rule"],
+        "data_type",
+    ),
     // 集團中心：資料類別設定一併列出
     (
         "group-center-maintenance",

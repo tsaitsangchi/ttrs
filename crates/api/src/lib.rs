@@ -66,6 +66,8 @@ pub struct AppState {
     pub encoding_segments: ttrs_app::EncodingSegmentService,
     /// 集團中心維護（aooi600；group_center.feature）
     pub group_centers: ttrs_app::GroupCenterService,
+    /// 資料控管原則維護（aooi601；data_control.feature）
+    pub data_controls: ttrs_app::DataControlService,
     pub encoding_years: ttrs_app::EncodingYearService,
     pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
@@ -163,6 +165,7 @@ impl AppState {
             encoding_natures,
             encoding_segments,
             group_centers,
+            data_controls,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -204,6 +207,7 @@ impl AppState {
             encoding_natures,
             encoding_segments,
             group_centers,
+            data_controls,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -619,6 +623,30 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/encoding-segments/{code}/{state}",
             post(set_encoding_segment_state),
+        )
+        // Data Control Maintenance 資料控管原則維護（TipTop aooi601；共用；data_control.feature）
+        .route("/api/data-controls/query", post(query_data_controls))
+        .route(
+            "/api/data-controls/report.{format}",
+            get(data_control_report),
+        )
+        .route("/api/data-controls/plants", post(add_data_control_plant))
+        .route("/api/data-controls/{data_type}", get(get_data_control))
+        .route(
+            "/api/data-controls/{data_type}/plants/{plant}",
+            axum::routing::delete(remove_data_control_plant),
+        )
+        .route(
+            "/api/data-controls/{data_type}/plants/{plant}/copy",
+            post(copy_data_control_rules),
+        )
+        .route(
+            "/api/data-controls/{data_type}/plants/{plant}/rules",
+            post(add_data_control_rule).put(update_data_control_rule),
+        )
+        .route(
+            "/api/data-controls/{data_type}/plants/{plant}/rules/{field}",
+            axum::routing::delete(remove_data_control_rule),
         )
         // Group Center Maintenance 集團中心維護（TipTop aooi600；共用；group_center.feature）
         .route("/api/group-centers", post(create_group_center))
@@ -1729,6 +1757,8 @@ impl IntoResponse for HttpError {
             | "UNIT_NOT_FOUND"
             | "ENCODING_NATURE_NOT_FOUND"
             | "GROUP_CENTER_NOT_FOUND"
+            | "DATA_CONTROL_PLANT_NOT_FOUND"
+            | "DATA_CONTROL_RULE_NOT_FOUND"
             | "DATA_CENTER_TYPE_NOT_FOUND"
             | "ENCODING_SEGMENT_NOT_FOUND"
             | "ENCODING_YEAR_NOT_FOUND"
@@ -1793,6 +1823,10 @@ impl IntoResponse for HttpError {
             | "ENCODING_NATURE_IN_USE"
             | "ENCODING_SEGMENT_ALREADY_EXISTS"
             | "GROUP_CENTER_ALREADY_EXISTS"
+            | "DATA_CONTROL_PLANT_ALREADY_EXISTS"
+            | "DATA_CONTROL_RULE_ALREADY_EXISTS"
+            | "DATA_CONTROL_NO_DATA_CENTER"
+            | "DATA_CONTROL_RULE_NOT_ALLOWED"
             | "GROUP_CENTER_IN_USE"
             | "GROUP_CENTER_HAS_DATA_TYPES"
             | "DATA_CENTER_TYPE_ALREADY_EXISTS"
@@ -3895,6 +3929,124 @@ async fn delete_encoding_segment(
     let version = Some(require_version(v.version)?);
     s.encoding_segments.delete(&s.actor, &code, version).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- Data Control Maintenance 資料控管原則維護（aooi601） -----
+
+use ttrs_shared::{
+    DataControlCopyInput, DataControlDto, DataControlPlantInput, DataControlRuleInput,
+};
+
+async fn query_data_controls(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<DataControlDto>>> {
+    Ok(Json(s.data_controls.query(&s.actor, req).await?))
+}
+
+async fn get_data_control(
+    Ctx(s): Ctx,
+    Path(data_type): Path<String>,
+) -> ApiResult<Json<DataControlDto>> {
+    Ok(Json(s.data_controls.get(&s.actor, &data_type).await?))
+}
+
+/// 新增受控營運中心（detail）
+async fn add_data_control_plant(
+    Ctx(s): Ctx,
+    Json(req): Json<DataControlPlantInput>,
+) -> ApiResult<(StatusCode, Json<DataControlDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.data_controls.add_plant(&s.actor, req).await?),
+    ))
+}
+
+/// 刪除受控營運中心連同欄位條件（detail）
+async fn remove_data_control_plant(
+    Ctx(s): Ctx,
+    Path((data_type, plant)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<DataControlDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.data_controls
+            .remove_plant(&s.actor, &data_type, &plant, version)
+            .await?,
+    ))
+}
+
+/// 把欄位條件複製到另一個營運中心（reproduce）
+async fn copy_data_control_rules(
+    Ctx(s): Ctx,
+    Path((data_type, plant)): Path<(String, String)>,
+    Json(req): Json<DataControlCopyInput>,
+) -> ApiResult<(StatusCode, Json<DataControlDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(
+            s.data_controls
+                .copy_rules(&s.actor, &data_type, &plant, req)
+                .await?,
+        ),
+    ))
+}
+
+/// 新增欄位條件（condition_detail）
+async fn add_data_control_rule(
+    Ctx(s): Ctx,
+    Path((data_type, plant)): Path<(String, String)>,
+    Json(req): Json<DataControlRuleInput>,
+) -> ApiResult<Json<DataControlDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.data_controls
+            .add_rule(&s.actor, &data_type, &plant, req)
+            .await?,
+    ))
+}
+
+/// 修改欄位條件（condition_detail）
+async fn update_data_control_rule(
+    Ctx(s): Ctx,
+    Path((data_type, plant)): Path<(String, String)>,
+    Json(req): Json<DataControlRuleInput>,
+) -> ApiResult<Json<DataControlDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.data_controls
+            .update_rule(&s.actor, &data_type, &plant, req)
+            .await?,
+    ))
+}
+
+/// 刪除欄位條件（condition_detail）
+async fn remove_data_control_rule(
+    Ctx(s): Ctx,
+    Path((data_type, plant, field)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<DataControlDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.data_controls
+            .remove_rule(&s.actor, &data_type, &plant, &field, version)
+            .await?,
+    ))
+}
+
+async fn data_control_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .data_controls
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 // ----- Group Center Maintenance 集團中心維護（aooi600） -----

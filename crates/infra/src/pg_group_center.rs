@@ -173,7 +173,7 @@ impl GroupCenterRepository for PgStore {
         code: &GroupCenterCode,
         t: &DataCenterType,
     ) -> Result<(), RepoError> {
-        // 主鍵（資料類別＋營運中心）重複時 db_err 轉成 Conflict（GC5）
+        // 主鍵（資料類別＋營運中心）重複、或已是受控營運中心（觸發器 ttrs_data_control_exclusive）時 db_err 轉成 Conflict（GC5、DC2）
         sqlx::query(
             "INSERT INTO data_center_type (data_type, plant_id, center_code) VALUES ($1, $2, $3)",
         )

@@ -5,6 +5,7 @@ mod basic_code_maintenance;
 mod classification_code_maintenance;
 mod currency_maintenance;
 mod daily_rate_copy;
+mod data_control_maintenance;
 mod department_maintenance;
 mod employee_maintenance;
 mod encoding_class_maintenance;
@@ -29,6 +30,7 @@ pub use basic_code_maintenance::{
 pub use classification_code_maintenance::ClassificationCodeMaintenance;
 pub use currency_maintenance::CurrencyMaintenance;
 pub use daily_rate_copy::DailyRateCopy;
+pub use data_control_maintenance::DataControlMaintenance;
 pub use department_maintenance::DepartmentMaintenance;
 pub use employee_maintenance::EmployeeMaintenance;
 pub use encoding_class_maintenance::EncodingClassMaintenance;

@@ -12,6 +12,7 @@ mod pg_change_log;
 mod pg_classification;
 mod pg_credential;
 mod pg_currency;
+mod pg_data_control;
 mod pg_department;
 mod pg_dictionary;
 mod pg_encoding_class;

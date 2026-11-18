@@ -7,6 +7,7 @@ pub mod basic_code;
 pub mod classification;
 pub mod confirmation;
 pub mod currency;
+pub mod data_control;
 pub mod department;
 pub mod dictionary;
 pub mod employee;

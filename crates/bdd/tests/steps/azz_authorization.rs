@@ -954,6 +954,95 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 資料控管原則維護（aooi601；資料不存在時回 DATA_CONTROL_* 錯誤，不是權限拒絕）
+        ["查詢資料控管原則"] => w
+            .data_controls
+            .query(a, QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增資料類別", t, "的受控營運中心", plant] => w
+            .data_controls
+            .add_plant(
+                a,
+                ttrs_shared::DataControlPlantInput {
+                    data_type: (*t).to_owned(),
+                    plant: (*plant).to_owned(),
+                },
+            )
+            .await
+            .map(drop),
+        ["刪除資料類別", t, "的受控營運中心", plant] => w
+            .data_controls
+            .remove_plant(a, t, plant, None)
+            .await
+            .map(drop),
+        ["新增資料類別", t, "營運中心", plant, "的欄位條件"] => w
+            .data_controls
+            .add_rule(
+                a,
+                t,
+                plant,
+                ttrs_shared::DataControlRuleInput {
+                    field: "item_no".into(),
+                    condition: "6".into(),
+                    values: "L".into(),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["修改資料類別", t, "營運中心", plant, "的欄位條件"] => w
+            .data_controls
+            .update_rule(
+                a,
+                t,
+                plant,
+                ttrs_shared::DataControlRuleInput {
+                    field: "item_no".into(),
+                    condition: "6".into(),
+                    values: "L".into(),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["刪除資料類別", t, "營運中心", plant, "的欄位條件"] => w
+            .data_controls
+            .remove_rule(a, t, plant, "item_no", None)
+            .await
+            .map(drop),
+        ["複製資料類別", t, "營運中心", plant, "的欄位條件"] => w
+            .data_controls
+            .copy_rules(
+                a,
+                t,
+                plant,
+                ttrs_shared::DataControlCopyInput {
+                    to_plant: "TW03".into(),
+                },
+            )
+            .await
+            .map(drop),
+        ["列印資料控管原則"] => w
+            .data_controls
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出資料控管原則為", "Excel"] => w
+            .data_controls
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         // 集團中心維護（aooi600；資料不存在時回 GROUP_CENTER_NOT_FOUND，不是權限拒絕）
         ["查詢集團中心"] => w
             .group_centers

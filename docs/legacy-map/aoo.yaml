@@ -329,17 +329,30 @@ tables:
       - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）" }
 
   - legacy: gev_file
-    target: data_center_type
+    target: "data_center_type（gev03＝Y）/ data_control_plant（gev03＝N）"
     scope: group
     program: aooi600 資料類別設定（aooi600_1）；aooi601 資料控管原則
-    spec: specs/features/aoo/group_center.feature
-    note: "資料控管維護檔。本表只移入 gev03＝Y 的列（資料中心負責的資料類別）；gev03＝N 的列（各營運中心受哪個資料中心管控）在 aooi601 移植時另外決定放法"
-    verify: true
+    spec: "specs/features/aoo/group_center.feature、specs/features/aoo/data_control.feature"
+    note: "資料控管維護檔。gev03＝Y 的列（資料中心負責的資料類別）→ data_center_type；gev03＝N 的列（受控營運中心）→ data_control_plant（DC2）。兩張表合起來「資料類別＋營運中心」只能出現一次（觸發器 ttrs_data_control_exclusive）"
     columns:
       - { legacy: gev01, type: varchar2(1) PK NOT NULL, target: data_type, sch: 資料類別, note: "0 基本資料、1 料件、2 BOM、3 ECN、4 客戶、5 供應商、6 會計科目、7 價格、8 匯率（GC5；aooi601.4fd 只有 0–7）" }
-      - { legacy: gev02, type: varchar2(10) PK NOT NULL, target: plant_id, sch: 營運中心, note: "須存在於 plant（aooi600.4gl:805-811）" }
-      - { legacy: gev03, type: varchar2(1), target: "(本表存在即為 Y)", sch: 資料中心否, note: "Y 的列移入 data_center_type；N 的列待 aooi601", verify: true }
-      - { legacy: gev04, type: varchar2(10), target: center_code, sch: 資料中心代碼, note: "外鍵 group_center，刪除集團中心時一併刪除（GC8）" }
+      - { legacy: gev02, type: varchar2(10) PK NOT NULL, target: plant_id, sch: 營運中心, note: "須存在於 plant（aooi600.4gl:805-811、aooi601.4gl:303-313）" }
+      - { legacy: gev03, type: varchar2(1), target: "(存在於哪張表)", sch: 資料中心否, note: "Y → data_center_type；N → data_control_plant（DC2）" }
+      - { legacy: gev04, type: varchar2(10), target: data_center_type.center_code, sch: 資料中心代碼, note: "gev03＝Y 的列：外鍵 group_center，刪除集團中心時一併刪除（GC8）；gev03＝N 的列固定空白、不移植（DC11）" }
+      - { legacy: "(無)", target: "data_control_plant.created_by / created_dept / created_on / updated_by / updated_on / version / created_at / updated_at", note: "TTRS 新增（ADR 0012，DC10）；轉入時 created_by 填轉檔帳號" }
+
+  - legacy: gey_file
+    target: data_control_rule
+    scope: group
+    program: aooi601 欄位條件（condition_detail）；s_dc_funs.s_field_chk
+    spec: specs/features/aoo/data_control.feature
+    note: "受控營運中心自己新增資料時欄位值須符合的條件（DC6）；migrations/0063_data_control.sql。刪除受控營運中心時一併刪除"
+    columns:
+      - { legacy: gey01, type: varchar2(1) PK NOT NULL, target: data_type, sch: 資料類別 }
+      - { legacy: gey02, type: varchar2(10) PK NOT NULL, target: plant_id, sch: 營運中心, note: "須為該資料類別的受控營運中心（aoo-093，DC5(a)）" }
+      - { legacy: gey03, type: varchar2(20) PK NOT NULL, target: field_code, sch: 欄位代號, note: "存 TTRS 欄位名稱：ima01 → item_no、ima06 → group_code、ima109 → material_category；bma01、bmx01、bmz02、occ01、occ03、pmc01、pmc14、aag01、aag24、tqm01、tqm06 等其他資料類別的列待該模組移植時轉入（DC5(b)、DC11）", verify: true }
+      - { legacy: gey04, type: varchar2(2), target: condition, sch: 允許新增的條件, note: "1–11（s_get_option）" }
+      - { legacy: gey05, type: varchar2(255), target: field_values, sch: 允許新增值, note: "以 ; 分隔、不可含 ' \" ) + > < = *（aoo-031；TipTop 少檢查 =）；條件 2–5 只能一個值（DC5(d)）", verify: true, verify_note: "轉檔前請確認正式區沒有含 = 或條件 2–5 有多個值的舊資料" }
 
   # ----- 基本代碼（migrations/0041_basic_codes.sql；basic_code_service.rs） -----
   - legacy: gea_file

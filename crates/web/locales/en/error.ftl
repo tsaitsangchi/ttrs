@@ -380,9 +380,22 @@ error-GROUP_CENTER_CODE_TOO_LONG = The group center code can have at most 10 cha
 error-GROUP_CENTER_CATEGORY_INVALID = The category must be 1 to 7 (data, forecast, order, purchase, credit control, account or funds center).
 error-GROUP_CENTER_ALREADY_EXISTS = This group center already exists.
 error-GROUP_CENTER_NOT_FOUND = This group center does not exist.
-error-GROUP_CENTER_IN_USE = This group center is in use (it has transfer records or plants it controls) and cannot be deleted; deactivate it instead.
+error-GROUP_CENTER_IN_USE = This group center has transfer records and cannot be deleted; deactivate it instead.
 error-GROUP_CENTER_HAS_DATA_TYPES = This data center has data types, so it cannot be changed to another category.
 error-GROUP_CENTER_NOT_DATA_CENTER = Only an active data center (category 1) can have data types and transfer settings.
 error-DATA_CENTER_TYPE_INVALID = The data type must be 0 to 8 (basic data, item, BOM, ECN, customer, vendor, account, price or exchange rate).
 error-DATA_CENTER_TYPE_ALREADY_EXISTS = This data type and plant already belong to a data center.
 error-DATA_CENTER_TYPE_NOT_FOUND = This data type and plant were not found.
+
+# 資料控管原則（aooi601 / gev_file、gey_file）
+error-DATA_CONTROL_PLANT_ALREADY_EXISTS = This data type and plant are already on the data control list (as a data center or a controlled plant).
+error-DATA_CONTROL_PLANT_NOT_FOUND = This controlled plant was not found. Data center plants are changed in Group Center Maintenance.
+error-DATA_CONTROL_TYPE_NOT_MAINTAINABLE = Data type 0 (basic data) has no data control rules.
+error-DATA_CONTROL_NO_DATA_CENTER = This data type has no active data center yet. Set one in Group Center Maintenance first.
+error-DATA_CONTROL_RULE_NOT_ALLOWED = Only controlled plants can have field conditions, not data center plants.
+error-DATA_CONTROL_RULE_ALREADY_EXISTS = This field already has a condition.
+error-DATA_CONTROL_RULE_NOT_FOUND = This field condition was not found.
+error-DATA_CONTROL_FIELD_INVALID = This field cannot be set for this data type.
+error-DATA_CONTROL_CONDITION_INVALID = The condition must be 1 to 11.
+error-DATA_CONTROL_VALUE_INVALID = Values are required (up to 255 characters, separated by ;) and cannot contain ' " ) + > < = *. Greater and less conditions take one value.
+error-DATA_CONTROL_FIELD_REJECTED = This value does not meet the data control conditions of this plant.

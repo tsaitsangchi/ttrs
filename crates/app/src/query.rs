@@ -1310,6 +1310,62 @@ pub mod encoding_nature {
     }
 }
 
+pub mod data_control {
+    use ttrs_domain::qbe::FieldType;
+    use ttrs_shared::{DataControlDto, QbeCondition};
+
+    use super::*;
+
+    /// aooi601.4gl:120-168 的查詢欄位：資料類別、營運中心、資料中心否、資料中心代碼，欄位條件的欄位、條件、值
+    pub const FIELDS: &[Field] = &[
+        field("data_type", FieldType::Text),
+        field("plant", FieldType::Text),
+        field("is_data_center", FieldType::Flag),
+        field("center_code", FieldType::Text),
+        field("field", FieldType::Text),
+        field("condition", FieldType::Text),
+        field("values", FieldType::Text),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    /// 單身欄位以多值比對：符合任一列即列出該資料類別（aooi601.4gl:207-219）
+    pub fn value(d: &DataControlDto, field: &str) -> FieldValue {
+        let texts =
+            |vals: Vec<String>| FieldValue::Set(vals.into_iter().map(QbeValue::Text).collect());
+        match field {
+            "data_type" => text(&d.data_type),
+            "plant" => texts(d.plants.iter().map(|p| p.plant.clone()).collect()),
+            "is_data_center" => FieldValue::Set(
+                d.plants
+                    .iter()
+                    .map(|p| QbeValue::Flag(p.is_data_center))
+                    .collect(),
+            ),
+            "center_code" => texts(
+                d.plants
+                    .iter()
+                    .filter_map(|p| p.center_code.clone())
+                    .collect(),
+            ),
+            "field" | "condition" | "values" => texts(
+                d.plants
+                    .iter()
+                    .flat_map(|p| p.rules.iter())
+                    .map(|r| match field {
+                        "field" => r.field.clone(),
+                        "condition" => r.condition.clone(),
+                        _ => r.values.clone(),
+                    })
+                    .collect(),
+            ),
+            _ => FieldValue::One(None),
+        }
+    }
+}
+
 pub mod group_center {
     use ttrs_domain::{group_center::GroupCenter, qbe::FieldType};
     use ttrs_shared::QbeCondition;

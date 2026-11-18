@@ -10,6 +10,7 @@ mod aoo_accounting_periods;
 mod aoo_basic_codes;
 mod aoo_classification_code;
 mod aoo_currency_maintenance;
+mod aoo_data_control;
 mod aoo_department_employee;
 mod aoo_department_report;
 mod aoo_encoding_class;

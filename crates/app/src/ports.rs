@@ -1053,6 +1053,36 @@ pub trait EncodingSegmentRepository: Send + Sync {
     ) -> Result<bool, RepoError>;
 }
 
+/// 資料控管原則的受控營運中心（gev_file 中 gev03＝N 的列）與欄位條件（gey_file；data_control.feature）。共用 schema（DC2）
+#[async_trait]
+pub trait DataControlRepository: Send + Sync {
+    /// 全部受控營運中心（含欄位條件）
+    async fn list_controlled_plants(
+        &self,
+    ) -> Result<Vec<ttrs_domain::data_control::ControlledPlant>, RepoError>;
+    async fn get_controlled_plant(
+        &self,
+        data_type: ttrs_domain::group_center::DataType,
+        plant: &str,
+    ) -> Result<Option<ttrs_domain::data_control::ControlledPlant>, RepoError>;
+    /// 連同欄位條件新增；同一資料類別＋營運中心已是資料中心或受控營運中心時回 `Conflict`（DC2）
+    async fn insert_controlled_plant(
+        &self,
+        plant: &ttrs_domain::data_control::ControlledPlant,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`；欄位條件只寫入有變動的列
+    async fn update_controlled_plant(
+        &self,
+        plant: &ttrs_domain::data_control::ControlledPlant,
+    ) -> Result<(), RepoError>;
+    /// 連同欄位條件刪除；回傳是否有刪到
+    async fn delete_controlled_plant(
+        &self,
+        data_type: ttrs_domain::group_center::DataType,
+        plant: &str,
+    ) -> Result<bool, RepoError>;
+}
+
 /// 集團中心（geu_file）與資料中心的資料類別（gev_file 中 gev03＝Y 的列；group_center.feature）。共用 schema（GC2）
 #[async_trait]
 pub trait GroupCenterRepository: Send + Sync {
@@ -1074,7 +1104,7 @@ pub trait GroupCenterRepository: Send + Sync {
         &self,
         center: &ttrs_domain::group_center::GroupCenter,
     ) -> Result<(), RepoError>;
-    /// 新增一個資料類別；同一資料類別＋營運中心已屬於任何資料中心時回 `Conflict`（GC5）
+    /// 新增一個資料類別；同一資料類別＋營運中心已屬於任何資料中心、或已是受控營運中心時回 `Conflict`（GC5、DC2）
     async fn add_data_center_type(
         &self,
         code: &ttrs_domain::group_center::GroupCenterCode,

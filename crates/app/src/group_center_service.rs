@@ -24,7 +24,7 @@ use crate::{
     authorization::Grant,
     error::RepoError,
     list_report::{ListReporter, ListSpec},
-    ports::{GroupCenterRepository, PlantRepository},
+    ports::{DataControlRepository, GroupCenterRepository, PlantRepository},
     query,
     report::{self, ReportData, ReportFormat},
 };
@@ -49,6 +49,8 @@ pub struct GroupCenterService {
     authz: Arc<dyn Authorizer>,
     centers: Arc<dyn GroupCenterRepository>,
     plants: Arc<dyn PlantRepository>,
+    /// 受控營運中心（data_control.feature DC2：同一資料類別＋營運中心不可又是資料中心）
+    controls: Arc<dyn DataControlRepository>,
     reports: ListReporter,
 }
 
@@ -57,12 +59,14 @@ impl GroupCenterService {
         authz: Arc<dyn Authorizer>,
         centers: Arc<dyn GroupCenterRepository>,
         plants: Arc<dyn PlantRepository>,
+        controls: Arc<dyn DataControlRepository>,
         reports: ListReporter,
     ) -> Self {
         Self {
             authz,
             centers,
             plants,
+            controls,
             reports,
         }
     }
@@ -193,6 +197,16 @@ impl GroupCenterService {
             center.check_data_center()?;
             let row = self.data_type_row(&input.data_type, &input.plant).await?;
             center.add_data_type(row.clone())?;
+            // 已是受控營運中心時不可設為資料中心（DC2）
+            if self
+                .controls
+                .get_controlled_plant(row.data_type, &row.plant)
+                .await
+                .map_err(infra)?
+                .is_some()
+            {
+                return Err(DomainError::DataControlPlantAlreadyExists.into());
+            }
             match self.centers.add_data_center_type(&center.code, &row).await {
                 Ok(()) => Ok(to_dto(&self.load(code).await?)),
                 Err(RepoError::Conflict) => Err(DomainError::DataCenterTypeAlreadyExists.into()),
@@ -296,7 +310,7 @@ impl GroupCenterService {
     }
 
     /// 刪除連同資料類別設定（:252-299，GC8）：已確認不可刪除（SA9-2）；
-    /// 有拋轉紀錄或有營運中心受它管控時回 GROUP_CENTER_IN_USE（aoop603、aooi601 移植時接上）
+    /// 有拋轉紀錄時回 GROUP_CENTER_IN_USE（aoop603 移植時接上；受控營運中心依資料類別、不依資料中心，DC8）
     pub async fn delete(
         &self,
         actor: &Actor,

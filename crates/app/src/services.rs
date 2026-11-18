@@ -73,6 +73,7 @@ pub trait Store:
     + crate::ports::EncodingClassRepository
     + crate::ports::EpubSharedLibraryRepository
     + crate::ports::GroupCenterRepository
+    + crate::ports::DataControlRepository
     + 'static
 {
 }
@@ -146,6 +147,7 @@ impl<T> Store for T where
         + crate::ports::EncodingClassRepository
         + crate::ports::EpubSharedLibraryRepository
         + crate::ports::GroupCenterRepository
+        + crate::ports::DataControlRepository
         + 'static
 {
 }
@@ -182,6 +184,8 @@ pub struct Services {
     pub encoding_classes: crate::EncodingClassService,
     /// 集團中心維護（aooi600）
     pub group_centers: crate::GroupCenterService,
+    /// 資料控管原則維護（aooi601）
+    pub data_controls: crate::DataControlService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210）
     pub basic_codes: BasicCodeService,
     /// 幣別維護（aooi050）
@@ -241,6 +245,7 @@ impl Services {
             employees: store.clone(),
             departments: store.clone(),
             master: store.clone(),
+            data_control: store.clone(),
             reports: reports.clone(),
         };
         Self {
@@ -332,8 +337,16 @@ impl Services {
                 store.clone(),
                 reports.clone(),
             ),
+            data_controls: crate::DataControlService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
             group_centers: crate::GroupCenterService::new(
                 a.clone(),
+                store.clone(),
                 store.clone(),
                 store.clone(),
                 reports.clone(),

@@ -459,6 +459,16 @@
       | group-center-maintenance     | output       | 列印集團中心               |
       | group-center-maintenance     | exporttoexcel | 匯出集團中心為 Excel      |
       | group-center-maintenance     | history      | 查詢作業 group-center-maintenance DC 的異動記錄 |
+      | data-control-maintenance     | query        | 查詢資料控管原則           |
+      | data-control-maintenance     | detail       | 新增資料類別 1 的受控營運中心 TW02 |
+      | data-control-maintenance     | detail       | 刪除資料類別 1 的受控營運中心 TW02 |
+      | data-control-maintenance     | condition_detail | 新增資料類別 1 營運中心 TW02 的欄位條件 |
+      | data-control-maintenance     | condition_detail | 修改資料類別 1 營運中心 TW02 的欄位條件 |
+      | data-control-maintenance     | condition_detail | 刪除資料類別 1 營運中心 TW02 的欄位條件 |
+      | data-control-maintenance     | reproduce    | 複製資料類別 1 營運中心 TW02 的欄位條件 |
+      | data-control-maintenance     | output       | 列印資料控管原則           |
+      | data-control-maintenance     | exporttoexcel | 匯出資料控管原則為 Excel  |
+      | data-control-maintenance     | history      | 查詢作業 data-control-maintenance 1 的異動記錄 |
       | encoding-segment-maintenance | history      | 查詢作業 encoding-segment-maintenance COLOR 的異動記錄 |
       | encoding-class-maintenance | query        | 查詢編碼類別               |
       | encoding-class-maintenance | query        | 試算編碼類別 FG            |

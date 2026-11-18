@@ -172,6 +172,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "insert, query, modify, delete, invalid, reproduce, data_type_setting, history, confirm, notconfirm, output, exporttoexcel",
     ),
+    // 資料控管原則（DC9）：沿用 TipTop 的 detail（受控營運中心）、condition_detail（欄位條件）；失效、確認為例外
+    (
+        "data-control-maintenance",
+        "aooi601",
+        "AOO",
+        "query, detail, condition_detail, reproduce, history, output, exporttoexcel",
+    ),
     // 編碼類別（EC11）：單頭單身，沿用 TipTop 功能代號並補上確認與異動記錄
     (
         "encoding-class-maintenance",

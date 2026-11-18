@@ -466,7 +466,7 @@ pub enum DomainError {
     GroupCenterAlreadyExists,
     #[error("集團中心不存在")]
     GroupCenterNotFound,
-    #[error("集團中心已被使用（有拋轉紀錄或有營運中心受它管控），不可刪除；請改為停用")]
+    #[error("集團中心已有拋轉紀錄，不可刪除；請改為停用")]
     GroupCenterInUse,
     #[error("這個資料中心已有資料類別設定，不可改成資料中心以外的類別")]
     GroupCenterHasDataTypes,
@@ -480,6 +480,31 @@ pub enum DomainError {
     DataCenterTypeAlreadyExists,
     #[error("找不到這個資料類別與營運中心")]
     DataCenterTypeNotFound,
+    // ----- 資料控管原則（aooi601 / gev_file、gey_file；data_control.feature） -----
+    #[error("這個資料類別與營運中心已在資料控管清單中（資料中心或受控營運中心）")]
+    DataControlPlantAlreadyExists,
+    #[error("找不到這個受控營運中心；資料中心的營運中心請到集團中心維護修改")]
+    DataControlPlantNotFound,
+    #[error("資料類別 0 基本資料不可維護資料控管原則")]
+    DataControlTypeNotMaintainable,
+    #[error("這個資料類別還沒有有效的資料中心，請先在集團中心維護設定")]
+    DataControlNoDataCenter,
+    #[error("資料中心的營運中心不需設定欄位條件，只有受控營運中心可以設定")]
+    DataControlRuleNotAllowed,
+    #[error("這個欄位已有條件")]
+    DataControlRuleAlreadyExists,
+    #[error("找不到這個欄位條件")]
+    DataControlRuleNotFound,
+    #[error("這個資料類別不能設定此欄位")]
+    DataControlFieldInvalid,
+    #[error("條件只能是 1 到 11")]
+    DataControlConditionInvalid,
+    #[error(
+        "值必填、最多 255 字，多個值以 ; 分隔，不可含 ' \" ) + > < = *；大於、小於類條件只能一個值"
+    )]
+    DataControlValueInvalid,
+    #[error("{field} 的值 {value} 不符合本營運中心的資料控管條件")]
+    DataControlFieldRejected { field: String, value: String },
     // ----- 料件自動編號（aimi100 / aza28；item_auto_number.feature） -----
     #[error("整體管理系統參數未開啟料件編號自動編碼")]
     ItemAutoNumberDisabled,
@@ -972,6 +997,17 @@ impl DomainError {
             Self::DataCenterTypeInvalid => "DATA_CENTER_TYPE_INVALID",
             Self::DataCenterTypeAlreadyExists => "DATA_CENTER_TYPE_ALREADY_EXISTS",
             Self::DataCenterTypeNotFound => "DATA_CENTER_TYPE_NOT_FOUND",
+            Self::DataControlPlantAlreadyExists => "DATA_CONTROL_PLANT_ALREADY_EXISTS",
+            Self::DataControlPlantNotFound => "DATA_CONTROL_PLANT_NOT_FOUND",
+            Self::DataControlTypeNotMaintainable => "DATA_CONTROL_TYPE_NOT_MAINTAINABLE",
+            Self::DataControlNoDataCenter => "DATA_CONTROL_NO_DATA_CENTER",
+            Self::DataControlRuleNotAllowed => "DATA_CONTROL_RULE_NOT_ALLOWED",
+            Self::DataControlRuleAlreadyExists => "DATA_CONTROL_RULE_ALREADY_EXISTS",
+            Self::DataControlRuleNotFound => "DATA_CONTROL_RULE_NOT_FOUND",
+            Self::DataControlFieldInvalid => "DATA_CONTROL_FIELD_INVALID",
+            Self::DataControlConditionInvalid => "DATA_CONTROL_CONDITION_INVALID",
+            Self::DataControlValueInvalid => "DATA_CONTROL_VALUE_INVALID",
+            Self::DataControlFieldRejected { .. } => "DATA_CONTROL_FIELD_REJECTED",
             Self::ItemAutoNumberDisabled => "ITEM_AUTO_NUMBER_DISABLED",
             Self::EncodingClassNotForItem => "ENCODING_CLASS_NOT_FOR_ITEM",
             Self::EncodingRuleValueRequired => "ENCODING_RULE_VALUE_REQUIRED",

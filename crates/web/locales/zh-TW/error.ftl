@@ -386,3 +386,16 @@ error-GROUP_CENTER_NOT_DATA_CENTER = （使用伺服器訊息）
 error-DATA_CENTER_TYPE_INVALID = （使用伺服器訊息）
 error-DATA_CENTER_TYPE_ALREADY_EXISTS = （使用伺服器訊息）
 error-DATA_CENTER_TYPE_NOT_FOUND = （使用伺服器訊息）
+
+# 資料控管原則（aooi601 / gev_file、gey_file）
+error-DATA_CONTROL_PLANT_ALREADY_EXISTS = （使用伺服器訊息）
+error-DATA_CONTROL_PLANT_NOT_FOUND = （使用伺服器訊息）
+error-DATA_CONTROL_TYPE_NOT_MAINTAINABLE = （使用伺服器訊息）
+error-DATA_CONTROL_NO_DATA_CENTER = （使用伺服器訊息）
+error-DATA_CONTROL_RULE_NOT_ALLOWED = （使用伺服器訊息）
+error-DATA_CONTROL_RULE_ALREADY_EXISTS = （使用伺服器訊息）
+error-DATA_CONTROL_RULE_NOT_FOUND = （使用伺服器訊息）
+error-DATA_CONTROL_FIELD_INVALID = （使用伺服器訊息）
+error-DATA_CONTROL_CONDITION_INVALID = （使用伺服器訊息）
+error-DATA_CONTROL_VALUE_INVALID = （使用伺服器訊息）
+error-DATA_CONTROL_FIELD_REJECTED = （使用伺服器訊息）

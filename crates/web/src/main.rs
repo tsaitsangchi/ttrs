@@ -16,12 +16,12 @@ use pages::{
     aoo::{
         AccountingPeriodMaintenance, AreaMaintenance, ClassificationCodeMaintenance,
         CountryMaintenance, CurrencyMaintenance, DailyRateCopy, DailyRateMaintenance,
-        DepartmentMaintenance, EmployeeMaintenance, EncodingClassMaintenance,
-        EncodingNatureMaintenance, EncodingSegmentMaintenance, EncodingYearMaintenance,
-        GeneralParameters, GroupCenterMaintenance, ItemUnitConversionMaintenance,
-        MonthlyRateMaintenance, PlantMaintenance, ProjectMaintenance, RegionMaintenance,
-        ReportTitleMaintenance, ShippingMethodMaintenance, TaxTypeMaintenance,
-        UnitConversionMaintenance, UnitMaintenance,
+        DataControlMaintenance, DepartmentMaintenance, EmployeeMaintenance,
+        EncodingClassMaintenance, EncodingNatureMaintenance, EncodingSegmentMaintenance,
+        EncodingYearMaintenance, GeneralParameters, GroupCenterMaintenance,
+        ItemUnitConversionMaintenance, MonthlyRateMaintenance, PlantMaintenance,
+        ProjectMaintenance, RegionMaintenance, ReportTitleMaintenance, ShippingMethodMaintenance,
+        TaxTypeMaintenance, UnitConversionMaintenance, UnitMaintenance,
     },
     axm::ProductClassificationMaintenance,
     azz::{
@@ -69,6 +69,9 @@ enum Route {
         /// Encoding Segment Maintenance 編碼獨立段維護（TipTop aooi403）
         #[route("/aoo/encoding-segment-maintenance")]
         EncodingSegmentMaintenance {},
+        /// Data Control Maintenance 資料控管原則維護（TipTop aooi601）
+        #[route("/aoo/data-control-maintenance")]
+        DataControlMaintenance {},
         /// Group Center Maintenance 集團中心維護（TipTop aooi600）
         #[route("/aoo/group-center-maintenance")]
         GroupCenterMaintenance {},
@@ -246,6 +249,11 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
         "encoding-year-maintenance" => (
             Route::EncodingYearMaintenance {},
             icons::CALENDAR_MONTH,
+            Tone::Success,
+        ),
+        "data-control-maintenance" => (
+            Route::DataControlMaintenance {},
+            icons::ACCOUNT_TREE,
             Tone::Success,
         ),
         "group-center-maintenance" => (

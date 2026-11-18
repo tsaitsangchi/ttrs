@@ -106,6 +106,8 @@ struct State {
     encoding_segments: BTreeMap<String, ttrs_domain::encoding_segment::EncodingSegment>,
     /// 集團中心（geu_file）與資料中心的資料類別（gev_file；group_center.feature）
     group_centers: BTreeMap<String, ttrs_domain::group_center::GroupCenter>,
+    /// 資料控管原則的受控營運中心（gev03＝N）與欄位條件（gey_file；data_control.feature），鍵為（資料類別, 營運中心）
+    data_controls: BTreeMap<(String, String), ttrs_domain::data_control::ControlledPlant>,
     /// 編碼年對照（gff_file；encoding_year.feature），鍵為（年, 長度）
     encoding_years: BTreeMap<(i32, i16), ttrs_domain::encoding_year::EncodingYear>,
     /// 編碼類別（gei_file、gel_file；encoding_class.feature）
@@ -1603,7 +1605,9 @@ impl PlantRepository for InMemoryStore {
             // 資料中心的資料類別設定（外鍵 data_center_type.plant_id，group_center.feature）
             || s.group_centers
                 .values()
-                .any(|c| c.data_types.iter().any(|t| t.plant == id.as_str())))
+                .any(|c| c.data_types.iter().any(|t| t.plant == id.as_str()))
+            // 資料控管的受控營運中心（外鍵 data_control_plant.plant_id，data_control.feature）
+            || s.data_controls.keys().any(|(_, p)| p == id.as_str()))
     }
 }
 
@@ -5870,8 +5874,11 @@ impl crate::ports::GroupCenterRepository for InMemoryStore {
         t: &ttrs_domain::group_center::DataCenterType,
     ) -> Result<(), RepoError> {
         let mut s = self.lock();
-        // 與 PostgreSQL 的主鍵（資料類別＋營運中心）一致：全集團只能屬於一個資料中心（GC5）
-        if s.group_centers.values().any(|c| c.data_types.contains(t)) {
+        // 與 PostgreSQL 一致：全集團只能屬於一個資料中心（GC5），也不可已是受控營運中心（DC2）
+        if s.group_centers.values().any(|c| c.data_types.contains(t))
+            || s.data_controls
+                .contains_key(&(t.data_type.code(), t.plant.clone()))
+        {
             return Err(RepoError::Conflict);
         }
         let Some(c) = s.group_centers.get_mut(code.as_str()) else {
@@ -5942,6 +5949,195 @@ impl crate::ports::GroupCenterRepository for InMemoryStore {
             "group_center",
             group_center_key(&old),
             Some(group_center_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+// ----- 資料控管原則（gev_file gev03＝N、gey_file；data_control.feature） -----
+
+fn controlled_key(p: &ttrs_domain::data_control::ControlledPlant) -> Vec<(&'static str, String)> {
+    vec![
+        ("data_type", p.data_type.code()),
+        ("plant_id", p.plant.clone()),
+    ]
+}
+
+fn controlled_row(p: &ttrs_domain::data_control::ControlledPlant) -> Row {
+    let mut cols = vec![
+        ("data_type", text::s(&p.data_type.code())),
+        ("plant_id", text::s(&p.plant)),
+    ];
+    cols.extend(audit_cols(
+        true,
+        &p.created_by,
+        &p.created_dept,
+        p.created_on,
+        p.updated_by.as_deref(),
+        p.updated_on,
+        &p.stamp,
+    ));
+    // 受控營運中心沒有資料有效碼（DC9）
+    cols.retain(|(k, _)| *k != "active");
+    row(cols)
+}
+
+fn rule_key(
+    p: &ttrs_domain::data_control::ControlledPlant,
+    r: &ttrs_domain::data_control::FieldRule,
+) -> Vec<(&'static str, String)> {
+    vec![
+        ("data_type", p.data_type.code()),
+        ("plant_id", p.plant.clone()),
+        ("field_code", r.field.clone()),
+    ]
+}
+
+fn rule_row(
+    p: &ttrs_domain::data_control::ControlledPlant,
+    r: &ttrs_domain::data_control::FieldRule,
+) -> Row {
+    row(vec![
+        ("data_type", text::s(&p.data_type.code())),
+        ("plant_id", text::s(&p.plant)),
+        ("field_code", text::s(&r.field)),
+        ("condition", text::s(&r.condition.code())),
+        ("field_values", text::s(&r.values)),
+    ])
+}
+
+impl State {
+    /// 欄位條件的異動記錄：只記有變動的列（與 PostgreSQL 觸發器相同）
+    fn log_rules(
+        &mut self,
+        p: &ttrs_domain::data_control::ControlledPlant,
+        old: &[ttrs_domain::data_control::FieldRule],
+        new: &[ttrs_domain::data_control::FieldRule],
+    ) {
+        for o in old
+            .iter()
+            .filter(|o| !new.iter().any(|n| n.field == o.field))
+        {
+            self.log_change(
+                None,
+                "data_control_rule",
+                rule_key(p, o),
+                Some(rule_row(p, o)),
+                None,
+                &[],
+            );
+        }
+        for n in new {
+            let before = old.iter().find(|o| o.field == n.field);
+            if before != Some(n) {
+                self.log_change(
+                    None,
+                    "data_control_rule",
+                    rule_key(p, n),
+                    before.map(|b| rule_row(p, b)),
+                    Some(rule_row(p, n)),
+                    &[],
+                );
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl crate::ports::DataControlRepository for InMemoryStore {
+    async fn list_controlled_plants(
+        &self,
+    ) -> Result<Vec<ttrs_domain::data_control::ControlledPlant>, RepoError> {
+        Ok(self.lock().data_controls.values().cloned().collect())
+    }
+
+    async fn get_controlled_plant(
+        &self,
+        data_type: ttrs_domain::group_center::DataType,
+        plant: &str,
+    ) -> Result<Option<ttrs_domain::data_control::ControlledPlant>, RepoError> {
+        Ok(self
+            .lock()
+            .data_controls
+            .get(&(data_type.code(), plant.to_owned()))
+            .cloned())
+    }
+
+    async fn insert_controlled_plant(
+        &self,
+        p: &ttrs_domain::data_control::ControlledPlant,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (p.data_type.code(), p.plant.clone());
+        // 與 PostgreSQL 一致：資料類別＋營運中心不可已是資料中心或受控營運中心（DC2）
+        let is_center = s.group_centers.values().any(|c| {
+            c.data_types
+                .iter()
+                .any(|t| t.data_type == p.data_type && t.plant == p.plant)
+        });
+        if is_center || s.data_controls.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = p.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            None,
+            "data_control_plant",
+            controlled_key(&n),
+            None,
+            Some(controlled_row(&n)),
+            &[],
+        );
+        s.log_rules(&n, &[], &n.rules);
+        s.data_controls.insert(key, n);
+        Ok(())
+    }
+
+    async fn update_controlled_plant(
+        &self,
+        p: &ttrs_domain::data_control::ControlledPlant,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (p.data_type.code(), p.plant.clone());
+        let Some(old) = s.data_controls.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut n = p.clone();
+        n.stamp = bumped(&old.stamp, &p.stamp)?;
+        // 與 PostgreSQL 的順序一致：先寫欄位條件，再更新營運中心列
+        s.log_rules(&n, &old.rules, &n.rules);
+        s.log_change(
+            None,
+            "data_control_plant",
+            controlled_key(&n),
+            Some(controlled_row(&old)),
+            Some(controlled_row(&n)),
+            &[],
+        );
+        s.data_controls.insert(key, n);
+        Ok(())
+    }
+
+    async fn delete_controlled_plant(
+        &self,
+        data_type: ttrs_domain::group_center::DataType,
+        plant: &str,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s
+            .data_controls
+            .remove(&(data_type.code(), plant.to_owned()))
+        else {
+            return Ok(false);
+        };
+        s.log_rules(&old, &old.rules, &[]);
+        s.log_change(
+            None,
+            "data_control_plant",
+            controlled_key(&old),
+            Some(controlled_row(&old)),
             None,
             &[],
         );

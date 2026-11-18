@@ -380,9 +380,22 @@ error-GROUP_CENTER_CODE_TOO_LONG = 集团中心代码长度不可超过 10 码�
 error-GROUP_CENTER_CATEGORY_INVALID = 类别只能是 1 到 7（资料中心、预测中心、订单中心、采购中心、信用控管中心、账务中心、资金中心）。
 error-GROUP_CENTER_ALREADY_EXISTS = 集团中心已存在。
 error-GROUP_CENTER_NOT_FOUND = 集团中心不存在。
-error-GROUP_CENTER_IN_USE = 集团中心已被使用（有抛转记录或有营运中心受它管控），不可删除；请改为停用。
+error-GROUP_CENTER_IN_USE = 集团中心已有抛转记录，不可删除；请改为停用。
 error-GROUP_CENTER_HAS_DATA_TYPES = 这个资料中心已有资料类别设置，不可改成资料中心以外的类别。
 error-GROUP_CENTER_NOT_DATA_CENTER = 只有有效的资料中心（类别 1）才能设置资料类别与抛转设置。
 error-DATA_CENTER_TYPE_INVALID = 资料类别只能是 0 到 8（基本资料、料件、BOM、ECN、客户、供应商、会计科目、价格、汇率）。
 error-DATA_CENTER_TYPE_ALREADY_EXISTS = 这个资料类别与营运中心已属于某个资料中心。
 error-DATA_CENTER_TYPE_NOT_FOUND = 找不到这个资料类别与营运中心。
+
+# 資料控管原則（aooi601 / gev_file、gey_file）
+error-DATA_CONTROL_PLANT_ALREADY_EXISTS = 这个资料类别与营运中心已在资料控管清单中（资料中心或受控营运中心）。
+error-DATA_CONTROL_PLANT_NOT_FOUND = 找不到这个受控营运中心；资料中心的营运中心请到集团中心维护修改。
+error-DATA_CONTROL_TYPE_NOT_MAINTAINABLE = 资料类别 0 基本资料不可维护资料控管原则。
+error-DATA_CONTROL_NO_DATA_CENTER = 这个资料类别还没有有效的资料中心，请先在集团中心维护设置。
+error-DATA_CONTROL_RULE_NOT_ALLOWED = 资料中心的营运中心不需设置栏位条件，只有受控营运中心可以设置。
+error-DATA_CONTROL_RULE_ALREADY_EXISTS = 这个栏位已有条件。
+error-DATA_CONTROL_RULE_NOT_FOUND = 找不到这个栏位条件。
+error-DATA_CONTROL_FIELD_INVALID = 这个资料类别不能设置此栏位。
+error-DATA_CONTROL_CONDITION_INVALID = 条件只能是 1 到 11。
+error-DATA_CONTROL_VALUE_INVALID = 值必填、最多 255 字，多个值以 ; 分隔，不可含 ' " ) + > < = *；大于、小于类条件只能一个值。
+error-DATA_CONTROL_FIELD_REJECTED = 这个值不符合本营运中心的资料控管条件。

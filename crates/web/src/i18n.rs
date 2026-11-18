@@ -74,6 +74,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-TW/encoding_nature.ftl"),
         include_str!("../locales/zh-TW/encoding_segment.ftl"),
         include_str!("../locales/zh-TW/group_center.ftl"),
+        include_str!("../locales/zh-TW/data_control.ftl"),
         include_str!("../locales/zh-TW/encoding_year.ftl"),
         include_str!("../locales/zh-TW/encoding_class.ftl"),
         include_str!("../locales/zh-TW/basic_code.ftl"),
@@ -108,6 +109,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/en/encoding_nature.ftl"),
         include_str!("../locales/en/encoding_segment.ftl"),
         include_str!("../locales/en/group_center.ftl"),
+        include_str!("../locales/en/data_control.ftl"),
         include_str!("../locales/en/encoding_year.ftl"),
         include_str!("../locales/en/encoding_class.ftl"),
         include_str!("../locales/en/basic_code.ftl"),
@@ -142,6 +144,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-CN/encoding_nature.ftl"),
         include_str!("../locales/zh-CN/encoding_segment.ftl"),
         include_str!("../locales/zh-CN/group_center.ftl"),
+        include_str!("../locales/zh-CN/data_control.ftl"),
         include_str!("../locales/zh-CN/encoding_year.ftl"),
         include_str!("../locales/zh-CN/encoding_class.ftl"),
         include_str!("../locales/zh-CN/basic_code.ftl"),
@@ -348,7 +351,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 43] = [
+        const TRANSLATED: [(&str, &str); 44] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/session.rs",
@@ -398,6 +401,10 @@ mod tests {
             (
                 "pages/aoo/group_center_maintenance.rs",
                 include_str!("pages/aoo/group_center_maintenance.rs"),
+            ),
+            (
+                "pages/aoo/data_control_maintenance.rs",
+                include_str!("pages/aoo/data_control_maintenance.rs"),
             ),
             (
                 "pages/aoo/encoding_nature_maintenance.rs",

@@ -1864,6 +1864,79 @@ pub mod group_center_max_len {
     pub const NAME: usize = 80;
 }
 
+/// 資料控管原則（aooi601 / gev_file、gey_file；data_control.feature）：一個資料類別一筆
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DataControlDto {
+    /// 資料類別 gev01（1–8）
+    pub data_type: String,
+    /// 資料中心與受控營運中心，依營運中心排序
+    pub plants: Vec<DataControlPlantDto>,
+}
+
+/// 參與資料控管的營運中心：資料中心（來自集團中心維護，唯讀）或受控營運中心
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DataControlPlantDto {
+    pub plant: String,
+    /// gev03 資料中心否
+    pub is_data_center: bool,
+    /// gev04 資料中心代碼與名稱（只有資料中心有）
+    pub center_code: Option<String>,
+    pub center_name: Option<String>,
+    /// 欄位條件（只有受控營運中心有），依欄位排序
+    pub rules: Vec<DataControlRuleDto>,
+    /// 狀態欄位：受控營運中心為本列；資料中心為該集團中心
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 欄位條件（gey03 欄位、gey04 條件 1–11、gey05 值，以 ; 分隔）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DataControlRuleDto {
+    pub field: String,
+    pub condition: String,
+    pub values: String,
+}
+
+/// 新增受控營運中心
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DataControlPlantInput {
+    pub data_type: String,
+    pub plant: String,
+}
+
+/// 新增、修改欄位條件；version 為該受控營運中心的版本（ADR 0012 §4）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DataControlRuleInput {
+    pub field: String,
+    pub condition: String,
+    pub values: String,
+    pub version: Option<i32>,
+}
+
+/// 把欄位條件複製到另一個營運中心
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DataControlCopyInput {
+    pub to_plant: String,
+}
+
+/// 畫面 maxlength（與 ttrs_domain::data_control 一致）
+pub mod data_control_max_len {
+    pub const VALUES: usize = 255;
+}
+
 /// 編碼年對照（aooi404 / gff_file；encoding_year.feature）：主鍵為年＋長度
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EncodingYearDto {

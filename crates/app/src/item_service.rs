@@ -70,6 +70,8 @@ pub struct ItemRepos {
     pub employees: Arc<dyn EmployeeRepository>,
     pub departments: Arc<dyn DepartmentRepository>,
     pub master: Arc<dyn MasterDataRepository>,
+    /// 資料控管原則的欄位條件（s_field_chk，data_control.feature DC7）
+    pub data_control: Arc<dyn crate::ports::DataControlRepository>,
     /// 列印、匯出 Excel 的共用組裝（ADR 0013 SA3）
     pub reports: ListReporter,
 }
@@ -265,6 +267,20 @@ impl ItemService {
                 }
             }
             let attrs = self.attrs(&plant, &no, input).await?;
+            // 受控營運中心自己新增料件時檢查料號、分群碼、材料類別（aimi100.4gl:6208、6310、5549，DC7）
+            self.field_check(&plant, "item_no", no.as_str()).await?;
+            self.field_check(
+                &plant,
+                "group_code",
+                attrs.group_code.as_deref().unwrap_or_default(),
+            )
+            .await?;
+            self.field_check(
+                &plant,
+                "material_category",
+                attrs.material_category.as_deref().unwrap_or_default(),
+            )
+            .await?;
             let item = Item::new(
                 no,
                 attrs,
@@ -297,6 +313,23 @@ impl ItemService {
             }
             let no = item.no.clone();
             let attrs = self.attrs(&plant, &no, input).await?;
+            // 修改時只檢查有變動的分群碼、材料類別（DC7；既有資料不因條件後加而無法修改）
+            if attrs.group_code != item.attrs.group_code {
+                self.field_check(
+                    &plant,
+                    "group_code",
+                    attrs.group_code.as_deref().unwrap_or_default(),
+                )
+                .await?;
+            }
+            if attrs.material_category != item.attrs.material_category {
+                self.field_check(
+                    &plant,
+                    "material_category",
+                    attrs.material_category.as_deref().unwrap_or_default(),
+                )
+                .await?;
+            }
             item.update(attrs, &actor.user_id, today())?;
             self.save(&plant, &item).await
         })
@@ -413,6 +446,8 @@ impl ItemService {
                     return Err(DomainError::ItemMiscRequired.into());
                 }
             }
+            // 複製的新料號也要符合資料控管條件（aimi100.4gl:6624，DC7）
+            self.field_check(&plant, "item_no", no.as_str()).await?;
             let copy = item.copy_as(no, req.name, &actor.user_id, &actor.dept, today());
             self.insert(&plant, &copy).await
         })
@@ -773,6 +808,18 @@ impl ItemService {
             created_at: i.stamp.created_at,
             updated_at: i.stamp.updated_at,
         })
+    }
+
+    /// 資料控管欄位條件（s_field_chk，aoo-043）：資料類別 1 料件
+    async fn field_check(&self, plant: &PlantId, field: &str, value: &str) -> Result<(), AppError> {
+        crate::data_control_service::check_field(
+            self.repos.data_control.as_ref(),
+            "1",
+            plant,
+            field,
+            value,
+        )
+        .await
     }
 
     async fn authorize(&self, actor: &Actor, action: &'static str) -> Result<Grant, AppError> {
