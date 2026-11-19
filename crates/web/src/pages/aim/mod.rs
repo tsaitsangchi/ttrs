@@ -1,5 +1,6 @@
 //! 庫存管理模組 (TipTop aim)
 
+mod document_type_maintenance;
 mod inventory_parameters;
 mod item_auto_number;
 mod item_carry;
@@ -8,6 +9,7 @@ mod item_maintenance;
 mod item_storage_maintenance;
 mod warehouse_maintenance;
 
+pub use document_type_maintenance::DocumentTypeMaintenance;
 pub use inventory_parameters::InventoryParameters;
 pub use item_group_maintenance::ItemGroupMaintenance;
 pub use item_maintenance::ItemMaintenance;

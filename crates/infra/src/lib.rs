@@ -17,6 +17,7 @@ mod pg_currency;
 mod pg_data_control;
 mod pg_department;
 mod pg_dictionary;
+mod pg_document_type;
 mod pg_encoding_class;
 mod pg_encoding_nature;
 mod pg_encoding_segment;

@@ -15,3 +15,5 @@ gp-dialog-hint = 本國幣別須為有效的幣別；已有每月或每日匯率
 gp-msg-saved = 已儲存整體管理系統參數
 gp-msg-periods-invalid = 會計期間只能是 12 或 13 期
 gp-field-auto-item-number = 料件編號自動編碼
+gp-field-doc-code-length = 單別位數
+gp-doc-code-length = { $n } 碼

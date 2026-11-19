@@ -2193,3 +2193,74 @@ pub mod item_storage {
         }
     }
 }
+
+/// 單別維護（asmi300.4gl:408-705 i300_cs）：單頭欄位與倉庫設限，加上確認與「狀態」欄位
+pub mod document_type {
+    use ttrs_domain::{document_type::DocumentType, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("doc_type_code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("system", FieldType::Text),
+        field("kind", FieldType::Text),
+        field("auto_number", FieldType::Flag),
+        field("numbering", FieldType::Text),
+        field("print_now", FieldType::Flag),
+        field("confirm_now", FieldType::Flag),
+        field("cost_class", FieldType::Text),
+        field("restriction", FieldType::Text),
+        field("warehouse", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(d: &DocumentType, field: &str) -> FieldValue {
+        let a = &d.attrs;
+        match field {
+            "doc_type_code" => text(d.code.as_str()),
+            "name" => text(&a.name),
+            "system" => text(&a.system),
+            "kind" => text(&a.kind),
+            "auto_number" => flag(a.auto_number),
+            "numbering" => text(&a.numbering),
+            "print_now" => flag(a.print_now),
+            "confirm_now" => flag(a.confirm_now),
+            "cost_class" => text(&a.cost_class),
+            "restriction" => text(d.restriction.code()),
+            "warehouse" => FieldValue::Set(
+                d.storages
+                    .iter()
+                    .map(|s| QbeValue::Text(s.warehouse.clone()))
+                    .collect(),
+            ),
+            other => confirm_value(other, &d.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(d.active),
+                        &d.created_by,
+                        &d.created_dept,
+                        Some(d.created_on),
+                        d.updated_by.as_deref(),
+                        d.updated_on,
+                        d.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}

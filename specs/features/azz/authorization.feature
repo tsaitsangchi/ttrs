@@ -505,6 +505,20 @@
       | inventory-parameters         | history      | 查詢庫存參數的異動記錄     |
       | inventory-parameters         | output       | 列印庫存參數               |
       | inventory-parameters         | exporttoexcel | 匯出庫存參數為 Excel      |
+      | document-type-maintenance    | query        | 查詢單別                       |
+      | document-type-maintenance    | insert       | 新增單別 MI1                   |
+      | document-type-maintenance    | modify       | 修改單別 MI1                   |
+      | document-type-maintenance    | delete       | 刪除單別 MI1                   |
+      | document-type-maintenance    | invalid      | 失效單別 MI1                   |
+      | document-type-maintenance    | detail       | 設定單別 MI1 的倉庫設限             |
+      | document-type-maintenance    | authorization | 設定單別 MI1 的使用者設限            |
+      | document-type-maintenance    | dept_authorization | 設定單別 MI1 的部門設限 |
+      | document-type-maintenance    | reproduce    | 複製單別 MI1                   |
+      | document-type-maintenance    | confirm      | 確認單別 MI1                   |
+      | document-type-maintenance    | notconfirm   | 取消確認單別 MI1                 |
+      | document-type-maintenance    | history      | 查詢單別 MI1 的異動記錄             |
+      | document-type-maintenance    | output       | 列印單別                       |
+      | document-type-maintenance    | exporttoexcel | 匯出單別為 Excel                |
       | item-maintenance             | carry        | 拋轉料件 A001              |
       | item-maintenance             | qry_carry_history | 查詢料件 A001 的拋轉歷史 |
       | basic-data-carry             | query        | 開啟基本資料拋轉           |

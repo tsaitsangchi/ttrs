@@ -1,5 +1,6 @@
 //! 步驟定義依 TipTop 模組分檔。共用的「那麼」步驟放 common.rs。
 
+mod aim_document_type;
 mod aim_inventory_parameters;
 mod aim_item_carry;
 mod aim_item_group;

@@ -12,6 +12,7 @@ pub mod currency;
 pub mod data_control;
 pub mod department;
 pub mod dictionary;
+pub mod document_type;
 pub mod employee;
 pub mod encoding_class;
 pub mod encoding_nature;

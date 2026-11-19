@@ -2825,6 +2825,122 @@ pub async fn remove_warehouse_location(
     .await
 }
 
+// ----- Document Type 單別維護（TipTop asmi300；工廠層） -----
+
+pub async fn query_document_types(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::DocumentTypeDto>, String> {
+    post_query(plant_part_url(plant, "document-types", "", "/query"), req).await
+}
+
+/// 新增（code 為 None）或修改單別
+pub async fn save_document_type(
+    plant: &str,
+    code: Option<&str>,
+    req: &ttrs_shared::DocumentTypeInput,
+) -> Result<ttrs_shared::DocumentTypeDto, String> {
+    match code {
+        None => {
+            send_json(
+                reqwest::Method::POST,
+                plant_part_url(plant, "document-types", "", ""),
+                Some(req),
+            )
+            .await
+        }
+        Some(c) => {
+            send_json(
+                reqwest::Method::PUT,
+                plant_part_url(plant, "document-types", c, ""),
+                Some(req),
+            )
+            .await
+        }
+    }
+}
+
+pub async fn copy_document_type(
+    plant: &str,
+    code: &str,
+    new_code: &str,
+) -> Result<ttrs_shared::DocumentTypeDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "document-types", code, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+pub async fn delete_document_type(plant: &str, code: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            plant_part_url(plant, "document-types", code, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 停用／啟用（activate、deactivate）、確認／取消確認（confirm、unconfirm）
+pub async fn set_document_type_state(
+    plant: &str,
+    code: &str,
+    state: &str,
+    version: i32,
+) -> Result<ttrs_shared::DocumentTypeDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "document-types", code, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn set_document_type_storages(
+    plant: &str,
+    code: &str,
+    req: &ttrs_shared::DocTypeStorageInput,
+) -> Result<ttrs_shared::DocumentTypeDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        plant_part_url(plant, "document-types", code, "/storages"),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn set_document_type_access(
+    plant: &str,
+    code: &str,
+    req: &ttrs_shared::DocTypeAccessInput,
+) -> Result<ttrs_shared::DocumentTypeDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        plant_part_url(plant, "document-types", code, "/access"),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn document_type_history(
+    plant: &str,
+    code: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!(
+        "{}?lang={lang}",
+        plant_part_url(plant, "document-types", code, "/history")
+    ))
+    .await
+}
+
 // ----- Inventory Parameters 庫存參數（TipTop asms230；工廠層） -----
 
 pub async fn get_inventory_parameters(

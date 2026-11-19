@@ -2148,6 +2148,121 @@ pub struct ItemStorageBatchResult {
     pub skipped: u64,
 }
 
+/// 單別的倉庫設限一筆（smz_file）：倉庫、儲位可用 * ? 萬用字元
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DocTypeStorageDto {
+    pub warehouse: String,
+    pub location: String,
+}
+
+/// 單別（asmi300 / smy_file；document_type.feature）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DocumentTypeDto {
+    pub doc_type_code: String,
+    pub name: String,
+    pub system: String,
+    pub kind: String,
+    pub auto_number: bool,
+    /// 編號方式 1–4
+    pub numbering: String,
+    pub print_now: bool,
+    pub confirm_now: bool,
+    pub cost_enabled: bool,
+    /// 成會單據類別 1–5、X
+    pub cost_class: String,
+    pub affects_idle_date: bool,
+    pub internal_trade: bool,
+    pub budget_control: bool,
+    pub memo: Option<String>,
+    /// 倉庫設限方式 0–4
+    pub restriction: String,
+    pub storages: Vec<DocTypeStorageDto>,
+    pub users: Vec<String>,
+    pub depts: Vec<String>,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 新增、修改單別；新增時未給的設定用預設值（DT6、DT7）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DocumentTypeInput {
+    pub doc_type_code: String,
+    pub name: String,
+    pub system: String,
+    pub kind: String,
+    pub auto_number: Option<bool>,
+    pub numbering: Option<String>,
+    pub print_now: Option<bool>,
+    pub confirm_now: Option<bool>,
+    pub cost_enabled: Option<bool>,
+    pub cost_class: Option<String>,
+    pub affects_idle_date: Option<bool>,
+    pub internal_trade: Option<bool>,
+    pub budget_control: Option<bool>,
+    pub memo: Option<String>,
+    pub version: Option<i32>,
+}
+
+/// 倉庫設限（detail；DT8）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DocTypeStorageInput {
+    pub restriction: String,
+    pub storages: Vec<DocTypeStorageDto>,
+    pub version: Option<i32>,
+}
+
+/// 使用者、部門設限（authorization、dept_authorization；DT9）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DocTypeAccessInput {
+    /// 設限使用者；None 為不變（需 authorization 功能）
+    pub users: Option<Vec<String>>,
+    /// 設限部門；None 為不變（需 dept_authorization 功能）
+    pub depts: Option<Vec<String>>,
+    pub version: Option<i32>,
+}
+
+impl DocumentTypeDto {
+    pub fn to_input(&self) -> DocumentTypeInput {
+        DocumentTypeInput {
+            doc_type_code: self.doc_type_code.clone(),
+            name: self.name.clone(),
+            system: self.system.clone(),
+            kind: self.kind.clone(),
+            auto_number: Some(self.auto_number),
+            numbering: Some(self.numbering.clone()),
+            print_now: Some(self.print_now),
+            confirm_now: Some(self.confirm_now),
+            cost_enabled: Some(self.cost_enabled),
+            cost_class: Some(self.cost_class.clone()),
+            affects_idle_date: Some(self.affects_idle_date),
+            internal_trade: Some(self.internal_trade),
+            budget_control: Some(self.budget_control),
+            memo: self.memo.clone(),
+            version: Some(self.version),
+        }
+    }
+}
+
 /// 庫存參數（asms230 / sma_file；inventory_parameters.feature）。代碼欄位：storage_control 1／2／3、posting_date_basis 1／2
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -3383,6 +3498,10 @@ pub struct RateSettingsDto {
 // 整體管理系統參數（TipTop aoos010 / aza_file；general_parameters.feature）
 // ---------------------------------------------------------------------------
 
+fn default_doc_code_length() -> i16 {
+    3
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GeneralParametersDto {
     /// 會計期間 12／13（aza02）
@@ -3396,6 +3515,9 @@ pub struct GeneralParametersDto {
     /// 料件編號自動編碼（aza28；item_auto_number.feature AN1）
     #[serde(default)]
     pub auto_item_number: bool,
+    /// 單別位數 3／4／5（aza41；document_type.feature DT5）
+    #[serde(default = "default_doc_code_length")]
+    pub doc_code_length: i16,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -3417,6 +3539,9 @@ pub struct GeneralParametersInput {
     /// 料件編號自動編碼（aza28）；未給時維持原值
     #[serde(default)]
     pub auto_item_number: Option<bool>,
+    /// 單別位數（aza41）；未給時維持原值
+    #[serde(default)]
+    pub doc_code_length: Option<i16>,
     /// 修改時帶回的版本號（ADR 0012 §4）
     pub version: Option<i32>,
 }

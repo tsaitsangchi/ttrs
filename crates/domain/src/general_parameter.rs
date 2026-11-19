@@ -40,6 +40,14 @@ impl AccountingPeriods {
     }
 }
 
+/// 單別位數（aza41：1 → 3 碼、2 → 4 碼、3 → 5 碼；DT5(a)）
+pub fn parse_doc_code_length(v: i16) -> Result<u8, DomainError> {
+    match v {
+        3..=5 => Ok(v as u8),
+        _ => Err(DomainError::DocCodeLengthInvalid),
+    }
+}
+
 /// 整體管理系統參數（只有一筆，aza01＝'0'）
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GeneralParameters {
@@ -49,6 +57,8 @@ pub struct GeneralParameters {
     pub rate_basis: RateBasis,
     /// aza28 料件編號自動編碼否（item_auto_number.feature AN1）
     pub auto_item_number: bool,
+    /// aza41 單別位數：3、4、5 碼（TipTop 1／2／3；document_type.feature DT5(a)）
+    pub doc_code_length: u8,
     /// azauser 資料所有者
     pub created_by: String,
     /// azagrup 資料所有群
@@ -69,6 +79,7 @@ impl GeneralParameters {
             base_currency: CurrencyCode::parse("TWD").expect("TWD"),
             rate_basis: RateBasis::Daily,
             auto_item_number: false,
+            doc_code_length: 3,
             created_by: user.to_owned(),
             created_dept: dept.to_owned(),
             created_on: today,

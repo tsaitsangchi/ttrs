@@ -96,6 +96,8 @@ struct State {
     product_classes: BTreeMap<(PlantId, String), ProductClass>,
     /// 倉庫與儲位（imd_file、ime_file；warehouse.feature）
     warehouses: BTreeMap<(PlantId, String), ttrs_domain::warehouse::Warehouse>,
+    /// 單別（asmi300 / smy_file 與三個單身）
+    document_types: BTreeMap<(PlantId, String), ttrs_domain::document_type::DocumentType>,
     /// 庫存參數（asms230 / sma_file）：每個營運中心一筆
     inventory_parameters: BTreeMap<PlantId, ttrs_domain::inventory_parameter::InventoryParameters>,
     /// 料件預設倉儲（aimi202 / imf_file）：鍵值（營運中心, 料號, 倉庫, 儲位；整個倉庫為 ""）
@@ -4147,6 +4149,7 @@ fn general_row(p: &GeneralParameters) -> Row {
         ("base_currency", text::s(p.base_currency.as_str())),
         ("rate_basis", text::s(p.rate_basis.code())),
         ("auto_item_number", text::b(p.auto_item_number)),
+        ("doc_code_length", text::int(i64::from(p.doc_code_length))),
         ("created_by", text::s(&p.created_by)),
         ("created_dept", text::s(&p.created_dept)),
         ("created_on", text::date(p.created_on)),
@@ -7088,5 +7091,223 @@ impl crate::ports::InventoryParameterRepository for InMemoryStore {
         );
         s.inventory_parameters.insert(plant.clone(), n);
         Ok(())
+    }
+}
+
+// ----- 單別（asmi300 / smy_file、smz、smu、smv；document_type.feature） -----
+
+fn doc_type_row(d: &ttrs_domain::document_type::DocumentType) -> Row {
+    let a = &d.attrs;
+    let mut cols = vec![
+        ("doc_type_code", text::s(d.code.as_str())),
+        ("name", text::s(&a.name)),
+        ("system", text::s(&a.system)),
+        ("kind", text::s(&a.kind)),
+        ("auto_number", text::b(a.auto_number)),
+        ("numbering", text::s(&a.numbering)),
+        ("print_now", text::b(a.print_now)),
+        ("confirm_now", text::b(a.confirm_now)),
+        ("cost_enabled", text::b(a.cost_enabled)),
+        ("cost_class", text::s(&a.cost_class)),
+        ("affects_idle_date", text::b(a.affects_idle_date)),
+        ("internal_trade", text::b(a.internal_trade)),
+        ("budget_control", text::b(a.budget_control)),
+        ("memo", text::opt(a.memo.as_deref())),
+        ("restriction", text::s(d.restriction.code())),
+        ("confirmed", text::b(d.confirmation.confirmed)),
+        ("confirmed_by", text::opt(d.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        d.active,
+        &d.created_by,
+        &d.created_dept,
+        d.created_on,
+        d.updated_by.as_deref(),
+        d.updated_on,
+        &d.stamp,
+    ));
+    row(cols)
+}
+
+/// 單身的一列：(表格, 鍵值, 內容)
+type ChildRow = (&'static str, Vec<(&'static str, String)>, Row);
+
+fn doc_type_children(d: &ttrs_domain::document_type::DocumentType) -> Vec<ChildRow> {
+    let code = d.code.as_str().to_owned();
+    let mut v = Vec::new();
+    for r in &d.storages {
+        let loc = r.location.clone().unwrap_or_default();
+        v.push((
+            "document_type_storage",
+            vec![
+                ("doc_type_code", code.clone()),
+                ("warehouse", r.warehouse.clone()),
+                ("location", loc.clone()),
+            ],
+            row(vec![
+                ("doc_type_code", text::s(&code)),
+                ("warehouse", text::s(&r.warehouse)),
+                ("location", text::s(&loc)),
+            ]),
+        ));
+    }
+    for u in &d.users {
+        v.push((
+            "document_type_user",
+            vec![("doc_type_code", code.clone()), ("user_id", u.clone())],
+            row(vec![
+                ("doc_type_code", text::s(&code)),
+                ("user_id", text::s(u)),
+            ]),
+        ));
+    }
+    for dept in &d.depts {
+        v.push((
+            "document_type_dept",
+            vec![
+                ("doc_type_code", code.clone()),
+                ("dept_code", dept.as_str().to_owned()),
+            ],
+            row(vec![
+                ("doc_type_code", text::s(&code)),
+                ("dept_code", text::s(dept.as_str())),
+            ]),
+        ));
+    }
+    v
+}
+
+impl State {
+    /// 單身的異動記錄：只記新增與刪除的列（單身沒有其他欄位，與 PostgreSQL 觸發器相同）
+    fn log_doc_type_children(
+        &mut self,
+        plant: &PlantId,
+        old: Option<&ttrs_domain::document_type::DocumentType>,
+        new: Option<&ttrs_domain::document_type::DocumentType>,
+    ) {
+        let before = old.map(doc_type_children).unwrap_or_default();
+        let after = new.map(doc_type_children).unwrap_or_default();
+        for (t, k, r) in &before {
+            if !after.iter().any(|(t2, k2, _)| t2 == t && k2 == k) {
+                self.log_change(Some(plant), t, k.clone(), Some(r.clone()), None, &[]);
+            }
+        }
+        for (t, k, r) in &after {
+            if !before.iter().any(|(t2, k2, _)| t2 == t && k2 == k) {
+                self.log_change(Some(plant), t, k.clone(), None, Some(r.clone()), &[]);
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl crate::ports::DocumentTypeRepository for InMemoryStore {
+    async fn list_document_types(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Vec<ttrs_domain::document_type::DocumentType>, RepoError> {
+        Ok(self
+            .lock()
+            .document_types
+            .iter()
+            .filter(|((p, _), _)| p == plant)
+            .map(|(_, d)| d.clone())
+            .collect())
+    }
+
+    async fn get_document_type(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::document_type::DocTypeCode,
+    ) -> Result<Option<ttrs_domain::document_type::DocumentType>, RepoError> {
+        Ok(self
+            .lock()
+            .document_types
+            .get(&(plant.clone(), code.as_str().to_owned()))
+            .cloned())
+    }
+
+    async fn insert_document_type(
+        &self,
+        plant: &PlantId,
+        d: &ttrs_domain::document_type::DocumentType,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.plants.contains_key(plant) {
+            return Err(RepoError::Other(format!(
+                "營運中心不存在：{}",
+                plant.as_str()
+            )));
+        }
+        let key = (plant.clone(), d.code.as_str().to_owned());
+        if s.document_types.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = d.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            Some(plant),
+            "document_type",
+            vec![("doc_type_code", n.code.as_str().to_owned())],
+            None,
+            Some(doc_type_row(&n)),
+            &[],
+        );
+        s.log_doc_type_children(plant, None, Some(&n));
+        s.document_types.insert(key, n);
+        Ok(())
+    }
+
+    async fn update_document_type(
+        &self,
+        plant: &PlantId,
+        d: &ttrs_domain::document_type::DocumentType,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (plant.clone(), d.code.as_str().to_owned());
+        let Some(old) = s.document_types.get(&key).cloned() else {
+            return Err(RepoError::Stale);
+        };
+        let mut n = d.clone();
+        n.stamp = bumped(&old.stamp, &d.stamp)?;
+        s.log_change(
+            Some(plant),
+            "document_type",
+            vec![("doc_type_code", n.code.as_str().to_owned())],
+            Some(doc_type_row(&old)),
+            Some(doc_type_row(&n)),
+            &[],
+        );
+        s.log_doc_type_children(plant, Some(&old), Some(&n));
+        s.document_types.insert(key, n);
+        Ok(())
+    }
+
+    async fn delete_document_type(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::document_type::DocTypeCode,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s
+            .document_types
+            .remove(&(plant.clone(), code.as_str().to_owned()))
+        else {
+            return Ok(());
+        };
+        s.log_doc_type_children(plant, Some(&old), None);
+        s.log_change(
+            Some(plant),
+            "document_type",
+            vec![("doc_type_code", old.code.as_str().to_owned())],
+            Some(doc_type_row(&old)),
+            None,
+            &[],
+        );
+        Ok(())
+    }
+
+    async fn any_document_type(&self) -> Result<bool, RepoError> {
+        Ok(!self.lock().document_types.is_empty())
     }
 }

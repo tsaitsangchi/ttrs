@@ -50,6 +50,7 @@ async fn update(w: &mut ErpWorld, actor: &Actor, step: &Step, version: Option<i3
         base_currency: cur.base_currency.clone(),
         rate_basis: cur.rate_basis.clone(),
         auto_item_number: None,
+        doc_code_length: None,
         version: Some(version.unwrap_or(cur.version)),
     };
     for r in rows(step) {
@@ -119,6 +120,7 @@ async fn other_modified(w: &mut ErpWorld) {
             "daily".into()
         },
         auto_item_number: None,
+        doc_code_length: None,
         version: Some(cur.version),
     };
     w.general
@@ -168,6 +170,7 @@ async fn basis_is(w: &mut ErpWorld, label: String) {
         base_currency: cur.base_currency.clone(),
         rate_basis: basis_code(&label).to_owned(),
         auto_item_number: None,
+        doc_code_length: None,
         version: Some(cur.version),
     };
     let actor = w.actor.clone();

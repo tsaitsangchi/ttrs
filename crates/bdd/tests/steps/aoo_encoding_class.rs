@@ -134,6 +134,7 @@ async fn set_auto(w: &mut ErpWorld, v: String) {
         base_currency: cur.base_currency.clone(),
         rate_basis: cur.rate_basis.clone(),
         auto_item_number: Some(v == "是"),
+        doc_code_length: None,
         version: Some(cur.version),
     };
     w.general.update(&w.actor, input).await.expect("修改參數");

@@ -15,3 +15,5 @@ gp-dialog-hint = The home currency must be an active currency and cannot be chan
 gp-msg-saved = General management parameters saved
 gp-msg-periods-invalid = Accounting periods must be 12 or 13
 gp-field-auto-item-number = Auto-number item numbers
+gp-field-doc-code-length = Document type code length
+gp-doc-code-length = { $n } characters

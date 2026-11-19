@@ -706,3 +706,95 @@ tables:
       - { legacy: sma916, type: "varchar2(1)", sch: "APS整合類型", reason: "屬於 asms112、asms210 參數作業，該作業移植時再加欄位（IP10）" }
       - { legacy: sma90, type: "varchar2(1)", sch: "收貨單做批/序號控管", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
       - { legacy: sma917, type: "number(1)", sch: "DEFAULT '0'           資源型態", reason: "屬於 asms112、asms210 參數作業，該作業移植時再加欄位（IP10）" }
+
+  - legacy: smy_file
+    target: document_type
+    scope: plant
+    program: asmi300（Document Type Maintenance 單別維護；以客製 topcust/csm 為準）
+    spec: specs/features/aim/document_type.feature
+    note: "工廠層、不拋轉（DT2）；本批只開放系統別 aim（DT3）；使用單別的檢查 s_mfgslip、s_tlf1 做成共用函式（DT8、DT9）"
+    columns:
+      - { legacy: smyslip, type: "varchar2(5)    PK NOT NULL", target: doc_type_code, sch: "單 別", note: "長度依 aza41、不可空白或「-」、建立後不可修改（DT5）" }
+      - { legacy: smydesc, type: "varchar2(80)", target: name, sch: "單據名稱", note: "TTRS 必填、最多 80 字（DT6(a)）" }
+      - { legacy: smyauno, type: "varchar2(1)", target: auto_number, sch: "自動編號否", note: "Y/N → boolean，預設是；盤點單一律是（DT6(b)）" }
+      - { legacy: smysys, type: "varchar2(3)", target: system, sch: "系統別", note: "本批只開放 aim（DT3）" }
+      - { legacy: smykind, type: "varchar2(1)", target: kind, sch: "單據性質", note: "aim 單據性質 17 種（DT4）；asm-073、asm-074 兩種待 Key User 補", verify: true }
+      - { legacy: smyprint, type: "varchar2(1)", target: print_now, sch: "立即列印", note: "Y/N → boolean" }
+      - { legacy: smydmy1, type: "varchar2(1)", target: cost_enabled, sch: "計算成本否", note: "Y/N → boolean，預設是（DT7）" }
+      - { legacy: smydmy2, type: "varchar2(1)", target: cost_class, sch: "成會單據類別", note: "1–5、X；計算成本時不可為 X（mfg0180，DT7）" }
+      - { legacy: smydmy4, type: "varchar2(1)", target: confirm_now, sch: "是否立即確認", note: "Y/N → boolean" }
+      - { legacy: smydmy5, type: "varchar2(1)", target: numbering, sch: "編號方式", note: "1 流水號、2 年月、3 年週、4 年月日（預設 2；1、3 意義待確認，DT6(b)）", verify: true }
+      - { legacy: smyware, type: "varchar2(1)", target: restriction, sch: "倉庫設限方式", note: "0–4（DT8）" }
+      - { legacy: smy53, type: "varchar2(1)", target: internal_trade, sch: "兩交內部交易單據否", note: "Y/N → boolean" }
+      - { legacy: smy56, type: "varchar2(1)", target: affects_idle_date, sch: "是否影響呆滯日期", note: "Y/N → boolean，預設是" }
+      - { legacy: smy59, type: "varchar2(1)", target: budget_control, sch: "是否做預算控管", note: "Y/N → boolean；TipTop 空白轉為否", verify: true }
+      - { legacy: smymemo1, type: "varchar2(255)", target: memo, sch: "備註", note: "最多 255 字" }
+      - { legacy: smyacti, type: "varchar2(1)", target: active, sch: "資料有效碼" }
+      - { legacy: smyuser, type: "varchar2(10)", target: created_by, sch: "資料所有者" }
+      - { legacy: smygrup, type: "varchar2(10)", target: created_dept, sch: "資料所有部門" }
+      - { legacy: smymodu, type: "varchar2(10)", target: updated_by, sch: "資料修改者", note: "修改單身時一併更新（FUN-5B0113）" }
+      - { legacy: smydate, type: "date", target: "created_on / updated_on", sch: "最近修改日", note: "TipTop 新增與修改共用；轉入時同時寫入兩者" }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9-1）；轉入時未確認" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）；轉入時 version＝1、created_at＝轉檔時間" }
+    not_ported:
+      - { legacy: smymxno, type: "varchar2(16)", sch: "已用單號", reason: "編號由 TTRS 編號服務記錄，不放在單別上（DT13）" }
+      - { legacy: smyapr, type: "varchar2(1)", sch: "簽核處理", reason: "延後：批次 8 簽核（工作流 ADR）（DT12）" }
+      - { legacy: smyatsg, type: "varchar2(1)", sch: "是否自動賦予簽核等級", reason: "延後：批次 8 簽核（DT12）" }
+      - { legacy: smysign, type: "varchar2(4)", sch: "簽核等級", reason: "延後：批次 8 簽核；aze_file 尚未移植（DT12）" }
+      - { legacy: smydays, type: "number(5)", sch: "簽核完成天數", reason: "延後：批次 8 簽核（DT12）" }
+      - { legacy: smyprit, type: "number(5)", sch: "簽核優先等級", reason: "延後：批次 8 簽核（DT12）" }
+      - { legacy: smydmy3, type: "varchar2(1)", sch: "保稅處理類別", reason: "畫面沒有；保稅處理類別同 GP10 海關相關不移植（DT13）" }
+      - { legacy: smy51, type: "varchar2(5)", sch: "對應驗退單別", reason: "延後：apm 收貨、aim 兩階段調撥移植時（DT12）" }
+      - { legacy: smy52, type: "varchar2(5)", sch: "對應入庫單別", reason: "延後：apm、asf 移植時（DT12）" }
+      - { legacy: smy54, type: "varchar2(24)", sch: "No Use", reason: ".sch 註明 No Use（FUN-510041）（DT13）" }
+      - { legacy: smy55, type: "varchar2(5)", sch: "傳票分群碼", reason: "畫面已移除（FUN-950009），對方科目改由成本模組設定（DT13）" }
+      - { legacy: smy57, type: "varchar2(10)", sch: "第一碼:工單製程否", reason: "延後：第 1、2、4、6 碼 asf／apm、第 3 碼 apm；第 5 碼手冊編號為大陸海關手冊不移植（DT12、DT13）" }
+      - { legacy: smy58, type: "varchar2(1)", sch: "是否產生Run Card", reason: "延後：asf 工單 Run Card（DT12）" }
+      - { legacy: smy60, type: "varchar2(10)", sch: "成本中心", reason: "畫面沒有（6.00.04 製程成本才用）（DT13）" }
+      - { legacy: smymemo2, type: "varchar2(255)", sch: "備註", reason: "畫面只有備註一（DT13）" }
+      - { legacy: smymemo3, type: "varchar2(255)", sch: "備註", reason: "畫面只有備註一（DT13）" }
+      - { legacy: smy61, type: "varchar2(5)", sch: "對應雜發單別", reason: "客製版畫面隱藏（asmi300.4gl:375）（DT13）" }
+      - { legacy: smy62, type: "varchar2(10)", sch: "屬性群組", reason: "延後：料件屬性 aga_file（sma907）移植時（DT12）" }
+      - { legacy: smy63, type: "varchar2(5)", sch: "對應檢驗單別", reason: "客製版畫面隱藏（asmi300.4gl:376）（DT13）" }
+      - { legacy: smy64, type: "varchar2(1)", sch: "GPM整合單據控管方式", reason: "GPM 整合（aza71）不移植，apm 時再評估（DT12）" }
+      - { legacy: smy65, type: "varchar2(1)", sch: "是否拋轉MES ( N. 不拋轉, Y. 要", reason: "MES 整合未使用（同 WH13）（DT13）" }
+
+  - legacy: smz_file
+    target: document_type_storage
+    scope: plant
+    program: asmi300（Document Type Maintenance 單別維護）
+    spec: specs/features/aim/document_type.feature
+    note: "倉庫設限（DT8）；可用 * ? 萬用字元，TTRS 直接比對使用者輸入值"
+    columns:
+      - { legacy: smz01, type: "varchar2(5)   PK NOT NULL", target: doc_type_code, sch: "單 別", note: "外鍵 document_type，刪除單別連同刪除" }
+      - { legacy: smz021, type: "varchar2(10)", target: warehouse, sch: "設限倉庫", note: "設限倉庫（使用者輸入值）" }
+      - { legacy: smz031, type: "varchar2(10)", target: location, sch: "設限儲位", note: "' ' 轉為空字串" }
+    not_ported:
+      - { legacy: smz02, type: "varchar2(10)  PK NOT NULL", sch: "設限倉庫", reason: "% _ 轉換後的設限倉庫；TTRS 直接比對 smz021（DT13）" }
+      - { legacy: smz03, type: "varchar2(10)  PK NOT NULL", sch: "設限儲位", reason: "% _ 轉換後的設限儲位；TTRS 直接比對 smz031（DT13）" }
+
+  - legacy: smu_file
+    target: document_type_user
+    scope: plant
+    program: asmi300（Document Type Maintenance 單別維護）
+    spec: specs/features/aim/document_type.feature
+    note: "使用者設限（DT9）；有列時只有這些使用者或設限部門的人可用"
+    columns:
+      - { legacy: smu01, type: "varchar2(6)", target: doc_type_code, sch: "單 別", note: "外鍵 document_type" }
+      - { legacy: smu02, type: "varchar2(10)", target: user_id, sch: "設限使用者編號", note: "須為 TTRS 使用者（zx01）" }
+    not_ported:
+      - { legacy: smu03, type: "varchar2(3)", sch: "系統別", reason: "設限直接掛在單別上、不再存系統別（DT9）" }
+      - { legacy: smu04, type: "varchar2(1)", sch: "No Use", reason: ".sch 註明 No Use（DT13）" }
+
+  - legacy: smv_file
+    target: document_type_dept
+    scope: plant
+    program: asmi300（Document Type Maintenance 單別維護）
+    spec: specs/features/aim/document_type.feature
+    note: "部門設限（DT9）"
+    columns:
+      - { legacy: smv01, type: "varchar2(6)", target: doc_type_code, sch: "單 別", note: "外鍵 document_type" }
+      - { legacy: smv02, type: "varchar2(10)", target: dept_code, sch: "設限使用部門", note: "須為有效部門（外鍵 department）" }
+    not_ported:
+      - { legacy: smv03, type: "varchar2(3)", sch: "系統別", reason: "設限直接掛在單別上、不再存系統別（DT9）" }
+      - { legacy: smv04, type: "varchar2(1)", sch: "No Use", reason: ".sch 註明 No Use（DT13）" }

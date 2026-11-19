@@ -193,6 +193,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AIM",
         "query, modify, history, output, exporttoexcel",
     ),
+    // 單別（DT11、DT14）：沿用 TipTop 功能代號（倉庫設限 detail、使用者設限 authorization、部門設限 dept_authorization）
+    (
+        "document-type-maintenance",
+        "asmi300",
+        "AIM",
+        "insert, query, modify, delete, invalid, detail, authorization, dept_authorization, reproduce, confirm, notconfirm, history, output, exporttoexcel",
+    ),
     // 基本資料拋轉（BC10）：批次作業，只有查詢與執行拋轉；拋轉歷史查詢為唯讀查詢
     ("basic-data-carry", "aoop603", "AOO", "query, carry"),
     (

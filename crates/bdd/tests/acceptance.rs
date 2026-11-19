@@ -126,6 +126,8 @@ pub struct ErpWorld {
     pub item_storage_version: Option<i32>,
     pub inventory_parameters: ttrs_app::InventoryParameterService,
     pub inventory_param_version: Option<i32>,
+    pub document_types: ttrs_app::DocumentTypeService,
+    pub doc_type_version: Option<i32>,
     pub warehouse_version: Option<i32>,
     pub item_carry_result: Option<ttrs_shared::ItemCarryResultDto>,
     pub carry_result: Option<ttrs_shared::BasicCarryResultDto>,
@@ -241,7 +243,7 @@ impl ErpWorld {
                     .expect("truncate tables");
                 // 帳號稽核原則回到起始值（migration 0020，ADR 0009 W5）
                 for sql in [
-                    "UPDATE system_parameter SET base_currency = 'TWD', accounting_periods = 12, rate_basis = 'daily', auto_item_number = false",
+                    "UPDATE system_parameter SET base_currency = 'TWD', accounting_periods = 12, rate_basis = 'daily', auto_item_number = false, doc_code_length = 3",
                     "DELETE FROM account_policy",
                     "INSERT INTO account_policy (policy_key) VALUES ('0')",
                 ] {
@@ -293,6 +295,7 @@ impl ErpWorld {
             warehouses,
             item_storages,
             inventory_parameters,
+            document_types,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -385,6 +388,8 @@ impl ErpWorld {
             item_storage_version: None,
             inventory_parameters,
             inventory_param_version: None,
+            document_types,
+            doc_type_version: None,
             warehouse_version: None,
             item_carry_result: None,
             carry_result: None,

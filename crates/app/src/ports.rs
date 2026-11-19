@@ -1119,6 +1119,41 @@ pub trait WarehouseRepository: Send + Sync {
     ) -> Result<bool, RepoError>;
 }
 
+/// 單別（asmi300 / smy_file、smz_file、smu_file、smv_file；document_type.feature）。工廠層
+#[async_trait]
+pub trait DocumentTypeRepository: Send + Sync {
+    /// 依單別排序
+    async fn list_document_types(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Vec<ttrs_domain::document_type::DocumentType>, RepoError>;
+    async fn get_document_type(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::document_type::DocTypeCode,
+    ) -> Result<Option<ttrs_domain::document_type::DocumentType>, RepoError>;
+    /// 已存在 → Conflict
+    async fn insert_document_type(
+        &self,
+        plant: &PlantId,
+        d: &ttrs_domain::document_type::DocumentType,
+    ) -> Result<(), RepoError>;
+    /// 單頭與三個單身一起存；版本不符 → Stale
+    async fn update_document_type(
+        &self,
+        plant: &PlantId,
+        d: &ttrs_domain::document_type::DocumentType,
+    ) -> Result<(), RepoError>;
+    /// 連同三個單身刪除
+    async fn delete_document_type(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::document_type::DocTypeCode,
+    ) -> Result<(), RepoError>;
+    /// 任何營運中心是否已有單別（單別位數 aza41 已有單別時不可變更，DT5(a)）
+    async fn any_document_type(&self) -> Result<bool, RepoError>;
+}
+
 /// 庫存參數（asms230 / sma_file → manufacturing_parameter；inventory_parameters.feature）。工廠層、每廠一筆
 #[async_trait]
 pub trait InventoryParameterRepository: Send + Sync {

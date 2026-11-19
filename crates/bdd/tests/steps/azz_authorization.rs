@@ -1042,6 +1042,103 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["查詢倉庫", code, "的異動記錄"] => {
             w.warehouses.history(a, "TW01", code, None).await.map(drop)
         }
+        // 單別（asmi300；單別不存在時回 DOCUMENT_TYPE_NOT_FOUND，不是權限拒絕）
+        ["查詢單別"] => w
+            .document_types
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增單別", code] => w
+            .document_types
+            .create(
+                a,
+                "TW01",
+                ttrs_shared::DocumentTypeInput {
+                    doc_type_code: (*code).to_owned(),
+                    name: "雜發".into(),
+                    system: "aim".into(),
+                    kind: "1".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["修改單別", code] => w
+            .document_types
+            .update(a, "TW01", code, ttrs_shared::DocumentTypeInput::default())
+            .await
+            .map(drop),
+        ["刪除單別", code] => w.document_types.delete(a, "TW01", code, None).await,
+        ["失效單別", code] => w
+            .document_types
+            .set_active(a, "TW01", code, false, None)
+            .await
+            .map(drop),
+        ["設定單別", code, "的倉庫設限"] => w
+            .document_types
+            .set_storages(a, "TW01", code, ttrs_shared::DocTypeStorageInput::default())
+            .await
+            .map(drop),
+        ["設定單別", code, "的使用者設限"] => w
+            .document_types
+            .set_access(a, "TW01", code, ttrs_shared::DocTypeAccessInput::default())
+            .await
+            .map(drop),
+        ["設定單別", code, "的部門設限"] => w
+            .document_types
+            .set_access(
+                a,
+                "TW01",
+                code,
+                ttrs_shared::DocTypeAccessInput {
+                    depts: Some(Vec::new()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["複製單別", code] => w
+            .document_types
+            .copy(a, "TW01", code, "MI9")
+            .await
+            .map(drop),
+        ["確認單別", code] => w
+            .document_types
+            .confirm(a, "TW01", code, true, None)
+            .await
+            .map(drop),
+        ["取消確認單別", code] => w
+            .document_types
+            .confirm(a, "TW01", code, false, None)
+            .await
+            .map(drop),
+        ["查詢單別", code, "的異動記錄"] => w
+            .document_types
+            .history(a, "TW01", code, None)
+            .await
+            .map(drop),
+        ["列印單別"] => w
+            .document_types
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出單別為", "Excel"] => w
+            .document_types
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         // 庫存參數（asms230）
         ["查看庫存參數"] => w.inventory_parameters.get(a, "TW01").await.map(drop),
         ["修改庫存參數"] => w
@@ -2116,6 +2213,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
                 base_currency: "TWD".into(),
                 rate_basis: "daily".into(),
                 auto_item_number: None,
+                doc_code_length: None,
                 version: None,
             };
             w.general.update(a, input).await.map(drop)

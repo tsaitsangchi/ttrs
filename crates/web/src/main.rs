@@ -13,8 +13,8 @@ use dioxus::prelude::*;
 use i18n::{UiLang, t};
 use pages::{
     aim::{
-        InventoryParameters, ItemGroupMaintenance, ItemMaintenance, ItemStorageMaintenance,
-        WarehouseMaintenance,
+        DocumentTypeMaintenance, InventoryParameters, ItemGroupMaintenance, ItemMaintenance,
+        ItemStorageMaintenance, WarehouseMaintenance,
     },
     aoo::{
         AccountingPeriodMaintenance, AreaMaintenance, BasicDataCarry, CarryHistoryQuery,
@@ -63,6 +63,8 @@ enum Route {
         ItemStorageMaintenance {},
         #[route("/aim/inventory-parameters")]
         InventoryParameters {},
+        #[route("/aim/document-type-maintenance")]
+        DocumentTypeMaintenance {},
         /// Plant Maintenance 營運中心維護（TipTop aooi901）
         #[route("/aoo/plant-maintenance")]
         PlantMaintenance {},
@@ -256,6 +258,11 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
         "inventory-parameters" => (
             Route::InventoryParameters {},
             icons::SETTINGS,
+            Tone::Tertiary,
+        ),
+        "document-type-maintenance" => (
+            Route::DocumentTypeMaintenance {},
+            icons::CATEGORY,
             Tone::Tertiary,
         ),
         "plant-maintenance" => (Route::PlantMaintenance {}, icons::FACTORY, Tone::Success),

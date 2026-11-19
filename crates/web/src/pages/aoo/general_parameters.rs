@@ -14,7 +14,7 @@ use crate::components::material::{
 use crate::components::permission::ProgramGate;
 use crate::components::status::{self, HasStatus, StatusForm};
 use crate::components::toolbar::{Act, MaintenanceToolbar};
-use crate::i18n::t;
+use crate::i18n::{t, tf};
 
 const PROGRAM: &str = "general-management-parameters";
 /// 參數只有一筆，異動記錄的鍵值固定 0（aza01）
@@ -51,6 +51,8 @@ struct Form {
     rate_basis: String,
     /// aza28 料件編號自動編碼（item_auto_number.feature AN1）
     auto_item_number: bool,
+    /// aza41 單別位數（document_type.feature DT5(a)）
+    doc_code_length: i16,
 }
 
 #[component]
@@ -134,6 +136,7 @@ fn ParametersPage() -> Element {
             base_currency: f.base_currency.trim().to_owned(),
             rate_basis: f.rate_basis.clone(),
             auto_item_number: Some(f.auto_item_number),
+            doc_code_length: Some(f.doc_code_length),
             version: Some(c.version),
         };
         spawn(async move {
@@ -167,6 +170,7 @@ fn ParametersPage() -> Element {
                             base_currency: c.base_currency.clone(),
                             rate_basis: c.rate_basis.clone(),
                             auto_item_number: c.auto_item_number,
+                            doc_code_length: c.doc_code_length,
                         });
                         editing.set(true);
                     }),
@@ -215,6 +219,7 @@ fn ParametersPage() -> Element {
                                 }
                                 TextField { id: "aza19", label: t("gp-field-rate-basis"), value: basis_label(&p.rate_basis), readonly: true }
                                 Checkbox { id: "aza28", label: t("gp-field-auto-item-number"), checked: p.auto_item_number, readonly: true }
+                                TextField { id: "aza41", label: t("gp-field-doc-code-length"), value: tf("gp-doc-code-length", &[("n", p.doc_code_length.to_string().as_str())]), readonly: true }
                             }
                             p { class: "muted", {t("gp-hint")} }
                         },
@@ -267,6 +272,13 @@ fn ParametersPage() -> Element {
                             onchange: move |v| form.write().rate_basis = v,
                         }
                         Checkbox { id: "gp-auto-item-number", label: t("gp-field-auto-item-number"), checked: form().auto_item_number, onchange: move |v| form.write().auto_item_number = v }
+                        Select {
+                            id: "gp-doc-code-length",
+                            label: t("gp-field-doc-code-length"),
+                            options: [3i16, 4, 5].iter().map(|n| (n.to_string(), tf("gp-doc-code-length", &[("n", n.to_string().as_str())]))).collect(),
+                            value: form().doc_code_length.to_string(),
+                            onchange: move |v: String| form.write().doc_code_length = v.parse().unwrap_or(3),
+                        }
                     }
                     p { class: "muted", {t("gp-dialog-hint")} }
                 }

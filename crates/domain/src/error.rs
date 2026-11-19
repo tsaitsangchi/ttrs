@@ -618,6 +618,53 @@ pub enum DomainError {
     InventoryTurnoverInvalid,
     #[error("庫存帳務基礎日期只能是 1（單據日期）或 2（產生日期）")]
     InventoryPostingDateBasisInvalid,
+    // ----- 單別（asmi300 / smy_file；document_type.feature） -----
+    #[error("單別位數只能是 3、4、5 碼")]
+    DocCodeLengthInvalid,
+    #[error("已有單別，不可變更單別位數")]
+    DocCodeLengthInUse,
+    #[error("單別長度須為 {len} 碼")]
+    DocumentTypeCodeLength { len: u8 },
+    #[error("單別不可有空白或「-」")]
+    DocumentTypeCodeInvalid,
+    #[error("單別已存在")]
+    DocumentTypeAlreadyExists,
+    #[error("單別不存在")]
+    DocumentTypeNotFound,
+    #[error("單別已停用")]
+    DocumentTypeInactive,
+    #[error("單據名稱不可空白")]
+    DocumentTypeNameEmpty,
+    #[error("單據名稱長度不可超過 {max} 字")]
+    DocumentTypeNameTooLong { max: usize },
+    #[error("系統別不正確（目前只開放 aim 庫存）")]
+    DocumentTypeSystemInvalid,
+    #[error("單據性質不屬於此系統別")]
+    DocumentTypeKindInvalid,
+    #[error("單據性質不符")]
+    DocumentTypeKindMismatch,
+    #[error("編號方式只能是 1、2、3、4")]
+    DocumentTypeNumberingInvalid,
+    #[error("成會單據類別不正確；計算成本時不可為 X（非庫存異動）")]
+    DocumentTypeCostClassInvalid,
+    #[error("倉庫設限方式只能是 0、1、2、3、4")]
+    DocumentTypeRestrictionInvalid,
+    #[error("倉庫設限方式不是不限時，須列出倉儲")]
+    DocumentTypeStorageRequired,
+    #[error("倉儲設限的倉庫不可空白，倉庫與儲位最多 10 字")]
+    DocumentTypeStorageInvalid,
+    #[error("此單別不可使用這個倉儲")]
+    DocumentTypeStorageNotAllowed,
+    #[error("此單別禁止使用這個倉儲")]
+    DocumentTypeStorageForbidden,
+    #[error("您沒有使用此單別的權限")]
+    DocumentTypeNotAllowed,
+    #[error("設限使用者不存在")]
+    DocumentTypeUserNotFound,
+    #[error("設限部門不存在或已停用")]
+    DocumentTypeDeptNotFound,
+    #[error("備註長度不可超過 {max} 字")]
+    DocumentTypeMemoTooLong { max: usize },
     // ----- 料件自動編號（aimi100 / aza28；item_auto_number.feature） -----
     #[error("整體管理系統參數未開啟料件編號自動編碼")]
     ItemAutoNumberDisabled,
@@ -1172,6 +1219,29 @@ impl DomainError {
             Self::InventoryStorageControlInvalid => "INVENTORY_STORAGE_CONTROL_INVALID",
             Self::InventoryTurnoverInvalid => "INVENTORY_TURNOVER_INVALID",
             Self::InventoryPostingDateBasisInvalid => "INVENTORY_POSTING_DATE_BASIS_INVALID",
+            Self::DocCodeLengthInvalid => "DOC_CODE_LENGTH_INVALID",
+            Self::DocCodeLengthInUse => "DOC_CODE_LENGTH_IN_USE",
+            Self::DocumentTypeCodeLength { .. } => "DOCUMENT_TYPE_CODE_LENGTH",
+            Self::DocumentTypeCodeInvalid => "DOCUMENT_TYPE_CODE_INVALID",
+            Self::DocumentTypeAlreadyExists => "DOCUMENT_TYPE_ALREADY_EXISTS",
+            Self::DocumentTypeNotFound => "DOCUMENT_TYPE_NOT_FOUND",
+            Self::DocumentTypeInactive => "DOCUMENT_TYPE_INACTIVE",
+            Self::DocumentTypeNameEmpty => "DOCUMENT_TYPE_NAME_EMPTY",
+            Self::DocumentTypeNameTooLong { .. } => "DOCUMENT_TYPE_NAME_TOO_LONG",
+            Self::DocumentTypeSystemInvalid => "DOCUMENT_TYPE_SYSTEM_INVALID",
+            Self::DocumentTypeKindInvalid => "DOCUMENT_TYPE_KIND_INVALID",
+            Self::DocumentTypeKindMismatch => "DOCUMENT_TYPE_KIND_MISMATCH",
+            Self::DocumentTypeNumberingInvalid => "DOCUMENT_TYPE_NUMBERING_INVALID",
+            Self::DocumentTypeCostClassInvalid => "DOCUMENT_TYPE_COST_CLASS_INVALID",
+            Self::DocumentTypeRestrictionInvalid => "DOCUMENT_TYPE_RESTRICTION_INVALID",
+            Self::DocumentTypeStorageRequired => "DOCUMENT_TYPE_STORAGE_REQUIRED",
+            Self::DocumentTypeStorageInvalid => "DOCUMENT_TYPE_STORAGE_INVALID",
+            Self::DocumentTypeStorageNotAllowed => "DOCUMENT_TYPE_STORAGE_NOT_ALLOWED",
+            Self::DocumentTypeStorageForbidden => "DOCUMENT_TYPE_STORAGE_FORBIDDEN",
+            Self::DocumentTypeNotAllowed => "DOCUMENT_TYPE_NOT_ALLOWED",
+            Self::DocumentTypeUserNotFound => "DOCUMENT_TYPE_USER_NOT_FOUND",
+            Self::DocumentTypeDeptNotFound => "DOCUMENT_TYPE_DEPT_NOT_FOUND",
+            Self::DocumentTypeMemoTooLong { .. } => "DOCUMENT_TYPE_MEMO_TOO_LONG",
             Self::ItemAutoNumberDisabled => "ITEM_AUTO_NUMBER_DISABLED",
             Self::EncodingClassNotForItem => "ENCODING_CLASS_NOT_FOR_ITEM",
             Self::EncodingRuleValueRequired => "ENCODING_RULE_VALUE_REQUIRED",

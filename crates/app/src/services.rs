@@ -81,6 +81,7 @@ pub trait Store:
     + crate::ports::WarehouseRepository
     + crate::ports::ItemStorageRepository
     + crate::ports::InventoryParameterRepository
+    + crate::ports::DocumentTypeRepository
     + 'static
 {
 }
@@ -162,6 +163,7 @@ impl<T> Store for T where
         + crate::ports::WarehouseRepository
         + crate::ports::ItemStorageRepository
         + crate::ports::InventoryParameterRepository
+        + crate::ports::DocumentTypeRepository
         + 'static
 {
 }
@@ -206,6 +208,7 @@ pub struct Services {
     pub warehouses: crate::WarehouseService,
     pub item_storages: crate::ItemStorageService,
     pub inventory_parameters: crate::InventoryParameterService,
+    pub document_types: crate::DocumentTypeService,
     /// 料件拋轉（aimi100 carry；item_carry.feature）
     pub item_carry: crate::ItemCarryService,
     /// 基本資料拋轉（aoop603）與拋轉歷史查詢（aooq604）
@@ -311,6 +314,15 @@ impl Services {
             ),
             inventory_parameters: crate::InventoryParameterService::new(
                 a.clone(),
+                store.clone(),
+                history.clone(),
+                reports.clone(),
+            ),
+            document_types: crate::DocumentTypeService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
                 store.clone(),
                 history.clone(),
                 reports.clone(),
@@ -472,7 +484,8 @@ impl Services {
                 store.clone(),
                 store.clone(),
                 reports.clone(),
-            ),
+            )
+            .with_doc_types(store.clone()),
             accounting_periods: AccountingPeriodService::new(
                 a.clone(),
                 store.clone(),

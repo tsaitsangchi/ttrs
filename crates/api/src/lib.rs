@@ -78,6 +78,7 @@ pub struct AppState {
     pub warehouses: ttrs_app::WarehouseService,
     pub item_storages: ttrs_app::ItemStorageService,
     pub inventory_parameters: ttrs_app::InventoryParameterService,
+    pub document_types: ttrs_app::DocumentTypeService,
     pub encoding_years: ttrs_app::EncodingYearService,
     pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
@@ -182,6 +183,7 @@ impl AppState {
             warehouses,
             item_storages,
             inventory_parameters,
+            document_types,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -230,6 +232,7 @@ impl AppState {
             warehouses,
             item_storages,
             inventory_parameters,
+            document_types,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -528,6 +531,45 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/plants/{plant}/warehouses/{code}/{state}",
             post(set_warehouse_state),
+        )
+        // Document Type Maintenance 單別維護（TipTop asmi300；工廠層；document_type.feature）
+        .route(
+            "/api/plants/{plant}/document-types",
+            post(create_document_type),
+        )
+        .route(
+            "/api/plants/{plant}/document-types/query",
+            post(query_document_types),
+        )
+        .route(
+            "/api/plants/{plant}/document-types/report.{format}",
+            get(document_type_report),
+        )
+        .route(
+            "/api/plants/{plant}/document-types/{code}",
+            get(get_document_type)
+                .put(update_document_type)
+                .delete(delete_document_type),
+        )
+        .route(
+            "/api/plants/{plant}/document-types/{code}/copy",
+            post(copy_document_type),
+        )
+        .route(
+            "/api/plants/{plant}/document-types/{code}/history",
+            get(document_type_history),
+        )
+        .route(
+            "/api/plants/{plant}/document-types/{code}/storages",
+            axum::routing::put(set_document_type_storages),
+        )
+        .route(
+            "/api/plants/{plant}/document-types/{code}/access",
+            axum::routing::put(set_document_type_access),
+        )
+        .route(
+            "/api/plants/{plant}/document-types/{code}/{state}",
+            post(set_document_type_state),
         )
         // Inventory Parameters 庫存參數（TipTop asms230；工廠層；inventory_parameters.feature）
         .route(
@@ -1919,6 +1961,7 @@ impl IntoResponse for HttpError {
             | "CARRY_SETTING_NOT_FOUND"
             | "WAREHOUSE_LOCATION_NOT_FOUND"
             | "ITEM_STORAGE_NOT_FOUND"
+            | "DOCUMENT_TYPE_NOT_FOUND"
             | "CARRY_TARGET_NOT_FOUND"
             | "CARRY_CONDITION_NOT_FOUND"
             | "CARRY_DEFAULT_NOT_FOUND"
@@ -1995,6 +2038,9 @@ impl IntoResponse for HttpError {
             | "WAREHOUSE_LOCATION_ALREADY_EXISTS"
             | "WAREHOUSE_LOCATION_IN_USE"
             | "ITEM_STORAGE_ALREADY_EXISTS"
+            | "DOCUMENT_TYPE_ALREADY_EXISTS"
+            | "DOCUMENT_TYPE_INACTIVE"
+            | "DOC_CODE_LENGTH_IN_USE"
             | "ITEM_STORAGE_COPY_TARGET_NOT_EMPTY"
             | "CARRY_SETTING_IN_USE"
             | "BASIC_CARRY_NOT_SOURCE"
@@ -6064,6 +6110,149 @@ async fn accounting_year_report(
     let data = s
         .accounting_periods
         .report(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+// ----- 單別維護（asmi300；document_type.feature） -----
+
+use ttrs_shared::{DocTypeAccessInput, DocTypeStorageInput, DocumentTypeDto, DocumentTypeInput};
+
+async fn query_document_types(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<DocumentTypeDto>>> {
+    Ok(Json(s.document_types.query(&s.actor, &plant, req).await?))
+}
+
+async fn get_document_type(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+) -> ApiResult<Json<DocumentTypeDto>> {
+    Ok(Json(s.document_types.get(&s.actor, &plant, &code).await?))
+}
+
+async fn create_document_type(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<DocumentTypeInput>,
+) -> ApiResult<(StatusCode, Json<DocumentTypeDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.document_types.create(&s.actor, &plant, req).await?),
+    ))
+}
+
+async fn update_document_type(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<DocumentTypeInput>,
+) -> ApiResult<Json<DocumentTypeDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.document_types
+            .update(&s.actor, &plant, &code, req)
+            .await?,
+    ))
+}
+
+async fn delete_document_type(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.document_types
+        .delete(&s.actor, &plant, &code, version)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn copy_document_type(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<DocumentTypeDto>)> {
+    let d = s
+        .document_types
+        .copy(&s.actor, &plant, &code, &req.new_code)
+        .await?;
+    Ok((StatusCode::CREATED, Json(d)))
+}
+
+async fn document_type_history(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.document_types
+            .history(&s.actor, &plant, &code, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+/// 倉庫設限（detail）
+async fn set_document_type_storages(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<DocTypeStorageInput>,
+) -> ApiResult<Json<DocumentTypeDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.document_types
+            .set_storages(&s.actor, &plant, &code, req)
+            .await?,
+    ))
+}
+
+/// 使用者設限（authorization）、部門設限（dept_authorization）
+async fn set_document_type_access(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<DocTypeAccessInput>,
+) -> ApiResult<Json<DocumentTypeDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.document_types
+            .set_access(&s.actor, &plant, &code, req)
+            .await?,
+    ))
+}
+
+/// 停用（deactivate）、啟用（activate）、確認（confirm）、取消確認（unconfirm）
+async fn set_document_type_state(
+    Ctx(s): Ctx,
+    Path((plant, code, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let g = &s.document_types;
+    let dto = match state.as_str() {
+        "activate" => g.set_active(&s.actor, &plant, &code, true, version).await?,
+        "deactivate" => {
+            g.set_active(&s.actor, &plant, &code, false, version)
+                .await?
+        }
+        "confirm" => g.confirm(&s.actor, &plant, &code, true, version).await?,
+        "unconfirm" => g.confirm(&s.actor, &plant, &code, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn document_type_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .document_types
+        .report_in(&s.actor, &plant, conditions, format, &lang)
         .await?;
     report_response(&data, format)
 }

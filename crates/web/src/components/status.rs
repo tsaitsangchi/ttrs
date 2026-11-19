@@ -180,6 +180,7 @@ has_status!(
     ttrs_shared::EncodingSegmentDto,
     ttrs_shared::GroupCenterDto,
     ttrs_shared::WarehouseDto,
+    ttrs_shared::DocumentTypeDto,
     ttrs_shared::EncodingYearDto,
     ttrs_shared::EncodingClassDto,
     ttrs_shared::BasicCodeDto,
