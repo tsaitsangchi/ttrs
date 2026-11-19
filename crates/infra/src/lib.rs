@@ -42,6 +42,7 @@ mod pg_unit;
 mod pg_unit_conversion;
 mod pg_user;
 mod pg_user_permission;
+mod pg_warehouse;
 mod plant_schema;
 mod qbe_sql;
 pub mod report;

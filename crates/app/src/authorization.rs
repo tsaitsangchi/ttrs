@@ -172,6 +172,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "insert, query, modify, delete, invalid, reproduce, data_type_setting, history, confirm, notconfirm, output, exporttoexcel",
     ),
+    // 倉庫儲位（WH8）：單頭單身，沿用 TipTop 功能代號並補上確認與異動記錄
+    (
+        "warehouse-maintenance",
+        "aimi201",
+        "AIM",
+        "insert, query, modify, delete, invalid, reproduce, detail, history, confirm, notconfirm, output, exporttoexcel",
+    ),
     // 基本資料拋轉（BC10）：批次作業，只有查詢與執行拋轉；拋轉歷史查詢為唯讀查詢
     ("basic-data-carry", "aoop603", "AOO", "query, carry"),
     (

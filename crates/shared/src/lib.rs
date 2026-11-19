@@ -1940,6 +1940,157 @@ pub mod data_control_max_len {
     pub const VALUES: usize = 255;
 }
 
+/// 倉庫（aimi201、aimi200 / imd_file；warehouse.feature）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WarehouseDto {
+    pub warehouse_code: String,
+    pub name: Option<String>,
+    pub address: Option<String>,
+    pub contact: Option<String>,
+    pub phone: Option<String>,
+    pub account: Option<String>,
+    pub account2: Option<String>,
+    pub cost_group: Option<String>,
+    pub cost_center: Option<String>,
+    pub cost_center_name: Option<String>,
+    /// 倉儲類別 S／W
+    pub storage_class: String,
+    pub usable: bool,
+    pub mrp_usable: bool,
+    pub bonded: bool,
+    pub issue_priority: i32,
+    pub ship_priority: i32,
+    /// 儲位，依儲位代號排序
+    pub locations: Vec<WarehouseLocationDto>,
+    pub active: bool,
+    #[serde(default)]
+    pub confirmed: bool,
+    #[serde(default)]
+    pub confirmed_by: Option<String>,
+    #[serde(default)]
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 儲位（ime_file）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WarehouseLocationDto {
+    pub location_code: String,
+    pub name: Option<String>,
+    pub storage_class: String,
+    pub usable: bool,
+    pub mrp_usable: bool,
+    pub bonded: bool,
+    pub issue_priority: i32,
+    pub ship_priority: i32,
+    /// 會計科目方式 0／1／2
+    pub account_method: String,
+    pub account: Option<String>,
+    pub account2: Option<String>,
+}
+
+/// 新增、修改倉庫；新增時旗標未給則為可用、MRP 可用、非保稅、優先順序 0
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WarehouseInput {
+    pub warehouse_code: String,
+    pub name: Option<String>,
+    pub address: Option<String>,
+    pub contact: Option<String>,
+    pub phone: Option<String>,
+    pub account: Option<String>,
+    pub account2: Option<String>,
+    pub cost_group: Option<String>,
+    pub cost_center: Option<String>,
+    pub storage_class: String,
+    pub usable: Option<bool>,
+    pub mrp_usable: Option<bool>,
+    pub bonded: Option<bool>,
+    pub issue_priority: Option<i32>,
+    pub ship_priority: Option<i32>,
+    pub version: Option<i32>,
+}
+
+/// 新增、修改儲位；新增時未給的設定從倉庫帶入（WH4(c)）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WarehouseLocationInput {
+    pub location_code: String,
+    pub name: Option<String>,
+    pub storage_class: Option<String>,
+    pub usable: Option<bool>,
+    pub mrp_usable: Option<bool>,
+    pub bonded: Option<bool>,
+    pub issue_priority: Option<i32>,
+    pub ship_priority: Option<i32>,
+    pub account_method: Option<String>,
+    pub account: Option<String>,
+    pub account2: Option<String>,
+    /// 倉庫的版本（ADR 0012 §4）
+    pub version: Option<i32>,
+}
+
+impl WarehouseDto {
+    pub fn to_input(&self) -> WarehouseInput {
+        WarehouseInput {
+            warehouse_code: self.warehouse_code.clone(),
+            name: self.name.clone(),
+            address: self.address.clone(),
+            contact: self.contact.clone(),
+            phone: self.phone.clone(),
+            account: self.account.clone(),
+            account2: self.account2.clone(),
+            cost_group: self.cost_group.clone(),
+            cost_center: self.cost_center.clone(),
+            storage_class: self.storage_class.clone(),
+            usable: Some(self.usable),
+            mrp_usable: Some(self.mrp_usable),
+            bonded: Some(self.bonded),
+            issue_priority: Some(self.issue_priority),
+            ship_priority: Some(self.ship_priority),
+            version: Some(self.version),
+        }
+    }
+}
+
+impl WarehouseLocationDto {
+    pub fn to_input(&self, version: i32) -> WarehouseLocationInput {
+        WarehouseLocationInput {
+            location_code: self.location_code.clone(),
+            name: self.name.clone(),
+            storage_class: Some(self.storage_class.clone()),
+            usable: Some(self.usable),
+            mrp_usable: Some(self.mrp_usable),
+            bonded: Some(self.bonded),
+            issue_priority: Some(self.issue_priority),
+            ship_priority: Some(self.ship_priority),
+            account_method: Some(self.account_method.clone()),
+            account: self.account.clone(),
+            account2: self.account2.clone(),
+            version: Some(version),
+        }
+    }
+}
+
+/// 畫面 maxlength（與 ttrs_domain::warehouse 一致）
+pub mod warehouse_max_len {
+    pub const CODE: usize = 10;
+    pub const NAME: usize = 80;
+    pub const ADDRESS: usize = 255;
+    pub const CONTACT: usize = 40;
+    pub const ACCOUNT: usize = 24;
+}
+
 /// 料件拋轉（aimi100 carry；item_carry.feature）：targets 為 None 時拋給全部拋轉營運中心
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]

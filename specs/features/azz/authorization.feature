@@ -481,6 +481,18 @@
       | carry-setting-maintenance    | output       | 列印拋轉設定               |
       | carry-setting-maintenance    | exporttoexcel | 匯出拋轉設定為 Excel      |
       | carry-setting-maintenance    | history      | 查詢作業 carry-setting-maintenance DC 的異動記錄 |
+      | warehouse-maintenance        | query        | 查詢倉庫                   |
+      | warehouse-maintenance        | insert       | 新增倉庫 W01               |
+      | warehouse-maintenance        | modify       | 修改倉庫 W01               |
+      | warehouse-maintenance        | invalid      | 失效倉庫 W01               |
+      | warehouse-maintenance        | delete       | 刪除倉庫 W01               |
+      | warehouse-maintenance        | reproduce    | 複製倉庫 W01               |
+      | warehouse-maintenance        | detail       | 維護倉庫 W01 的儲位        |
+      | warehouse-maintenance        | confirm      | 確認倉庫 W01               |
+      | warehouse-maintenance        | notconfirm   | 取消確認倉庫 W01           |
+      | warehouse-maintenance        | output       | 列印倉庫                   |
+      | warehouse-maintenance        | exporttoexcel | 匯出倉庫為 Excel          |
+      | warehouse-maintenance        | history      | 查詢倉庫 W01 的異動記錄    |
       | item-maintenance             | carry        | 拋轉料件 A001              |
       | item-maintenance             | qry_carry_history | 查詢料件 A001 的拋轉歷史 |
       | basic-data-carry             | query        | 開啟基本資料拋轉           |

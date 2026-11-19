@@ -74,6 +74,8 @@ pub struct AppState {
     pub basic_carry: ttrs_app::BasicCarryService,
     /// 料件拋轉（aimi100 carry；item_carry.feature）
     pub item_carry: ttrs_app::ItemCarryService,
+    /// 倉庫儲位維護（aimi201、aimi200；warehouse.feature）
+    pub warehouses: ttrs_app::WarehouseService,
     pub encoding_years: ttrs_app::EncodingYearService,
     pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
@@ -175,6 +177,7 @@ impl AppState {
             carry_settings,
             basic_carry,
             item_carry,
+            warehouses,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -220,6 +223,7 @@ impl AppState {
             carry_settings,
             basic_carry,
             item_carry,
+            warehouses,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -483,6 +487,42 @@ pub fn router(state: AppState) -> Router {
             get(list_product_classes).post(create_product_class),
         )
         // 查詢、複製、列印、匯出 Excel（ADR 0013；product_classification_standard_actions.feature）
+        // Warehouse Maintenance 倉庫儲位維護（TipTop aimi201、aimi200；工廠層；warehouse.feature）
+        .route("/api/plants/{plant}/warehouses", post(create_warehouse))
+        .route(
+            "/api/plants/{plant}/warehouses/query",
+            post(query_warehouses),
+        )
+        .route(
+            "/api/plants/{plant}/warehouses/report.{format}",
+            get(warehouse_report),
+        )
+        .route(
+            "/api/plants/{plant}/warehouses/{code}",
+            get(get_warehouse)
+                .put(update_warehouse)
+                .delete(delete_warehouse),
+        )
+        .route(
+            "/api/plants/{plant}/warehouses/{code}/copy",
+            post(copy_warehouse),
+        )
+        .route(
+            "/api/plants/{plant}/warehouses/{code}/history",
+            get(warehouse_history),
+        )
+        .route(
+            "/api/plants/{plant}/warehouses/{code}/locations",
+            post(add_warehouse_location).put(update_warehouse_location),
+        )
+        .route(
+            "/api/plants/{plant}/warehouses/{code}/locations/{loc}",
+            axum::routing::delete(remove_warehouse_location),
+        )
+        .route(
+            "/api/plants/{plant}/warehouses/{code}/{state}",
+            post(set_warehouse_state),
+        )
         .route(
             "/api/plants/{plant}/product-classes/query",
             post(query_product_classes),
@@ -1826,6 +1866,7 @@ impl IntoResponse for HttpError {
             | "GROUP_CENTER_NOT_FOUND"
             | "DATA_CONTROL_PLANT_NOT_FOUND"
             | "CARRY_SETTING_NOT_FOUND"
+            | "WAREHOUSE_LOCATION_NOT_FOUND"
             | "CARRY_TARGET_NOT_FOUND"
             | "CARRY_CONDITION_NOT_FOUND"
             | "CARRY_DEFAULT_NOT_FOUND"
@@ -1896,6 +1937,11 @@ impl IntoResponse for HttpError {
             | "GROUP_CENTER_ALREADY_EXISTS"
             | "DATA_CONTROL_PLANT_ALREADY_EXISTS"
             | "CARRY_SETTING_ALREADY_EXISTS"
+            | "WAREHOUSE_ALREADY_EXISTS"
+            | "WAREHOUSE_IN_USE"
+            | "WAREHOUSE_INACTIVE"
+            | "WAREHOUSE_LOCATION_ALREADY_EXISTS"
+            | "WAREHOUSE_LOCATION_IN_USE"
             | "CARRY_SETTING_IN_USE"
             | "BASIC_CARRY_NOT_SOURCE"
             | "ITEM_CARRY_NOT_SOURCE"
@@ -3285,6 +3331,161 @@ async fn product_class_history(
             .history(&s.actor, &plant, &code, q.lang.as_deref())
             .await?,
     ))
+}
+
+// ----- Warehouse Maintenance 倉庫儲位維護（aimi201、aimi200；工廠層） -----
+
+use ttrs_shared::{WarehouseDto, WarehouseInput, WarehouseLocationInput};
+
+async fn query_warehouses(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<WarehouseDto>>> {
+    Ok(Json(s.warehouses.query(&s.actor, &plant, req).await?))
+}
+
+async fn get_warehouse(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+) -> ApiResult<Json<WarehouseDto>> {
+    Ok(Json(s.warehouses.get(&s.actor, &plant, &code).await?))
+}
+
+async fn create_warehouse(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<WarehouseInput>,
+) -> ApiResult<(StatusCode, Json<WarehouseDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.warehouses.create(&s.actor, &plant, req).await?),
+    ))
+}
+
+async fn update_warehouse(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<WarehouseInput>,
+) -> ApiResult<Json<WarehouseDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.warehouses.update(&s.actor, &plant, &code, req).await?,
+    ))
+}
+
+async fn delete_warehouse(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.warehouses
+        .delete(&s.actor, &plant, &code, version)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn copy_warehouse(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<WarehouseDto>)> {
+    let w = s
+        .warehouses
+        .copy(&s.actor, &plant, &code, &req.new_code)
+        .await?;
+    Ok((StatusCode::CREATED, Json(w)))
+}
+
+async fn warehouse_history(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.warehouses
+            .history(&s.actor, &plant, &code, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+/// 新增儲位（detail）
+async fn add_warehouse_location(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<WarehouseLocationInput>,
+) -> ApiResult<Json<WarehouseDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.warehouses
+            .add_location(&s.actor, &plant, &code, req)
+            .await?,
+    ))
+}
+
+/// 修改儲位（detail）
+async fn update_warehouse_location(
+    Ctx(s): Ctx,
+    Path((plant, code)): Path<(String, String)>,
+    Json(req): Json<WarehouseLocationInput>,
+) -> ApiResult<Json<WarehouseDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.warehouses
+            .update_location(&s.actor, &plant, &code, req)
+            .await?,
+    ))
+}
+
+/// 刪除儲位（detail）
+async fn remove_warehouse_location(
+    Ctx(s): Ctx,
+    Path((plant, code, loc)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<WarehouseDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.warehouses
+            .remove_location(&s.actor, &plant, &code, &loc, version)
+            .await?,
+    ))
+}
+
+/// 停用（deactivate）、啟用（activate）、確認（confirm）、取消確認（unconfirm）
+async fn set_warehouse_state(
+    Ctx(s): Ctx,
+    Path((plant, code, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let g = &s.warehouses;
+    let dto = match state.as_str() {
+        "activate" => g.set_active(&s.actor, &plant, &code, true, version).await?,
+        "deactivate" => {
+            g.set_active(&s.actor, &plant, &code, false, version)
+                .await?
+        }
+        "confirm" => g.confirm(&s.actor, &plant, &code, true, version).await?,
+        "unconfirm" => g.confirm(&s.actor, &plant, &code, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn warehouse_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .warehouses
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 // ----- Project Maintenance 專案維護（aooi200；工廠層） -----

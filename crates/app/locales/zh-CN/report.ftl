@@ -383,3 +383,16 @@ carry-history-col-by = 抛转人员
 carry-history-action-insert = 新增
 carry-history-action-update = 覆盖
 basic-carry-item-item = 料件
+
+# 倉庫儲位維護（aimi201；warehouse.feature）
+warehouse-report-title = 仓库储位
+warehouse-col-code = 仓库别
+warehouse-col-name = 名称
+warehouse-col-class = 仓储类别
+warehouse-col-usable = 可用
+warehouse-col-mrp = MRP 可用
+warehouse-col-bonded = 保税
+warehouse-col-location = 储位
+warehouse-col-location-name = 储位名称
+warehouse-class-S = S 一般仓
+warehouse-class-W = W 在制品仓

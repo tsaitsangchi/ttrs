@@ -1080,6 +1080,45 @@ pub trait BasicCarryRepository: Send + Sync {
     ) -> Result<(), RepoError>;
 }
 
+/// 倉庫與儲位（imd_file、ime_file；warehouse.feature）。工廠層；倉庫與儲位一起存取
+#[async_trait]
+pub trait WarehouseRepository: Send + Sync {
+    async fn list_warehouses(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Vec<ttrs_domain::warehouse::Warehouse>, RepoError>;
+    async fn get_warehouse(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::warehouse::WarehouseCode,
+    ) -> Result<Option<ttrs_domain::warehouse::Warehouse>, RepoError>;
+    /// 連同儲位新增；倉庫別重複回 `Conflict`
+    async fn insert_warehouse(
+        &self,
+        plant: &PlantId,
+        w: &ttrs_domain::warehouse::Warehouse,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`；儲位只寫入有變動的列
+    async fn update_warehouse(
+        &self,
+        plant: &PlantId,
+        w: &ttrs_domain::warehouse::Warehouse,
+    ) -> Result<(), RepoError>;
+    /// 連同儲位刪除；回傳是否有刪到
+    async fn delete_warehouse(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::warehouse::WarehouseCode,
+    ) -> Result<bool, RepoError>;
+    /// 是否被料件或料件分群當作主要倉庫（location 有值時為主要儲位）使用（WH7(b)）
+    async fn warehouse_in_use(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::warehouse::WarehouseCode,
+        location: Option<&ttrs_domain::warehouse::LocationCode>,
+    ) -> Result<bool, RepoError>;
+}
+
 /// 拋到一個營運中心的一筆料件與子資料（item_carry.feature IC6）
 #[derive(Debug, Clone)]
 pub struct ItemCarryBatch {

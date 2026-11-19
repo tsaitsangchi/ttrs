@@ -78,6 +78,7 @@ pub trait Store:
     + crate::ports::CarryLogRepository
     + crate::ports::BasicCarryRepository
     + crate::ports::ItemCarryRepository
+    + crate::ports::WarehouseRepository
     + 'static
 {
 }
@@ -156,6 +157,7 @@ impl<T> Store for T where
         + crate::ports::CarryLogRepository
         + crate::ports::BasicCarryRepository
         + crate::ports::ItemCarryRepository
+        + crate::ports::WarehouseRepository
         + 'static
 {
 }
@@ -196,6 +198,8 @@ pub struct Services {
     pub data_controls: crate::DataControlService,
     /// 資料中心拋轉設定（aooi602）
     pub carry_settings: crate::CarrySettingService,
+    /// 倉庫儲位維護（aimi201、aimi200）
+    pub warehouses: crate::WarehouseService,
     /// 料件拋轉（aimi100 carry；item_carry.feature）
     pub item_carry: crate::ItemCarryService,
     /// 基本資料拋轉（aoop603）與拋轉歷史查詢（aooq604）
@@ -276,12 +280,21 @@ impl Services {
             departments: store.clone(),
             master: store.clone(),
             data_control: store.clone(),
+            warehouses: store.clone(),
             reports: reports.clone(),
         };
         Self {
             items: ItemService::new(a.clone(), item_repos.clone(), history.clone())
                 .with_carry(item_carry.clone()),
             item_carry,
+            warehouses: crate::WarehouseService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                history.clone(),
+                reports.clone(),
+            ),
             programs: ProgramService::new(a.clone(), store.clone(), reports.clone()),
             dictionary: DataDictionaryService::new(
                 a.clone(),

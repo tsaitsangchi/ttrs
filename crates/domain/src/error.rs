@@ -567,6 +567,41 @@ pub enum DomainError {
     ItemCarriedNotEditable,
     #[error("這是資料中心拋轉來的料件，本營運中心不可刪除")]
     ItemCarriedNotDeletable,
+    // ----- 倉庫儲位（aimi201、aimi200 / imd_file、ime_file；warehouse.feature） -----
+    #[error("倉庫別不可空白")]
+    WarehouseCodeEmpty,
+    #[error("倉庫別長度不可超過 {max} 碼")]
+    WarehouseCodeTooLong { max: usize },
+    #[error("倉庫已存在")]
+    WarehouseAlreadyExists,
+    #[error("倉庫不存在或已停用")]
+    WarehouseNotFound,
+    #[error("倉庫已停用，請先啟用")]
+    WarehouseInactive,
+    #[error("倉庫已被料件或料件分群使用，不可刪除；請改為停用")]
+    WarehouseInUse,
+    #[error("倉儲類別只能是 S（一般倉）或 W（在製品倉）")]
+    WarehouseClassInvalid,
+    #[error("不可用倉儲必定為 MRP 不可用")]
+    WarehouseMrpRequiresUsable,
+    #[error("優先順序不可小於 0")]
+    WarehousePriorityInvalid,
+    #[error("成本中心必須是有效的成本中心或利潤中心部門")]
+    WarehouseCostCenterInvalid,
+    #[error("儲位不可空白")]
+    WarehouseLocationCodeEmpty,
+    #[error("儲位長度不可超過 {max} 碼")]
+    WarehouseLocationCodeTooLong { max: usize },
+    #[error("這個倉庫已有此儲位")]
+    WarehouseLocationAlreadyExists,
+    #[error("儲位不存在")]
+    WarehouseLocationNotFound,
+    #[error("儲位已被料件或料件分群使用，不可刪除")]
+    WarehouseLocationInUse,
+    #[error("會計科目方式為 2（使用儲位科目）時，儲位科目必填")]
+    WarehouseLocationAccountRequired,
+    #[error("會計科目方式只能是 0、1、2")]
+    WarehouseAccountMethodInvalid,
     // ----- 料件自動編號（aimi100 / aza28；item_auto_number.feature） -----
     #[error("整體管理系統參數未開啟料件編號自動編碼")]
     ItemAutoNumberDisabled,
@@ -1097,6 +1132,23 @@ impl DomainError {
             Self::ItemCarryNotSource => "ITEM_CARRY_NOT_SOURCE",
             Self::ItemCarriedNotEditable => "ITEM_CARRIED_NOT_EDITABLE",
             Self::ItemCarriedNotDeletable => "ITEM_CARRIED_NOT_DELETABLE",
+            Self::WarehouseCodeEmpty => "WAREHOUSE_CODE_EMPTY",
+            Self::WarehouseCodeTooLong { .. } => "WAREHOUSE_CODE_TOO_LONG",
+            Self::WarehouseAlreadyExists => "WAREHOUSE_ALREADY_EXISTS",
+            Self::WarehouseNotFound => "WAREHOUSE_NOT_FOUND",
+            Self::WarehouseInactive => "WAREHOUSE_INACTIVE",
+            Self::WarehouseInUse => "WAREHOUSE_IN_USE",
+            Self::WarehouseClassInvalid => "WAREHOUSE_CLASS_INVALID",
+            Self::WarehouseMrpRequiresUsable => "WAREHOUSE_MRP_REQUIRES_USABLE",
+            Self::WarehousePriorityInvalid => "WAREHOUSE_PRIORITY_INVALID",
+            Self::WarehouseCostCenterInvalid => "WAREHOUSE_COST_CENTER_INVALID",
+            Self::WarehouseLocationCodeEmpty => "WAREHOUSE_LOCATION_CODE_EMPTY",
+            Self::WarehouseLocationCodeTooLong { .. } => "WAREHOUSE_LOCATION_CODE_TOO_LONG",
+            Self::WarehouseLocationAlreadyExists => "WAREHOUSE_LOCATION_ALREADY_EXISTS",
+            Self::WarehouseLocationNotFound => "WAREHOUSE_LOCATION_NOT_FOUND",
+            Self::WarehouseLocationInUse => "WAREHOUSE_LOCATION_IN_USE",
+            Self::WarehouseLocationAccountRequired => "WAREHOUSE_LOCATION_ACCOUNT_REQUIRED",
+            Self::WarehouseAccountMethodInvalid => "WAREHOUSE_ACCOUNT_METHOD_INVALID",
             Self::ItemAutoNumberDisabled => "ITEM_AUTO_NUMBER_DISABLED",
             Self::EncodingClassNotForItem => "ENCODING_CLASS_NOT_FOR_ITEM",
             Self::EncodingRuleValueRequired => "ENCODING_RULE_VALUE_REQUIRED",

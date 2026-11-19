@@ -12,7 +12,7 @@ use components::session::{
 use dioxus::prelude::*;
 use i18n::{UiLang, t};
 use pages::{
-    aim::{ItemGroupMaintenance, ItemMaintenance},
+    aim::{ItemGroupMaintenance, ItemMaintenance, WarehouseMaintenance},
     aoo::{
         AccountingPeriodMaintenance, AreaMaintenance, BasicDataCarry, CarryHistoryQuery,
         CarrySettingMaintenance, ClassificationCodeMaintenance, CountryMaintenance,
@@ -54,6 +54,8 @@ enum Route {
         /// Item Group Maintenance 料件分群維護（TipTop aimi110）
         #[route("/aim/item-group-maintenance")]
         ItemGroupMaintenance {},
+        #[route("/aim/warehouse-maintenance")]
+        WarehouseMaintenance {},
         /// Plant Maintenance 營運中心維護（TipTop aooi901）
         #[route("/aoo/plant-maintenance")]
         PlantMaintenance {},
@@ -231,6 +233,11 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
         ),
         "item-group-maintenance" => (
             Route::ItemGroupMaintenance {},
+            icons::INVENTORY,
+            Tone::Tertiary,
+        ),
+        "warehouse-maintenance" => (
+            Route::WarehouseMaintenance {},
             icons::INVENTORY,
             Tone::Tertiary,
         ),

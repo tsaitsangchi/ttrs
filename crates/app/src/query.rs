@@ -1310,6 +1310,78 @@ pub mod encoding_nature {
     }
 }
 
+pub mod warehouse {
+    use ttrs_domain::{qbe::FieldType, warehouse::Warehouse};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    /// aimi201.4gl:189-349 的查詢欄位：倉庫 imd01–imd16、imdacti 與儲位 ime02、ime03，加上確認與「狀態」欄位
+    pub const FIELDS: &[Field] = &[
+        field("warehouse_code", FieldType::Text),
+        field("name", FieldType::Text),
+        field("storage_class", FieldType::Text),
+        field("usable", FieldType::Flag),
+        field("mrp_usable", FieldType::Flag),
+        field("bonded", FieldType::Flag),
+        field("cost_center", FieldType::Text),
+        field("location_code", FieldType::Text),
+        field("location_name", FieldType::Text),
+        field("confirmed", FieldType::Flag),
+        field("confirmed_by", FieldType::Text),
+        field("active", FieldType::Flag),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(w: &Warehouse, field: &str) -> FieldValue {
+        let a = &w.attrs;
+        match field {
+            "warehouse_code" => text(w.code.as_str()),
+            "name" => opt_text(a.name.as_deref()),
+            "storage_class" => text(a.flags.class.code()),
+            "usable" => flag(a.flags.usable),
+            "mrp_usable" => flag(a.flags.mrp_usable),
+            "bonded" => flag(a.flags.bonded),
+            "cost_center" => opt_text(a.cost_center.as_ref().map(|d| d.as_str())),
+            "location_code" => FieldValue::Set(
+                w.locations
+                    .iter()
+                    .map(|l| QbeValue::Text(l.code.as_str().to_owned()))
+                    .collect(),
+            ),
+            "location_name" => FieldValue::Set(
+                w.locations
+                    .iter()
+                    .filter_map(|l| l.name.clone().map(QbeValue::Text))
+                    .collect(),
+            ),
+            other => confirm_value(other, &w.confirmation)
+                .or_else(|| {
+                    status_value(
+                        other,
+                        Some(w.active),
+                        &w.created_by,
+                        &w.created_dept,
+                        Some(w.created_on),
+                        w.updated_by.as_deref(),
+                        w.updated_on,
+                        w.stamp.version,
+                    )
+                })
+                .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
 pub mod carry_log {
     use ttrs_domain::qbe::FieldType;
     use ttrs_shared::{CarryLogDto, QbeCondition};

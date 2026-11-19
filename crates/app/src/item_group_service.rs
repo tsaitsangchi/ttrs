@@ -61,6 +61,8 @@ pub struct ItemGroupService {
     employees: Arc<dyn EmployeeRepository>,
     classes: Arc<dyn ProductClassRepository>,
     master: Arc<dyn MasterDataRepository>,
+    /// 主要倉庫、儲位（warehouse.feature WH9）
+    warehouses: Arc<dyn crate::ports::WarehouseRepository>,
     history: HistoryReader,
     reports: ListReporter,
 }
@@ -80,6 +82,7 @@ impl ItemGroupService {
             employees: repos.employees,
             classes: repos.classes,
             master: repos.master,
+            warehouses: repos.warehouses,
             history,
             reports: repos.reports,
         }
@@ -209,6 +212,14 @@ impl ItemGroupService {
             }
             let code = ItemGroupCode::parse(&input.group_code)?;
             let attrs = self.attrs(&plant, input).await?;
+            // 主要倉庫須有效、主要儲位須屬於該倉庫（aimi110.4gl:1409-1446，WH9）
+            crate::warehouse_service::check_storage(
+                self.warehouses.as_ref(),
+                &plant,
+                attrs.warehouse.as_deref(),
+                attrs.location.as_deref(),
+            )
+            .await?;
             let g = ItemGroup::new(code, attrs, &actor.user_id, &actor.dept, today());
             self.insert(&plant, &g).await
         })
@@ -230,6 +241,16 @@ impl ItemGroupService {
             grant.record(&g.created_by, &g.created_dept)?;
             g.stamp.check(input.version)?;
             let attrs = self.attrs(&plant, input).await?;
+            // 主要倉庫、儲位：只檢查有變動的（WH9）
+            if (&attrs.warehouse, &attrs.location) != (&g.attrs.warehouse, &g.attrs.location) {
+                crate::warehouse_service::check_storage(
+                    self.warehouses.as_ref(),
+                    &plant,
+                    attrs.warehouse.as_deref(),
+                    attrs.location.as_deref(),
+                )
+                .await?;
+            }
             g.update(attrs, &actor.user_id, today());
             self.save(&plant, &g).await
         })

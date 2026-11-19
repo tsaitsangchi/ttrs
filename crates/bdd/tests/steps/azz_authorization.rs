@@ -954,6 +954,94 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 倉庫儲位維護（aimi201；倉庫不存在時回 WAREHOUSE_NOT_FOUND，不是權限拒絕）
+        ["查詢倉庫"] => w
+            .warehouses
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增倉庫", code] => w
+            .warehouses
+            .create(
+                a,
+                "TW01",
+                ttrs_shared::WarehouseInput {
+                    warehouse_code: (*code).to_owned(),
+                    storage_class: "S".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["修改倉庫", code] => w
+            .warehouses
+            .update(
+                a,
+                "TW01",
+                code,
+                ttrs_shared::WarehouseInput {
+                    warehouse_code: (*code).to_owned(),
+                    storage_class: "S".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["失效倉庫", code] => w
+            .warehouses
+            .set_active(a, "TW01", code, false, None)
+            .await
+            .map(drop),
+        ["刪除倉庫", code] => w.warehouses.delete(a, "TW01", code, None).await,
+        ["複製倉庫", code] => w.warehouses.copy(a, "TW01", code, "COPY").await.map(drop),
+        ["維護倉庫", code, "的儲位"] => w
+            .warehouses
+            .add_location(
+                a,
+                "TW01",
+                code,
+                ttrs_shared::WarehouseLocationInput {
+                    location_code: "A".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["確認倉庫", code] => w
+            .warehouses
+            .confirm(a, "TW01", code, true, None)
+            .await
+            .map(drop),
+        ["取消確認倉庫", code] => w
+            .warehouses
+            .confirm(a, "TW01", code, false, None)
+            .await
+            .map(drop),
+        ["列印倉庫"] => w
+            .warehouses
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出倉庫為", "Excel"] => w
+            .warehouses
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["查詢倉庫", code, "的異動記錄"] => {
+            w.warehouses.history(a, "TW01", code, None).await.map(drop)
+        }
         // 料件拋轉（aimi100 carry；料件不存在時回 ITEM_NOT_FOUND，不是權限拒絕）
         ["拋轉料件", no] => w
             .item_carry

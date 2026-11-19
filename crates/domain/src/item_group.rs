@@ -83,7 +83,7 @@ pub struct ItemGroupAttrs {
     pub shelf_life_days: Option<i32>,
     /// imz909 MRP 匯總時距（天）
     pub mrp_bucket_days: Option<i32>,
-    /// imz35 主要倉庫別（倉庫未移植，不檢查，IG4）
+    /// imz35 主要倉庫別（須為有效倉庫，由 app 層 check_storage 檢查，WH9）
     pub warehouse: Option<String>,
     /// imz36 主要儲位別
     pub location: Option<String>,

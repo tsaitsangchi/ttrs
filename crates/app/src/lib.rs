@@ -57,6 +57,7 @@ pub mod unit_conversion_service;
 pub mod unit_service;
 pub mod user_permission_service;
 pub mod user_service;
+pub mod warehouse_service;
 
 pub use accounting_period_service::AccountingPeriodService;
 pub use authorization::{Actor, ActorKind, Authorizer, PermissionAuthorizer};
@@ -103,3 +104,4 @@ pub use unit_conversion_service::{ItemUnitConversionService, UnitConversionServi
 pub use unit_service::UnitService;
 pub use user_permission_service::UserPermissionService;
 pub use user_service::UserService;
+pub use warehouse_service::WarehouseService;

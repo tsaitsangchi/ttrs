@@ -94,6 +94,8 @@ struct State {
     employees: BTreeMap<(PlantId, EmployeeId), Employee>,
     /// (營運中心, 分類碼) → 產品分類（oba_file，工廠層）
     product_classes: BTreeMap<(PlantId, String), ProductClass>,
+    /// 倉庫與儲位（imd_file、ime_file；warehouse.feature）
+    warehouses: BTreeMap<(PlantId, String), ttrs_domain::warehouse::Warehouse>,
     /// (營運中心, 分群碼) → 料件分群（imz_file，工廠層）
     item_groups: BTreeMap<(PlantId, String), ItemGroup>,
     /// 資料異動記錄（change_log，ADR 0012）：營運中心（共用層為 None）＋記錄
@@ -1606,6 +1608,7 @@ impl PlantRepository for InMemoryStore {
             || s.items.keys().any(|(p, _)| p == id)
             || s.departments.keys().any(|(p, _)| p == id)
             || s.employees.keys().any(|(p, _)| p == id)
+            || s.warehouses.keys().any(|(p, _)| p == id)
             // 資料中心的資料類別設定（外鍵 data_center_type.plant_id，group_center.feature）
             || s.group_centers
                 .values()
@@ -6568,5 +6571,246 @@ impl crate::ports::ItemCarryRepository for InMemoryStore {
             }
         }
         Ok(())
+    }
+}
+
+// ----- 倉庫與儲位（imd_file、ime_file；warehouse.feature） -----
+
+fn wh_key(w: &ttrs_domain::warehouse::Warehouse) -> Vec<(&'static str, String)> {
+    vec![("warehouse_code", w.code.as_str().to_owned())]
+}
+
+fn wh_row(w: &ttrs_domain::warehouse::Warehouse) -> Row {
+    let a = &w.attrs;
+    let f = &a.flags;
+    let mut cols = vec![
+        ("warehouse_code", text::s(w.code.as_str())),
+        ("name", text::opt(a.name.as_deref())),
+        ("address", text::opt(a.address.as_deref())),
+        ("contact", text::opt(a.contact.as_deref())),
+        ("phone", text::opt(a.phone.as_deref())),
+        ("account", text::opt(a.account.as_deref())),
+        ("account2", text::opt(a.account2.as_deref())),
+        ("cost_group", text::opt(a.cost_group.as_deref())),
+        (
+            "cost_center",
+            a.cost_center.as_ref().map(|d| d.as_str().to_owned()),
+        ),
+        ("storage_class", text::s(f.class.code())),
+        ("usable", text::b(f.usable)),
+        ("mrp_usable", text::b(f.mrp_usable)),
+        ("bonded", text::b(f.bonded)),
+        ("issue_priority", text::int(i64::from(f.issue_priority))),
+        ("ship_priority", text::int(i64::from(f.ship_priority))),
+        ("confirmed", text::b(w.confirmation.confirmed)),
+        ("confirmed_by", text::opt(w.confirmation.by.as_deref())),
+    ];
+    cols.extend(audit_cols(
+        w.active,
+        &w.created_by,
+        &w.created_dept,
+        w.created_on,
+        w.updated_by.as_deref(),
+        w.updated_on,
+        &w.stamp,
+    ));
+    row(cols)
+}
+
+fn wh_loc_key(code: &str, l: &ttrs_domain::warehouse::Location) -> Vec<(&'static str, String)> {
+    vec![
+        ("warehouse_code", code.to_owned()),
+        ("location_code", l.code.as_str().to_owned()),
+    ]
+}
+
+fn wh_loc_row(code: &str, l: &ttrs_domain::warehouse::Location) -> Row {
+    let f = &l.flags;
+    row(vec![
+        ("warehouse_code", text::s(code)),
+        ("location_code", text::s(l.code.as_str())),
+        ("name", text::opt(l.name.as_deref())),
+        ("storage_class", text::s(f.class.code())),
+        ("usable", text::b(f.usable)),
+        ("mrp_usable", text::b(f.mrp_usable)),
+        ("bonded", text::b(f.bonded)),
+        ("issue_priority", text::int(i64::from(f.issue_priority))),
+        ("ship_priority", text::int(i64::from(f.ship_priority))),
+        ("account_method", text::s(l.account_method.code())),
+        ("account", text::opt(l.account.as_deref())),
+        ("account2", text::opt(l.account2.as_deref())),
+    ])
+}
+
+impl State {
+    /// 儲位的異動記錄：只記有變動的列（與 PostgreSQL 觸發器相同）
+    fn log_locations(
+        &mut self,
+        plant: &PlantId,
+        code: &str,
+        old: &[ttrs_domain::warehouse::Location],
+        new: &[ttrs_domain::warehouse::Location],
+    ) {
+        for o in old.iter().filter(|o| !new.iter().any(|n| n.code == o.code)) {
+            self.log_change(
+                Some(plant),
+                "warehouse_location",
+                wh_loc_key(code, o),
+                Some(wh_loc_row(code, o)),
+                None,
+                &[],
+            );
+        }
+        for n in new {
+            let before = old.iter().find(|o| o.code == n.code);
+            if before != Some(n) {
+                self.log_change(
+                    Some(plant),
+                    "warehouse_location",
+                    wh_loc_key(code, n),
+                    before.map(|b| wh_loc_row(code, b)),
+                    Some(wh_loc_row(code, n)),
+                    &[],
+                );
+            }
+        }
+    }
+}
+
+/// 料件或料件分群是否以此倉庫（與儲位）為主要倉儲
+fn warehouse_used(s: &State, plant: &PlantId, code: &str, location: Option<&str>) -> bool {
+    let hit = |w: &Option<String>, l: &Option<String>| {
+        w.as_deref() == Some(code) && location.is_none_or(|loc| l.as_deref() == Some(loc))
+    };
+    s.items
+        .iter()
+        .any(|((p, _), i)| p == plant && hit(&i.attrs.warehouse, &i.attrs.location))
+        || s.item_groups
+            .iter()
+            .any(|((p, _), g)| p == plant && hit(&g.attrs.warehouse, &g.attrs.location))
+}
+
+#[async_trait]
+impl crate::ports::WarehouseRepository for InMemoryStore {
+    async fn list_warehouses(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Vec<ttrs_domain::warehouse::Warehouse>, RepoError> {
+        Ok(self
+            .lock()
+            .warehouses
+            .iter()
+            .filter(|((p, _), _)| p == plant)
+            .map(|(_, w)| w.clone())
+            .collect())
+    }
+
+    async fn get_warehouse(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::warehouse::WarehouseCode,
+    ) -> Result<Option<ttrs_domain::warehouse::Warehouse>, RepoError> {
+        Ok(self
+            .lock()
+            .warehouses
+            .get(&(plant.clone(), code.as_str().to_owned()))
+            .cloned())
+    }
+
+    async fn insert_warehouse(
+        &self,
+        plant: &PlantId,
+        w: &ttrs_domain::warehouse::Warehouse,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.plants.contains_key(plant) {
+            return Err(RepoError::Other(format!(
+                "營運中心不存在：{}",
+                plant.as_str()
+            )));
+        }
+        let key = (plant.clone(), w.code.as_str().to_owned());
+        if s.warehouses.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = w.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            Some(plant),
+            "warehouse",
+            wh_key(&n),
+            None,
+            Some(wh_row(&n)),
+            &[],
+        );
+        s.log_locations(plant, n.code.as_str(), &[], &n.locations);
+        s.warehouses.insert(key, n);
+        Ok(())
+    }
+
+    async fn update_warehouse(
+        &self,
+        plant: &PlantId,
+        w: &ttrs_domain::warehouse::Warehouse,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (plant.clone(), w.code.as_str().to_owned());
+        let Some(old) = s.warehouses.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut n = w.clone();
+        n.stamp = bumped(&old.stamp, &w.stamp)?;
+        s.log_change(
+            Some(plant),
+            "warehouse",
+            wh_key(&n),
+            Some(wh_row(&old)),
+            Some(wh_row(&n)),
+            &[],
+        );
+        s.log_locations(plant, n.code.as_str(), &old.locations, &n.locations);
+        s.warehouses.insert(key, n);
+        Ok(())
+    }
+
+    async fn delete_warehouse(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::warehouse::WarehouseCode,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        if warehouse_used(&s, plant, code.as_str(), None) {
+            return Err(RepoError::InUse);
+        }
+        let Some(old) = s
+            .warehouses
+            .remove(&(plant.clone(), code.as_str().to_owned()))
+        else {
+            return Ok(false);
+        };
+        s.log_locations(plant, old.code.as_str(), &old.locations, &[]);
+        s.log_change(
+            Some(plant),
+            "warehouse",
+            wh_key(&old),
+            Some(wh_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+
+    async fn warehouse_in_use(
+        &self,
+        plant: &PlantId,
+        code: &ttrs_domain::warehouse::WarehouseCode,
+        location: Option<&ttrs_domain::warehouse::LocationCode>,
+    ) -> Result<bool, RepoError> {
+        Ok(warehouse_used(
+            &self.lock(),
+            plant,
+            code.as_str(),
+            location.map(|l| l.as_str()),
+        ))
     }
 }

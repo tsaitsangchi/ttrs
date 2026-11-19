@@ -93,6 +93,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-TW/project.ftl"),
         include_str!("../locales/zh-TW/product_class.ftl"),
         include_str!("../locales/zh-TW/item_group.ftl"),
+        include_str!("../locales/zh-TW/warehouse.ftl"),
     ],
     &[
         include_str!("../locales/en/common.ftl"),
@@ -132,6 +133,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/en/project.ftl"),
         include_str!("../locales/en/product_class.ftl"),
         include_str!("../locales/en/item_group.ftl"),
+        include_str!("../locales/en/warehouse.ftl"),
     ],
     &[
         include_str!("../locales/zh-CN/common.ftl"),
@@ -171,6 +173,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-CN/project.ftl"),
         include_str!("../locales/zh-CN/product_class.ftl"),
         include_str!("../locales/zh-CN/item_group.ftl"),
+        include_str!("../locales/zh-CN/warehouse.ftl"),
     ],
 ];
 
@@ -363,7 +366,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 48] = [
+        const TRANSLATED: [(&str, &str); 49] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/session.rs",
@@ -393,6 +396,10 @@ mod tests {
             (
                 "pages/aim/item_group_maintenance.rs",
                 include_str!("pages/aim/item_group_maintenance.rs"),
+            ),
+            (
+                "pages/aim/warehouse_maintenance.rs",
+                include_str!("pages/aim/warehouse_maintenance.rs"),
             ),
             (
                 "pages/aim/item_auto_number.rs",

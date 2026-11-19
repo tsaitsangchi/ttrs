@@ -383,3 +383,16 @@ carry-history-col-by = Carried by
 carry-history-action-insert = Insert
 carry-history-action-update = Update
 basic-carry-item-item = Items
+
+# 倉庫儲位維護（aimi201；warehouse.feature）
+warehouse-report-title = Warehouses
+warehouse-col-code = Warehouse
+warehouse-col-name = Name
+warehouse-col-class = Class
+warehouse-col-usable = Usable
+warehouse-col-mrp = MRP usable
+warehouse-col-bonded = Bonded
+warehouse-col-location = Location
+warehouse-col-location-name = Location name
+warehouse-class-S = S Store
+warehouse-class-W = W WIP

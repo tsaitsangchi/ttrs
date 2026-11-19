@@ -188,7 +188,7 @@ pub struct ItemAttrs {
     pub shelf_life_days: Option<i32>,
     /// ima25 庫存單位（必填）
     pub stock_unit: Option<String>,
-    /// ima35 主要倉庫（倉庫未移植，不檢查）
+    /// ima35 主要倉庫（須為有效倉庫，由 app 層 check_storage 檢查，WH9）
     pub warehouse: Option<String>,
     /// ima36 主要儲位
     pub location: Option<String>,

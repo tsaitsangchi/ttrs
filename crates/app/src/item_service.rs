@@ -72,6 +72,8 @@ pub struct ItemRepos {
     pub master: Arc<dyn MasterDataRepository>,
     /// 資料控管原則的欄位條件（s_field_chk，data_control.feature DC7）
     pub data_control: Arc<dyn crate::ports::DataControlRepository>,
+    /// 主要倉庫、儲位（warehouse.feature WH9）
+    pub warehouses: Arc<dyn crate::ports::WarehouseRepository>,
     /// 列印、匯出 Excel 的共用組裝（ADR 0013 SA3）
     pub reports: ListReporter,
 }
@@ -294,6 +296,14 @@ impl ItemService {
                 }
             }
             let attrs = self.attrs(&plant, &no, input).await?;
+            // 主要倉庫須有效、主要儲位須屬於該倉庫（mfg1100、mfg1101，WH9）
+            crate::warehouse_service::check_storage(
+                self.repos.warehouses.as_ref(),
+                &plant,
+                attrs.warehouse.as_deref(),
+                attrs.location.as_deref(),
+            )
+            .await?;
             // 受控營運中心自己新增料件時檢查料號、分群碼、材料類別（aimi100.4gl:6208、6310、5549，DC7）
             self.field_check(&plant, "item_no", no.as_str()).await?;
             self.field_check(
@@ -342,6 +352,17 @@ impl ItemService {
             }
             let no = item.no.clone();
             let attrs = self.attrs(&plant, &no, input).await?;
+            // 主要倉庫、儲位：只檢查有變動的（WH9）
+            if (&attrs.warehouse, &attrs.location) != (&item.attrs.warehouse, &item.attrs.location)
+            {
+                crate::warehouse_service::check_storage(
+                    self.repos.warehouses.as_ref(),
+                    &plant,
+                    attrs.warehouse.as_deref(),
+                    attrs.location.as_deref(),
+                )
+                .await?;
+            }
             // 修改時只檢查有變動的分群碼、材料類別（DC7；既有資料不因條件後加而無法修改）
             if attrs.group_code != item.attrs.group_code {
                 self.field_check(

@@ -34,8 +34,8 @@ tables:
       - { legacy: ima28, type: number(15,3), target: safety_period, sch: "安全庫存期間", note: "≥ 0" }
       - { legacy: ima29, type: date, target: last_txn_on, sch: "最近異動日期", note: "唯讀" }
       - { legacy: ima30, type: date, target: last_count_on, sch: "最近盤點日期", note: "新增為今天，唯讀" }
-      - { legacy: ima35, type: varchar2(10), target: warehouse, sch: "主要倉庫別", note: "倉庫未移植，先存代碼不檢查（IM2）", verify: true }
-      - { legacy: ima36, type: varchar2(10), target: location, sch: "主要儲位別", note: "儲位未移植，先存代碼不檢查（IM2）", verify: true }
+      - { legacy: ima35, type: varchar2(10), target: warehouse, sch: "主要倉庫別", note: "須為有效倉庫（warehouse，WH9 mfg1100）；修改時只檢查有變動的欄位" }
+      - { legacy: ima36, type: varchar2(10), target: location, sch: "主要儲位別", note: "須為主要倉庫的儲位（warehouse_location，WH9 mfg1101）；只填儲位不填倉庫時擋下" }
       - { legacy: ima37, type: varchar2(1), target: replenish_policy, sch: "補貨策略碼", note: "0–5（IM23）；0、5 只限來源碼 M S P V Z" }
       - { legacy: ima39, type: varchar2(24), target: account, sch: "料件所屬會計科目", note: "會計科目未移植，先存代碼不檢查", verify: true }
       - { legacy: ima51, type: number(15,3), target: economic_order_qty, sch: "經濟訂購量", note: "> 0，預設 1" }
@@ -314,8 +314,8 @@ tables:
       - { legacy: imz25, type: varchar2(4), target: stock_unit, sch: "庫存單位" }
       - { legacy: imz27, type: number(15,3), target: safety_stock, sch: "安全庫存量" }
       - { legacy: imz28, type: number(15,3), target: safety_period, sch: "安全庫存期間" }
-      - { legacy: imz35, type: varchar2(10), target: warehouse, sch: "主要倉庫別", note: "尚未移植對應主檔，先存代碼不檢查（IG4）", verify: true }
-      - { legacy: imz36, type: varchar2(10), target: location, sch: "主要儲位別", note: "尚未移植對應主檔，先存代碼不檢查（IG4）", verify: true }
+      - { legacy: imz35, type: varchar2(10), target: warehouse, sch: "主要倉庫別", note: "須為有效倉庫（warehouse，WH9 mfg1100）；修改時只檢查有變動的欄位" }
+      - { legacy: imz36, type: varchar2(10), target: location, sch: "主要儲位別", note: "須為主要倉庫的儲位（warehouse_location，WH9 mfg1101）；只填儲位不填倉庫時擋下" }
       - { legacy: imz37, type: varchar2(1), target: replenish_policy, sch: "補貨策略碼" }
       - { legacy: imz38, type: number(15,3), target: reorder_point, sch: "再補貨點" }
       - { legacy: imz39, type: varchar2(24), target: account, sch: "料件所屬會計科目", note: "尚未移植對應主檔，先存代碼不檢查（IG4）", verify: true }
@@ -444,3 +444,56 @@ tables:
       - { legacy: imz924, type: varchar2(1), sch: "序號唯一否", reason: "批號／序號管理隨庫存模組移植（IG12）" }
       - { legacy: imz925, type: varchar2(1), sch: "排序方式", reason: "批號／序號管理隨庫存模組移植（IG12）" }
       - { legacy: imzicd13, type: varchar2(1), sch: "批號管控否", reason: "ICD 資料（IC 設計行業別功能，IG12）" }
+
+  - legacy: imd_file
+    target: warehouse
+    scope: plant
+    program: aimi201（Warehouse Maintenance 倉庫儲位維護；併入 aimi200 多筆表格，WH1）
+    spec: specs/features/aim/warehouse.feature
+    note: "倉庫主檔；工廠層、不拋轉（WH2）。修改倉儲類別、可用、MRP、保稅、優先順序時同步全部儲位（WH5）"
+    columns:
+      - { legacy: imd01, type: varchar2(10) PK NOT NULL, target: warehouse_code, sch: "倉庫別", note: "區分大小寫、最多 10 字、建立後不可修改（WH3(a)）" }
+      - { legacy: imd02, type: varchar2(80), target: name, sch: "倉庫名稱" }
+      - { legacy: imd03, type: varchar2(255), target: address, sch: "地址一" }
+      - { legacy: imd06, type: varchar2(40), target: contact, sch: "負責人" }
+      - { legacy: imd07, type: varchar2(40), target: phone, sch: "電話" }
+      - { legacy: imd08, type: varchar2(24), target: account, sch: "存貨科目", note: "會計科目未移植，先存代碼不檢查（WH3(e)）", verify: true }
+      - { legacy: imd081, type: varchar2(24), target: account2, sch: "存貨科目二", note: "會計科目未移植，先存代碼不檢查（WH3(e)）", verify: true }
+      - { legacy: imd09, type: varchar2(1), target: cost_group, sch: "成本庫別", note: "TipTop 自由輸入 1 碼，用途不明，先照存（WH3(d)）", verify: true }
+      - { legacy: imd10, type: varchar2(1), target: storage_class, sch: "倉儲類別", note: "S 一般倉、W 在製品倉" }
+      - { legacy: imd11, type: varchar2(1), target: usable, sch: "是否為可用倉儲", note: "Y/N → boolean，預設是" }
+      - { legacy: imd12, type: varchar2(1), target: mrp_usable, sch: "是否為ＭＲＰ可用倉儲", note: "Y/N → boolean；不可用時必為否（WH3(b)）" }
+      - { legacy: imd13, type: varchar2(1), target: bonded, sch: "保稅與否", note: "Y/N → boolean，預設否" }
+      - { legacy: imd14, type: number(5), target: issue_priority, sch: "生產發料優先順序", note: "≥ 0，預設 0（aim1007）" }
+      - { legacy: imd15, type: number(5), target: ship_priority, sch: "銷售領料優先順序", note: "≥ 0，預設 0" }
+      - { legacy: imd16, type: varchar2(10), target: cost_center, sch: "成本中心", note: "有效的成本中心或利潤中心部門（WH3(f)）" }
+      - { legacy: imdacti, type: varchar2(1), target: active, sch: "資料有效碼" }
+      - { legacy: imduser, type: varchar2(10), target: created_by, sch: "資料所有者" }
+      - { legacy: imdgrup, type: varchar2(10), target: created_dept, sch: "資料所有群" }
+      - { legacy: imdmodu, type: varchar2(10), target: updated_by, sch: "資料更改者", note: "修改儲位時一併更新（WH10）" }
+      - { legacy: imddate, type: date, target: "created_on / updated_on", sch: "最近修改日", note: "TipTop 新增與修改共用；轉入時同時寫入兩者", verify: true }
+      - { legacy: "(無)", target: "confirmed / confirmed_by / confirmed_at", note: "TTRS 標準確認欄位（ADR 0013 SA9-1）；轉入時未確認" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）；轉入時 version＝1、created_at＝轉檔時間" }
+    not_ported:
+      - { legacy: imd04, type: varchar2(255), sch: "地址二", reason: ".sch 註明 NO USE（WH13）" }
+      - { legacy: imd05, type: varchar2(255), sch: "地址三", reason: ".sch 註明 NO USE（WH13）" }
+
+  - legacy: ime_file
+    target: warehouse_location
+    scope: plant
+    program: aimi201（Warehouse Maintenance 倉庫儲位維護，單身）
+    spec: specs/features/aim/warehouse.feature
+    note: "儲位；工廠層。ime02＝' ' 的空白儲位列不轉入，儲位空白即表示倉庫層級（WH4(b)、WH13）。沒有狀態欄位，版本以倉庫為準（WH10）"
+    columns:
+      - { legacy: ime01, type: varchar2(10) PK NOT NULL, target: warehouse_code, sch: "倉庫編號", note: "外鍵 warehouse，刪除倉庫連同刪除（WH7(a)）" }
+      - { legacy: ime02, type: varchar2(10) PK NOT NULL, target: location_code, sch: "儲位", note: "最多 10 字、區分大小寫、建立後不可修改；空白 ' ' 列不轉入（WH4）" }
+      - { legacy: ime03, type: varchar2(80), target: name, sch: "儲位名稱" }
+      - { legacy: ime04, type: varchar2(1), target: storage_class, sch: "倉儲類別", note: "新增時從倉庫帶入（WH4(c)）" }
+      - { legacy: ime05, type: varchar2(1), target: usable, sch: "是否為可用倉儲", note: "Y/N → boolean" }
+      - { legacy: ime06, type: varchar2(1), target: mrp_usable, sch: "是否為ＭＲＰ可用倉儲", note: "Y/N → boolean；不可用時必為否" }
+      - { legacy: ime07, type: varchar2(1), target: bonded, sch: "保稅與否", note: "Y/N → boolean" }
+      - { legacy: ime08, type: varchar2(1), target: account_method, sch: "會計科目自動顯示方式", note: "0 自行輸入、1 用料件科目、2 用儲位科目（WH4(d)）" }
+      - { legacy: ime09, type: varchar2(24), target: account, sch: "倉儲所屬會計科目", note: "方式 2 才輸入且必填（mfg9043）；會計科目未移植，不檢查", verify: true }
+      - { legacy: ime091, type: varchar2(24), target: account2, sch: "存貨科目二", note: "方式 2 才輸入", verify: true }
+      - { legacy: ime10, type: number(5), target: issue_priority, sch: "工單發料優先順序", note: "≥ 0" }
+      - { legacy: ime11, type: number(5), target: ship_priority, sch: "銷售出貨優先順序", note: "≥ 0" }

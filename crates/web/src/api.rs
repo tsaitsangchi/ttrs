@@ -2694,6 +2694,137 @@ pub async fn product_class_history(
     .await
 }
 
+// ----- Warehouse Maintenance 倉庫儲位維護（TipTop aimi201、aimi200；工廠層） -----
+
+pub async fn query_warehouses(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::WarehouseDto>, String> {
+    post_query(plant_part_url(plant, "warehouses", "", "/query"), req).await
+}
+
+pub async fn create_warehouse(
+    plant: &str,
+    req: &ttrs_shared::WarehouseInput,
+) -> Result<ttrs_shared::WarehouseDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "warehouses", "", ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn update_warehouse(
+    plant: &str,
+    code: &str,
+    req: &ttrs_shared::WarehouseInput,
+) -> Result<ttrs_shared::WarehouseDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        plant_part_url(plant, "warehouses", code, ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn copy_warehouse(
+    plant: &str,
+    code: &str,
+    new_code: &str,
+) -> Result<ttrs_shared::WarehouseDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "warehouses", code, "/copy"),
+        Some(&serde_json::json!({ "new_code": new_code })),
+    )
+    .await
+}
+
+pub async fn delete_warehouse(plant: &str, code: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            plant_part_url(plant, "warehouses", code, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 停用／啟用（activate、deactivate）、確認／取消確認（confirm、unconfirm）
+pub async fn set_warehouse_state(
+    plant: &str,
+    code: &str,
+    state: &str,
+    version: i32,
+) -> Result<ttrs_shared::WarehouseDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "warehouses", code, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn warehouse_history(
+    plant: &str,
+    code: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!(
+        "{}?lang={lang}",
+        plant_part_url(plant, "warehouses", code, "/history")
+    ))
+    .await
+}
+
+/// 新增（edit＝false）或修改儲位
+pub async fn save_warehouse_location(
+    plant: &str,
+    code: &str,
+    edit: bool,
+    req: &ttrs_shared::WarehouseLocationInput,
+) -> Result<ttrs_shared::WarehouseDto, String> {
+    let method = if edit {
+        reqwest::Method::PUT
+    } else {
+        reqwest::Method::POST
+    };
+    send_json(
+        method,
+        plant_part_url(plant, "warehouses", code, "/locations"),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn remove_warehouse_location(
+    plant: &str,
+    code: &str,
+    location: &str,
+    version: i32,
+) -> Result<ttrs_shared::WarehouseDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::DELETE,
+        format!(
+            "{}?version={version}",
+            plant_part_url(
+                plant,
+                "warehouses",
+                code,
+                &format!("/locations/{}", urlencoding(location))
+            )
+        ),
+        None,
+    )
+    .await
+}
+
 // ----- Item Group 料件分群維護（TipTop aimi110；工廠層） -----
 
 /// QBE 查詢（item_group_query.feature）
