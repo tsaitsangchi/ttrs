@@ -172,66 +172,13 @@ impl DepartmentRepository for PgStore {
 
     async fn insert(&self, plant: &PlantId, d: &Department) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
-        let a = &d.accounting;
-        sqlx::query(
-            "INSERT INTO department (dept_code, name, full_name, accounting_dept, expense_type, control_type,
-                 cost_center, active, created_by, created_dept, created_on, updated_by, updated_on,
-                 confirmed, confirmed_by, confirmed_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
-        )
-        .bind(d.code.as_str())
-        .bind(&d.attrs.name)
-        .bind(&d.attrs.full_name)
-        .bind(a.accounting_dept)
-        .bind(a.expense_type.map(|e| e.code()))
-        .bind(a.control_type.code())
-        .bind(a.cost_center.as_ref().map(|c| c.as_str()))
-        .bind(d.active)
-        .bind(&d.created_by)
-        .bind(&d.created_dept)
-        .bind(d.created_on)
-        .bind(&d.updated_by)
-        .bind(d.updated_on)
-        .bind(d.confirmation.confirmed)
-        .bind(&d.confirmation.by)
-        .bind(d.confirmation.at)
-        .execute(&mut *tx)
-        .await
-        .map_err(db_err)?;
+        dept_insert(&mut tx, d).await?;
         tx.commit().await.map_err(db_err)
     }
 
     async fn update(&self, plant: &PlantId, d: &Department) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
-        let a = &d.accounting;
-        let n = sqlx::query(
-            "UPDATE department SET name = $2, full_name = $3, accounting_dept = $4, expense_type = $5,
-                 control_type = $6, cost_center = $7, active = $8, updated_by = $9, updated_on = $10,
-                 confirmed = $12, confirmed_by = $13, confirmed_at = $14
-             WHERE dept_code = $1 AND version = $11",
-        )
-        .bind(d.code.as_str())
-        .bind(&d.attrs.name)
-        .bind(&d.attrs.full_name)
-        .bind(a.accounting_dept)
-        .bind(a.expense_type.map(|e| e.code()))
-        .bind(a.control_type.code())
-        .bind(a.cost_center.as_ref().map(|c| c.as_str()))
-        .bind(d.active)
-        .bind(&d.updated_by)
-        .bind(d.updated_on)
-        .bind(d.stamp.version)
-        .bind(d.confirmation.confirmed)
-        .bind(&d.confirmation.by)
-        .bind(d.confirmation.at)
-        .execute(&mut *tx)
-        .await
-        .map_err(db_err)?
-        .rows_affected();
-        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
-        if n == 0 {
-            return Err(RepoError::Stale);
-        }
+        dept_update(&mut tx, d).await?;
         tx.commit().await.map_err(db_err)
     }
 
@@ -386,8 +333,107 @@ impl EmployeeRepository for PgStore {
 
     async fn insert(&self, plant: &PlantId, e: &Employee) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
-        let a = &e.attrs;
-        sqlx::query(
+        employee_insert(&mut tx, e).await?;
+        tx.commit().await.map_err(db_err)
+    }
+
+    async fn update(&self, plant: &PlantId, e: &Employee) -> Result<(), RepoError> {
+        let mut tx = self.required_plant_tx(plant).await?;
+        employee_update(&mut tx, e).await?;
+        tx.commit().await.map_err(db_err)
+    }
+
+    async fn delete(&self, plant: &PlantId, id: &EmployeeId) -> Result<bool, RepoError> {
+        let mut tx = self.required_plant_tx(plant).await?;
+        let n = sqlx::query("DELETE FROM employee WHERE employee_id = $1")
+            .bind(id.as_str())
+            .execute(&mut *tx)
+            .await
+            .map_err(db_err)?
+            .rows_affected();
+        tx.commit().await.map_err(db_err)?;
+        Ok(n > 0)
+    }
+}
+
+/// 在呼叫端的交易內寫入（基本資料拋轉一個營運中心一個交易，basic_data_carry.feature BC6(d)）
+pub(crate) async fn dept_insert(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    d: &Department,
+) -> Result<(), RepoError> {
+    let a = &d.accounting;
+    sqlx::query(
+            "INSERT INTO department (dept_code, name, full_name, accounting_dept, expense_type, control_type,
+                 cost_center, active, created_by, created_dept, created_on, updated_by, updated_on,
+                 confirmed, confirmed_by, confirmed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)",
+        )
+        .bind(d.code.as_str())
+        .bind(&d.attrs.name)
+        .bind(&d.attrs.full_name)
+        .bind(a.accounting_dept)
+        .bind(a.expense_type.map(|e| e.code()))
+        .bind(a.control_type.code())
+        .bind(a.cost_center.as_ref().map(|c| c.as_str()))
+        .bind(d.active)
+        .bind(&d.created_by)
+        .bind(&d.created_dept)
+        .bind(d.created_on)
+        .bind(&d.updated_by)
+        .bind(d.updated_on)
+        .bind(d.confirmation.confirmed)
+        .bind(&d.confirmation.by)
+        .bind(d.confirmation.at)
+        .execute(&mut **tx)
+        .await
+        .map_err(db_err)?;
+    Ok(())
+}
+
+/// 在呼叫端的交易內寫入（基本資料拋轉一個營運中心一個交易，basic_data_carry.feature BC6(d)）
+pub(crate) async fn dept_update(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    d: &Department,
+) -> Result<(), RepoError> {
+    let a = &d.accounting;
+    let n = sqlx::query(
+            "UPDATE department SET name = $2, full_name = $3, accounting_dept = $4, expense_type = $5,
+                 control_type = $6, cost_center = $7, active = $8, updated_by = $9, updated_on = $10,
+                 confirmed = $12, confirmed_by = $13, confirmed_at = $14
+             WHERE dept_code = $1 AND version = $11",
+        )
+        .bind(d.code.as_str())
+        .bind(&d.attrs.name)
+        .bind(&d.attrs.full_name)
+        .bind(a.accounting_dept)
+        .bind(a.expense_type.map(|e| e.code()))
+        .bind(a.control_type.code())
+        .bind(a.cost_center.as_ref().map(|c| c.as_str()))
+        .bind(d.active)
+        .bind(&d.updated_by)
+        .bind(d.updated_on)
+        .bind(d.stamp.version)
+        .bind(d.confirmation.confirmed)
+        .bind(&d.confirmation.by)
+        .bind(d.confirmation.at)
+        .execute(&mut **tx)
+        .await
+        .map_err(db_err)?
+        .rows_affected();
+    // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+    if n == 0 {
+        return Err(RepoError::Stale);
+    }
+    Ok(())
+}
+
+/// 在呼叫端的交易內寫入（基本資料拋轉一個營運中心一個交易，basic_data_carry.feature BC6(d)）
+pub(crate) async fn employee_insert(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    e: &Employee,
+) -> Result<(), RepoError> {
+    let a = &e.attrs;
+    sqlx::query(
             "INSERT INTO employee (employee_id, name, dept_code, title, extension, email, active,
                  created_by, created_dept, created_on, updated_by, updated_on, confirmed, confirmed_by, confirmed_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
@@ -407,54 +453,44 @@ impl EmployeeRepository for PgStore {
         .bind(e.confirmation.confirmed)
         .bind(&e.confirmation.by)
         .bind(e.confirmation.at)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await
         .map_err(db_err)?;
-        tx.commit().await.map_err(db_err)
-    }
+    Ok(())
+}
 
-    async fn update(&self, plant: &PlantId, e: &Employee) -> Result<(), RepoError> {
-        let mut tx = self.required_plant_tx(plant).await?;
-        let a = &e.attrs;
-        let n = sqlx::query(
-            "UPDATE employee SET name = $2, dept_code = $3, title = $4, extension = $5, email = $6,
+/// 在呼叫端的交易內寫入（基本資料拋轉一個營運中心一個交易，basic_data_carry.feature BC6(d)）
+pub(crate) async fn employee_update(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    e: &Employee,
+) -> Result<(), RepoError> {
+    let a = &e.attrs;
+    let n = sqlx::query(
+        "UPDATE employee SET name = $2, dept_code = $3, title = $4, extension = $5, email = $6,
                  active = $7, updated_by = $8, updated_on = $9,
                  confirmed = $11, confirmed_by = $12, confirmed_at = $13
              WHERE employee_id = $1 AND version = $10",
-        )
-        .bind(e.id.as_str())
-        .bind(&a.name)
-        .bind(a.dept_code.as_ref().map(|d| d.as_str()))
-        .bind(&a.title)
-        .bind(&a.extension)
-        .bind(&a.email)
-        .bind(e.active)
-        .bind(&e.updated_by)
-        .bind(e.updated_on)
-        .bind(e.stamp.version)
-        .bind(e.confirmation.confirmed)
-        .bind(&e.confirmation.by)
-        .bind(e.confirmation.at)
-        .execute(&mut *tx)
-        .await
-        .map_err(db_err)?
-        .rows_affected();
-        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
-        if n == 0 {
-            return Err(RepoError::Stale);
-        }
-        tx.commit().await.map_err(db_err)
+    )
+    .bind(e.id.as_str())
+    .bind(&a.name)
+    .bind(a.dept_code.as_ref().map(|d| d.as_str()))
+    .bind(&a.title)
+    .bind(&a.extension)
+    .bind(&a.email)
+    .bind(e.active)
+    .bind(&e.updated_by)
+    .bind(e.updated_on)
+    .bind(e.stamp.version)
+    .bind(e.confirmation.confirmed)
+    .bind(&e.confirmation.by)
+    .bind(e.confirmation.at)
+    .execute(&mut **tx)
+    .await
+    .map_err(db_err)?
+    .rows_affected();
+    // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+    if n == 0 {
+        return Err(RepoError::Stale);
     }
-
-    async fn delete(&self, plant: &PlantId, id: &EmployeeId) -> Result<bool, RepoError> {
-        let mut tx = self.required_plant_tx(plant).await?;
-        let n = sqlx::query("DELETE FROM employee WHERE employee_id = $1")
-            .bind(id.as_str())
-            .execute(&mut *tx)
-            .await
-            .map_err(db_err)?
-            .rows_affected();
-        tx.commit().await.map_err(db_err)?;
-        Ok(n > 0)
-    }
+    Ok(())
 }

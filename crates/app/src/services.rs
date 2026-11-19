@@ -75,6 +75,8 @@ pub trait Store:
     + crate::ports::GroupCenterRepository
     + crate::ports::DataControlRepository
     + crate::ports::CarrySettingRepository
+    + crate::ports::CarryLogRepository
+    + crate::ports::BasicCarryRepository
     + 'static
 {
 }
@@ -150,6 +152,8 @@ impl<T> Store for T where
         + crate::ports::GroupCenterRepository
         + crate::ports::DataControlRepository
         + crate::ports::CarrySettingRepository
+        + crate::ports::CarryLogRepository
+        + crate::ports::BasicCarryRepository
         + 'static
 {
 }
@@ -190,6 +194,8 @@ pub struct Services {
     pub data_controls: crate::DataControlService,
     /// 資料中心拋轉設定（aooi602）
     pub carry_settings: crate::CarrySettingService,
+    /// 基本資料拋轉（aoop603）與拋轉歷史查詢（aooq604）
+    pub basic_carry: crate::BasicCarryService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210）
     pub basic_codes: BasicCodeService,
     /// 幣別維護（aooi050）
@@ -341,8 +347,24 @@ impl Services {
                 store.clone(),
                 reports.clone(),
             ),
+            basic_carry: crate::BasicCarryService::new(
+                a.clone(),
+                crate::BasicCarryRepos {
+                    centers: store.clone(),
+                    carries: store.clone(),
+                    logs: store.clone(),
+                    writer: store.clone(),
+                    depts: store.clone(),
+                    employees: store.clone(),
+                    codes: store.clone(),
+                    classes: store.clone(),
+                    groups: store.clone(),
+                },
+                reports.clone(),
+            ),
             carry_settings: crate::CarrySettingService::new(
                 a.clone(),
+                store.clone(),
                 store.clone(),
                 store.clone(),
                 store.clone(),
@@ -357,6 +379,7 @@ impl Services {
             ),
             group_centers: crate::GroupCenterService::new(
                 a.clone(),
+                store.clone(),
                 store.clone(),
                 store.clone(),
                 store.clone(),

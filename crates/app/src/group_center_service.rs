@@ -25,7 +25,8 @@ use crate::{
     error::RepoError,
     list_report::{ListReporter, ListSpec},
     ports::{
-        CarrySettingRepository, DataControlRepository, GroupCenterRepository, PlantRepository,
+        CarryLogRepository, CarrySettingRepository, DataControlRepository, GroupCenterRepository,
+        PlantRepository,
     },
     query,
     report::{self, ReportData, ReportFormat},
@@ -55,6 +56,8 @@ pub struct GroupCenterService {
     controls: Arc<dyn DataControlRepository>,
     /// 拋轉設定（carry_setting.feature CS8(b)：刪除集團中心或最後一個來源營運中心時連同刪除）
     carries: Arc<dyn CarrySettingRepository>,
+    /// 拋轉紀錄（已有紀錄時不可刪除，GC8、basic_data_carry.feature BC11）
+    logs: Arc<dyn CarryLogRepository>,
     reports: ListReporter,
 }
 
@@ -65,6 +68,7 @@ impl GroupCenterService {
         plants: Arc<dyn PlantRepository>,
         controls: Arc<dyn DataControlRepository>,
         carries: Arc<dyn CarrySettingRepository>,
+        logs: Arc<dyn CarryLogRepository>,
         reports: ListReporter,
     ) -> Self {
         Self {
@@ -73,6 +77,7 @@ impl GroupCenterService {
             plants,
             controls,
             carries,
+            logs,
             reports,
         }
     }
@@ -339,6 +344,15 @@ impl GroupCenterService {
             let center = self.load(code).await?;
             center.stamp.check(version)?;
             center.confirmation.check_deletable()?;
+            // 已有拋轉紀錄時不可刪除（GC8、BC11）
+            if self
+                .logs
+                .carry_log_exists(&center.code, None)
+                .await
+                .map_err(infra)?
+            {
+                return Err(DomainError::GroupCenterInUse.into());
+            }
             // 連同拋轉設定一起刪除（CS8(b)；PostgreSQL 另有外鍵 ON DELETE CASCADE）
             for c in self.carries.list_carry_settings().await.map_err(infra)? {
                 if c.center == center.code {

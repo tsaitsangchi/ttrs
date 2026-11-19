@@ -418,3 +418,11 @@ error-CARRY_DEFAULT_NOT_FOUND = （使用伺服器訊息）
 error-CARRY_DEFAULT_FIELD_INVALID = （使用伺服器訊息）
 error-CARRY_DEFAULT_VALUE_INVALID = （使用伺服器訊息）
 error-CARRY_BASIC_DATA_NOT_ALLOWED = （使用伺服器訊息）
+
+# 基本資料拋轉（aoop603）
+error-BASIC_CARRY_NOT_SOURCE = （使用伺服器訊息）
+error-BASIC_CARRY_NO_TARGET = （使用伺服器訊息）
+error-BASIC_CARRY_NOTHING_SELECTED = （使用伺服器訊息）
+error-BASIC_CARRY_TARGETS_FIXED = （使用伺服器訊息）
+error-BASIC_CARRY_ITEM_INVALID = （使用伺服器訊息）
+error-BASIC_CARRY_REFERENCE_MISSING = （使用伺服器訊息）

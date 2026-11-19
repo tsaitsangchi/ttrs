@@ -14,14 +14,15 @@ use i18n::{UiLang, t};
 use pages::{
     aim::{ItemGroupMaintenance, ItemMaintenance},
     aoo::{
-        AccountingPeriodMaintenance, AreaMaintenance, CarrySettingMaintenance,
-        ClassificationCodeMaintenance, CountryMaintenance, CurrencyMaintenance, DailyRateCopy,
-        DailyRateMaintenance, DataControlMaintenance, DepartmentMaintenance, EmployeeMaintenance,
-        EncodingClassMaintenance, EncodingNatureMaintenance, EncodingSegmentMaintenance,
-        EncodingYearMaintenance, GeneralParameters, GroupCenterMaintenance,
-        ItemUnitConversionMaintenance, MonthlyRateMaintenance, PlantMaintenance,
-        ProjectMaintenance, RegionMaintenance, ReportTitleMaintenance, ShippingMethodMaintenance,
-        TaxTypeMaintenance, UnitConversionMaintenance, UnitMaintenance,
+        AccountingPeriodMaintenance, AreaMaintenance, BasicDataCarry, CarryHistoryQuery,
+        CarrySettingMaintenance, ClassificationCodeMaintenance, CountryMaintenance,
+        CurrencyMaintenance, DailyRateCopy, DailyRateMaintenance, DataControlMaintenance,
+        DepartmentMaintenance, EmployeeMaintenance, EncodingClassMaintenance,
+        EncodingNatureMaintenance, EncodingSegmentMaintenance, EncodingYearMaintenance,
+        GeneralParameters, GroupCenterMaintenance, ItemUnitConversionMaintenance,
+        MonthlyRateMaintenance, PlantMaintenance, ProjectMaintenance, RegionMaintenance,
+        ReportTitleMaintenance, ShippingMethodMaintenance, TaxTypeMaintenance,
+        UnitConversionMaintenance, UnitMaintenance,
     },
     axm::ProductClassificationMaintenance,
     azz::{
@@ -69,6 +70,12 @@ enum Route {
         /// Encoding Segment Maintenance 編碼獨立段維護（TipTop aooi403）
         #[route("/aoo/encoding-segment-maintenance")]
         EncodingSegmentMaintenance {},
+        /// Basic Data Carry 基本資料拋轉（TipTop aoop603）
+        #[route("/aoo/basic-data-carry")]
+        BasicDataCarry {},
+        /// Carry History Query 拋轉歷史查詢（TipTop aooq604）
+        #[route("/aoo/carry-history-query")]
+        CarryHistoryQuery {},
         /// Carry Setting Maintenance 資料中心拋轉設定（TipTop aooi602）；`?center=` 由集團中心維護帶入（GC7）
         #[route("/aoo/carry-setting-maintenance?:center")]
         CarrySettingMaintenance { center: String },
@@ -254,6 +261,8 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
             icons::CALENDAR_MONTH,
             Tone::Success,
         ),
+        "basic-data-carry" => (Route::BasicDataCarry {}, icons::SYNC, Tone::Success),
+        "carry-history-query" => (Route::CarryHistoryQuery {}, icons::LIST, Tone::Success),
         "carry-setting-maintenance" => (
             Route::CarrySettingMaintenance {
                 center: String::new(),

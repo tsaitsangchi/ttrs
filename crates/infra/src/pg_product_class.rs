@@ -124,8 +124,44 @@ impl ProductClassRepository for PgStore {
         c: &ProductClass,
     ) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
-        let a = &c.attrs;
-        sqlx::query(
+        product_class_insert(&mut tx, c).await?;
+        tx.commit().await.map_err(db_err)
+    }
+
+    async fn update_product_class(
+        &self,
+        plant: &PlantId,
+        c: &ProductClass,
+    ) -> Result<(), RepoError> {
+        let mut tx = self.required_plant_tx(plant).await?;
+        product_class_update(&mut tx, c).await?;
+        tx.commit().await.map_err(db_err)
+    }
+
+    async fn delete_product_class(
+        &self,
+        plant: &PlantId,
+        code: &ProductClassCode,
+    ) -> Result<bool, RepoError> {
+        let mut tx = self.required_plant_tx(plant).await?;
+        let n = sqlx::query("DELETE FROM product_class WHERE class_code = $1")
+            .bind(code.as_str())
+            .execute(&mut *tx)
+            .await
+            .map_err(db_err)?
+            .rows_affected();
+        tx.commit().await.map_err(db_err)?;
+        Ok(n > 0)
+    }
+}
+
+/// 在呼叫端的交易內寫入（基本資料拋轉一個營運中心一個交易，basic_data_carry.feature BC6(d)）
+pub(crate) async fn product_class_insert(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    c: &ProductClass,
+) -> Result<(), RepoError> {
+    let a = &c.attrs;
+    sqlx::query(
             "INSERT INTO product_class (class_code, name, period_format, periods, cost_center, revenue_account,
                  revenue_account2, active, created_by, created_dept, created_on, confirmed, confirmed_by, confirmed_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
@@ -144,20 +180,19 @@ impl ProductClassRepository for PgStore {
         .bind(c.confirmation.confirmed)
         .bind(&c.confirmation.by)
         .bind(c.confirmation.at)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await
         .map_err(db_err)?;
-        tx.commit().await.map_err(db_err)
-    }
+    Ok(())
+}
 
-    async fn update_product_class(
-        &self,
-        plant: &PlantId,
-        c: &ProductClass,
-    ) -> Result<(), RepoError> {
-        let mut tx = self.required_plant_tx(plant).await?;
-        let a = &c.attrs;
-        let n = sqlx::query(
+/// 在呼叫端的交易內寫入（基本資料拋轉一個營運中心一個交易，basic_data_carry.feature BC6(d)）
+pub(crate) async fn product_class_update(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    c: &ProductClass,
+) -> Result<(), RepoError> {
+    let a = &c.attrs;
+    let n = sqlx::query(
             "UPDATE product_class SET name = $2, period_format = $3, periods = $4, cost_center = $5,
                  revenue_account = $6, revenue_account2 = $7, active = $8, updated_by = $9, updated_on = $10,
                  confirmed = $12, confirmed_by = $13, confirmed_at = $14
@@ -177,30 +212,13 @@ impl ProductClassRepository for PgStore {
         .bind(c.confirmation.confirmed)
         .bind(&c.confirmation.by)
         .bind(c.confirmation.at)
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await
         .map_err(db_err)?
         .rows_affected();
-        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
-        if n == 0 {
-            return Err(RepoError::Stale);
-        }
-        tx.commit().await.map_err(db_err)
+    // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+    if n == 0 {
+        return Err(RepoError::Stale);
     }
-
-    async fn delete_product_class(
-        &self,
-        plant: &PlantId,
-        code: &ProductClassCode,
-    ) -> Result<bool, RepoError> {
-        let mut tx = self.required_plant_tx(plant).await?;
-        let n = sqlx::query("DELETE FROM product_class WHERE class_code = $1")
-            .bind(code.as_str())
-            .execute(&mut *tx)
-            .await
-            .map_err(db_err)?
-            .rows_affected();
-        tx.commit().await.map_err(db_err)?;
-        Ok(n > 0)
-    }
+    Ok(())
 }

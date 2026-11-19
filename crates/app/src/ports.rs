@@ -1053,6 +1053,52 @@ pub trait EncodingSegmentRepository: Send + Sync {
     ) -> Result<bool, RepoError>;
 }
 
+/// 基本資料拋轉的寫入（basic_data_carry.feature BC6）：新增或覆蓋
+#[derive(Debug, Clone)]
+pub enum CarryWrite<T> {
+    Insert(T),
+    Update(T),
+}
+
+/// 拋到一個營運中心的全部資料（依 BC4 的順序寫入）
+#[derive(Debug, Clone, Default)]
+pub struct BasicCarryBatch {
+    pub departments: Vec<CarryWrite<ttrs_domain::department::Department>>,
+    pub employees: Vec<CarryWrite<ttrs_domain::employee::Employee>>,
+    pub codes: Vec<CarryWrite<ttrs_domain::classification::ClassificationCode>>,
+    pub product_classes: Vec<CarryWrite<ttrs_domain::product_class::ProductClass>>,
+    pub item_groups: Vec<CarryWrite<ttrs_domain::item_group::ItemGroup>>,
+}
+
+/// 基本資料拋轉：一個營運中心一個交易，任一筆失敗就整批不寫（BC6(d)，ADR 0007 §8）
+#[async_trait]
+pub trait BasicCarryRepository: Send + Sync {
+    async fn apply_basic_carry(
+        &self,
+        target: &PlantId,
+        batch: &BasicCarryBatch,
+    ) -> Result<(), RepoError>;
+}
+
+/// 拋轉紀錄（gex_file；basic_data_carry.feature BC7、BC9）。共用 schema
+#[async_trait]
+pub trait CarryLogRepository: Send + Sync {
+    async fn append_carry_logs(
+        &self,
+        entries: &[ttrs_domain::basic_carry::CarryLogEntry],
+    ) -> Result<(), RepoError>;
+    /// 全部紀錄，依拋轉時間新到舊
+    async fn list_carry_logs(
+        &self,
+    ) -> Result<Vec<ttrs_domain::basic_carry::CarryLogEntry>, RepoError>;
+    /// 是否已有拋轉紀錄（BC11）；data_type 為 None 時看整個資料中心
+    async fn carry_log_exists(
+        &self,
+        center: &ttrs_domain::group_center::GroupCenterCode,
+        data_type: Option<ttrs_domain::group_center::DataType>,
+    ) -> Result<bool, RepoError>;
+}
+
 /// 資料中心拋轉設定（gew_file、gez_file；carry_setting.feature）。共用 schema（CS2）；單頭、拋轉營運中心、條件、預設值一起存取
 #[async_trait]
 pub trait CarrySettingRepository: Send + Sync {

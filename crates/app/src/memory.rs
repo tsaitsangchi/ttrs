@@ -110,6 +110,8 @@ struct State {
     data_controls: BTreeMap<(String, String), ttrs_domain::data_control::ControlledPlant>,
     /// 資料中心拋轉設定（gew_file、gez_file；carry_setting.feature），鍵為（資料中心, 資料類別）
     carry_settings: BTreeMap<(String, String), ttrs_domain::carry_setting::CarrySetting>,
+    /// 拋轉紀錄（gex_file；basic_data_carry.feature）
+    carry_logs: Vec<ttrs_domain::basic_carry::CarryLogEntry>,
     /// 編碼年對照（gff_file；encoding_year.feature），鍵為（年, 長度）
     encoding_years: BTreeMap<(i32, i16), ttrs_domain::encoding_year::EncodingYear>,
     /// 編碼類別（gei_file、gel_file；encoding_class.feature）
@@ -6444,5 +6446,84 @@ impl crate::ports::CarrySettingRepository for InMemoryStore {
             &[],
         );
         Ok(true)
+    }
+}
+
+// ----- 基本資料拋轉與拋轉紀錄（aoop603、gex_file；basic_data_carry.feature） -----
+
+#[async_trait]
+impl crate::ports::CarryLogRepository for InMemoryStore {
+    async fn append_carry_logs(
+        &self,
+        entries: &[ttrs_domain::basic_carry::CarryLogEntry],
+    ) -> Result<(), RepoError> {
+        self.lock().carry_logs.extend(entries.iter().cloned());
+        Ok(())
+    }
+
+    async fn list_carry_logs(
+        &self,
+    ) -> Result<Vec<ttrs_domain::basic_carry::CarryLogEntry>, RepoError> {
+        let mut v = self.lock().carry_logs.clone();
+        v.sort_by_key(|l| std::cmp::Reverse(l.carried_at));
+        Ok(v)
+    }
+
+    async fn carry_log_exists(
+        &self,
+        center: &ttrs_domain::group_center::GroupCenterCode,
+        data_type: Option<ttrs_domain::group_center::DataType>,
+    ) -> Result<bool, RepoError> {
+        Ok(self
+            .lock()
+            .carry_logs
+            .iter()
+            .any(|l| &l.center == center && data_type.is_none_or(|t| l.data_type == t)))
+    }
+}
+
+#[async_trait]
+impl crate::ports::BasicCarryRepository for InMemoryStore {
+    /// 記憶體後端：use case 已先檢查參照，依序寫入（與 PostgreSQL 的單一交易結果相同）
+    async fn apply_basic_carry(
+        &self,
+        target: &PlantId,
+        batch: &crate::ports::BasicCarryBatch,
+    ) -> Result<(), RepoError> {
+        use crate::ports::{
+            CarryWrite, ClassificationCodeRepository, DepartmentRepository, EmployeeRepository,
+            ItemGroupRepository, ProductClassRepository,
+        };
+        for w in &batch.departments {
+            match w {
+                CarryWrite::Insert(d) => DepartmentRepository::insert(self, target, d).await?,
+                CarryWrite::Update(d) => DepartmentRepository::update(self, target, d).await?,
+            }
+        }
+        for w in &batch.employees {
+            match w {
+                CarryWrite::Insert(e) => EmployeeRepository::insert(self, target, e).await?,
+                CarryWrite::Update(e) => EmployeeRepository::update(self, target, e).await?,
+            }
+        }
+        for w in &batch.codes {
+            match w {
+                CarryWrite::Insert(c) => self.insert_code(target, c).await?,
+                CarryWrite::Update(c) => self.update_code(target, c).await?,
+            }
+        }
+        for w in &batch.product_classes {
+            match w {
+                CarryWrite::Insert(c) => self.insert_product_class(target, c).await?,
+                CarryWrite::Update(c) => self.update_product_class(target, c).await?,
+            }
+        }
+        for w in &batch.item_groups {
+            match w {
+                CarryWrite::Insert(g) => self.insert_item_group(target, g).await?,
+                CarryWrite::Update(g) => self.update_item_group(target, g).await?,
+            }
+        }
+        Ok(())
     }
 }

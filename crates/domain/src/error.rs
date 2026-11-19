@@ -540,6 +540,24 @@ pub enum DomainError {
     CarryDefaultValueInvalid,
     #[error("基本資料不可設定拋轉條件、預設值，也不可修改子公司可刪除")]
     CarryBasicDataNotAllowed,
+    // ----- 基本資料拋轉（aoop603 / gex_file；basic_data_carry.feature） -----
+    #[error("目前營運中心不是任何有效資料中心的基本資料來源營運中心，不能執行基本資料拋轉")]
+    BasicCarryNotSource,
+    #[error("這個資料中心的基本資料沒有拋轉營運中心，請先在資料中心拋轉設定維護")]
+    BasicCarryNoTarget,
+    #[error("請至少選擇一項資料與一個拋轉營運中心")]
+    BasicCarryNothingSelected,
+    #[error("拋轉方式不是手動拋轉，會拋給全部拋轉營運中心，不能另外挑選")]
+    BasicCarryTargetsFixed,
+    #[error("不能拋轉的資料項目：{0}")]
+    BasicCarryItemInvalid(String),
+    #[error("{item} {key} 的 {field} {value} 在拋轉營運中心不存在")]
+    BasicCarryReferenceMissing {
+        item: String,
+        key: String,
+        field: String,
+        value: String,
+    },
     // ----- 料件自動編號（aimi100 / aza28；item_auto_number.feature） -----
     #[error("整體管理系統參數未開啟料件編號自動編碼")]
     ItemAutoNumberDisabled,
@@ -1060,6 +1078,12 @@ impl DomainError {
             Self::CarryDefaultFieldInvalid => "CARRY_DEFAULT_FIELD_INVALID",
             Self::CarryDefaultValueInvalid => "CARRY_DEFAULT_VALUE_INVALID",
             Self::CarryBasicDataNotAllowed => "CARRY_BASIC_DATA_NOT_ALLOWED",
+            Self::BasicCarryNotSource => "BASIC_CARRY_NOT_SOURCE",
+            Self::BasicCarryNoTarget => "BASIC_CARRY_NO_TARGET",
+            Self::BasicCarryNothingSelected => "BASIC_CARRY_NOTHING_SELECTED",
+            Self::BasicCarryTargetsFixed => "BASIC_CARRY_TARGETS_FIXED",
+            Self::BasicCarryItemInvalid(_) => "BASIC_CARRY_ITEM_INVALID",
+            Self::BasicCarryReferenceMissing { .. } => "BASIC_CARRY_REFERENCE_MISSING",
             Self::ItemAutoNumberDisabled => "ITEM_AUTO_NUMBER_DISABLED",
             Self::EncodingClassNotForItem => "ENCODING_CLASS_NOT_FOR_ITEM",
             Self::EncodingRuleValueRequired => "ENCODING_RULE_VALUE_REQUIRED",

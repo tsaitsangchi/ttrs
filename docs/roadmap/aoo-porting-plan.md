@@ -107,9 +107,9 @@
 | aooi600 ★ | 集團中心 | geu_file、gev（gev03＝Y） | M | ✅ 2026-11-18 完成（group_center.feature GC1–GC11） |
 | aooi601 | 資料控管原則 | gev（gev03＝N）、gey | M | ✅ 2026-11-18 完成（data_control.feature DC1–DC11；料件維護套用欄位條件） |
 | aooi602 ★ | 資料中心拋轉設定 | gew、gez | L | ✅ 2026-11-19 完成（carry_setting.feature CS1–CS12；集團中心「拋轉設定」按鈕接上） |
-| aoop603 | 基本資料拋轉 | gev、geu | M | 移植（背景作業） |
-| aoop605 | 基本資料上傳 | geu、gew | M | 待確認 |
-| aooq604 | 資料拋轉歷史查詢 | — | S | 移植 |
+| aoop603 | 基本資料拋轉 | gev、geu、gex | M | ✅ 2026-11-19 完成（basic_data_carry.feature BC1–BC12；一個營運中心一個交易） |
+| aoop605 | 基本資料上傳 | geu、gew | M | 不移植（離線營運中心以檔案交換；TTRS 同一資料庫，BC12） |
+| aooq604 | 資料拋轉歷史查詢 | gex | S | ✅ 2026-11-19 完成（basic_data_carry.feature BC9） |
 | coop060 ★、coop070 ★ | 客製基本資料拋轉 | — | S | 待確認 |
 
 TTRS 一廠一個 schema、全部在同一個資料庫（ADR 0007）。做法已在 ADR 0007 §8 定案（2026-11-03）：拋轉設定由使用者維護

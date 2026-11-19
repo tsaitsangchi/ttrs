@@ -43,6 +43,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     services.translate = services
         .translate
         .with_engine(Arc::new(ttrs_infra::ClaudeCliEngine::from_env()));
+    // 基本資料拋轉完成通知（basic_data_carry.feature BC8）：寄給拋轉營運中心設定的通知人員
+    if let Some(m) = &mailer {
+        services.basic_carry = services
+            .basic_carry
+            .clone()
+            .with_mailer(m.clone() as Arc<dyn ttrs_app::mail::Mailer>);
+    }
     // 每日匯率排程（exchange_rate_import.feature IM8）：失敗寄信給 TTRS_ADMIN_MAIL
     services.rates = rate_job::with_job_mail(
         services.rates,

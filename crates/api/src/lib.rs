@@ -70,6 +70,8 @@ pub struct AppState {
     pub data_controls: ttrs_app::DataControlService,
     /// 資料中心拋轉設定（aooi602；carry_setting.feature）
     pub carry_settings: ttrs_app::CarrySettingService,
+    /// 基本資料拋轉（aoop603）與拋轉歷史查詢（aooq604；basic_data_carry.feature）
+    pub basic_carry: ttrs_app::BasicCarryService,
     pub encoding_years: ttrs_app::EncodingYearService,
     pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
@@ -169,6 +171,7 @@ impl AppState {
             group_centers,
             data_controls,
             carry_settings,
+            basic_carry,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -212,6 +215,7 @@ impl AppState {
             group_centers,
             data_controls,
             carry_settings,
+            basic_carry,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -627,6 +631,16 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/encoding-segments/{code}/{state}",
             post(set_encoding_segment_state),
+        )
+        // Basic Data Carry 基本資料拋轉（TipTop aoop603）、Carry History 拋轉歷史查詢（aooq604；basic_data_carry.feature）
+        .route(
+            "/api/plants/{plant}/basic-data-carry",
+            get(basic_carry_info).post(run_basic_carry),
+        )
+        .route("/api/carry-history/query", post(query_carry_history))
+        .route(
+            "/api/carry-history/report.{format}",
+            get(carry_history_report),
         )
         // Carry Setting Maintenance 資料中心拋轉設定（TipTop aooi602；共用；carry_setting.feature）
         .route("/api/carry-settings", post(create_carry_setting))
@@ -1875,6 +1889,8 @@ impl IntoResponse for HttpError {
             | "DATA_CONTROL_PLANT_ALREADY_EXISTS"
             | "CARRY_SETTING_ALREADY_EXISTS"
             | "CARRY_SETTING_IN_USE"
+            | "BASIC_CARRY_NOT_SOURCE"
+            | "BASIC_CARRY_NO_TARGET"
             | "CARRY_TARGET_ALREADY_EXISTS"
             | "CARRY_CONDITION_ALREADY_EXISTS"
             | "CARRY_DEFAULT_ALREADY_EXISTS"
@@ -3983,6 +3999,48 @@ async fn delete_encoding_segment(
     let version = Some(require_version(v.version)?);
     s.encoding_segments.delete(&s.actor, &code, version).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- Basic Data Carry 基本資料拋轉（aoop603）、Carry History 拋轉歷史查詢（aooq604） -----
+
+use ttrs_shared::{BasicCarryInfoDto, BasicCarryRequest, BasicCarryResultDto, CarryLogDto};
+
+async fn basic_carry_info(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+) -> ApiResult<Json<BasicCarryInfoDto>> {
+    Ok(Json(s.basic_carry.info(&s.actor, &plant).await?))
+}
+
+/// 執行拋轉（carry）
+async fn run_basic_carry(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<BasicCarryRequest>,
+) -> ApiResult<Json<BasicCarryResultDto>> {
+    Ok(Json(s.basic_carry.carry(&s.actor, &plant, req).await?))
+}
+
+async fn query_carry_history(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<CarryLogDto>>> {
+    Ok(Json(s.basic_carry.history(&s.actor, req).await?))
+}
+
+async fn carry_history_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .basic_carry
+        .history_report(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 // ----- Carry Setting Maintenance 資料中心拋轉設定（aooi602） -----

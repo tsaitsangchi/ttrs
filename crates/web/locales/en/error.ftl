@@ -418,3 +418,11 @@ error-CARRY_DEFAULT_NOT_FOUND = This default value was not found.
 error-CARRY_DEFAULT_FIELD_INVALID = This field cannot have a default value.
 error-CARRY_DEFAULT_VALUE_INVALID = The default value is required (up to 255 characters).
 error-CARRY_BASIC_DATA_NOT_ALLOWED = Basic data cannot have carry conditions or default values, and "plant may delete" cannot be changed.
+
+# 基本資料拋轉（aoop603）
+error-BASIC_CARRY_NOT_SOURCE = This plant is not the basic data source plant of any active data center, so basic data cannot be carried here.
+error-BASIC_CARRY_NO_TARGET = The basic data of this data center has no target plants. Set them in Carry Setting Maintenance first.
+error-BASIC_CARRY_NOTHING_SELECTED = Select at least one kind of data and one target plant.
+error-BASIC_CARRY_TARGETS_FIXED = The carry mode is not manual, so data is carried to all target plants and you cannot choose plants.
+error-BASIC_CARRY_ITEM_INVALID = This kind of data cannot be carried.
+error-BASIC_CARRY_REFERENCE_MISSING = A record refers to data that does not exist in the target plant.

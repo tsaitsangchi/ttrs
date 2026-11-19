@@ -19,6 +19,8 @@ pub enum MailTemplate {
     PasswordChanged,
     /// 每日匯率排程有步驟失敗（exchange_rate_import.feature IM8）
     RateJobFailed,
+    /// 基本資料拋轉完成通知（basic_data_carry.feature BC8）
+    BasicCarryDone,
 }
 
 impl MailTemplate {
@@ -27,6 +29,7 @@ impl MailTemplate {
             Self::PasswordReset => "mail-password-reset",
             Self::PasswordChanged => "mail-password-changed",
             Self::RateJobFailed => "mail-rate-job-failed",
+            Self::BasicCarryDone => "mail-basic-carry-done",
         }
     }
 }

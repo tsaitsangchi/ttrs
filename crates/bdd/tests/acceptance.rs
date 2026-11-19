@@ -115,6 +115,11 @@ pub struct ErpWorld {
     /// 資料中心拋轉設定（carry_setting.feature）與「另一位使用者修改」前的版本
     pub carry_settings: ttrs_app::CarrySettingService,
     pub carry_version: Option<i32>,
+    /// 基本資料拋轉與拋轉歷史（basic_data_carry.feature）與最後一次拋轉結果
+    pub basic_carry: ttrs_app::BasicCarryService,
+    pub carry_result: Option<ttrs_shared::BasicCarryResultDto>,
+    pub carry_info: Option<ttrs_shared::BasicCarryInfoDto>,
+    pub carry_history: Option<Vec<ttrs_shared::CarryLogDto>>,
     /// 編碼年對照維護（encoding_year.feature）與「另一位使用者修改」前的版本
     pub encoding_years: ttrs_app::EncodingYearService,
     pub year_version: Option<i32>,
@@ -218,7 +223,7 @@ impl ErpWorld {
                     .expect("drop plant schemas");
                 sqlx::query("TRUNCATE change_log, user_permission, user_plant, password_reset_token, user_credential, user_account, legacy_column, legacy_table, column_dictionary_text, table_dictionary_text, table_dictionary, audit_log, query_definition, menu_item, program_permission, program_name, \
                      program, permission_class, module, unit, plant, \
-                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year, unit_conversion, translation_job, epub_github_library, epub_github_shared_library, encoding_class_segment, encoding_class, encoding_nature, encoding_segment_code, encoding_segment, encoding_year_code, carry_default, carry_condition, carry_target, carry_setting, data_control_rule, data_control_plant, data_center_type, group_center \
+                     report_title_text, report_title, area, country, region, shipping_method, monthly_exchange_rate, daily_exchange_rate, currency, tax_type, accounting_period, accounting_year, unit_conversion, translation_job, epub_github_library, epub_github_shared_library, encoding_class_segment, encoding_class, encoding_nature, encoding_segment_code, encoding_segment, encoding_year_code, carry_log, carry_default, carry_condition, carry_target, carry_setting, data_control_rule, data_control_plant, data_center_type, group_center \
                      RESTART IDENTITY CASCADE")
                     .execute(&pool)
                     .await
@@ -272,6 +277,7 @@ impl ErpWorld {
             group_centers,
             data_controls,
             carry_settings,
+            basic_carry,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -356,6 +362,10 @@ impl ErpWorld {
             data_control_version: None,
             carry_settings,
             carry_version: None,
+            basic_carry,
+            carry_result: None,
+            carry_info: None,
+            carry_history: None,
             encoding_years,
             year_version: None,
             encoding_classes,

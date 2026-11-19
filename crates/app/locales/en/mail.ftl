@@ -23,3 +23,11 @@ mail-rate-job-failed-body =
     { $detail }
 
     Check today's rates in Daily Exchange Rates; if the Bank of Taiwan site cannot be downloaded, upload its CSV on that page.
+
+mail-basic-carry-done-subject = TTRS basic data carried ({ $center } → { $plant }, { $date })
+mail-basic-carry-done-body =
+    Data center { $center } carried basic data to plant { $plant }:
+
+    { $detail }
+
+    Contact the data center administrator if you have questions.

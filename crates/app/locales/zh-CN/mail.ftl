@@ -23,3 +23,11 @@ mail-rate-job-failed-body =
     { $detail }
 
     请到「每日汇率维护」确认今天的汇率；台银网站无法下载时，可在画面上传台银 CSV 导入。
+
+mail-basic-carry-done-subject = TTRS 基本资料抛转通知（{ $center } → { $plant }，{ $date }）
+mail-basic-carry-done-body =
+    资料中心 { $center } 已将基本资料抛转到营运中心 { $plant }：
+
+    { $detail }
+
+    若有疑问请洽资料中心的系统管理人员。

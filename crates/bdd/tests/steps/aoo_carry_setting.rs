@@ -146,6 +146,9 @@ async fn add(w: &mut ErpWorld, center: String, t: String, mode: String) {
     w.last = Some(r.map(drop));
 }
 
+#[given(
+    regex = r#"^使用者(以舊版本)?把拋轉設定 "([^"]*)" 資料類別 "([^"]*)" 的拋轉方式改為 "([^"]*)"$"#
+)]
 #[when(
     regex = r#"^使用者(以舊版本)?把拋轉設定 "([^"]*)" 資料類別 "([^"]*)" 的拋轉方式改為 "([^"]*)"$"#
 )]
@@ -181,6 +184,9 @@ async fn add_target(w: &mut ErpWorld, center: String, t: String, plant: String) 
     w.last = Some(r.map(drop));
 }
 
+#[given(
+    regex = r#"^使用者把拋轉設定 "([^"]*)" 資料類別 "([^"]*)" 的拋轉營運中心 "([^"]*)" 改為子公司可刪除 "(是|否)"，更新已存在資料 "(是|否)"，通知人員 "([^"]*)"$"#
+)]
 #[when(
     regex = r#"^使用者把拋轉設定 "([^"]*)" 資料類別 "([^"]*)" 的拋轉營運中心 "([^"]*)" 改為子公司可刪除 "(是|否)"，更新已存在資料 "(是|否)"，通知人員 "([^"]*)"$"#
 )]
@@ -274,6 +280,7 @@ async fn add_default(
     w.last = Some(r.map(drop));
 }
 
+#[given(regex = r#"^使用者刪除拋轉設定 "([^"]*)" 資料類別 "([^"]*)" 的拋轉營運中心 "([^"]*)"$"#)]
 #[when(regex = r#"^使用者刪除拋轉設定 "([^"]*)" 資料類別 "([^"]*)" 的拋轉營運中心 "([^"]*)"$"#)]
 async fn remove_target(w: &mut ErpWorld, center: String, t: String, plant: String) {
     let v = version(w, &center, &t).await;

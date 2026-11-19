@@ -24,7 +24,7 @@ use crate::{
     authorization::Grant,
     error::RepoError,
     list_report::{ListReporter, ListSpec},
-    ports::{CarrySettingRepository, GroupCenterRepository, PlantRepository},
+    ports::{CarryLogRepository, CarrySettingRepository, GroupCenterRepository, PlantRepository},
     query,
     report::{self, ReportData, ReportFormat},
 };
@@ -55,6 +55,8 @@ pub struct CarrySettingService {
     carries: Arc<dyn CarrySettingRepository>,
     centers: Arc<dyn GroupCenterRepository>,
     plants: Arc<dyn PlantRepository>,
+    /// 拋轉紀錄（已有紀錄時不可刪除，CS8(c)、basic_data_carry.feature BC11）
+    logs: Arc<dyn CarryLogRepository>,
     reports: ListReporter,
 }
 
@@ -75,6 +77,7 @@ impl CarrySettingService {
         carries: Arc<dyn CarrySettingRepository>,
         centers: Arc<dyn GroupCenterRepository>,
         plants: Arc<dyn PlantRepository>,
+        logs: Arc<dyn CarryLogRepository>,
         reports: ListReporter,
     ) -> Self {
         Self {
@@ -82,6 +85,7 @@ impl CarrySettingService {
             carries,
             centers,
             plants,
+            logs,
             reports,
         }
     }
@@ -442,6 +446,14 @@ impl CarrySettingService {
             self.authorize(actor, "delete").await?;
             let c = self.load(center, data_type).await?;
             c.stamp.check(version)?;
+            if self
+                .logs
+                .carry_log_exists(&c.center, Some(c.data_type))
+                .await
+                .map_err(infra)?
+            {
+                return Err(DomainError::CarrySettingInUse.into());
+            }
             match self
                 .carries
                 .delete_carry_setting(&c.center, c.data_type)

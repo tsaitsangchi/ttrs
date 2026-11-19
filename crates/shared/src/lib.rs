@@ -1937,6 +1937,61 @@ pub mod data_control_max_len {
     pub const VALUES: usize = 255;
 }
 
+/// 基本資料拋轉畫面資料（aoop603；basic_data_carry.feature BC1）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BasicCarryInfoDto {
+    pub center_code: String,
+    pub center_name: Option<String>,
+    /// 拋轉方式 1–3（3 才可挑選拋轉營運中心，BC5）
+    pub mode: String,
+    /// 可拋轉的資料項目代號，依拋轉順序（BC3、BC4）
+    pub items: Vec<String>,
+    /// 拋轉營運中心
+    pub targets: Vec<String>,
+}
+
+/// 執行基本資料拋轉；targets 為 None 時拋給全部拋轉營運中心
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BasicCarryRequest {
+    pub items: Vec<String>,
+    pub targets: Option<Vec<String>>,
+}
+
+/// 拋轉結果：每個拋轉營運中心 × 資料項目一列（BC6）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BasicCarryResultDto {
+    pub rows: Vec<BasicCarryResultRow>,
+    /// 通知信寄送失敗的提示（BC8）
+    pub mail_warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BasicCarryResultRow {
+    pub plant: String,
+    pub item: String,
+    pub inserted: u32,
+    pub updated: u32,
+    pub skipped: u32,
+    pub ok: bool,
+    /// 失敗原因（該營運中心不寫入，BC6(d)）
+    pub error: Option<String>,
+}
+
+/// 拋轉紀錄（gex_file；aooq604，BC7、BC9）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CarryLogDto {
+    pub center_code: String,
+    pub data_type: String,
+    pub plant: String,
+    pub program: String,
+    pub record_key: String,
+    /// insert／update
+    pub action: String,
+    pub carried_at: DateTime<Utc>,
+    pub carried_by: String,
+}
+
 /// 資料中心拋轉設定（aooi602 / gew_file、gez_file；carry_setting.feature）：一個資料中心＋資料類別一筆
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CarrySettingDto {

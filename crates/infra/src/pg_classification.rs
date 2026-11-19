@@ -124,62 +124,13 @@ impl ClassificationCodeRepository for PgStore {
 
     async fn insert_code(&self, plant: &PlantId, c: &ClassificationCode) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
-        sqlx::query(
-            "INSERT INTO classification_code (kind, code, description, variance_account, variance_account2,
-                 cost_nature, active, created_by, created_dept, created_on, updated_by, updated_on,
-                 confirmed, confirmed_by, confirmed_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
-        )
-        .bind(c.kind.code())
-        .bind(c.code.as_str())
-        .bind(&c.attrs.description)
-        .bind(&c.attrs.variance_account)
-        .bind(&c.attrs.variance_account2)
-        .bind(c.attrs.cost_nature)
-        .bind(c.active)
-        .bind(&c.created_by)
-        .bind(&c.created_dept)
-        .bind(c.created_on)
-        .bind(&c.updated_by)
-        .bind(c.updated_on)
-        .bind(c.confirmation.confirmed)
-        .bind(&c.confirmation.by)
-        .bind(c.confirmation.at)
-        .execute(&mut *tx)
-        .await
-        .map_err(db_err)?;
+        code_insert(&mut tx, c).await?;
         tx.commit().await.map_err(db_err)
     }
 
     async fn update_code(&self, plant: &PlantId, c: &ClassificationCode) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
-        let n = sqlx::query(
-            "UPDATE classification_code SET description = $3, variance_account = $4, variance_account2 = $5,
-                 cost_nature = $6, active = $7, updated_by = $8, updated_on = $9,
-                 confirmed = $11, confirmed_by = $12, confirmed_at = $13
-             WHERE kind = $1 AND code = $2 AND version = $10",
-        )
-        .bind(c.kind.code())
-        .bind(c.code.as_str())
-        .bind(&c.attrs.description)
-        .bind(&c.attrs.variance_account)
-        .bind(&c.attrs.variance_account2)
-        .bind(c.attrs.cost_nature)
-        .bind(c.active)
-        .bind(&c.updated_by)
-        .bind(c.updated_on)
-        .bind(c.stamp.version)
-        .bind(c.confirmation.confirmed)
-        .bind(&c.confirmation.by)
-        .bind(c.confirmation.at)
-        .execute(&mut *tx)
-        .await
-        .map_err(db_err)?
-        .rows_affected();
-        // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
-        if n == 0 {
-            return Err(RepoError::Stale);
-        }
+        code_update(&mut tx, c).await?;
         tx.commit().await.map_err(db_err)
     }
 
@@ -201,4 +152,71 @@ impl ClassificationCodeRepository for PgStore {
         tx.commit().await.map_err(db_err)?;
         Ok(n > 0)
     }
+}
+
+/// 在呼叫端的交易內寫入（基本資料拋轉一個營運中心一個交易，basic_data_carry.feature BC6(d)）
+pub(crate) async fn code_insert(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    c: &ClassificationCode,
+) -> Result<(), RepoError> {
+    sqlx::query(
+            "INSERT INTO classification_code (kind, code, description, variance_account, variance_account2,
+                 cost_nature, active, created_by, created_dept, created_on, updated_by, updated_on,
+                 confirmed, confirmed_by, confirmed_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)",
+        )
+        .bind(c.kind.code())
+        .bind(c.code.as_str())
+        .bind(&c.attrs.description)
+        .bind(&c.attrs.variance_account)
+        .bind(&c.attrs.variance_account2)
+        .bind(c.attrs.cost_nature)
+        .bind(c.active)
+        .bind(&c.created_by)
+        .bind(&c.created_dept)
+        .bind(c.created_on)
+        .bind(&c.updated_by)
+        .bind(c.updated_on)
+        .bind(c.confirmation.confirmed)
+        .bind(&c.confirmation.by)
+        .bind(c.confirmation.at)
+        .execute(&mut **tx)
+        .await
+        .map_err(db_err)?;
+    Ok(())
+}
+
+/// 在呼叫端的交易內寫入（基本資料拋轉一個營運中心一個交易，basic_data_carry.feature BC6(d)）
+pub(crate) async fn code_update(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    c: &ClassificationCode,
+) -> Result<(), RepoError> {
+    let n = sqlx::query(
+            "UPDATE classification_code SET description = $3, variance_account = $4, variance_account2 = $5,
+                 cost_nature = $6, active = $7, updated_by = $8, updated_on = $9,
+                 confirmed = $11, confirmed_by = $12, confirmed_at = $13
+             WHERE kind = $1 AND code = $2 AND version = $10",
+        )
+        .bind(c.kind.code())
+        .bind(c.code.as_str())
+        .bind(&c.attrs.description)
+        .bind(&c.attrs.variance_account)
+        .bind(&c.attrs.variance_account2)
+        .bind(c.attrs.cost_nature)
+        .bind(c.active)
+        .bind(&c.updated_by)
+        .bind(c.updated_on)
+        .bind(c.stamp.version)
+        .bind(c.confirmation.confirmed)
+        .bind(&c.confirmation.by)
+        .bind(c.confirmation.at)
+        .execute(&mut **tx)
+        .await
+        .map_err(db_err)?
+        .rows_affected();
+    // 版本不符：他人已修改（樂觀鎖，ADR 0012 §4）
+    if n == 0 {
+        return Err(RepoError::Stale);
+    }
+    Ok(())
 }

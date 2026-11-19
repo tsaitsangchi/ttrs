@@ -2078,6 +2078,37 @@ pub async fn delete_encoding_year(key: &str, version: i32) -> Result<(), String>
     no_content(res).await
 }
 
+// ----- Basic Data Carry 基本資料拋轉（aoop603）、Carry History 拋轉歷史查詢（aooq604） -----
+
+pub async fn basic_carry_info(plant: &str) -> Result<ttrs_shared::BasicCarryInfoDto, String> {
+    get_json(url(&format!(
+        "/api/plants/{}/basic-data-carry",
+        urlencoding(plant)
+    )))
+    .await
+}
+
+pub async fn run_basic_carry(
+    plant: &str,
+    req: &ttrs_shared::BasicCarryRequest,
+) -> Result<ttrs_shared::BasicCarryResultDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        url(&format!(
+            "/api/plants/{}/basic-data-carry",
+            urlencoding(plant)
+        )),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn query_carry_history(
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::CarryLogDto>, String> {
+    post_query(url("/api/carry-history/query"), req).await
+}
+
 // ----- Carry Setting Maintenance 資料中心拋轉設定（TipTop aooi602；共用） -----
 
 fn carry_url(center: &str, data_type: &str, suffix: &str) -> String {

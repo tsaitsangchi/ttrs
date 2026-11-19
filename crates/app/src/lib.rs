@@ -2,6 +2,7 @@
 
 pub mod accounting_period_service;
 pub mod authorization;
+pub mod basic_carry_service;
 pub mod basic_code_service;
 pub mod carry_setting_service;
 pub mod change_history_service;
@@ -58,6 +59,7 @@ pub mod user_service;
 
 pub use accounting_period_service::AccountingPeriodService;
 pub use authorization::{Actor, ActorKind, Authorizer, PermissionAuthorizer};
+pub use basic_carry_service::{BasicCarryRepos, BasicCarryService};
 pub use basic_code_service::BasicCodeService;
 pub use carry_setting_service::CarrySettingService;
 pub use change_history_service::ChangeHistoryService;

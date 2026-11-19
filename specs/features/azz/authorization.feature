@@ -481,6 +481,11 @@
       | carry-setting-maintenance    | output       | 列印拋轉設定               |
       | carry-setting-maintenance    | exporttoexcel | 匯出拋轉設定為 Excel      |
       | carry-setting-maintenance    | history      | 查詢作業 carry-setting-maintenance DC 的異動記錄 |
+      | basic-data-carry             | query        | 開啟基本資料拋轉           |
+      | basic-data-carry             | carry        | 執行基本資料拋轉           |
+      | carry-history-query          | query        | 查詢拋轉歷史               |
+      | carry-history-query          | output       | 列印拋轉歷史               |
+      | carry-history-query          | exporttoexcel | 匯出拋轉歷史為 Excel      |
       | encoding-segment-maintenance | history      | 查詢作業 encoding-segment-maintenance COLOR 的異動記錄 |
       | encoding-class-maintenance | query        | 查詢編碼類別               |
       | encoding-class-maintenance | query        | 試算編碼類別 FG            |

@@ -1310,6 +1310,45 @@ pub mod encoding_nature {
     }
 }
 
+pub mod carry_log {
+    use ttrs_domain::qbe::FieldType;
+    use ttrs_shared::{CarryLogDto, QbeCondition};
+
+    use super::*;
+
+    /// aooq604.4gl:103-106 的查詢欄位：資料中心、資料類別、拋轉營運中心、程式代號、主鍵值、拋轉日期、拋轉人員
+    pub const FIELDS: &[Field] = &[
+        field("center_code", FieldType::Text),
+        field("data_type", FieldType::Text),
+        field("plant", FieldType::Text),
+        field("program", FieldType::Text),
+        field("record_key", FieldType::Text),
+        field("action", FieldType::Text),
+        field("carried_on", FieldType::Date),
+        field("carried_by", FieldType::Text),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(l: &CarryLogDto, field: &str) -> FieldValue {
+        match field {
+            "center_code" => text(&l.center_code),
+            "data_type" => text(&l.data_type),
+            "plant" => text(&l.plant),
+            "program" => text(&l.program),
+            "record_key" => text(&l.record_key),
+            "action" => text(&l.action),
+            "carried_on" => date(Some(
+                l.carried_at.with_timezone(&chrono::Local).date_naive(),
+            )),
+            "carried_by" => text(&l.carried_by),
+            _ => FieldValue::One(None),
+        }
+    }
+}
+
 pub mod carry_setting {
     use ttrs_domain::qbe::FieldType;
     use ttrs_shared::{CarrySettingDto, QbeCondition};

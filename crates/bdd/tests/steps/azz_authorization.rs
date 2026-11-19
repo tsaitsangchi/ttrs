@@ -954,6 +954,45 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 基本資料拋轉、拋轉歷史查詢（aoop603、aooq604；沒有資料中心時回 BASIC_CARRY_NOT_SOURCE，不是權限拒絕）
+        ["開啟基本資料拋轉"] => w.basic_carry.info(a, "TW01").await.map(drop),
+        ["執行基本資料拋轉"] => w
+            .basic_carry
+            .carry(
+                a,
+                "TW01",
+                ttrs_shared::BasicCarryRequest {
+                    items: vec!["department".into()],
+                    targets: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["查詢拋轉歷史"] => w
+            .basic_carry
+            .history(a, QueryRequest::default())
+            .await
+            .map(drop),
+        ["列印拋轉歷史"] => w
+            .basic_carry
+            .history_report(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出拋轉歷史為", "Excel"] => w
+            .basic_carry
+            .history_report(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         // 資料中心拋轉設定（aooi602；資料不存在時回 CARRY_* 或 GROUP_CENTER_* 錯誤，不是權限拒絕）
         ["查詢拋轉設定"] => w
             .carry_settings

@@ -418,3 +418,11 @@ error-CARRY_DEFAULT_NOT_FOUND = 找不到这个预设值。
 error-CARRY_DEFAULT_FIELD_INVALID = 这个栏位不能设置预设值。
 error-CARRY_DEFAULT_VALUE_INVALID = 预设值必填，最多 255 字。
 error-CARRY_BASIC_DATA_NOT_ALLOWED = 基本资料不可设置抛转条件、预设值，也不可修改子公司可删除。
+
+# 基本資料拋轉（aoop603）
+error-BASIC_CARRY_NOT_SOURCE = 目前营运中心不是任何有效资料中心的基本资料来源营运中心，不能执行基本资料抛转。
+error-BASIC_CARRY_NO_TARGET = 这个资料中心的基本资料没有抛转营运中心，请先在资料中心抛转设置维护。
+error-BASIC_CARRY_NOTHING_SELECTED = 请至少选择一项资料与一个抛转营运中心。
+error-BASIC_CARRY_TARGETS_FIXED = 抛转方式不是手动抛转，会抛给全部抛转营运中心，不能另外挑选。
+error-BASIC_CARRY_ITEM_INVALID = 不能抛转的资料项目。
+error-BASIC_CARRY_REFERENCE_MISSING = 资料参照的资料在抛转营运中心不存在。

@@ -2,6 +2,8 @@
 
 mod accounting_period_maintenance;
 mod basic_code_maintenance;
+mod basic_data_carry;
+mod carry_history_query;
 mod carry_setting_maintenance;
 mod classification_code_maintenance;
 mod currency_maintenance;
@@ -28,6 +30,8 @@ pub use basic_code_maintenance::{
     AreaMaintenance, CountryMaintenance, RegionMaintenance, ReportTitleMaintenance,
     ShippingMethodMaintenance,
 };
+pub use basic_data_carry::BasicDataCarry;
+pub use carry_history_query::CarryHistoryQuery;
 pub use carry_setting_maintenance::CarrySettingMaintenance;
 pub use classification_code_maintenance::ClassificationCodeMaintenance;
 pub use currency_maintenance::CurrencyMaintenance;

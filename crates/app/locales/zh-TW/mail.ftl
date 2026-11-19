@@ -23,3 +23,11 @@ mail-rate-job-failed-body =
     { $detail }
 
     請到「每日匯率維護」確認今天的匯率；台銀網站無法下載時，可在畫面上傳台銀 CSV 匯入。
+
+mail-basic-carry-done-subject = TTRS 基本資料拋轉通知（{ $center } → { $plant }，{ $date }）
+mail-basic-carry-done-body =
+    資料中心 { $center } 已將基本資料拋轉到營運中心 { $plant }：
+
+    { $detail }
+
+    若有疑問請洽資料中心的系統管理人員。
