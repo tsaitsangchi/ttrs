@@ -81,6 +81,8 @@ pub struct ItemService {
     authz: Arc<dyn Authorizer>,
     repos: ItemRepos,
     history: HistoryReader,
+    /// 料件拋轉（item_carry.feature）：確認時自動拋轉、子公司收到料件的限制
+    carry: Option<crate::ItemCarryService>,
 }
 
 impl ItemService {
@@ -89,7 +91,32 @@ impl ItemService {
             authz,
             repos,
             history,
+            carry: None,
         }
+    }
+
+    /// 接上料件拋轉（item_carry.feature IC3、IC9）
+    pub fn with_carry(mut self, carry: crate::ItemCarryService) -> Self {
+        self.carry = Some(carry);
+        self
+    }
+
+    /// 子公司收到的料件：不可修改（aoo-045）／不可刪除（aoo-044）（IC9）
+    async fn check_carried(
+        &self,
+        plant: &PlantId,
+        item: &Item,
+        delete: bool,
+    ) -> Result<(), AppError> {
+        let Some(c) = &self.carry else { return Ok(()) };
+        let (can_update, can_delete) = c.rights(plant, item).await?;
+        if delete && !can_delete {
+            return Err(DomainError::ItemCarriedNotDeletable.into());
+        }
+        if !delete && !can_update {
+            return Err(DomainError::ItemCarriedNotEditable.into());
+        }
+        Ok(())
     }
 
     pub async fn list(&self, actor: &Actor, plant: &str) -> Result<Vec<ItemDto>, AppError> {
@@ -308,6 +335,8 @@ impl ItemService {
             let mut item = self.load(&plant, no).await?;
             grant.record(&item.created_by, &item.created_dept)?;
             item.stamp.check(input.version)?;
+            // 子公司收到的料件不可修改（i100_u aoo-045，IC9）
+            self.check_carried(&plant, &item, false).await?;
             if !item.active() {
                 return Err(DomainError::ItemInactive.into());
             }
@@ -344,10 +373,25 @@ impl ItemService {
         no: &str,
         version: Option<i32>,
     ) -> Result<ItemDto, AppError> {
-        self.change(actor, plant, no, version, "confirm", |i, u, d| {
-            i.confirm(u, d)
-        })
-        .await
+        let mut dto = self
+            .change(actor, plant, no, version, "confirm", |i, u, d| {
+                i.confirm(u, d)
+            })
+            .await?;
+        // 拋轉方式 1：確認成功後自動拋轉；拋轉失敗不影響確認（i100sub_carry，IC3）
+        if let Some(c) = &self.carry {
+            let plant = PlantId::parse(plant)?;
+            if let Some(item) = self
+                .repos
+                .items
+                .get_item(&plant, &ItemNo::parse(no)?)
+                .await
+                .map_err(infra)?
+            {
+                dto.carry_result = c.auto_carry(actor, &plant, &item).await;
+            }
+        }
+        Ok(dto)
     }
 
     /// 取消確認（i100_notconfirm）
@@ -378,6 +422,8 @@ impl ItemService {
             let mut item = self.load(&plant, no).await?;
             grant.record(&item.created_by, &item.created_dept)?;
             item.stamp.check(version)?;
+            // 子公司收到的料件不可作廢（i100_x aoo-045，IC9）
+            self.check_carried(&plant, &item, false).await?;
             if item.active() && self.has_transactions(&plant, &item.no).await? {
                 return Err(DomainError::ItemHasTransactions.into());
             }
@@ -406,6 +452,8 @@ impl ItemService {
             let item = self.load(&plant, no).await?;
             grant.record(&item.created_by, &item.created_dept)?;
             item.stamp.check(version)?;
+            // 子公司收到的料件依「子公司可刪除」（i100_r aoo-044，IC9）
+            self.check_carried(&plant, &item, true).await?;
             if self.has_transactions(&plant, &item.no).await? {
                 return Err(DomainError::ItemHasTransactions.into());
             }
@@ -482,6 +530,7 @@ impl ItemService {
             let plant = PlantId::parse(plant)?;
             let item = self.load(&plant, no).await?;
             grant.record(&item.created_by, &item.created_dept)?;
+            self.check_carried(&plant, &item, false).await?;
             let lang = Lang::parse(&text.lang)?;
             if lang.is_default() {
                 return Err(DomainError::LanguageNotSupported(text.lang).into());
@@ -538,6 +587,10 @@ impl ItemService {
             let mut item = self.load(&plant, no).await?;
             grant.record(&item.created_by, &item.created_dept)?;
             item.stamp.check(version)?;
+            // 子公司收到的料件不可取消確認（i100_notconfirm aoo-045，IC9）
+            if action == "notconfirm" {
+                self.check_carried(&plant, &item, false).await?;
+            }
             f(&mut item, &actor.user_id, today())?;
             self.save(&plant, &item).await
         })
@@ -766,6 +819,7 @@ impl ItemService {
         };
         let s = &i.system;
         Ok(ItemDto {
+            carry_result: None,
             fields,
             active_code: i.active_code.code().to_owned(),
             status_code: i.status_code.code().to_owned(),

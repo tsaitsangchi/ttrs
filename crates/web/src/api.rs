@@ -2078,6 +2078,41 @@ pub async fn delete_encoding_year(key: &str, version: i32) -> Result<(), String>
     no_content(res).await
 }
 
+// ----- 料件拋轉（aimi100 carry；item_carry.feature） -----
+
+pub async fn item_carry_info(plant: &str) -> Result<ttrs_shared::ItemCarryInfoDto, String> {
+    get_json(url(&format!(
+        "/api/plants/{}/items-carry",
+        urlencoding(plant)
+    )))
+    .await
+}
+
+pub async fn run_item_carry(
+    plant: &str,
+    no: &str,
+    req: &ttrs_shared::ItemCarryRequest,
+) -> Result<ttrs_shared::ItemCarryResultDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        url(&format!(
+            "/api/plants/{}/items-carry/{}",
+            urlencoding(plant),
+            urlencoding(no)
+        )),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn item_carry_history(no: &str) -> Result<Vec<ttrs_shared::CarryLogDto>, String> {
+    get_json(url(&format!(
+        "/api/items-carry-history/{}",
+        urlencoding(no)
+    )))
+    .await
+}
+
 // ----- Basic Data Carry 基本資料拋轉（aoop603）、Carry History 拋轉歷史查詢（aooq604） -----
 
 pub async fn basic_carry_info(plant: &str) -> Result<ttrs_shared::BasicCarryInfoDto, String> {

@@ -49,6 +49,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .basic_carry
             .clone()
             .with_mailer(m.clone() as Arc<dyn ttrs_app::mail::Mailer>);
+        services.item_carry = services
+            .item_carry
+            .clone()
+            .with_mailer(m.clone() as Arc<dyn ttrs_app::mail::Mailer>);
+        services.items = services
+            .items
+            .clone()
+            .with_carry(services.item_carry.clone());
     }
     // 每日匯率排程（exchange_rate_import.feature IM8）：失敗寄信給 TTRS_ADMIN_MAIL
     services.rates = rate_job::with_job_mail(

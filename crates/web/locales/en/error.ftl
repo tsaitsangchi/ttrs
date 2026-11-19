@@ -426,3 +426,9 @@ error-BASIC_CARRY_NOTHING_SELECTED = Select at least one kind of data and one ta
 error-BASIC_CARRY_TARGETS_FIXED = The carry mode is not manual, so data is carried to all target plants and you cannot choose plants.
 error-BASIC_CARRY_ITEM_INVALID = This kind of data cannot be carried.
 error-BASIC_CARRY_REFERENCE_MISSING = A record refers to data that does not exist in the target plant.
+
+# 料件拋轉（aimi100 carry）
+error-ITEM_CARRY_NOT_CONFIRMED = Only active, confirmed items can be carried.
+error-ITEM_CARRY_NOT_SOURCE = This plant is not the item source plant of any active data center, so items cannot be carried here.
+error-ITEM_CARRIED_NOT_EDITABLE = This item was carried from the data center and cannot be changed in this plant.
+error-ITEM_CARRIED_NOT_DELETABLE = This item was carried from the data center and cannot be deleted in this plant.

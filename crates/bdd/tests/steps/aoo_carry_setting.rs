@@ -250,6 +250,9 @@ async fn remove_condition(w: &mut ErpWorld, center: String, t: String, plant: St
     w.last = Some(r.map(drop));
 }
 
+#[given(
+    regex = r#"^使用者為拋轉設定 "([^"]*)" 資料類別 "([^"]*)" 營運中心 "([^"]*)" 新增預設值：欄位 "([^"]*)"，值 "([^"]*)"$"#
+)]
 #[when(
     regex = r#"^使用者為拋轉設定 "([^"]*)" 資料類別 "([^"]*)" 營運中心 "([^"]*)" 新增預設值：欄位 "([^"]*)"，值 "([^"]*)"$"#
 )]

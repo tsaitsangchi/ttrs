@@ -78,6 +78,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-TW/carry_setting.ftl"),
         include_str!("../locales/zh-TW/basic_carry.ftl"),
         include_str!("../locales/zh-TW/carry_history.ftl"),
+        include_str!("../locales/zh-TW/item_carry.ftl"),
         include_str!("../locales/zh-TW/encoding_year.ftl"),
         include_str!("../locales/zh-TW/encoding_class.ftl"),
         include_str!("../locales/zh-TW/basic_code.ftl"),
@@ -116,6 +117,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/en/carry_setting.ftl"),
         include_str!("../locales/en/basic_carry.ftl"),
         include_str!("../locales/en/carry_history.ftl"),
+        include_str!("../locales/en/item_carry.ftl"),
         include_str!("../locales/en/encoding_year.ftl"),
         include_str!("../locales/en/encoding_class.ftl"),
         include_str!("../locales/en/basic_code.ftl"),
@@ -154,6 +156,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-CN/carry_setting.ftl"),
         include_str!("../locales/zh-CN/basic_carry.ftl"),
         include_str!("../locales/zh-CN/carry_history.ftl"),
+        include_str!("../locales/zh-CN/item_carry.ftl"),
         include_str!("../locales/zh-CN/encoding_year.ftl"),
         include_str!("../locales/zh-CN/encoding_class.ftl"),
         include_str!("../locales/zh-CN/basic_code.ftl"),
@@ -360,7 +363,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 47] = [
+        const TRANSLATED: [(&str, &str); 48] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/session.rs",
@@ -426,6 +429,10 @@ mod tests {
             (
                 "pages/aoo/carry_history_query.rs",
                 include_str!("pages/aoo/carry_history_query.rs"),
+            ),
+            (
+                "pages/aim/item_carry.rs",
+                include_str!("pages/aim/item_carry.rs"),
             ),
             (
                 "pages/aoo/encoding_nature_maintenance.rs",

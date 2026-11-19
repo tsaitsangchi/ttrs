@@ -6527,3 +6527,46 @@ impl crate::ports::BasicCarryRepository for InMemoryStore {
         Ok(())
     }
 }
+
+#[async_trait]
+impl crate::ports::ItemCarryRepository for InMemoryStore {
+    /// 記憶體後端：use case 已先檢查參照，依序寫入（與 PostgreSQL 的單一交易結果相同，item_carry.feature IC7）
+    async fn apply_item_carry(
+        &self,
+        target: &PlantId,
+        batch: &crate::ports::ItemCarryBatch,
+    ) -> Result<(), RepoError> {
+        use crate::ports::{CarryWrite, ItemUnitConversionRepository};
+        let no = match &batch.item {
+            CarryWrite::Insert(i) => {
+                self.insert_item(target, i).await?;
+                i.no.clone()
+            }
+            CarryWrite::Update(i) => {
+                self.update_item(target, i).await?;
+                i.no.clone()
+            }
+        };
+        // 多語言品名規格：以來源為準整批取代（IC6(d)）
+        for old in self.item_texts(target, &no).await? {
+            if !batch.texts.iter().any(|t| t.lang == old.lang) {
+                let empty = ttrs_domain::item::ItemText {
+                    lang: old.lang.clone(),
+                    name: None,
+                    spec: None,
+                };
+                self.set_item_text(target, &no, &empty).await?;
+            }
+        }
+        for t in &batch.texts {
+            self.set_item_text(target, &no, t).await?;
+        }
+        for w in &batch.conversions {
+            match w {
+                CarryWrite::Insert(c) => self.insert_item_unit_conversion(target, c).await?,
+                CarryWrite::Update(c) => self.update_item_unit_conversion(target, c).await?,
+            }
+        }
+        Ok(())
+    }
+}

@@ -216,25 +216,7 @@ impl ItemUnitConversionRepository for PgStore {
         c: &ItemUnitConversion,
     ) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
-        let v = &c.conversion;
-        sqlx::query(
-            "INSERT INTO item_unit_conversion (item_no, from_unit, to_unit, from_quantity, to_quantity, note,
-                 active, created_by, created_dept, created_on)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
-        )
-        .bind(c.item.as_str())
-        .bind(v.from_unit.as_str())
-        .bind(v.to_unit.as_str())
-        .bind(v.from_quantity)
-        .bind(v.to_quantity)
-        .bind(&v.note)
-        .bind(c.active)
-        .bind(&c.created_by)
-        .bind(&c.created_dept)
-        .bind(c.created_on)
-        .execute(&mut *tx)
-        .await
-        .map_err(db_err)?;
+        item_conversion_insert(&mut tx, c).await?;
         tx.commit().await.map_err(db_err)
     }
 
@@ -244,29 +226,7 @@ impl ItemUnitConversionRepository for PgStore {
         c: &ItemUnitConversion,
     ) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
-        let v = &c.conversion;
-        let n = sqlx::query(
-            "UPDATE item_unit_conversion SET from_quantity = $4, to_quantity = $5, note = $6, active = $7,
-                    updated_by = $8, updated_on = $9
-              WHERE item_no = $1 AND from_unit = $2 AND to_unit = $3 AND version = $10",
-        )
-        .bind(c.item.as_str())
-        .bind(v.from_unit.as_str())
-        .bind(v.to_unit.as_str())
-        .bind(v.from_quantity)
-        .bind(v.to_quantity)
-        .bind(&v.note)
-        .bind(c.active)
-        .bind(&c.updated_by)
-        .bind(c.updated_on)
-        .bind(c.stamp.version)
-        .execute(&mut *tx)
-        .await
-        .map_err(db_err)?
-        .rows_affected();
-        if n == 0 {
-            return Err(RepoError::Stale);
-        }
+        item_conversion_update(&mut tx, c).await?;
         tx.commit().await.map_err(db_err)
     }
 
@@ -291,4 +251,62 @@ impl ItemUnitConversionRepository for PgStore {
         tx.commit().await.map_err(db_err)?;
         Ok(n > 0)
     }
+}
+
+/// 在呼叫端的交易內寫入（料件拋轉一個營運中心一個交易，item_carry.feature IC7）
+pub(crate) async fn item_conversion_insert(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    c: &ItemUnitConversion,
+) -> Result<(), RepoError> {
+    let v = &c.conversion;
+    sqlx::query(
+            "INSERT INTO item_unit_conversion (item_no, from_unit, to_unit, from_quantity, to_quantity, note,
+                 active, created_by, created_dept, created_on)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+        )
+        .bind(c.item.as_str())
+        .bind(v.from_unit.as_str())
+        .bind(v.to_unit.as_str())
+        .bind(v.from_quantity)
+        .bind(v.to_quantity)
+        .bind(&v.note)
+        .bind(c.active)
+        .bind(&c.created_by)
+        .bind(&c.created_dept)
+        .bind(c.created_on)
+        .execute(&mut **tx)
+        .await
+        .map_err(db_err)?;
+    Ok(())
+}
+
+/// 在呼叫端的交易內寫入（料件拋轉一個營運中心一個交易，item_carry.feature IC7）
+pub(crate) async fn item_conversion_update(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    c: &ItemUnitConversion,
+) -> Result<(), RepoError> {
+    let v = &c.conversion;
+    let n = sqlx::query(
+            "UPDATE item_unit_conversion SET from_quantity = $4, to_quantity = $5, note = $6, active = $7,
+                    updated_by = $8, updated_on = $9
+              WHERE item_no = $1 AND from_unit = $2 AND to_unit = $3 AND version = $10",
+        )
+        .bind(c.item.as_str())
+        .bind(v.from_unit.as_str())
+        .bind(v.to_unit.as_str())
+        .bind(v.from_quantity)
+        .bind(v.to_quantity)
+        .bind(&v.note)
+        .bind(c.active)
+        .bind(&c.updated_by)
+        .bind(c.updated_on)
+        .bind(c.stamp.version)
+        .execute(&mut **tx)
+        .await
+        .map_err(db_err)?
+        .rows_affected();
+    if n == 0 {
+        return Err(RepoError::Stale);
+    }
+    Ok(())
 }

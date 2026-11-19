@@ -286,6 +286,8 @@ fn ItemPage(item_no: String) -> Element {
     let plant = use_signal(String::new);
     let mut error = use_signal(|| None::<String>);
     let mut message = use_signal(|| None::<String>);
+    // 料件拋轉結果：拋轉鈕與確認時的自動拋轉（item_carry.feature IC1、IC3）
+    let mut carry_result = use_signal(|| None::<ttrs_shared::ItemCarryResultDto>);
     let mut rec = use_query_records_on_demand(move |req| {
         let p = plant();
         async move {
@@ -491,6 +493,9 @@ fn ItemPage(item_no: String) -> Element {
         spawn(async move {
             match api::item_action(&p, &c.fields.item_no, action, c.version).await {
                 Ok(r) => {
+                    if r.carry_result.is_some() {
+                        carry_result.set(r.carry_result.clone());
+                    }
                     let no = r.fields.item_no.clone();
                     done(tf(ok_id, &[("no", no.as_str())]), Some(no));
                 }
@@ -664,6 +669,12 @@ fn ItemPage(item_no: String) -> Element {
                                 onclick: move |_| act("order-invalid", "item-msg-order-invalid"),
                                 {t("item-action-order-invalid")}
                             }
+                        }
+                        // 拋轉 carry、拋轉歷史 qry_carry_history（item_carry.feature IC1）
+                        super::item_carry::ItemCarryActions {
+                            plant: plant(),
+                            item_no: cur.as_ref().map(|c| c.fields.item_no.clone()),
+                            result: carry_result,
                         }
                     }
                 } else {

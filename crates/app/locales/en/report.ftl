@@ -382,3 +382,4 @@ carry-history-col-at = Carried at
 carry-history-col-by = Carried by
 carry-history-action-insert = Insert
 carry-history-action-update = Update
+basic-carry-item-item = Items

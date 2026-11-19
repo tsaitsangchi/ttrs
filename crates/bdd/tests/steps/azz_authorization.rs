@@ -954,6 +954,13 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 料件拋轉（aimi100 carry；料件不存在時回 ITEM_NOT_FOUND，不是權限拒絕）
+        ["拋轉料件", no] => w
+            .item_carry
+            .carry(a, "TW01", no, ttrs_shared::ItemCarryRequest::default())
+            .await
+            .map(drop),
+        ["查詢料件", no, "的拋轉歷史"] => w.item_carry.history(a, no).await.map(drop),
         // 基本資料拋轉、拋轉歷史查詢（aoop603、aooq604；沒有資料中心時回 BASIC_CARRY_NOT_SOURCE，不是權限拒絕）
         ["開啟基本資料拋轉"] => w.basic_carry.info(a, "TW01").await.map(drop),
         ["執行基本資料拋轉"] => w

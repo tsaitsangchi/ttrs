@@ -98,6 +98,9 @@ pub struct ItemDto {
     /// 可輸入的欄位；name、spec 依查詢語系（指定語系 → zh-TW）
     #[serde(flatten)]
     pub fields: ItemInput,
+    /// 確認時自動拋轉的結果（item_carry.feature IC3）；其他操作為 None
+    #[serde(default)]
+    pub carry_result: Option<ItemCarryResultDto>,
     /// imaacti 資料有效碼：P 處理中、Y 已確認、N 無效（IM27）
     pub active_code: String,
     /// ima1010 狀態碼：0 開立、1 確認
@@ -1935,6 +1938,35 @@ pub struct DataControlCopyInput {
 /// 畫面 maxlength（與 ttrs_domain::data_control 一致）
 pub mod data_control_max_len {
     pub const VALUES: usize = 255;
+}
+
+/// 料件拋轉（aimi100 carry；item_carry.feature）：targets 為 None 時拋給全部拋轉營運中心
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ItemCarryRequest {
+    pub targets: Option<Vec<String>>,
+}
+
+/// 料件拋轉畫面資料：資料中心、拋轉方式、拋轉營運中心（IC1）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemCarryInfoDto {
+    pub center_code: String,
+    pub mode: String,
+    pub targets: Vec<String>,
+}
+
+/// 料件拋轉結果：每個營運中心一列；outcome 為 inserted、updated、skipped、not_matched、failed
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemCarryResultDto {
+    pub rows: Vec<ItemCarryResultRow>,
+    pub mail_warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemCarryResultRow {
+    pub plant: String,
+    pub outcome: String,
+    pub error: Option<String>,
 }
 
 /// 基本資料拋轉畫面資料（aoop603；basic_data_carry.feature BC1）

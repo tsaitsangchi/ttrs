@@ -382,3 +382,4 @@ carry-history-col-at = 抛转时间
 carry-history-col-by = 抛转人员
 carry-history-action-insert = 新增
 carry-history-action-update = 覆盖
+basic-carry-item-item = 料件

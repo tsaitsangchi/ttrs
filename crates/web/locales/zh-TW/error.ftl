@@ -426,3 +426,9 @@ error-BASIC_CARRY_NOTHING_SELECTED = （使用伺服器訊息）
 error-BASIC_CARRY_TARGETS_FIXED = （使用伺服器訊息）
 error-BASIC_CARRY_ITEM_INVALID = （使用伺服器訊息）
 error-BASIC_CARRY_REFERENCE_MISSING = （使用伺服器訊息）
+
+# 料件拋轉（aimi100 carry）
+error-ITEM_CARRY_NOT_CONFIRMED = （使用伺服器訊息）
+error-ITEM_CARRY_NOT_SOURCE = （使用伺服器訊息）
+error-ITEM_CARRIED_NOT_EDITABLE = （使用伺服器訊息）
+error-ITEM_CARRIED_NOT_DELETABLE = （使用伺服器訊息）

@@ -1080,6 +1080,25 @@ pub trait BasicCarryRepository: Send + Sync {
     ) -> Result<(), RepoError>;
 }
 
+/// 拋到一個營運中心的一筆料件與子資料（item_carry.feature IC6）
+#[derive(Debug, Clone)]
+pub struct ItemCarryBatch {
+    pub item: CarryWrite<ttrs_domain::item::Item>,
+    /// 多語言品名規格：以來源為準整批取代
+    pub texts: Vec<ttrs_domain::item::ItemText>,
+    pub conversions: Vec<CarryWrite<ttrs_domain::unit_conversion::ItemUnitConversion>>,
+}
+
+/// 料件拋轉：一個營運中心一個交易（IC7）
+#[async_trait]
+pub trait ItemCarryRepository: Send + Sync {
+    async fn apply_item_carry(
+        &self,
+        target: &PlantId,
+        batch: &ItemCarryBatch,
+    ) -> Result<(), RepoError>;
+}
+
 /// 拋轉紀錄（gex_file；basic_data_carry.feature BC7、BC9）。共用 schema
 #[async_trait]
 pub trait CarryLogRepository: Send + Sync {

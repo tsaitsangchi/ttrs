@@ -426,3 +426,9 @@ error-BASIC_CARRY_NOTHING_SELECTED = 请至少选择一项资料与一个抛转�
 error-BASIC_CARRY_TARGETS_FIXED = 抛转方式不是手动抛转，会抛给全部抛转营运中心，不能另外挑选。
 error-BASIC_CARRY_ITEM_INVALID = 不能抛转的资料项目。
 error-BASIC_CARRY_REFERENCE_MISSING = 资料参照的资料在抛转营运中心不存在。
+
+# 料件拋轉（aimi100 carry）
+error-ITEM_CARRY_NOT_CONFIRMED = 只有有效且已确认的料件可以抛转。
+error-ITEM_CARRY_NOT_SOURCE = 目前营运中心不是任何有效资料中心的料件来源营运中心，不能抛转。
+error-ITEM_CARRIED_NOT_EDITABLE = 这是资料中心抛转来的料件，本营运中心不可修改。
+error-ITEM_CARRIED_NOT_DELETABLE = 这是资料中心抛转来的料件，本营运中心不可删除。

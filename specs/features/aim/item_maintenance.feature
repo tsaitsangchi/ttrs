@@ -92,7 +92,8 @@
 #        其他等各模組移植時加入（列在 legacy-map 待辦），可以嗎？
 #  IM13. 他廠拋轉相關（ima916 資料來源、aoo-044／aoo-045、s_field_chk 欄位管控 aoo-043、確認後自動拋轉）：資料拋轉延後（IM1），
 #        第一階段 ima916 記錄目前營運中心、不做這些檢查，可以嗎？
-#        （2026-11-18：s_field_chk 欄位管控 aoo-043 已由 specs/features/aoo/data_control.feature DC7 接上；其餘仍延後。）
+#        （2026-11-18：s_field_chk 欄位管控 aoo-043 已由 specs/features/aoo/data_control.feature DC7 接上；
+#         2026-11-19：拋轉、確認後自動拋轉、aoo-044／aoo-045 依 specs/features/aim/item_carry.feature 接上。）
 #  IM14. 雙單位 ima906–ima908 依系統參數 sma115（未移植）：第一階段固定單一單位（ima906＝1），欄位保留，可以嗎？
 #  IM15. 自動編碼（aza28＋s_auno，No:A086）：正式區有開啟嗎？未開啟則第一階段不做。
 #        （2026-11-17 已補上：specs/features/aim/item_auto_number.feature AN1–AN7。）

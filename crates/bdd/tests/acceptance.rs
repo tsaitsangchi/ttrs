@@ -117,6 +117,9 @@ pub struct ErpWorld {
     pub carry_version: Option<i32>,
     /// 基本資料拋轉與拋轉歷史（basic_data_carry.feature）與最後一次拋轉結果
     pub basic_carry: ttrs_app::BasicCarryService,
+    /// 料件拋轉（item_carry.feature）與最後一次結果
+    pub item_carry: ttrs_app::ItemCarryService,
+    pub item_carry_result: Option<ttrs_shared::ItemCarryResultDto>,
     pub carry_result: Option<ttrs_shared::BasicCarryResultDto>,
     pub carry_info: Option<ttrs_shared::BasicCarryInfoDto>,
     pub carry_history: Option<Vec<ttrs_shared::CarryLogDto>>,
@@ -278,6 +281,7 @@ impl ErpWorld {
             data_controls,
             carry_settings,
             basic_carry,
+            item_carry,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -363,6 +367,8 @@ impl ErpWorld {
             carry_settings,
             carry_version: None,
             basic_carry,
+            item_carry,
+            item_carry_result: None,
             carry_result: None,
             carry_info: None,
             carry_history: None,

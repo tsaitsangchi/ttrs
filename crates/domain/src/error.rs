@@ -558,6 +558,15 @@ pub enum DomainError {
         field: String,
         value: String,
     },
+    // ----- 料件拋轉（aimi100 carry；item_carry.feature） -----
+    #[error("只有有效且已確認的料件可以拋轉")]
+    ItemCarryNotConfirmed,
+    #[error("目前營運中心不是任何有效資料中心的料件來源營運中心，不能拋轉")]
+    ItemCarryNotSource,
+    #[error("這是資料中心拋轉來的料件，本營運中心不可修改")]
+    ItemCarriedNotEditable,
+    #[error("這是資料中心拋轉來的料件，本營運中心不可刪除")]
+    ItemCarriedNotDeletable,
     // ----- 料件自動編號（aimi100 / aza28；item_auto_number.feature） -----
     #[error("整體管理系統參數未開啟料件編號自動編碼")]
     ItemAutoNumberDisabled,
@@ -1084,6 +1093,10 @@ impl DomainError {
             Self::BasicCarryTargetsFixed => "BASIC_CARRY_TARGETS_FIXED",
             Self::BasicCarryItemInvalid(_) => "BASIC_CARRY_ITEM_INVALID",
             Self::BasicCarryReferenceMissing { .. } => "BASIC_CARRY_REFERENCE_MISSING",
+            Self::ItemCarryNotConfirmed => "ITEM_CARRY_NOT_CONFIRMED",
+            Self::ItemCarryNotSource => "ITEM_CARRY_NOT_SOURCE",
+            Self::ItemCarriedNotEditable => "ITEM_CARRIED_NOT_EDITABLE",
+            Self::ItemCarriedNotDeletable => "ITEM_CARRIED_NOT_DELETABLE",
             Self::ItemAutoNumberDisabled => "ITEM_AUTO_NUMBER_DISABLED",
             Self::EncodingClassNotForItem => "ENCODING_CLASS_NOT_FOR_ITEM",
             Self::EncodingRuleValueRequired => "ENCODING_RULE_VALUE_REQUIRED",

@@ -76,7 +76,7 @@ tables:
       - { legacy: ima911, type: varchar2(1), target: repetitive, sch: "是否為重覆性生產料件 (Y/N)", note: "Y/N → boolean" }
       - { legacy: ima391, type: varchar2(24), target: account2, sch: "會計科目二", note: "會計科目未移植，先存代碼不檢查", verify: true }
       - { legacy: ima915, type: varchar2(1) NOT NULL, target: supplier_control, sch: "是否需做供應商的管制", note: "0 不管制／1 請購／2 採購／3 二者" }
-      - { legacy: ima916, type: varchar2(10) NOT NULL, target: data_source, sch: "'  資料來源", note: "資料來源營運中心；第一階段記錄目前營運中心（IM13）" }
+      - { legacy: ima916, type: varchar2(10) NOT NULL, target: data_source, sch: "'  資料來源", note: "資料來源營運中心；新增時記目前營運中心，拋轉來的料件記來源營運中心（item_carry.feature IC6(c)）；依此判斷子公司可否修改、刪除（IC9）" }
       - { legacy: ta_ima01, type: varchar2(1), target: order_invalid, sch: "訂單無效否", note: "客製：訂單無效否，新增預設是（IM18）", verify: true }
       - { legacy: ta_ima02, type: varchar2(20), target: pcn, sch: "PCN", note: "客製：PCN", verify: true }
       - { legacy: ta_ima08, type: varchar2(10), target: apply_dept, sch: "申請部門", note: "客製：申請部門（department）", verify: true }

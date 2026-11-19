@@ -77,6 +77,7 @@ pub trait Store:
     + crate::ports::CarrySettingRepository
     + crate::ports::CarryLogRepository
     + crate::ports::BasicCarryRepository
+    + crate::ports::ItemCarryRepository
     + 'static
 {
 }
@@ -154,6 +155,7 @@ impl<T> Store for T where
         + crate::ports::CarrySettingRepository
         + crate::ports::CarryLogRepository
         + crate::ports::BasicCarryRepository
+        + crate::ports::ItemCarryRepository
         + 'static
 {
 }
@@ -194,6 +196,8 @@ pub struct Services {
     pub data_controls: crate::DataControlService,
     /// 資料中心拋轉設定（aooi602）
     pub carry_settings: crate::CarrySettingService,
+    /// 料件拋轉（aimi100 carry；item_carry.feature）
+    pub item_carry: crate::ItemCarryService,
     /// 基本資料拋轉（aoop603）與拋轉歷史查詢（aooq604）
     pub basic_carry: crate::BasicCarryService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210）
@@ -246,6 +250,22 @@ impl Services {
         // 列印、匯出 Excel 的共用組裝（ADR 0013 SA3）
         let reports =
             crate::list_report::ListReporter::new(store.clone(), store.clone(), store.clone());
+        let item_carry = crate::ItemCarryService::new(
+            a.clone(),
+            crate::ItemCarryRepos {
+                centers: store.clone(),
+                carries: store.clone(),
+                logs: store.clone(),
+                writer: store.clone(),
+                items: store.clone(),
+                conversions: store.clone(),
+                groups: store.clone(),
+                classes: store.clone(),
+                codes: store.clone(),
+                employees: store.clone(),
+                depts: store.clone(),
+            },
+        );
         let item_repos = crate::item_service::ItemRepos {
             items: store.clone(),
             groups: store.clone(),
@@ -259,7 +279,9 @@ impl Services {
             reports: reports.clone(),
         };
         Self {
-            items: ItemService::new(a.clone(), item_repos.clone(), history.clone()),
+            items: ItemService::new(a.clone(), item_repos.clone(), history.clone())
+                .with_carry(item_carry.clone()),
+            item_carry,
             programs: ProgramService::new(a.clone(), store.clone(), reports.clone()),
             dictionary: DataDictionaryService::new(
                 a.clone(),

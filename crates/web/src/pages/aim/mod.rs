@@ -1,6 +1,7 @@
 //! 庫存管理模組 (TipTop aim)
 
 mod item_auto_number;
+mod item_carry;
 mod item_group_maintenance;
 mod item_maintenance;
 

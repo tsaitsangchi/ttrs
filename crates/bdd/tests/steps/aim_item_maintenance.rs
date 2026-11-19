@@ -344,6 +344,7 @@ async fn get_defaults(w: &mut ErpWorld, plant: String, code: String) {
     w.item_defaults = Some(d);
 }
 
+#[given(expr = "使用者將料件 {string} 的品名改為 {string}")]
 #[when(expr = "使用者將料件 {string} 的品名改為 {string}")]
 async fn rename(w: &mut ErpWorld, no: String, name: String) {
     let mut req = item(w, &no).await.to_input();
@@ -356,6 +357,8 @@ async fn rename(w: &mut ErpWorld, no: String, name: String) {
 async fn confirm(w: &mut ErpWorld, no: String) {
     let v = version(w, &no).await;
     let r = w.items.confirm(&w.actor, PLANT, &no, v).await;
+    // 確認時自動拋轉的結果（item_carry.feature IC3）
+    w.item_carry_result = r.as_ref().ok().and_then(|d| d.carry_result.clone());
     w.last = Some(r.map(drop));
 }
 

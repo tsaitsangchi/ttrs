@@ -481,6 +481,8 @@
       | carry-setting-maintenance    | output       | 列印拋轉設定               |
       | carry-setting-maintenance    | exporttoexcel | 匯出拋轉設定為 Excel      |
       | carry-setting-maintenance    | history      | 查詢作業 carry-setting-maintenance DC 的異動記錄 |
+      | item-maintenance             | carry        | 拋轉料件 A001              |
+      | item-maintenance             | qry_carry_history | 查詢料件 A001 的拋轉歷史 |
       | basic-data-carry             | query        | 開啟基本資料拋轉           |
       | basic-data-carry             | carry        | 執行基本資料拋轉           |
       | carry-history-query          | query        | 查詢拋轉歷史               |

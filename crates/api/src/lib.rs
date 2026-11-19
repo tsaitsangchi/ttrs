@@ -72,6 +72,8 @@ pub struct AppState {
     pub carry_settings: ttrs_app::CarrySettingService,
     /// 基本資料拋轉（aoop603）與拋轉歷史查詢（aooq604；basic_data_carry.feature）
     pub basic_carry: ttrs_app::BasicCarryService,
+    /// 料件拋轉（aimi100 carry；item_carry.feature）
+    pub item_carry: ttrs_app::ItemCarryService,
     pub encoding_years: ttrs_app::EncodingYearService,
     pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
@@ -172,6 +174,7 @@ impl AppState {
             data_controls,
             carry_settings,
             basic_carry,
+            item_carry,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -216,6 +219,7 @@ impl AppState {
             data_controls,
             carry_settings,
             basic_carry,
+            item_carry,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -632,6 +636,10 @@ pub fn router(state: AppState) -> Router {
             "/api/encoding-segments/{code}/{state}",
             post(set_encoding_segment_state),
         )
+        // 料件拋轉（TipTop aimi100 carry；item_carry.feature）
+        .route("/api/plants/{plant}/items-carry", get(item_carry_info))
+        .route("/api/plants/{plant}/items-carry/{no}", post(run_item_carry))
+        .route("/api/items-carry-history/{no}", get(item_carry_history))
         // Basic Data Carry 基本資料拋轉（TipTop aoop603）、Carry History 拋轉歷史查詢（aooq604；basic_data_carry.feature）
         .route(
             "/api/plants/{plant}/basic-data-carry",
@@ -1890,6 +1898,10 @@ impl IntoResponse for HttpError {
             | "CARRY_SETTING_ALREADY_EXISTS"
             | "CARRY_SETTING_IN_USE"
             | "BASIC_CARRY_NOT_SOURCE"
+            | "ITEM_CARRY_NOT_SOURCE"
+            | "ITEM_CARRY_NOT_CONFIRMED"
+            | "ITEM_CARRIED_NOT_EDITABLE"
+            | "ITEM_CARRIED_NOT_DELETABLE"
             | "BASIC_CARRY_NO_TARGET"
             | "CARRY_TARGET_ALREADY_EXISTS"
             | "CARRY_CONDITION_ALREADY_EXISTS"
@@ -3999,6 +4011,31 @@ async fn delete_encoding_segment(
     let version = Some(require_version(v.version)?);
     s.encoding_segments.delete(&s.actor, &code, version).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- 料件拋轉（aimi100 carry） -----
+
+async fn item_carry_info(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+) -> ApiResult<Json<ttrs_shared::ItemCarryInfoDto>> {
+    Ok(Json(s.item_carry.info(&s.actor, &plant).await?))
+}
+
+async fn run_item_carry(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::ItemCarryRequest>,
+) -> ApiResult<Json<ttrs_shared::ItemCarryResultDto>> {
+    Ok(Json(s.item_carry.carry(&s.actor, &plant, &no, req).await?))
+}
+
+/// 拋轉歷史（qry_carry_history）
+async fn item_carry_history(
+    Ctx(s): Ctx,
+    Path(no): Path<String>,
+) -> ApiResult<Json<Vec<ttrs_shared::CarryLogDto>>> {
+    Ok(Json(s.item_carry.history(&s.actor, &no).await?))
 }
 
 // ----- Basic Data Carry 基本資料拋轉（aoop603）、Carry History 拋轉歷史查詢（aooq604） -----

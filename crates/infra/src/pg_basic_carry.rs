@@ -4,7 +4,10 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use ttrs_app::{
     error::RepoError,
-    ports::{BasicCarryBatch, BasicCarryRepository, CarryLogRepository, CarryWrite},
+    ports::{
+        BasicCarryBatch, BasicCarryRepository, CarryLogRepository, CarryWrite, ItemCarryBatch,
+        ItemCarryRepository,
+    },
 };
 use ttrs_domain::{
     basic_carry::{CarryAction, CarryLogEntry},
@@ -17,8 +20,10 @@ use crate::{
     pg::db_err,
     pg_classification::{code_insert, code_update},
     pg_department::{dept_insert, dept_update, employee_insert, employee_update},
+    pg_item::{item_insert, item_update},
     pg_item_group::{item_group_insert, item_group_update},
     pg_product_class::{product_class_insert, product_class_update},
+    pg_unit_conversion::{item_conversion_insert, item_conversion_update},
 };
 
 #[derive(FromRow)]
@@ -140,5 +145,60 @@ impl CarryLogRepository for PgStore {
         .fetch_one(&self.pool)
         .await
         .map_err(db_err)
+    }
+}
+
+#[async_trait]
+impl ItemCarryRepository for PgStore {
+    /// 同一個交易寫入料件、多語言品名規格與單位換算；任一筆失敗整批回復（item_carry.feature IC7）
+    async fn apply_item_carry(
+        &self,
+        target: &PlantId,
+        batch: &ItemCarryBatch,
+    ) -> Result<(), RepoError> {
+        let mut tx = self.required_plant_tx(target).await?;
+        let no = match &batch.item {
+            CarryWrite::Insert(i) => {
+                item_insert(&mut tx, i).await?;
+                i.no.clone()
+            }
+            CarryWrite::Update(i) => {
+                item_update(&mut tx, i).await?;
+                i.no.clone()
+            }
+        };
+        // 多語言品名規格：以來源為準整批取代（IC6(d)）
+        let langs: Vec<String> = batch
+            .texts
+            .iter()
+            .map(|t| t.lang.as_str().to_owned())
+            .collect();
+        sqlx::query("DELETE FROM item_text WHERE item_no = $1 AND NOT (lang = ANY($2))")
+            .bind(no.as_str())
+            .bind(&langs)
+            .execute(&mut *tx)
+            .await
+            .map_err(db_err)?;
+        for t in &batch.texts {
+            sqlx::query(
+                "INSERT INTO item_text (item_no, lang, name, spec) VALUES ($1, $2, $3, $4)
+                 ON CONFLICT (item_no, lang) DO UPDATE SET name = EXCLUDED.name, spec = EXCLUDED.spec
+                  WHERE (item_text.name, item_text.spec) IS DISTINCT FROM (EXCLUDED.name, EXCLUDED.spec)",
+            )
+            .bind(no.as_str())
+            .bind(t.lang.as_str())
+            .bind(&t.name)
+            .bind(&t.spec)
+            .execute(&mut *tx)
+            .await
+            .map_err(db_err)?;
+        }
+        for w in &batch.conversions {
+            match w {
+                CarryWrite::Insert(c) => item_conversion_insert(&mut tx, c).await?,
+                CarryWrite::Update(c) => item_conversion_update(&mut tx, c).await?,
+            }
+        }
+        tx.commit().await.map_err(db_err)
     }
 }
