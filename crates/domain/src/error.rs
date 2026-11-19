@@ -505,6 +505,41 @@ pub enum DomainError {
     DataControlValueInvalid,
     #[error("{field} 的值 {value} 不符合本營運中心的資料控管條件")]
     DataControlFieldRejected { field: String, value: String },
+    // ----- 資料中心拋轉設定（aooi602 / gew_file、gez_file；carry_setting.feature） -----
+    #[error("這個資料中心與資料類別已有拋轉設定")]
+    CarrySettingAlreadyExists,
+    #[error("找不到這筆拋轉設定")]
+    CarrySettingNotFound,
+    #[error("這個資料中心沒有負責此資料類別，請先在集團中心維護設定")]
+    CarrySettingNoDataType,
+    #[error("已有拋轉紀錄，不可刪除；不想拋轉請改拋轉方式")]
+    CarrySettingInUse,
+    #[error("拋轉方式只能是 1 自動拋轉、2 詢問後拋轉、3 手動拋轉")]
+    CarryModeInvalid,
+    #[error("這個營運中心已在拋轉清單中")]
+    CarryTargetAlreadyExists,
+    #[error("找不到這個拋轉營運中心")]
+    CarryTargetNotFound,
+    #[error("資料來源營運中心不需要拋轉給自己")]
+    CarryTargetIsSource,
+    #[error("通知人員必須是電子郵件，多個以 ; 分隔，最多 1500 字")]
+    CarryNotifyInvalid,
+    #[error("這個資料類別不能用此欄位設定拋轉條件")]
+    CarryFieldInvalid,
+    #[error("這個欄位已有拋轉條件")]
+    CarryConditionAlreadyExists,
+    #[error("找不到這個拋轉條件")]
+    CarryConditionNotFound,
+    #[error("這個欄位已有預設值")]
+    CarryDefaultAlreadyExists,
+    #[error("找不到這個預設值")]
+    CarryDefaultNotFound,
+    #[error("這個欄位不能設定預設值")]
+    CarryDefaultFieldInvalid,
+    #[error("預設值必填，最多 255 字")]
+    CarryDefaultValueInvalid,
+    #[error("基本資料不可設定拋轉條件、預設值，也不可修改子公司可刪除")]
+    CarryBasicDataNotAllowed,
     // ----- 料件自動編號（aimi100 / aza28；item_auto_number.feature） -----
     #[error("整體管理系統參數未開啟料件編號自動編碼")]
     ItemAutoNumberDisabled,
@@ -1008,6 +1043,23 @@ impl DomainError {
             Self::DataControlConditionInvalid => "DATA_CONTROL_CONDITION_INVALID",
             Self::DataControlValueInvalid => "DATA_CONTROL_VALUE_INVALID",
             Self::DataControlFieldRejected { .. } => "DATA_CONTROL_FIELD_REJECTED",
+            Self::CarrySettingAlreadyExists => "CARRY_SETTING_ALREADY_EXISTS",
+            Self::CarrySettingNotFound => "CARRY_SETTING_NOT_FOUND",
+            Self::CarrySettingNoDataType => "CARRY_SETTING_NO_DATA_TYPE",
+            Self::CarrySettingInUse => "CARRY_SETTING_IN_USE",
+            Self::CarryModeInvalid => "CARRY_MODE_INVALID",
+            Self::CarryTargetAlreadyExists => "CARRY_TARGET_ALREADY_EXISTS",
+            Self::CarryTargetNotFound => "CARRY_TARGET_NOT_FOUND",
+            Self::CarryTargetIsSource => "CARRY_TARGET_IS_SOURCE",
+            Self::CarryNotifyInvalid => "CARRY_NOTIFY_INVALID",
+            Self::CarryFieldInvalid => "CARRY_FIELD_INVALID",
+            Self::CarryConditionAlreadyExists => "CARRY_CONDITION_ALREADY_EXISTS",
+            Self::CarryConditionNotFound => "CARRY_CONDITION_NOT_FOUND",
+            Self::CarryDefaultAlreadyExists => "CARRY_DEFAULT_ALREADY_EXISTS",
+            Self::CarryDefaultNotFound => "CARRY_DEFAULT_NOT_FOUND",
+            Self::CarryDefaultFieldInvalid => "CARRY_DEFAULT_FIELD_INVALID",
+            Self::CarryDefaultValueInvalid => "CARRY_DEFAULT_VALUE_INVALID",
+            Self::CarryBasicDataNotAllowed => "CARRY_BASIC_DATA_NOT_ALLOWED",
             Self::ItemAutoNumberDisabled => "ITEM_AUTO_NUMBER_DISABLED",
             Self::EncodingClassNotForItem => "ENCODING_CLASS_NOT_FOR_ITEM",
             Self::EncodingRuleValueRequired => "ENCODING_RULE_VALUE_REQUIRED",

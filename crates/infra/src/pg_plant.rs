@@ -246,6 +246,7 @@ impl PlantRepository for PgStore {
                  OR EXISTS (SELECT 1 FROM user_plant WHERE plant_id = p.plant_id)
                  OR EXISTS (SELECT 1 FROM data_center_type WHERE plant_id = p.plant_id)
                  OR EXISTS (SELECT 1 FROM data_control_plant WHERE plant_id = p.plant_id)
+                 OR EXISTS (SELECT 1 FROM carry_target WHERE plant_id = p.plant_id)
                  OR ttrs_plant_schema_has_data(p.schema_name)
                FROM plant p WHERE p.plant_id = $1",
         )

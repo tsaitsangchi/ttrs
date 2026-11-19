@@ -399,3 +399,22 @@ error-DATA_CONTROL_FIELD_INVALID = （使用伺服器訊息）
 error-DATA_CONTROL_CONDITION_INVALID = （使用伺服器訊息）
 error-DATA_CONTROL_VALUE_INVALID = （使用伺服器訊息）
 error-DATA_CONTROL_FIELD_REJECTED = （使用伺服器訊息）
+
+# 資料中心拋轉設定（aooi602 / gew_file、gez_file）
+error-CARRY_SETTING_ALREADY_EXISTS = （使用伺服器訊息）
+error-CARRY_SETTING_NOT_FOUND = （使用伺服器訊息）
+error-CARRY_SETTING_NO_DATA_TYPE = （使用伺服器訊息）
+error-CARRY_SETTING_IN_USE = （使用伺服器訊息）
+error-CARRY_MODE_INVALID = （使用伺服器訊息）
+error-CARRY_TARGET_ALREADY_EXISTS = （使用伺服器訊息）
+error-CARRY_TARGET_NOT_FOUND = （使用伺服器訊息）
+error-CARRY_TARGET_IS_SOURCE = （使用伺服器訊息）
+error-CARRY_NOTIFY_INVALID = （使用伺服器訊息）
+error-CARRY_FIELD_INVALID = （使用伺服器訊息）
+error-CARRY_CONDITION_ALREADY_EXISTS = （使用伺服器訊息）
+error-CARRY_CONDITION_NOT_FOUND = （使用伺服器訊息）
+error-CARRY_DEFAULT_ALREADY_EXISTS = （使用伺服器訊息）
+error-CARRY_DEFAULT_NOT_FOUND = （使用伺服器訊息）
+error-CARRY_DEFAULT_FIELD_INVALID = （使用伺服器訊息）
+error-CARRY_DEFAULT_VALUE_INVALID = （使用伺服器訊息）
+error-CARRY_BASIC_DATA_NOT_ALLOWED = （使用伺服器訊息）

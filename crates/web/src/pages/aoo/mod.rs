@@ -2,6 +2,7 @@
 
 mod accounting_period_maintenance;
 mod basic_code_maintenance;
+mod carry_setting_maintenance;
 mod classification_code_maintenance;
 mod currency_maintenance;
 mod daily_rate_copy;
@@ -27,6 +28,7 @@ pub use basic_code_maintenance::{
     AreaMaintenance, CountryMaintenance, RegionMaintenance, ReportTitleMaintenance,
     ShippingMethodMaintenance,
 };
+pub use carry_setting_maintenance::CarrySettingMaintenance;
 pub use classification_code_maintenance::ClassificationCodeMaintenance;
 pub use currency_maintenance::CurrencyMaintenance;
 pub use daily_rate_copy::DailyRateCopy;

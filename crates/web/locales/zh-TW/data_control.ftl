@@ -44,3 +44,5 @@ data-control-hint-plants = 資料中心的營運中心由集團中心維護設�
 data-control-hint-rules = 受控營運中心自己新增資料時，欄位值必須符合這些條件；資料中心拋轉過來的資料不受限制。
 data-control-hint-new-plant = 資料類別必須已有有效的資料中心；同一資料類別的營運中心不可重複。
 data-control-hint-rule = 多個值以 ; 分隔，不可含 ' " ) + > < = *；大於、小於類的條件只能一個值。開頭是、結尾是、包含符合任一個值即可，其他條件須所有值都符合。
+data-control-field-source_code = 來源碼
+data-control-field-product_class = 產品分類

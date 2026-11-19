@@ -53,6 +53,17 @@ const TARGETS: &[(&str, &[&str], &str)] = &[
         &["encoding_segment", "encoding_segment_code"],
         "segment_code",
     ),
+    // 拋轉設定：以資料中心查詢（各資料類別的拋轉營運中心、條件、預設值一併列出）
+    (
+        "carry-setting-maintenance",
+        &[
+            "carry_setting",
+            "carry_target",
+            "carry_condition",
+            "carry_default",
+        ],
+        "center_code",
+    ),
     // 資料控管原則：以資料類別查詢（受控營運中心與欄位條件一併列出）
     (
         "data-control-maintenance",

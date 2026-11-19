@@ -8,6 +8,7 @@ mod github;
 pub mod pg;
 mod pg_accounting_period;
 mod pg_basic_code;
+mod pg_carry_setting;
 mod pg_change_log;
 mod pg_classification;
 mod pg_credential;

@@ -1053,6 +1053,35 @@ pub trait EncodingSegmentRepository: Send + Sync {
     ) -> Result<bool, RepoError>;
 }
 
+/// 資料中心拋轉設定（gew_file、gez_file；carry_setting.feature）。共用 schema（CS2）；單頭、拋轉營運中心、條件、預設值一起存取
+#[async_trait]
+pub trait CarrySettingRepository: Send + Sync {
+    async fn list_carry_settings(
+        &self,
+    ) -> Result<Vec<ttrs_domain::carry_setting::CarrySetting>, RepoError>;
+    async fn get_carry_setting(
+        &self,
+        center: &ttrs_domain::group_center::GroupCenterCode,
+        data_type: ttrs_domain::group_center::DataType,
+    ) -> Result<Option<ttrs_domain::carry_setting::CarrySetting>, RepoError>;
+    /// 連同單身新增；資料中心＋資料類別重複回 `Conflict`
+    async fn insert_carry_setting(
+        &self,
+        setting: &ttrs_domain::carry_setting::CarrySetting,
+    ) -> Result<(), RepoError>;
+    /// 版本不符回 `Stale`；單身只寫入有變動的列
+    async fn update_carry_setting(
+        &self,
+        setting: &ttrs_domain::carry_setting::CarrySetting,
+    ) -> Result<(), RepoError>;
+    /// 連同單身刪除；回傳是否有刪到
+    async fn delete_carry_setting(
+        &self,
+        center: &ttrs_domain::group_center::GroupCenterCode,
+        data_type: ttrs_domain::group_center::DataType,
+    ) -> Result<bool, RepoError>;
+}
+
 /// 資料控管原則的受控營運中心（gev_file 中 gev03＝N 的列）與欄位條件（gey_file；data_control.feature）。共用 schema（DC2）
 #[async_trait]
 pub trait DataControlRepository: Send + Sync {

@@ -221,7 +221,9 @@ has_status_no_active!(
     // 會計期間（azm_file 沒有資料有效碼，PD9）
     ttrs_shared::AccountingYearDto,
     // 資料控管原則的營運中心（gev_file 沒有資料有效碼，DC9）
-    ttrs_shared::DataControlPlantDto
+    ttrs_shared::DataControlPlantDto,
+    // 拋轉設定（gew_file 沒有資料有效碼，CS9）
+    ttrs_shared::CarrySettingDto
 );
 
 /// 程式資料（zz_file）：沒有資料有效碼與建立日期；zzdate 為最後建立／修改日期

@@ -399,3 +399,22 @@ error-DATA_CONTROL_FIELD_INVALID = 这个资料类别不能设置此栏位。
 error-DATA_CONTROL_CONDITION_INVALID = 条件只能是 1 到 11。
 error-DATA_CONTROL_VALUE_INVALID = 值必填、最多 255 字，多个值以 ; 分隔，不可含 ' " ) + > < = *；大于、小于类条件只能一个值。
 error-DATA_CONTROL_FIELD_REJECTED = 这个值不符合本营运中心的资料控管条件。
+
+# 資料中心拋轉設定（aooi602 / gew_file、gez_file）
+error-CARRY_SETTING_ALREADY_EXISTS = 这个资料中心与资料类别已有抛转设置。
+error-CARRY_SETTING_NOT_FOUND = 找不到这笔抛转设置。
+error-CARRY_SETTING_NO_DATA_TYPE = 这个资料中心没有负责此资料类别，请先在集团中心维护设置。
+error-CARRY_SETTING_IN_USE = 已有抛转记录，不可删除；不想抛转请改抛转方式。
+error-CARRY_MODE_INVALID = 抛转方式只能是 1 自动抛转、2 询问后抛转、3 手动抛转。
+error-CARRY_TARGET_ALREADY_EXISTS = 这个营运中心已在抛转清单中。
+error-CARRY_TARGET_NOT_FOUND = 找不到这个抛转营运中心。
+error-CARRY_TARGET_IS_SOURCE = 资料来源营运中心不需要抛转给自己。
+error-CARRY_NOTIFY_INVALID = 通知人员必须是电子邮件，多个以 ; 分隔，最多 1500 字。
+error-CARRY_FIELD_INVALID = 这个资料类别不能用此栏位设置抛转条件。
+error-CARRY_CONDITION_ALREADY_EXISTS = 这个栏位已有抛转条件。
+error-CARRY_CONDITION_NOT_FOUND = 找不到这个抛转条件。
+error-CARRY_DEFAULT_ALREADY_EXISTS = 这个栏位已有预设值。
+error-CARRY_DEFAULT_NOT_FOUND = 找不到这个预设值。
+error-CARRY_DEFAULT_FIELD_INVALID = 这个栏位不能设置预设值。
+error-CARRY_DEFAULT_VALUE_INVALID = 预设值必填，最多 255 字。
+error-CARRY_BASIC_DATA_NOT_ALLOWED = 基本资料不可设置抛转条件、预设值，也不可修改子公司可删除。

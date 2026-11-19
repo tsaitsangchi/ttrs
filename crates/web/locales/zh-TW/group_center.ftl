@@ -43,3 +43,4 @@ group-center-types-title = 資料中心 { $code } 負責的資料類別
 group-center-hint = 集團中心代碼最多 10 字，建立後不可修改；已有資料類別設定的資料中心不可改成其他類別。
 group-center-hint-types = 每一列表示這類資料由哪個營運中心產生；同一資料類別與營運中心只能屬於一個資料中心。
 group-center-hint-inactive = 這個資料中心已失效，要先生效才能設定資料類別。
+group-center-action-carry-setting = 拋轉設定

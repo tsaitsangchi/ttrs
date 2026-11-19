@@ -44,3 +44,5 @@ data-control-hint-plants = 资料中心的营运中心由集团中心维护设�
 data-control-hint-rules = 受控营运中心自己新增资料时，栏位值必须符合这些条件；资料中心抛转过来的资料不受限制。
 data-control-hint-new-plant = 资料类别必须已有有效的资料中心；同一资料类别的营运中心不可重复。
 data-control-hint-rule = 多个值以 ; 分隔，不可含 ' " ) + > < = *；大于、小于类的条件只能一个值。开头是、结尾是、包含符合任一个值即可，其他条件须所有值都符合。
+data-control-field-source_code = 来源码
+data-control-field-product_class = 产品分类

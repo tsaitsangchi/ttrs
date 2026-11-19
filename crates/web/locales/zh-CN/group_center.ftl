@@ -43,3 +43,4 @@ group-center-types-title = 资料中心 { $code } 负责的资料类别
 group-center-hint = 集团中心代码最多 10 字，建立后不可修改；已有资料类别设置的资料中心不可改成其他类别。
 group-center-hint-types = 每一行表示这类资料由哪个营运中心产生；同一资料类别与营运中心只能属于一个资料中心。
 group-center-hint-inactive = 这个资料中心已失效，要先生效才能设置资料类别。
+group-center-action-carry-setting = 抛转设置

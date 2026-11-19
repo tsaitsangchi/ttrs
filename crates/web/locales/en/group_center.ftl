@@ -43,3 +43,4 @@ group-center-types-title = Data types owned by data center { $code }
 group-center-hint = The center code has up to 10 characters and cannot be changed later. A data center with data types cannot be changed to another category.
 group-center-hint-types = Each row says which plant creates this kind of data. A data type and plant can belong to only one data center.
 group-center-hint-inactive = This data center is inactive. Activate it before setting data types.
+group-center-action-carry-setting = Carry settings

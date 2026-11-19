@@ -3,7 +3,7 @@
 //! 選定一筆類別 1 的資料中心後，下方卡片維護它負責的資料類別（aooi600_1：資料類別、營運中心）。
 //! 共用層、集團層（GC2）。規則在後端 GroupCenterService。
 //! 標準功能鈕（ADR 0013；GC10）：新增、修改、刪除、失效、複製，加上查詢（表格第一列輸入條件）、確認、列印、
-//! 匯出 Excel、上下筆、異動記錄；資料類別設定用 TipTop 的 data_type_setting。拋轉設定在 aooi602 移植後才顯示（GC7）。
+//! 匯出 Excel、上下筆、異動記錄；資料類別設定用 TipTop 的 data_type_setting。拋轉設定開啟 aooi602 並帶入集團中心（GC7）。
 
 use dioxus::prelude::*;
 use ttrs_shared::{
@@ -457,6 +457,13 @@ fn CenterPage() -> Element {
                                     type_open.set(true);
                                 }
                             }, {t("group-center-action-add-type")} }
+                        }
+                        // 拋轉設定（TipTop carry_setting，GC7）：開啟資料中心拋轉設定並帶入這個集團中心；權限由該作業檢查
+                        Link {
+                            class: "md-button md-state md-button--outlined md-button--with-icon",
+                            to: crate::Route::CarrySettingMaintenance { center: c.center_code.clone() },
+                            svg { class: "md-button__icon md-icon--primary", width: "18", height: "18", view_box: "0 0 24 24", fill: "currentColor", "aria-hidden": "true", path { d: icons::SYNC } }
+                            {t("group-center-action-carry-setting")}
                         }
                     }
                     div { class: "table-scroll",

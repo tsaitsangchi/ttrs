@@ -399,3 +399,22 @@ error-DATA_CONTROL_FIELD_INVALID = This field cannot be set for this data type.
 error-DATA_CONTROL_CONDITION_INVALID = The condition must be 1 to 11.
 error-DATA_CONTROL_VALUE_INVALID = Values are required (up to 255 characters, separated by ;) and cannot contain ' " ) + > < = *. Greater and less conditions take one value.
 error-DATA_CONTROL_FIELD_REJECTED = This value does not meet the data control conditions of this plant.
+
+# 資料中心拋轉設定（aooi602 / gew_file、gez_file）
+error-CARRY_SETTING_ALREADY_EXISTS = This data center and data type already have a carry setting.
+error-CARRY_SETTING_NOT_FOUND = This carry setting was not found.
+error-CARRY_SETTING_NO_DATA_TYPE = This data center does not own this data type. Set it in Group Center Maintenance first.
+error-CARRY_SETTING_IN_USE = This carry setting has transfer records and cannot be deleted; change the carry mode instead.
+error-CARRY_MODE_INVALID = The carry mode must be 1 (auto), 2 (after asking) or 3 (manual).
+error-CARRY_TARGET_ALREADY_EXISTS = This plant is already a target.
+error-CARRY_TARGET_NOT_FOUND = This target plant was not found.
+error-CARRY_TARGET_IS_SOURCE = The source plant does not need to carry to itself.
+error-CARRY_NOTIFY_INVALID = Notify must be e-mail addresses separated by ; (up to 1500 characters).
+error-CARRY_FIELD_INVALID = This field cannot be used in carry conditions for this data type.
+error-CARRY_CONDITION_ALREADY_EXISTS = This field already has a carry condition.
+error-CARRY_CONDITION_NOT_FOUND = This carry condition was not found.
+error-CARRY_DEFAULT_ALREADY_EXISTS = This field already has a default value.
+error-CARRY_DEFAULT_NOT_FOUND = This default value was not found.
+error-CARRY_DEFAULT_FIELD_INVALID = This field cannot have a default value.
+error-CARRY_DEFAULT_VALUE_INVALID = The default value is required (up to 255 characters).
+error-CARRY_BASIC_DATA_NOT_ALLOWED = Basic data cannot have carry conditions or default values, and "plant may delete" cannot be changed.

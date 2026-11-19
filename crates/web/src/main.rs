@@ -14,9 +14,9 @@ use i18n::{UiLang, t};
 use pages::{
     aim::{ItemGroupMaintenance, ItemMaintenance},
     aoo::{
-        AccountingPeriodMaintenance, AreaMaintenance, ClassificationCodeMaintenance,
-        CountryMaintenance, CurrencyMaintenance, DailyRateCopy, DailyRateMaintenance,
-        DataControlMaintenance, DepartmentMaintenance, EmployeeMaintenance,
+        AccountingPeriodMaintenance, AreaMaintenance, CarrySettingMaintenance,
+        ClassificationCodeMaintenance, CountryMaintenance, CurrencyMaintenance, DailyRateCopy,
+        DailyRateMaintenance, DataControlMaintenance, DepartmentMaintenance, EmployeeMaintenance,
         EncodingClassMaintenance, EncodingNatureMaintenance, EncodingSegmentMaintenance,
         EncodingYearMaintenance, GeneralParameters, GroupCenterMaintenance,
         ItemUnitConversionMaintenance, MonthlyRateMaintenance, PlantMaintenance,
@@ -69,6 +69,9 @@ enum Route {
         /// Encoding Segment Maintenance 編碼獨立段維護（TipTop aooi403）
         #[route("/aoo/encoding-segment-maintenance")]
         EncodingSegmentMaintenance {},
+        /// Carry Setting Maintenance 資料中心拋轉設定（TipTop aooi602）；`?center=` 由集團中心維護帶入（GC7）
+        #[route("/aoo/carry-setting-maintenance?:center")]
+        CarrySettingMaintenance { center: String },
         /// Data Control Maintenance 資料控管原則維護（TipTop aooi601）
         #[route("/aoo/data-control-maintenance")]
         DataControlMaintenance {},
@@ -249,6 +252,13 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
         "encoding-year-maintenance" => (
             Route::EncodingYearMaintenance {},
             icons::CALENDAR_MONTH,
+            Tone::Success,
+        ),
+        "carry-setting-maintenance" => (
+            Route::CarrySettingMaintenance {
+                center: String::new(),
+            },
+            icons::SYNC,
             Tone::Success,
         ),
         "data-control-maintenance" => (

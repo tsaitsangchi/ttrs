@@ -4,6 +4,7 @@
 pub mod accounting_period;
 pub mod authorization;
 pub mod basic_code;
+pub mod carry_setting;
 pub mod classification;
 pub mod confirmation;
 pub mod currency;

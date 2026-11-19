@@ -44,3 +44,5 @@ data-control-hint-plants = Data center plants are set in Group Center Maintenanc
 data-control-hint-rules = When a controlled plant creates its own data, the field values must meet these conditions. Data transferred from the data center is not checked.
 data-control-hint-new-plant = The data type must have an active data center. A plant can appear only once per data type.
 data-control-hint-rule = Separate values with ;. Do not use ' " ) + > < = *. Greater and less conditions take one value. Begins with, ends with and contains pass if any value matches; other conditions must hold for all values.
+data-control-field-source_code = Source code
+data-control-field-product_class = Product class

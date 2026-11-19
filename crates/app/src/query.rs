@@ -1310,6 +1310,75 @@ pub mod encoding_nature {
     }
 }
 
+pub mod carry_setting {
+    use ttrs_domain::qbe::FieldType;
+    use ttrs_shared::{CarrySettingDto, QbeCondition};
+
+    use super::*;
+
+    /// aooi602.4gl:130-132 的查詢欄位：資料中心、資料類別、拋轉方式，單身的拋轉營運中心、可刪除、更新、通知人員
+    pub const FIELDS: &[Field] = &[
+        field("center_code", FieldType::Text),
+        field("data_type", FieldType::Text),
+        field("mode", FieldType::Text),
+        field("target_plant", FieldType::Text),
+        field("deletable", FieldType::Flag),
+        field("update_existing", FieldType::Flag),
+        field("notify", FieldType::Text),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    /// 單身欄位以多值比對：符合任一列即列出
+    pub fn value(c: &CarrySettingDto, field: &str) -> FieldValue {
+        let set = |vals: Vec<QbeValue>| FieldValue::Set(vals);
+        match field {
+            "center_code" => text(&c.center_code),
+            "data_type" => text(&c.data_type),
+            "mode" => text(&c.mode),
+            "target_plant" => set(c
+                .targets
+                .iter()
+                .map(|t| QbeValue::Text(t.plant.clone()))
+                .collect()),
+            "deletable" => set(c
+                .targets
+                .iter()
+                .map(|t| QbeValue::Flag(t.deletable))
+                .collect()),
+            "update_existing" => set(c
+                .targets
+                .iter()
+                .map(|t| QbeValue::Flag(t.update_existing))
+                .collect()),
+            "notify" => set(c
+                .targets
+                .iter()
+                .filter_map(|t| t.notify.clone().map(QbeValue::Text))
+                .collect()),
+            other => status_value(
+                other,
+                None,
+                &c.created_by,
+                &c.created_dept,
+                Some(c.created_on),
+                c.updated_by.as_deref(),
+                c.updated_on,
+                c.version,
+            )
+            .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}
+
 pub mod data_control {
     use ttrs_domain::qbe::FieldType;
     use ttrs_shared::{DataControlDto, QbeCondition};

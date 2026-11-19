@@ -954,6 +954,125 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 資料中心拋轉設定（aooi602；資料不存在時回 CARRY_* 或 GROUP_CENTER_* 錯誤，不是權限拒絕）
+        ["查詢拋轉設定"] => w
+            .carry_settings
+            .query(a, QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增拋轉設定", c, t] => w
+            .carry_settings
+            .create(
+                a,
+                ttrs_shared::CarrySettingInput {
+                    center_code: (*c).to_owned(),
+                    data_type: (*t).to_owned(),
+                    mode: "1".into(),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["修改拋轉設定", c, t] => w
+            .carry_settings
+            .update_mode(
+                a,
+                c,
+                t,
+                ttrs_shared::CarrySettingInput {
+                    center_code: (*c).to_owned(),
+                    data_type: (*t).to_owned(),
+                    mode: "2".into(),
+                    version: None,
+                },
+            )
+            .await
+            .map(drop),
+        ["刪除拋轉設定", c, t] => w.carry_settings.delete(a, c, t, None).await,
+        ["複製拋轉設定", c, t] => w
+            .carry_settings
+            .copy(
+                a,
+                c,
+                t,
+                ttrs_shared::CarryCopyInput {
+                    center_code: (*c).to_owned(),
+                    data_type: "4".into(),
+                },
+            )
+            .await
+            .map(drop),
+        ["新增拋轉設定", c, t, "的拋轉營運中心", plant] => w
+            .carry_settings
+            .add_target(
+                a,
+                c,
+                t,
+                ttrs_shared::CarryTargetInput {
+                    plant: (*plant).to_owned(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["刪除拋轉設定", c, t, "的拋轉營運中心", plant] => w
+            .carry_settings
+            .remove_target(a, c, t, plant, None)
+            .await
+            .map(drop),
+        ["新增拋轉設定", c, t, "營運中心", plant, "的拋轉條件"] => w
+            .carry_settings
+            .put_condition(
+                a,
+                c,
+                t,
+                plant,
+                ttrs_shared::DataControlRuleInput {
+                    field: "group_code".into(),
+                    condition: "6".into(),
+                    values: "FG".into(),
+                    version: None,
+                },
+                false,
+            )
+            .await
+            .map(drop),
+        ["新增拋轉設定", c, t, "營運中心", plant, "的預設值"] => w
+            .carry_settings
+            .put_default(
+                a,
+                c,
+                t,
+                plant,
+                ttrs_shared::CarryDefaultInput {
+                    field: "group_code".into(),
+                    value: "RM".into(),
+                    version: None,
+                },
+                false,
+            )
+            .await
+            .map(drop),
+        ["列印拋轉設定"] => w
+            .carry_settings
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出拋轉設定為", "Excel"] => w
+            .carry_settings
+            .report_in(
+                a,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         // 資料控管原則維護（aooi601；資料不存在時回 DATA_CONTROL_* 錯誤，不是權限拒絕）
         ["查詢資料控管原則"] => w
             .data_controls

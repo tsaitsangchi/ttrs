@@ -1937,6 +1937,98 @@ pub mod data_control_max_len {
     pub const VALUES: usize = 255;
 }
 
+/// 資料中心拋轉設定（aooi602 / gew_file、gez_file；carry_setting.feature）：一個資料中心＋資料類別一筆
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CarrySettingDto {
+    /// gew01 資料中心
+    pub center_code: String,
+    pub center_name: Option<String>,
+    /// gew02 資料類別 0–8
+    pub data_type: String,
+    /// gew03 拋轉方式 1–3
+    pub mode: String,
+    /// 拋轉營運中心，依營運中心排序
+    pub targets: Vec<CarryTargetDto>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 拋轉營運中心（gew04–gew09）與預設值（gez）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CarryTargetDto {
+    pub plant: String,
+    /// gew06 子公司可刪除資料否
+    pub deletable: bool,
+    /// gew07 更新已存在資料否
+    pub update_existing: bool,
+    /// gew08 通知人員（電子郵件，以 ; 分隔）
+    pub notify: Option<String>,
+    /// 拋轉條件（同資料控管的欄位條件格式）
+    pub conditions: Vec<DataControlRuleDto>,
+    pub defaults: Vec<CarryDefaultDto>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CarryDefaultDto {
+    pub field: String,
+    pub value: String,
+}
+
+/// 新增拋轉設定、修改拋轉方式
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CarrySettingInput {
+    pub center_code: String,
+    pub data_type: String,
+    /// 空白時為 3 手動拋轉
+    pub mode: String,
+    pub version: Option<i32>,
+}
+
+/// 新增或修改拋轉營運中心；version 為拋轉設定的版本
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CarryTargetInput {
+    pub plant: String,
+    pub deletable: bool,
+    pub update_existing: bool,
+    pub notify: Option<String>,
+    pub version: Option<i32>,
+}
+
+/// 新增或修改預設值
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CarryDefaultInput {
+    pub field: String,
+    pub value: String,
+    pub version: Option<i32>,
+}
+
+/// 複製到另一個資料中心＋資料類別
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CarryCopyInput {
+    pub center_code: String,
+    pub data_type: String,
+}
+
+/// 畫面 maxlength（與 ttrs_domain::carry_setting 一致）
+pub mod carry_setting_max_len {
+    pub const NOTIFY: usize = 1500;
+    pub const DEFAULT: usize = 255;
+}
+
 /// 編碼年對照（aooi404 / gff_file；encoding_year.feature）：主鍵為年＋長度
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EncodingYearDto {

@@ -74,6 +74,7 @@ pub trait Store:
     + crate::ports::EpubSharedLibraryRepository
     + crate::ports::GroupCenterRepository
     + crate::ports::DataControlRepository
+    + crate::ports::CarrySettingRepository
     + 'static
 {
 }
@@ -148,6 +149,7 @@ impl<T> Store for T where
         + crate::ports::EpubSharedLibraryRepository
         + crate::ports::GroupCenterRepository
         + crate::ports::DataControlRepository
+        + crate::ports::CarrySettingRepository
         + 'static
 {
 }
@@ -186,6 +188,8 @@ pub struct Services {
     pub group_centers: crate::GroupCenterService,
     /// 資料控管原則維護（aooi601）
     pub data_controls: crate::DataControlService,
+    /// 資料中心拋轉設定（aooi602）
+    pub carry_settings: crate::CarrySettingService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210）
     pub basic_codes: BasicCodeService,
     /// 幣別維護（aooi050）
@@ -337,6 +341,13 @@ impl Services {
                 store.clone(),
                 reports.clone(),
             ),
+            carry_settings: crate::CarrySettingService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
             data_controls: crate::DataControlService::new(
                 a.clone(),
                 store.clone(),
@@ -346,6 +357,7 @@ impl Services {
             ),
             group_centers: crate::GroupCenterService::new(
                 a.clone(),
+                store.clone(),
                 store.clone(),
                 store.clone(),
                 store.clone(),

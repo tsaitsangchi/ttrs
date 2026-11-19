@@ -469,6 +469,18 @@
       | data-control-maintenance     | output       | 列印資料控管原則           |
       | data-control-maintenance     | exporttoexcel | 匯出資料控管原則為 Excel  |
       | data-control-maintenance     | history      | 查詢作業 data-control-maintenance 1 的異動記錄 |
+      | carry-setting-maintenance    | query        | 查詢拋轉設定               |
+      | carry-setting-maintenance    | insert       | 新增拋轉設定 DC 1          |
+      | carry-setting-maintenance    | modify       | 修改拋轉設定 DC 1          |
+      | carry-setting-maintenance    | delete       | 刪除拋轉設定 DC 1          |
+      | carry-setting-maintenance    | reproduce    | 複製拋轉設定 DC 1          |
+      | carry-setting-maintenance    | detail       | 新增拋轉設定 DC 1 的拋轉營運中心 TW02 |
+      | carry-setting-maintenance    | detail       | 刪除拋轉設定 DC 1 的拋轉營運中心 TW02 |
+      | carry-setting-maintenance    | detail       | 新增拋轉設定 DC 1 營運中心 TW02 的拋轉條件 |
+      | carry-setting-maintenance    | set_default_value | 新增拋轉設定 DC 1 營運中心 TW02 的預設值 |
+      | carry-setting-maintenance    | output       | 列印拋轉設定               |
+      | carry-setting-maintenance    | exporttoexcel | 匯出拋轉設定為 Excel      |
+      | carry-setting-maintenance    | history      | 查詢作業 carry-setting-maintenance DC 的異動記錄 |
       | encoding-segment-maintenance | history      | 查詢作業 encoding-segment-maintenance COLOR 的異動記錄 |
       | encoding-class-maintenance | query        | 查詢編碼類別               |
       | encoding-class-maintenance | query        | 試算編碼類別 FG            |

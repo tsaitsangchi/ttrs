@@ -341,6 +341,37 @@ tables:
       - { legacy: gev04, type: varchar2(10), target: data_center_type.center_code, sch: 資料中心代碼, note: "gev03＝Y 的列：外鍵 group_center，刪除集團中心時一併刪除（GC8）；gev03＝N 的列固定空白、不移植（DC11）" }
       - { legacy: "(無)", target: "data_control_plant.created_by / created_dept / created_on / updated_by / updated_on / version / created_at / updated_at", note: "TTRS 新增（ADR 0012，DC10）；轉入時 created_by 填轉檔帳號" }
 
+  - legacy: gew_file
+    target: "carry_setting（gew01–gew03）/ carry_target（gew04、gew06–gew08）/ carry_condition（gew09）"
+    scope: group
+    program: aooi602（Carry Setting Maintenance 資料中心拋轉設定）
+    spec: specs/features/aoo/carry_setting.feature
+    note: "資料拋轉原則；migrations/0064_carry_setting.sql。TipTop 單頭欄位存在每一列單身上，TTRS 拆成單頭與單身（CS2、CS12）"
+    columns:
+      - { legacy: gew01, type: varchar2(10) PK NOT NULL, target: carry_setting.center_code, sch: 資料中心代碼, note: "有效、類別 1 的集團中心（CS3(a)）；外鍵 group_center，刪除集團中心時一併刪除（CS8(b)）" }
+      - { legacy: gew02, type: varchar2(1) PK NOT NULL, target: carry_setting.data_type, sch: 資料類別, note: "須為該資料中心負責的資料類別（aoo-094，CS3(b)）" }
+      - { legacy: gew03, type: varchar2(1), target: carry_setting.mode, sch: 自動拋轉否, note: "1 自動、2 詢問後、3 手動；TipTop 新增預設 N（等於不拋轉），轉檔時 N → 請 Key User 決定（CS3(d)）", verify: true }
+      - { legacy: gew04, type: varchar2(10) PK NOT NULL, target: carry_target.plant_id, sch: 拋轉營運中心, note: "須存在、不可是來源營運中心（CS4(a)(b)）" }
+      - { legacy: gew05, type: varchar2(255), target: "(不移植，由 carry_condition 組成)", sch: 拋轉條件, note: "SQL 字串，不移植（CS12）" }
+      - { legacy: gew06, type: varchar2(1), target: carry_target.deletable, sch: 子公司可刪除資料否 }
+      - { legacy: gew07, type: varchar2(1), target: carry_target.update_existing, sch: 更新存在資料否, note: "拋轉時覆蓋；子公司能否修改收到的資料（CS11）" }
+      - { legacy: gew08, type: varchar2(1500), target: carry_target.notify, sch: 拋轉通知人員, note: "電子郵件以 ; 分隔（CS5）", verify: true, verify_note: "請確認正式區 gew08 的分隔符號與格式" }
+      - { legacy: gew09, type: varchar2(255), target: "carry_condition.field_code / condition / field_values", sch: 拋轉條件, note: "結構化字串「欄位+條件+型態+值」以 ) 分隔，拆成一列一個欄位；型態不存（CS6(a)、CS12）；欄位 ima01/ima06/ima109/ima08/ima131 → item_no/group_code/material_category/source_code/product_class", verify: true, verify_note: "正式區若有其他欄位的條件，轉檔前需確認（CS6(c)）" }
+      - { legacy: "(無)", target: "carry_setting.created_by / created_dept / created_on / updated_by / updated_on / version / created_at / updated_at", note: "TTRS 新增（ADR 0012，CS10）" }
+
+  - legacy: gez_file
+    target: carry_default
+    scope: group
+    program: aooi602 預設值（set_default_value）
+    spec: specs/features/aoo/carry_setting.feature
+    note: "拋轉預設資料；刪除拋轉營運中心或拋轉設定時一併刪除"
+    columns:
+      - { legacy: gez01, type: varchar2(10) PK NOT NULL, target: center_code, sch: 資料中心代碼 }
+      - { legacy: gez02, type: varchar2(1) PK NOT NULL, target: data_type, sch: 資料類別 }
+      - { legacy: gez03, type: varchar2(10) PK NOT NULL, target: plant_id, sch: 拋轉營運中心 }
+      - { legacy: gez04, type: varchar2(20) PK NOT NULL, target: field_code, sch: 欄位代號, note: "ima06 → group_code、ima109 → material_category；ima01 不開放（CS7(b)）", verify: true, verify_note: "正式區若有 gez04＝ima01 的列，轉檔前需確認" }
+      - { legacy: gez05, type: varchar2(255), target: field_value, sch: 拋轉欄位值 }
+
   - legacy: gey_file
     target: data_control_rule
     scope: group

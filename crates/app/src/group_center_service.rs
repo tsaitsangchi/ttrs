@@ -24,7 +24,9 @@ use crate::{
     authorization::Grant,
     error::RepoError,
     list_report::{ListReporter, ListSpec},
-    ports::{DataControlRepository, GroupCenterRepository, PlantRepository},
+    ports::{
+        CarrySettingRepository, DataControlRepository, GroupCenterRepository, PlantRepository,
+    },
     query,
     report::{self, ReportData, ReportFormat},
 };
@@ -51,6 +53,8 @@ pub struct GroupCenterService {
     plants: Arc<dyn PlantRepository>,
     /// 受控營運中心（data_control.feature DC2：同一資料類別＋營運中心不可又是資料中心）
     controls: Arc<dyn DataControlRepository>,
+    /// 拋轉設定（carry_setting.feature CS8(b)：刪除集團中心或最後一個來源營運中心時連同刪除）
+    carries: Arc<dyn CarrySettingRepository>,
     reports: ListReporter,
 }
 
@@ -60,6 +64,7 @@ impl GroupCenterService {
         centers: Arc<dyn GroupCenterRepository>,
         plants: Arc<dyn PlantRepository>,
         controls: Arc<dyn DataControlRepository>,
+        carries: Arc<dyn CarrySettingRepository>,
         reports: ListReporter,
     ) -> Self {
         Self {
@@ -67,6 +72,7 @@ impl GroupCenterService {
             centers,
             plants,
             controls,
+            carries,
             reports,
         }
     }
@@ -245,6 +251,17 @@ impl GroupCenterService {
             {
                 return Err(DomainError::DataCenterTypeNotFound.into());
             }
+            // 該資料類別已沒有來源營運中心時，連同拋轉設定一起刪除（carry_setting.feature CS8(b)）
+            if !center
+                .data_types
+                .iter()
+                .any(|t| t.data_type == row.data_type)
+            {
+                self.carries
+                    .delete_carry_setting(&center.code, row.data_type)
+                    .await
+                    .map_err(infra)?;
+            }
             Ok(to_dto(&self.load(code).await?))
         })
         .await
@@ -322,6 +339,20 @@ impl GroupCenterService {
             let center = self.load(code).await?;
             center.stamp.check(version)?;
             center.confirmation.check_deletable()?;
+            // 連同拋轉設定一起刪除（CS8(b)；PostgreSQL 另有外鍵 ON DELETE CASCADE）
+            for c in self.carries.list_carry_settings().await.map_err(infra)? {
+                if c.center == center.code {
+                    match self
+                        .carries
+                        .delete_carry_setting(&c.center, c.data_type)
+                        .await
+                    {
+                        Ok(_) => {}
+                        Err(RepoError::InUse) => return Err(DomainError::GroupCenterInUse.into()),
+                        Err(e) => return Err(infra(e)),
+                    }
+                }
+            }
             match self.centers.delete_group_center(&center.code).await {
                 Ok(true) => Ok(()),
                 Ok(false) => Err(DomainError::GroupCenterNotFound.into()),

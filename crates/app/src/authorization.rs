@@ -172,6 +172,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AOO",
         "insert, query, modify, delete, invalid, reproduce, data_type_setting, history, confirm, notconfirm, output, exporttoexcel",
     ),
+    // 資料中心拋轉設定（CS9）：沿用 TipTop 的 detail（拋轉營運中心與條件）、set_default_value（預設值）；失效、確認為例外
+    (
+        "carry-setting-maintenance",
+        "aooi602",
+        "AOO",
+        "insert, query, modify, delete, detail, set_default_value, reproduce, history, output, exporttoexcel",
+    ),
     // 資料控管原則（DC9）：沿用 TipTop 的 detail（受控營運中心）、condition_detail（欄位條件）；失效、確認為例外
     (
         "data-control-maintenance",

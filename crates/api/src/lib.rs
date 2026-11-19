@@ -68,6 +68,8 @@ pub struct AppState {
     pub group_centers: ttrs_app::GroupCenterService,
     /// 資料控管原則維護（aooi601；data_control.feature）
     pub data_controls: ttrs_app::DataControlService,
+    /// 資料中心拋轉設定（aooi602；carry_setting.feature）
+    pub carry_settings: ttrs_app::CarrySettingService,
     pub encoding_years: ttrs_app::EncodingYearService,
     pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
@@ -166,6 +168,7 @@ impl AppState {
             encoding_segments,
             group_centers,
             data_controls,
+            carry_settings,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -208,6 +211,7 @@ impl AppState {
             encoding_segments,
             group_centers,
             data_controls,
+            carry_settings,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -623,6 +627,47 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/encoding-segments/{code}/{state}",
             post(set_encoding_segment_state),
+        )
+        // Carry Setting Maintenance 資料中心拋轉設定（TipTop aooi602；共用；carry_setting.feature）
+        .route("/api/carry-settings", post(create_carry_setting))
+        .route("/api/carry-settings/query", post(query_carry_settings))
+        .route(
+            "/api/carry-settings/report.{format}",
+            get(carry_setting_report),
+        )
+        .route(
+            "/api/carry-settings/{center}/{data_type}",
+            get(get_carry_setting)
+                .put(update_carry_setting)
+                .delete(delete_carry_setting),
+        )
+        .route(
+            "/api/carry-settings/{center}/{data_type}/copy",
+            post(copy_carry_setting),
+        )
+        .route(
+            "/api/carry-settings/{center}/{data_type}/targets",
+            post(add_carry_target).put(update_carry_target),
+        )
+        .route(
+            "/api/carry-settings/{center}/{data_type}/targets/{plant}",
+            axum::routing::delete(remove_carry_target),
+        )
+        .route(
+            "/api/carry-settings/{center}/{data_type}/targets/{plant}/conditions",
+            post(add_carry_condition).put(update_carry_condition),
+        )
+        .route(
+            "/api/carry-settings/{center}/{data_type}/targets/{plant}/conditions/{field}",
+            axum::routing::delete(remove_carry_condition),
+        )
+        .route(
+            "/api/carry-settings/{center}/{data_type}/targets/{plant}/defaults",
+            post(add_carry_default).put(update_carry_default),
+        )
+        .route(
+            "/api/carry-settings/{center}/{data_type}/targets/{plant}/defaults/{field}",
+            axum::routing::delete(remove_carry_default),
         )
         // Data Control Maintenance 資料控管原則維護（TipTop aooi601；共用；data_control.feature）
         .route("/api/data-controls/query", post(query_data_controls))
@@ -1758,6 +1803,10 @@ impl IntoResponse for HttpError {
             | "ENCODING_NATURE_NOT_FOUND"
             | "GROUP_CENTER_NOT_FOUND"
             | "DATA_CONTROL_PLANT_NOT_FOUND"
+            | "CARRY_SETTING_NOT_FOUND"
+            | "CARRY_TARGET_NOT_FOUND"
+            | "CARRY_CONDITION_NOT_FOUND"
+            | "CARRY_DEFAULT_NOT_FOUND"
             | "DATA_CONTROL_RULE_NOT_FOUND"
             | "DATA_CENTER_TYPE_NOT_FOUND"
             | "ENCODING_SEGMENT_NOT_FOUND"
@@ -1824,6 +1873,11 @@ impl IntoResponse for HttpError {
             | "ENCODING_SEGMENT_ALREADY_EXISTS"
             | "GROUP_CENTER_ALREADY_EXISTS"
             | "DATA_CONTROL_PLANT_ALREADY_EXISTS"
+            | "CARRY_SETTING_ALREADY_EXISTS"
+            | "CARRY_SETTING_IN_USE"
+            | "CARRY_TARGET_ALREADY_EXISTS"
+            | "CARRY_CONDITION_ALREADY_EXISTS"
+            | "CARRY_DEFAULT_ALREADY_EXISTS"
             | "DATA_CONTROL_RULE_ALREADY_EXISTS"
             | "DATA_CONTROL_NO_DATA_CENTER"
             | "DATA_CONTROL_RULE_NOT_ALLOWED"
@@ -3929,6 +3983,220 @@ async fn delete_encoding_segment(
     let version = Some(require_version(v.version)?);
     s.encoding_segments.delete(&s.actor, &code, version).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+// ----- Carry Setting Maintenance 資料中心拋轉設定（aooi602） -----
+
+use ttrs_shared::{
+    CarryCopyInput, CarryDefaultInput, CarrySettingDto, CarrySettingInput, CarryTargetInput,
+};
+
+async fn create_carry_setting(
+    Ctx(s): Ctx,
+    Json(req): Json<CarrySettingInput>,
+) -> ApiResult<(StatusCode, Json<CarrySettingDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.carry_settings.create(&s.actor, req).await?),
+    ))
+}
+
+async fn query_carry_settings(
+    Ctx(s): Ctx,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<CarrySettingDto>>> {
+    Ok(Json(s.carry_settings.query(&s.actor, req).await?))
+}
+
+async fn get_carry_setting(
+    Ctx(s): Ctx,
+    Path((center, data_type)): Path<(String, String)>,
+) -> ApiResult<Json<CarrySettingDto>> {
+    Ok(Json(
+        s.carry_settings.get(&s.actor, &center, &data_type).await?,
+    ))
+}
+
+/// 修改拋轉方式（modify）
+async fn update_carry_setting(
+    Ctx(s): Ctx,
+    Path((center, data_type)): Path<(String, String)>,
+    Json(req): Json<CarrySettingInput>,
+) -> ApiResult<Json<CarrySettingDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.carry_settings
+            .update_mode(&s.actor, &center, &data_type, req)
+            .await?,
+    ))
+}
+
+async fn delete_carry_setting(
+    Ctx(s): Ctx,
+    Path((center, data_type)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.carry_settings
+        .delete(&s.actor, &center, &data_type, version)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn copy_carry_setting(
+    Ctx(s): Ctx,
+    Path((center, data_type)): Path<(String, String)>,
+    Json(req): Json<CarryCopyInput>,
+) -> ApiResult<(StatusCode, Json<CarrySettingDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(
+            s.carry_settings
+                .copy(&s.actor, &center, &data_type, req)
+                .await?,
+        ),
+    ))
+}
+
+/// 新增拋轉營運中心（detail）
+async fn add_carry_target(
+    Ctx(s): Ctx,
+    Path((center, data_type)): Path<(String, String)>,
+    Json(req): Json<CarryTargetInput>,
+) -> ApiResult<Json<CarrySettingDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.carry_settings
+            .add_target(&s.actor, &center, &data_type, req)
+            .await?,
+    ))
+}
+
+/// 修改拋轉營運中心（detail）
+async fn update_carry_target(
+    Ctx(s): Ctx,
+    Path((center, data_type)): Path<(String, String)>,
+    Json(req): Json<CarryTargetInput>,
+) -> ApiResult<Json<CarrySettingDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.carry_settings
+            .update_target(&s.actor, &center, &data_type, req)
+            .await?,
+    ))
+}
+
+/// 刪除拋轉營運中心連同條件與預設值（detail）
+async fn remove_carry_target(
+    Ctx(s): Ctx,
+    Path((center, data_type, plant)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<CarrySettingDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.carry_settings
+            .remove_target(&s.actor, &center, &data_type, &plant, version)
+            .await?,
+    ))
+}
+
+/// 新增拋轉條件（detail）
+async fn add_carry_condition(
+    Ctx(s): Ctx,
+    Path((center, data_type, plant)): Path<(String, String, String)>,
+    Json(req): Json<DataControlRuleInput>,
+) -> ApiResult<Json<CarrySettingDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.carry_settings
+            .put_condition(&s.actor, &center, &data_type, &plant, req, false)
+            .await?,
+    ))
+}
+
+/// 修改拋轉條件（detail）
+async fn update_carry_condition(
+    Ctx(s): Ctx,
+    Path((center, data_type, plant)): Path<(String, String, String)>,
+    Json(req): Json<DataControlRuleInput>,
+) -> ApiResult<Json<CarrySettingDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.carry_settings
+            .put_condition(&s.actor, &center, &data_type, &plant, req, true)
+            .await?,
+    ))
+}
+
+/// 刪除拋轉條件（detail）
+async fn remove_carry_condition(
+    Ctx(s): Ctx,
+    Path((center, data_type, plant, field)): Path<(String, String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<CarrySettingDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.carry_settings
+            .remove_condition(&s.actor, &center, &data_type, &plant, &field, version)
+            .await?,
+    ))
+}
+
+/// 新增預設值（set_default_value）
+async fn add_carry_default(
+    Ctx(s): Ctx,
+    Path((center, data_type, plant)): Path<(String, String, String)>,
+    Json(req): Json<CarryDefaultInput>,
+) -> ApiResult<Json<CarrySettingDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.carry_settings
+            .put_default(&s.actor, &center, &data_type, &plant, req, false)
+            .await?,
+    ))
+}
+
+/// 修改預設值（set_default_value）
+async fn update_carry_default(
+    Ctx(s): Ctx,
+    Path((center, data_type, plant)): Path<(String, String, String)>,
+    Json(req): Json<CarryDefaultInput>,
+) -> ApiResult<Json<CarrySettingDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.carry_settings
+            .put_default(&s.actor, &center, &data_type, &plant, req, true)
+            .await?,
+    ))
+}
+
+/// 刪除預設值（set_default_value）
+async fn remove_carry_default(
+    Ctx(s): Ctx,
+    Path((center, data_type, plant, field)): Path<(String, String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<CarrySettingDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.carry_settings
+            .remove_default(&s.actor, &center, &data_type, &plant, &field, version)
+            .await?,
+    ))
+}
+
+async fn carry_setting_report(
+    Ctx(s): Ctx,
+    Path(format): Path<String>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .carry_settings
+        .report_in(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 // ----- Data Control Maintenance 資料控管原則維護（aooi601） -----

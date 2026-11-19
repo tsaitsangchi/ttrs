@@ -123,9 +123,26 @@ impl FieldRule {
         condition: &str,
         values: &str,
     ) -> Result<Self, DomainError> {
+        Self::within(
+            fields_of(data_type),
+            DomainError::DataControlFieldInvalid,
+            field,
+            condition,
+            values,
+        )
+    }
+
+    /// 欄位須在 `allowed` 之中（拋轉條件另有欄位清單，carry_setting.feature CS6）；條件與值的檢查同 DC5(c)(d)
+    pub fn within(
+        allowed: &[&str],
+        invalid_field: DomainError,
+        field: &str,
+        condition: &str,
+        values: &str,
+    ) -> Result<Self, DomainError> {
         let field = field.trim();
-        if !fields_of(data_type).contains(&field) {
-            return Err(DomainError::DataControlFieldInvalid);
+        if !allowed.contains(&field) {
+            return Err(invalid_field);
         }
         let condition = Condition::parse(condition)?;
         let values = values.trim();

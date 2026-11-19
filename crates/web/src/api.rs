@@ -2078,6 +2078,154 @@ pub async fn delete_encoding_year(key: &str, version: i32) -> Result<(), String>
     no_content(res).await
 }
 
+// ----- Carry Setting Maintenance 資料中心拋轉設定（TipTop aooi602；共用） -----
+
+fn carry_url(center: &str, data_type: &str, suffix: &str) -> String {
+    if center.is_empty() {
+        url(&format!("/api/carry-settings{suffix}"))
+    } else {
+        url(&format!(
+            "/api/carry-settings/{}/{}{suffix}",
+            urlencoding(center),
+            urlencoding(data_type)
+        ))
+    }
+}
+
+pub async fn query_carry_settings(
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::CarrySettingDto>, String> {
+    post_query(carry_url("", "", "/query"), req).await
+}
+
+pub async fn create_carry_setting(
+    req: &ttrs_shared::CarrySettingInput,
+) -> Result<ttrs_shared::CarrySettingDto, String> {
+    send_json(reqwest::Method::POST, carry_url("", "", ""), Some(req)).await
+}
+
+pub async fn update_carry_setting(
+    center: &str,
+    data_type: &str,
+    req: &ttrs_shared::CarrySettingInput,
+) -> Result<ttrs_shared::CarrySettingDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        carry_url(center, data_type, ""),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn delete_carry_setting(
+    center: &str,
+    data_type: &str,
+    version: i32,
+) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            carry_url(center, data_type, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+pub async fn copy_carry_setting(
+    center: &str,
+    data_type: &str,
+    req: &ttrs_shared::CarryCopyInput,
+) -> Result<ttrs_shared::CarrySettingDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        carry_url(center, data_type, "/copy"),
+        Some(req),
+    )
+    .await
+}
+
+/// 新增（edit＝false）或修改拋轉營運中心（detail）
+pub async fn save_carry_target(
+    center: &str,
+    data_type: &str,
+    edit: bool,
+    req: &ttrs_shared::CarryTargetInput,
+) -> Result<ttrs_shared::CarrySettingDto, String> {
+    let method = if edit {
+        reqwest::Method::PUT
+    } else {
+        reqwest::Method::POST
+    };
+    send_json(method, carry_url(center, data_type, "/targets"), Some(req)).await
+}
+
+/// 刪除拋轉營運中心、拋轉條件或預設值；`suffix` 如 /targets/TW02、/targets/TW02/conditions/group_code
+pub async fn remove_carry_part(
+    center: &str,
+    data_type: &str,
+    suffix: &str,
+    version: i32,
+) -> Result<ttrs_shared::CarrySettingDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::DELETE,
+        format!("{}?version={version}", carry_url(center, data_type, suffix)),
+        None,
+    )
+    .await
+}
+
+/// 新增或修改拋轉條件（detail）
+pub async fn save_carry_condition(
+    center: &str,
+    data_type: &str,
+    plant: &str,
+    edit: bool,
+    req: &ttrs_shared::DataControlRuleInput,
+) -> Result<ttrs_shared::CarrySettingDto, String> {
+    let method = if edit {
+        reqwest::Method::PUT
+    } else {
+        reqwest::Method::POST
+    };
+    send_json(
+        method,
+        carry_url(
+            center,
+            data_type,
+            &format!("/targets/{}/conditions", urlencoding(plant)),
+        ),
+        Some(req),
+    )
+    .await
+}
+
+/// 新增或修改預設值（set_default_value）
+pub async fn save_carry_default(
+    center: &str,
+    data_type: &str,
+    plant: &str,
+    edit: bool,
+    req: &ttrs_shared::CarryDefaultInput,
+) -> Result<ttrs_shared::CarrySettingDto, String> {
+    let method = if edit {
+        reqwest::Method::PUT
+    } else {
+        reqwest::Method::POST
+    };
+    send_json(
+        method,
+        carry_url(
+            center,
+            data_type,
+            &format!("/targets/{}/defaults", urlencoding(plant)),
+        ),
+        Some(req),
+    )
+    .await
+}
+
 // ----- Data Control Maintenance 資料控管原則維護（TipTop aooi601；共用） -----
 
 fn data_control_url(suffix: &str) -> String {

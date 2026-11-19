@@ -108,6 +108,8 @@ struct State {
     group_centers: BTreeMap<String, ttrs_domain::group_center::GroupCenter>,
     /// 資料控管原則的受控營運中心（gev03＝N）與欄位條件（gey_file；data_control.feature），鍵為（資料類別, 營運中心）
     data_controls: BTreeMap<(String, String), ttrs_domain::data_control::ControlledPlant>,
+    /// 資料中心拋轉設定（gew_file、gez_file；carry_setting.feature），鍵為（資料中心, 資料類別）
+    carry_settings: BTreeMap<(String, String), ttrs_domain::carry_setting::CarrySetting>,
     /// 編碼年對照（gff_file；encoding_year.feature），鍵為（年, 長度）
     encoding_years: BTreeMap<(i32, i16), ttrs_domain::encoding_year::EncodingYear>,
     /// 編碼類別（gei_file、gel_file；encoding_class.feature）
@@ -1607,7 +1609,11 @@ impl PlantRepository for InMemoryStore {
                 .values()
                 .any(|c| c.data_types.iter().any(|t| t.plant == id.as_str()))
             // 資料控管的受控營運中心（外鍵 data_control_plant.plant_id，data_control.feature）
-            || s.data_controls.keys().any(|(_, p)| p == id.as_str()))
+            || s.data_controls.keys().any(|(_, p)| p == id.as_str())
+            // 拋轉營運中心（外鍵 carry_target.plant_id，carry_setting.feature）
+            || s.carry_settings
+                .values()
+                .any(|c| c.targets.iter().any(|t| t.plant == id.as_str())))
     }
 }
 
@@ -6138,6 +6144,302 @@ impl crate::ports::DataControlRepository for InMemoryStore {
             "data_control_plant",
             controlled_key(&old),
             Some(controlled_row(&old)),
+            None,
+            &[],
+        );
+        Ok(true)
+    }
+}
+
+// ----- 資料中心拋轉設定（gew_file、gez_file；carry_setting.feature） -----
+
+type CarryKey = Vec<(&'static str, String)>;
+
+fn carry_key(c: &ttrs_domain::carry_setting::CarrySetting) -> CarryKey {
+    vec![
+        ("center_code", c.center.as_str().to_owned()),
+        ("data_type", c.data_type.code()),
+    ]
+}
+
+fn carry_row(c: &ttrs_domain::carry_setting::CarrySetting) -> Row {
+    let mut cols = vec![
+        ("center_code", text::s(c.center.as_str())),
+        ("data_type", text::s(&c.data_type.code())),
+        ("mode", text::s(&c.mode.code())),
+    ];
+    cols.extend(audit_cols(
+        true,
+        &c.created_by,
+        &c.created_dept,
+        c.created_on,
+        c.updated_by.as_deref(),
+        c.updated_on,
+        &c.stamp,
+    ));
+    // 拋轉設定沒有資料有效碼（CS9）
+    cols.retain(|(k, _)| *k != "active");
+    row(cols)
+}
+
+fn carry_child_key(
+    c: &ttrs_domain::carry_setting::CarrySetting,
+    plant: &str,
+    field: Option<&str>,
+) -> CarryKey {
+    let mut k = carry_key(c);
+    k.push(("plant_id", plant.to_owned()));
+    if let Some(f) = field {
+        k.push(("field_code", f.to_owned()));
+    }
+    k
+}
+
+fn carry_target_row(
+    c: &ttrs_domain::carry_setting::CarrySetting,
+    t: &ttrs_domain::carry_setting::CarryTarget,
+) -> Row {
+    row(vec![
+        ("center_code", text::s(c.center.as_str())),
+        ("data_type", text::s(&c.data_type.code())),
+        ("plant_id", text::s(&t.plant)),
+        ("deletable", text::b(t.deletable)),
+        ("update_existing", text::b(t.update_existing)),
+        ("notify", text::opt(t.notify.as_deref())),
+    ])
+}
+
+fn carry_condition_row(
+    c: &ttrs_domain::carry_setting::CarrySetting,
+    plant: &str,
+    r: &ttrs_domain::data_control::FieldRule,
+) -> Row {
+    row(vec![
+        ("center_code", text::s(c.center.as_str())),
+        ("data_type", text::s(&c.data_type.code())),
+        ("plant_id", text::s(plant)),
+        ("field_code", text::s(&r.field)),
+        ("condition", text::s(&r.condition.code())),
+        ("field_values", text::s(&r.values)),
+    ])
+}
+
+fn carry_default_row(
+    c: &ttrs_domain::carry_setting::CarrySetting,
+    plant: &str,
+    d: &ttrs_domain::carry_setting::CarryDefault,
+) -> Row {
+    row(vec![
+        ("center_code", text::s(c.center.as_str())),
+        ("data_type", text::s(&c.data_type.code())),
+        ("plant_id", text::s(plant)),
+        ("field_code", text::s(&d.field)),
+        ("field_value", text::s(&d.value)),
+    ])
+}
+
+impl State {
+    /// 單身（拋轉營運中心、條件、預設值）的異動記錄：只記有變動的列，刪除時先子後母、新增時先母後子（與 PostgreSQL 相同）
+    fn log_carry_children(
+        &mut self,
+        c: &ttrs_domain::carry_setting::CarrySetting,
+        old: &[ttrs_domain::carry_setting::CarryTarget],
+        new: &[ttrs_domain::carry_setting::CarryTarget],
+    ) {
+        let empty = ttrs_domain::carry_setting::CarryTarget::new("");
+        // 被刪除的拋轉營運中心：先刪條件、預設值，再刪營運中心
+        for o in old
+            .iter()
+            .filter(|o| !new.iter().any(|n| n.plant == o.plant))
+        {
+            self.log_carry_rows(c, o, &empty);
+            self.log_change(
+                None,
+                "carry_target",
+                carry_child_key(c, &o.plant, None),
+                Some(carry_target_row(c, o)),
+                None,
+                &[],
+            );
+        }
+        for n in new {
+            let before = old.iter().find(|o| o.plant == n.plant);
+            let changed = before.is_none_or(|b| {
+                (b.deletable, b.update_existing, &b.notify)
+                    != (n.deletable, n.update_existing, &n.notify)
+            });
+            if changed {
+                self.log_change(
+                    None,
+                    "carry_target",
+                    carry_child_key(c, &n.plant, None),
+                    before.map(|b| carry_target_row(c, b)),
+                    Some(carry_target_row(c, n)),
+                    &[],
+                );
+            }
+            let base = before
+                .cloned()
+                .unwrap_or_else(|| ttrs_domain::carry_setting::CarryTarget::new(&n.plant));
+            self.log_carry_rows(c, &base, n);
+        }
+    }
+
+    fn log_carry_rows(
+        &mut self,
+        c: &ttrs_domain::carry_setting::CarrySetting,
+        old: &ttrs_domain::carry_setting::CarryTarget,
+        new: &ttrs_domain::carry_setting::CarryTarget,
+    ) {
+        let plant = if new.plant.is_empty() {
+            &old.plant
+        } else {
+            &new.plant
+        };
+        for o in old
+            .conditions
+            .iter()
+            .filter(|o| !new.conditions.iter().any(|n| n.field == o.field))
+        {
+            self.log_change(
+                None,
+                "carry_condition",
+                carry_child_key(c, plant, Some(&o.field)),
+                Some(carry_condition_row(c, plant, o)),
+                None,
+                &[],
+            );
+        }
+        for n in &new.conditions {
+            let before = old.conditions.iter().find(|o| o.field == n.field);
+            if before != Some(n) {
+                self.log_change(
+                    None,
+                    "carry_condition",
+                    carry_child_key(c, plant, Some(&n.field)),
+                    before.map(|b| carry_condition_row(c, plant, b)),
+                    Some(carry_condition_row(c, plant, n)),
+                    &[],
+                );
+            }
+        }
+        for o in old
+            .defaults
+            .iter()
+            .filter(|o| !new.defaults.iter().any(|n| n.field == o.field))
+        {
+            self.log_change(
+                None,
+                "carry_default",
+                carry_child_key(c, plant, Some(&o.field)),
+                Some(carry_default_row(c, plant, o)),
+                None,
+                &[],
+            );
+        }
+        for n in &new.defaults {
+            let before = old.defaults.iter().find(|o| o.field == n.field);
+            if before != Some(n) {
+                self.log_change(
+                    None,
+                    "carry_default",
+                    carry_child_key(c, plant, Some(&n.field)),
+                    before.map(|b| carry_default_row(c, plant, b)),
+                    Some(carry_default_row(c, plant, n)),
+                    &[],
+                );
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl crate::ports::CarrySettingRepository for InMemoryStore {
+    async fn list_carry_settings(
+        &self,
+    ) -> Result<Vec<ttrs_domain::carry_setting::CarrySetting>, RepoError> {
+        Ok(self.lock().carry_settings.values().cloned().collect())
+    }
+
+    async fn get_carry_setting(
+        &self,
+        center: &ttrs_domain::group_center::GroupCenterCode,
+        data_type: ttrs_domain::group_center::DataType,
+    ) -> Result<Option<ttrs_domain::carry_setting::CarrySetting>, RepoError> {
+        Ok(self
+            .lock()
+            .carry_settings
+            .get(&(center.as_str().to_owned(), data_type.code()))
+            .cloned())
+    }
+
+    async fn insert_carry_setting(
+        &self,
+        c: &ttrs_domain::carry_setting::CarrySetting,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (c.center.as_str().to_owned(), c.data_type.code());
+        if s.carry_settings.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = c.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            None,
+            "carry_setting",
+            carry_key(&n),
+            None,
+            Some(carry_row(&n)),
+            &[],
+        );
+        s.log_carry_children(&n, &[], &n.targets);
+        s.carry_settings.insert(key, n);
+        Ok(())
+    }
+
+    async fn update_carry_setting(
+        &self,
+        c: &ttrs_domain::carry_setting::CarrySetting,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (c.center.as_str().to_owned(), c.data_type.code());
+        let Some(old) = s.carry_settings.get(&key).cloned() else {
+            return Ok(());
+        };
+        let mut n = c.clone();
+        n.stamp = bumped(&old.stamp, &c.stamp)?;
+        // 與 PostgreSQL 的順序一致：先寫單身，再更新單頭
+        s.log_carry_children(&n, &old.targets, &n.targets);
+        s.log_change(
+            None,
+            "carry_setting",
+            carry_key(&n),
+            Some(carry_row(&old)),
+            Some(carry_row(&n)),
+            &[],
+        );
+        s.carry_settings.insert(key, n);
+        Ok(())
+    }
+
+    async fn delete_carry_setting(
+        &self,
+        center: &ttrs_domain::group_center::GroupCenterCode,
+        data_type: ttrs_domain::group_center::DataType,
+    ) -> Result<bool, RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s
+            .carry_settings
+            .remove(&(center.as_str().to_owned(), data_type.code()))
+        else {
+            return Ok(false);
+        };
+        s.log_carry_children(&old, &old.targets, &[]);
+        s.log_change(
+            None,
+            "carry_setting",
+            carry_key(&old),
+            Some(carry_row(&old)),
             None,
             &[],
         );
