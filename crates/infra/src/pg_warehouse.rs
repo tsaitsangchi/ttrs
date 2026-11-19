@@ -389,7 +389,8 @@ impl WarehouseRepository for PgStore {
         };
         let used: bool = sqlx::query_scalar(
             "SELECT EXISTS (SELECT 1 FROM item WHERE warehouse = $1 AND ($2::text IS NULL OR location = $2))
-                 OR EXISTS (SELECT 1 FROM item_group WHERE warehouse = $1 AND ($2::text IS NULL OR location = $2))",
+                 OR EXISTS (SELECT 1 FROM item_group WHERE warehouse = $1 AND ($2::text IS NULL OR location = $2))
+                 OR EXISTS (SELECT 1 FROM item_storage WHERE warehouse_code = $1 AND ($2::text IS NULL OR location_code = $2))",
         )
         .bind(code.as_str())
         .bind(location.map(|l| l.as_str()))

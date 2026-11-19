@@ -2825,6 +2825,137 @@ pub async fn remove_warehouse_location(
     .await
 }
 
+// ----- Inventory Parameters 庫存參數（TipTop asms230；工廠層） -----
+
+pub async fn get_inventory_parameters(
+    plant: &str,
+) -> Result<ttrs_shared::InventoryParametersDto, String> {
+    get_json(plant_part_url(plant, "inventory-parameters", "", "")).await
+}
+
+pub async fn update_inventory_parameters(
+    plant: &str,
+    input: &ttrs_shared::InventoryParametersInput,
+) -> Result<ttrs_shared::InventoryParametersDto, String> {
+    send_json(
+        reqwest::Method::PUT,
+        plant_part_url(plant, "inventory-parameters", "", ""),
+        Some(input),
+    )
+    .await
+}
+
+pub async fn inventory_parameters_history(
+    plant: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!(
+        "{}?lang={lang}",
+        plant_part_url(plant, "inventory-parameters", "", "/history")
+    ))
+    .await
+}
+
+// ----- Item Storage 料件預設倉儲維護（TipTop aimi202；工廠層） -----
+
+pub async fn query_item_storages(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::ItemStorageItemDto>, String> {
+    post_query(plant_part_url(plant, "item-storages", "", "/query"), req).await
+}
+
+fn storage_place_url(plant: &str, item: &str, place: (&str, &str), version: Option<i32>) -> String {
+    let mut u = format!(
+        "{}?warehouse={}&location={}",
+        plant_part_url(plant, "item-storages", item, "/storages"),
+        urlencoding(place.0),
+        urlencoding(place.1)
+    );
+    if let Some(v) = version {
+        u.push_str(&format!("&version={v}"));
+    }
+    u
+}
+
+/// 新增（place 為 None）或修改一筆預設倉儲
+pub async fn save_item_storage(
+    plant: &str,
+    item: &str,
+    place: Option<(&str, &str)>,
+    req: &ttrs_shared::ItemStorageInput,
+) -> Result<ttrs_shared::ItemStorageItemDto, String> {
+    match place {
+        None => {
+            send_json(
+                reqwest::Method::POST,
+                plant_part_url(plant, "item-storages", item, "/storages"),
+                Some(req),
+            )
+            .await
+        }
+        Some(p) => {
+            send_json(
+                reqwest::Method::PUT,
+                storage_place_url(plant, item, p, None),
+                Some(req),
+            )
+            .await
+        }
+    }
+}
+
+pub async fn delete_item_storage(
+    plant: &str,
+    item: &str,
+    place: (&str, &str),
+    version: i32,
+) -> Result<ttrs_shared::ItemStorageItemDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::DELETE,
+        storage_place_url(plant, item, place, Some(version)),
+        None,
+    )
+    .await
+}
+
+pub async fn copy_item_storage(
+    plant: &str,
+    item: &str,
+    target: &str,
+) -> Result<ttrs_shared::ItemStorageItemDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "item-storages", item, "/copy"),
+        Some(&serde_json::json!({ "new_code": target })),
+    )
+    .await
+}
+
+pub async fn batch_item_storages(
+    plant: &str,
+    req: &ttrs_shared::ItemStorageBatchRequest,
+) -> Result<ttrs_shared::ItemStorageBatchResult, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "item-storages", "", "/batch"),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn item_storage_history(
+    plant: &str,
+    item: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    let lang = crate::i18n::current().code();
+    get_json(format!(
+        "{}?lang={lang}",
+        plant_part_url(plant, "item-storages", item, "/history")
+    ))
+    .await
+}
+
 // ----- Item Group 料件分群維護（TipTop aimi110；工廠層） -----
 
 /// QBE 查詢（item_group_query.feature）

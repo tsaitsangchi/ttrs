@@ -396,3 +396,34 @@ warehouse-col-location = Location
 warehouse-col-location-name = Location name
 warehouse-class-S = S Store
 warehouse-class-W = W WIP
+
+# 料件預設倉儲（aimi202；item_storage.feature）
+item-storage-report-title = Item Default Storage
+item-storage-col-item = Item No.
+item-storage-col-name = Name
+item-storage-col-spec = Specification
+item-storage-col-warehouse = Warehouse
+item-storage-col-warehouse-name = Warehouse name
+item-storage-col-location = Location
+item-storage-col-max-qty = Max quantity
+
+# 庫存參數（asms230；inventory_parameters.feature）
+inventory-params-report-title = Inventory Parameters
+inventory-params-col-parameter = Parameter
+inventory-params-col-value = Value
+inventory-params-storage-control = Item storage control
+inventory-params-storage-control-1 = 1 Default warehouse only (any location)
+inventory-params-storage-control-2 = 2 Default warehouse and location only
+inventory-params-storage-control-3 = 3 Decide at entry
+inventory-params-fast-turnover = Fast-moving turnover
+inventory-params-average-turnover = Average-moving turnover
+inventory-params-posting-date-basis = Posting date basis
+inventory-params-posting-date-basis-1 = Document date
+inventory-params-posting-date-basis-2 = Generated date
+inventory-params-misc-receipt-new-location = New location on misc receipt
+inventory-params-stock-query-window = Stock detail lookup window
+inventory-params-plant-transfer-same-no = Same no. for 2-step plant transfer
+inventory-params-warehouse-transfer-same-no = Same no. for 2-step warehouse transfer
+inventory-params-misc-issue-dept = Department on misc issue
+inventory-params-misc-receipt-dept = Department on misc receipt
+inventory-params-add-storage-freely = Add storage without warehouse maintenance

@@ -96,6 +96,11 @@ struct State {
     product_classes: BTreeMap<(PlantId, String), ProductClass>,
     /// 倉庫與儲位（imd_file、ime_file；warehouse.feature）
     warehouses: BTreeMap<(PlantId, String), ttrs_domain::warehouse::Warehouse>,
+    /// 庫存參數（asms230 / sma_file）：每個營運中心一筆
+    inventory_parameters: BTreeMap<PlantId, ttrs_domain::inventory_parameter::InventoryParameters>,
+    /// 料件預設倉儲（aimi202 / imf_file）：鍵值（營運中心, 料號, 倉庫, 儲位；整個倉庫為 ""）
+    item_storages:
+        BTreeMap<(PlantId, String, String, String), ttrs_domain::item_storage::ItemStorage>,
     /// (營運中心, 分群碼) → 料件分群（imz_file，工廠層）
     item_groups: BTreeMap<(PlantId, String), ItemGroup>,
     /// 資料異動記錄（change_log，ADR 0012）：營運中心（共用層為 None）＋記錄
@@ -773,6 +778,24 @@ impl ItemRepository for InMemoryStore {
             return Ok(false);
         };
         s.item_texts.retain(|(p, n, _), _| !(p == plant && n == no));
+        // 料件預設倉儲連同刪除（IS2，同 PostgreSQL ON DELETE CASCADE）
+        let storages: Vec<_> = s
+            .item_storages
+            .iter()
+            .filter(|((p, i, _, _), _)| p == plant && i == no.as_str())
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        for (k, v) in storages {
+            s.item_storages.remove(&k);
+            s.log_change(
+                Some(plant),
+                "item_storage",
+                istor_key(&v),
+                Some(istor_row(&v)),
+                None,
+                &[],
+            );
+        }
         s.log_change(
             Some(plant),
             "item",
@@ -6688,6 +6711,10 @@ fn warehouse_used(s: &State, plant: &PlantId, code: &str, location: Option<&str>
         || s.item_groups
             .iter()
             .any(|((p, _), g)| p == plant && hit(&g.attrs.warehouse, &g.attrs.location))
+        // 料件預設倉儲（IS10，aimi201:1440-1492 mfg1013）
+        || s.item_storages.iter().any(|((p, _, w, l), _)| {
+            p == plant && w == code && location.is_none_or(|loc| l == loc)
+        })
 }
 
 #[async_trait]
@@ -6812,5 +6839,254 @@ impl crate::ports::WarehouseRepository for InMemoryStore {
             code.as_str(),
             location.map(|l| l.as_str()),
         ))
+    }
+}
+
+// ----- 料件預設倉儲（aimi202 / imf_file；item_storage.feature） -----
+
+fn istor_map_key(
+    plant: &PlantId,
+    item: &str,
+    warehouse: &str,
+    location: &str,
+) -> (PlantId, String, String, String) {
+    (
+        plant.clone(),
+        item.to_owned(),
+        warehouse.to_owned(),
+        location.to_owned(),
+    )
+}
+
+fn istor_key(v: &ttrs_domain::item_storage::ItemStorage) -> Vec<(&'static str, String)> {
+    vec![
+        ("item_no", v.item.as_str().to_owned()),
+        ("warehouse_code", v.warehouse.as_str().to_owned()),
+        ("location_code", v.location_code().to_owned()),
+    ]
+}
+
+fn istor_row(v: &ttrs_domain::item_storage::ItemStorage) -> Row {
+    row(vec![
+        ("item_no", text::s(v.item.as_str())),
+        ("warehouse_code", text::s(v.warehouse.as_str())),
+        ("location_code", text::s(v.location_code())),
+        ("max_qty", v.max_qty.map(|q| q.normalize().to_string())),
+        ("version", text::int(i64::from(v.stamp.version))),
+    ])
+}
+
+#[async_trait]
+impl crate::ports::ItemStorageRepository for InMemoryStore {
+    async fn list_item_storages(
+        &self,
+        plant: &PlantId,
+        item: Option<&ItemNo>,
+    ) -> Result<Vec<ttrs_domain::item_storage::ItemStorage>, RepoError> {
+        Ok(self
+            .lock()
+            .item_storages
+            .iter()
+            .filter(|((p, i, _, _), _)| p == plant && item.is_none_or(|n| n.as_str() == i))
+            .map(|(_, v)| v.clone())
+            .collect())
+    }
+
+    async fn insert_item_storage(
+        &self,
+        plant: &PlantId,
+        v: &ttrs_domain::item_storage::ItemStorage,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = istor_map_key(
+            plant,
+            v.item.as_str(),
+            v.warehouse.as_str(),
+            v.location_code(),
+        );
+        if s.item_storages.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = v.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            Some(plant),
+            "item_storage",
+            istor_key(&n),
+            None,
+            Some(istor_row(&n)),
+            &[],
+        );
+        s.item_storages.insert(key, n);
+        Ok(())
+    }
+
+    async fn update_item_storage(
+        &self,
+        plant: &PlantId,
+        old: (
+            &ttrs_domain::warehouse::WarehouseCode,
+            Option<&ttrs_domain::warehouse::LocationCode>,
+        ),
+        v: &ttrs_domain::item_storage::ItemStorage,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let old_key = istor_map_key(
+            plant,
+            v.item.as_str(),
+            old.0.as_str(),
+            old.1.map_or("", |l| l.as_str()),
+        );
+        let Some(before) = s.item_storages.get(&old_key).cloned() else {
+            return Err(RepoError::Stale);
+        };
+        let new_key = istor_map_key(
+            plant,
+            v.item.as_str(),
+            v.warehouse.as_str(),
+            v.location_code(),
+        );
+        if new_key != old_key && s.item_storages.contains_key(&new_key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = v.clone();
+        n.stamp = bumped(&before.stamp, &v.stamp)?;
+        s.item_storages.remove(&old_key);
+        s.log_change(
+            Some(plant),
+            "item_storage",
+            istor_key(&n),
+            Some(istor_row(&before)),
+            Some(istor_row(&n)),
+            &[],
+        );
+        s.item_storages.insert(new_key, n);
+        Ok(())
+    }
+
+    async fn delete_item_storage(
+        &self,
+        plant: &PlantId,
+        v: &ttrs_domain::item_storage::ItemStorage,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = istor_map_key(
+            plant,
+            v.item.as_str(),
+            v.warehouse.as_str(),
+            v.location_code(),
+        );
+        let Some(before) = s.item_storages.get(&key).cloned() else {
+            return Err(RepoError::Stale);
+        };
+        if before.stamp.version != v.stamp.version {
+            return Err(RepoError::Stale);
+        }
+        s.item_storages.remove(&key);
+        s.log_change(
+            Some(plant),
+            "item_storage",
+            istor_key(&before),
+            Some(istor_row(&before)),
+            None,
+            &[],
+        );
+        Ok(())
+    }
+}
+
+// ----- 庫存參數（asms230 / sma_file；inventory_parameters.feature） -----
+
+fn inventory_param_row(p: &ttrs_domain::inventory_parameter::InventoryParameters) -> Row {
+    let v = &p.settings;
+    row(vec![
+        ("parameter_key", text::s("0")),
+        ("storage_control", text::s(v.storage_control.code())),
+        (
+            "fast_turnover",
+            Some(v.fast_turnover.normalize().to_string()),
+        ),
+        (
+            "average_turnover",
+            Some(v.average_turnover.normalize().to_string()),
+        ),
+        ("posting_date_basis", text::s(v.posting_date_basis.code())),
+        (
+            "misc_receipt_new_location",
+            text::b(v.misc_receipt_new_location),
+        ),
+        ("stock_query_window", text::b(v.stock_query_window)),
+        ("plant_transfer_same_no", text::b(v.plant_transfer_same_no)),
+        (
+            "warehouse_transfer_same_no",
+            text::b(v.warehouse_transfer_same_no),
+        ),
+        ("misc_issue_dept", text::b(v.misc_issue_dept)),
+        ("misc_receipt_dept", text::b(v.misc_receipt_dept)),
+        ("add_storage_freely", text::b(v.add_storage_freely)),
+        ("updated_by", text::opt(p.updated_by.as_deref())),
+        ("version", text::int(i64::from(p.stamp.version))),
+    ])
+}
+
+#[async_trait]
+impl crate::ports::InventoryParameterRepository for InMemoryStore {
+    async fn inventory_parameters(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Option<ttrs_domain::inventory_parameter::InventoryParameters>, RepoError> {
+        Ok(self.lock().inventory_parameters.get(plant).cloned())
+    }
+
+    async fn insert_inventory_parameters(
+        &self,
+        plant: &PlantId,
+        p: &ttrs_domain::inventory_parameter::InventoryParameters,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.plants.contains_key(plant) {
+            return Err(RepoError::Other(format!(
+                "營運中心不存在：{}",
+                plant.as_str()
+            )));
+        }
+        if s.inventory_parameters.contains_key(plant) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = p.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            Some(plant),
+            "manufacturing_parameter",
+            vec![("parameter_key", "0".to_owned())],
+            None,
+            Some(inventory_param_row(&n)),
+            &[],
+        );
+        s.inventory_parameters.insert(plant.clone(), n);
+        Ok(())
+    }
+
+    async fn update_inventory_parameters(
+        &self,
+        plant: &PlantId,
+        p: &ttrs_domain::inventory_parameter::InventoryParameters,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s.inventory_parameters.get(plant).cloned() else {
+            return Err(RepoError::Stale);
+        };
+        let mut n = p.clone();
+        n.stamp = bumped(&old.stamp, &p.stamp)?;
+        s.log_change(
+            Some(plant),
+            "manufacturing_parameter",
+            vec![("parameter_key", "0".to_owned())],
+            Some(inventory_param_row(&old)),
+            Some(inventory_param_row(&n)),
+            &[],
+        );
+        s.inventory_parameters.insert(plant.clone(), n);
+        Ok(())
     }
 }

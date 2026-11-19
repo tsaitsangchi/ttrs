@@ -179,6 +179,20 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AIM",
         "insert, query, modify, delete, invalid, reproduce, detail, history, confirm, notconfirm, output, exporttoexcel",
     ),
+    // 料件預設倉儲（IS6、IS11）：單頭是料件，只有單身維護、複製、整批產生；不做失效與確認
+    (
+        "item-storage-maintenance",
+        "aimi202",
+        "AIM",
+        "query, detail, reproduce, output, exporttoexcel, history, batch_generate",
+    ),
+    // 庫存參數（IP9）：單筆參數，只有修改，另加異動記錄、列印、匯出
+    (
+        "inventory-parameters",
+        "asms230",
+        "AIM",
+        "query, modify, history, output, exporttoexcel",
+    ),
     // 基本資料拋轉（BC10）：批次作業，只有查詢與執行拋轉；拋轉歷史查詢為唯讀查詢
     ("basic-data-carry", "aoop603", "AOO", "query, carry"),
     (

@@ -396,3 +396,34 @@ warehouse-col-location = 儲位
 warehouse-col-location-name = 儲位名稱
 warehouse-class-S = S 一般倉
 warehouse-class-W = W 在製品倉
+
+# 料件預設倉儲（aimi202；item_storage.feature）
+item-storage-report-title = 料件預設倉儲
+item-storage-col-item = 料號
+item-storage-col-name = 品名
+item-storage-col-spec = 規格
+item-storage-col-warehouse = 倉庫
+item-storage-col-warehouse-name = 倉庫名稱
+item-storage-col-location = 儲位
+item-storage-col-max-qty = 最高存量
+
+# 庫存參數（asms230；inventory_parameters.feature）
+inventory-params-report-title = 庫存參數
+inventory-params-col-parameter = 參數
+inventory-params-col-value = 值
+inventory-params-storage-control = 料件存放位置管制
+inventory-params-storage-control-1 = 1 只能入預設倉庫（儲位自選）
+inventory-params-storage-control-2 = 2 只能入預設倉庫與儲位
+inventory-params-storage-control-3 = 3 輸入時自行決定
+inventory-params-fast-turnover = 快速移動週轉率
+inventory-params-average-turnover = 平速移動週轉率
+inventory-params-posting-date-basis = 帳務基礎日期
+inventory-params-posting-date-basis-1 = 單據日期
+inventory-params-posting-date-basis-2 = 產生日期
+inventory-params-misc-receipt-new-location = 雜收時可新增儲位
+inventory-params-stock-query-window = 開窗查詢庫存明細
+inventory-params-plant-transfer-same-no = 兩階段營運中心調撥單號相同
+inventory-params-warehouse-transfer-same-no = 兩階段倉庫調撥單號相同
+inventory-params-misc-issue-dept = 雜發單輸入部門
+inventory-params-misc-receipt-dept = 雜收單輸入部門
+inventory-params-add-storage-freely = 可不經倉儲維護新增倉儲

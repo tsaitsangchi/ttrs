@@ -219,6 +219,8 @@ has_status_no_active!(
     ttrs_shared::UserPermissionDto,
     // 整體管理系統參數（aza_file 沒有資料有效碼）
     ttrs_shared::GeneralParametersDto,
+    // 庫存參數（sma_file 沒有資料有效碼）
+    ttrs_shared::InventoryParametersDto,
     // 會計期間（azm_file 沒有資料有效碼，PD9）
     ttrs_shared::AccountingYearDto,
     // 資料控管原則的營運中心（gev_file 沒有資料有效碼，DC9）

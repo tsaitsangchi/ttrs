@@ -76,6 +76,8 @@ pub struct AppState {
     pub item_carry: ttrs_app::ItemCarryService,
     /// 倉庫儲位維護（aimi201、aimi200；warehouse.feature）
     pub warehouses: ttrs_app::WarehouseService,
+    pub item_storages: ttrs_app::ItemStorageService,
+    pub inventory_parameters: ttrs_app::InventoryParameterService,
     pub encoding_years: ttrs_app::EncodingYearService,
     pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
@@ -178,6 +180,8 @@ impl AppState {
             basic_carry,
             item_carry,
             warehouses,
+            item_storages,
+            inventory_parameters,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -224,6 +228,8 @@ impl AppState {
             basic_carry,
             item_carry,
             warehouses,
+            item_storages,
+            inventory_parameters,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -522,6 +528,51 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/plants/{plant}/warehouses/{code}/{state}",
             post(set_warehouse_state),
+        )
+        // Inventory Parameters 庫存參數（TipTop asms230；工廠層；inventory_parameters.feature）
+        .route(
+            "/api/plants/{plant}/inventory-parameters",
+            get(get_inventory_parameters).put(update_inventory_parameters),
+        )
+        .route(
+            "/api/plants/{plant}/inventory-parameters/history",
+            get(inventory_parameters_history),
+        )
+        .route(
+            "/api/plants/{plant}/inventory-parameters/report.{format}",
+            get(inventory_parameters_report),
+        )
+        // Item Storage Maintenance 料件預設倉儲維護（TipTop aimi202；工廠層；item_storage.feature）
+        .route(
+            "/api/plants/{plant}/item-storages/query",
+            post(query_item_storages),
+        )
+        .route(
+            "/api/plants/{plant}/item-storages/report.{format}",
+            get(item_storage_report),
+        )
+        .route(
+            "/api/plants/{plant}/item-storages/batch",
+            post(batch_item_storages),
+        )
+        .route(
+            "/api/plants/{plant}/item-storages/{item}",
+            get(get_item_storage),
+        )
+        // 單身：倉庫、儲位放在查詢參數（儲位可空白，IS3(b)）
+        .route(
+            "/api/plants/{plant}/item-storages/{item}/storages",
+            post(create_item_storage)
+                .put(update_item_storage)
+                .delete(delete_item_storage),
+        )
+        .route(
+            "/api/plants/{plant}/item-storages/{item}/copy",
+            post(copy_item_storage),
+        )
+        .route(
+            "/api/plants/{plant}/item-storages/{item}/history",
+            get(item_storage_history),
         )
         .route(
             "/api/plants/{plant}/product-classes/query",
@@ -1867,6 +1918,7 @@ impl IntoResponse for HttpError {
             | "DATA_CONTROL_PLANT_NOT_FOUND"
             | "CARRY_SETTING_NOT_FOUND"
             | "WAREHOUSE_LOCATION_NOT_FOUND"
+            | "ITEM_STORAGE_NOT_FOUND"
             | "CARRY_TARGET_NOT_FOUND"
             | "CARRY_CONDITION_NOT_FOUND"
             | "CARRY_DEFAULT_NOT_FOUND"
@@ -1942,6 +1994,8 @@ impl IntoResponse for HttpError {
             | "WAREHOUSE_INACTIVE"
             | "WAREHOUSE_LOCATION_ALREADY_EXISTS"
             | "WAREHOUSE_LOCATION_IN_USE"
+            | "ITEM_STORAGE_ALREADY_EXISTS"
+            | "ITEM_STORAGE_COPY_TARGET_NOT_EMPTY"
             | "CARRY_SETTING_IN_USE"
             | "BASIC_CARRY_NOT_SOURCE"
             | "ITEM_CARRY_NOT_SOURCE"
@@ -3483,6 +3537,132 @@ async fn warehouse_report(
     };
     let data = s
         .warehouses
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+// ----- Item Storage Maintenance 料件預設倉儲維護（aimi202；工廠層） -----
+
+use ttrs_shared::{
+    ItemStorageBatchRequest, ItemStorageBatchResult, ItemStorageInput, ItemStorageItemDto,
+};
+
+/// 單身鍵值：倉庫、儲位（空白為整個倉庫）；刪除時帶版本
+#[derive(Deserialize)]
+struct StoragePlace {
+    warehouse: String,
+    #[serde(default)]
+    location: String,
+    #[serde(default)]
+    version: Option<i32>,
+}
+
+async fn query_item_storages(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ItemStorageItemDto>>> {
+    Ok(Json(s.item_storages.query(&s.actor, &plant, req).await?))
+}
+
+async fn get_item_storage(
+    Ctx(s): Ctx,
+    Path((plant, item)): Path<(String, String)>,
+) -> ApiResult<Json<ItemStorageItemDto>> {
+    Ok(Json(s.item_storages.get(&s.actor, &plant, &item).await?))
+}
+
+async fn create_item_storage(
+    Ctx(s): Ctx,
+    Path((plant, item)): Path<(String, String)>,
+    Json(req): Json<ItemStorageInput>,
+) -> ApiResult<(StatusCode, Json<ItemStorageItemDto>)> {
+    let d = s.item_storages.create(&s.actor, &plant, &item, req).await?;
+    Ok((StatusCode::CREATED, Json(d)))
+}
+
+async fn update_item_storage(
+    Ctx(s): Ctx,
+    Path((plant, item)): Path<(String, String)>,
+    Query(p): Query<StoragePlace>,
+    Json(req): Json<ItemStorageInput>,
+) -> ApiResult<Json<ItemStorageItemDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.item_storages
+            .update(&s.actor, &plant, &item, (&p.warehouse, &p.location), req)
+            .await?,
+    ))
+}
+
+async fn delete_item_storage(
+    Ctx(s): Ctx,
+    Path((plant, item)): Path<(String, String)>,
+    Query(p): Query<StoragePlace>,
+) -> ApiResult<Json<ItemStorageItemDto>> {
+    let version = Some(require_version(p.version)?);
+    Ok(Json(
+        s.item_storages
+            .delete(
+                &s.actor,
+                &plant,
+                &item,
+                (&p.warehouse, &p.location),
+                version,
+            )
+            .await?,
+    ))
+}
+
+/// 複製到另一個料件（reproduce）；new_code 為目的料號
+async fn copy_item_storage(
+    Ctx(s): Ctx,
+    Path((plant, item)): Path<(String, String)>,
+    Json(req): Json<NewCode>,
+) -> ApiResult<(StatusCode, Json<ItemStorageItemDto>)> {
+    let d = s
+        .item_storages
+        .copy(&s.actor, &plant, &item, &req.new_code)
+        .await?;
+    Ok((StatusCode::CREATED, Json(d)))
+}
+
+/// 整批產生（batch_generate，IS7）
+async fn batch_item_storages(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<ItemStorageBatchRequest>,
+) -> ApiResult<Json<ItemStorageBatchResult>> {
+    Ok(Json(
+        s.item_storages
+            .batch_generate(&s.actor, &plant, req)
+            .await?,
+    ))
+}
+
+async fn item_storage_history(
+    Ctx(s): Ctx,
+    Path((plant, item)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.item_storages
+            .history(&s.actor, &plant, &item, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+async fn item_storage_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .item_storages
         .report_in(&s.actor, &plant, conditions, format, &lang)
         .await?;
     report_response(&data, format)
@@ -5884,6 +6064,53 @@ async fn accounting_year_report(
     let data = s
         .accounting_periods
         .report(&s.actor, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+// ----- 庫存參數（asms230；inventory_parameters.feature） -----
+
+async fn get_inventory_parameters(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+) -> ApiResult<Json<ttrs_shared::InventoryParametersDto>> {
+    Ok(Json(s.inventory_parameters.get(&s.actor, &plant).await?))
+}
+
+async fn update_inventory_parameters(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<ttrs_shared::InventoryParametersInput>,
+) -> ApiResult<Json<ttrs_shared::InventoryParametersDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.inventory_parameters.update(&s.actor, &plant, req).await?,
+    ))
+}
+
+async fn inventory_parameters_history(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.inventory_parameters
+            .history(&s.actor, &plant, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+async fn inventory_parameters_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, _, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .inventory_parameters
+        .report(&s.actor, &plant, format, &lang)
         .await?;
     report_response(&data, format)
 }

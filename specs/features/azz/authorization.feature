@@ -493,6 +493,18 @@
       | warehouse-maintenance        | output       | 列印倉庫                   |
       | warehouse-maintenance        | exporttoexcel | 匯出倉庫為 Excel          |
       | warehouse-maintenance        | history      | 查詢倉庫 W01 的異動記錄    |
+      | item-storage-maintenance     | query        | 查詢料件預設倉儲           |
+      | item-storage-maintenance     | detail       | 維護料件 A001 的預設倉儲   |
+      | item-storage-maintenance     | reproduce    | 複製料件 A001 的預設倉儲   |
+      | item-storage-maintenance     | batch_generate | 整批產生料件預設倉儲     |
+      | item-storage-maintenance     | output       | 列印料件預設倉儲           |
+      | item-storage-maintenance     | exporttoexcel | 匯出料件預設倉儲為 Excel  |
+      | item-storage-maintenance     | history      | 查詢料件 A001 的預設倉儲異動記錄 |
+      | inventory-parameters         | query        | 查看庫存參數               |
+      | inventory-parameters         | modify       | 修改庫存參數               |
+      | inventory-parameters         | history      | 查詢庫存參數的異動記錄     |
+      | inventory-parameters         | output       | 列印庫存參數               |
+      | inventory-parameters         | exporttoexcel | 匯出庫存參數為 Excel      |
       | item-maintenance             | carry        | 拋轉料件 A001              |
       | item-maintenance             | qry_carry_history | 查詢料件 A001 的拋轉歷史 |
       | basic-data-carry             | query        | 開啟基本資料拋轉           |

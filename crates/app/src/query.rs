@@ -2112,3 +2112,84 @@ pub mod daily_rate {
         }
     }
 }
+
+/// 料件預設倉儲維護（aimi202.4gl:123-256）：單頭料號 ima01（加品名），單身倉庫、儲位、最高存量 imf02–imf04
+pub mod item_storage {
+    use ttrs_domain::{item::Item, item_storage::ItemStorage, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    /// 一筆料件與其預設倉儲
+    #[derive(Debug, Clone)]
+    pub struct View {
+        pub item: Item,
+        pub storages: Vec<ItemStorage>,
+    }
+
+    pub const FIELDS: &[Field] = &[
+        field("item_no", FieldType::Text),
+        field("name", FieldType::Text),
+        field("warehouse_code", FieldType::Text),
+        field("location_code", FieldType::Text),
+        field("max_qty", FieldType::Decimal),
+    ];
+
+    /// 整批產生的料件條件（aimi2021.4fd：ima01、ima06、ima09–ima12）
+    pub const BATCH_FIELDS: &[Field] = &[
+        field("item_no", FieldType::Text),
+        field("group_code", FieldType::Text),
+        field("other_group1", FieldType::Text),
+        field("other_group2", FieldType::Text),
+        field("other_group3", FieldType::Text),
+        field("other_group4", FieldType::Text),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn batch_filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, BATCH_FIELDS, as_is)
+    }
+
+    pub fn value(v: &View, field: &str) -> FieldValue {
+        match field {
+            "item_no" => text(v.item.no.as_str()),
+            "name" => opt_text(v.item.attrs.name.as_deref()),
+            "warehouse_code" => FieldValue::Set(
+                v.storages
+                    .iter()
+                    .map(|s| QbeValue::Text(s.warehouse.as_str().to_owned()))
+                    .collect(),
+            ),
+            "location_code" => FieldValue::Set(
+                v.storages
+                    .iter()
+                    .filter(|s| s.location.is_some())
+                    .map(|s| QbeValue::Text(s.location_code().to_owned()))
+                    .collect(),
+            ),
+            "max_qty" => FieldValue::Set(
+                v.storages
+                    .iter()
+                    .filter_map(|s| s.max_qty.map(QbeValue::Decimal))
+                    .collect(),
+            ),
+            _ => FieldValue::One(None),
+        }
+    }
+
+    pub fn batch_value(i: &Item, field: &str) -> FieldValue {
+        let a = &i.attrs;
+        match field {
+            "item_no" => text(i.no.as_str()),
+            "group_code" => opt_text(a.group_code.as_deref()),
+            "other_group1" => opt_text(a.other_groups[0].as_deref()),
+            "other_group2" => opt_text(a.other_groups[1].as_deref()),
+            "other_group3" => opt_text(a.other_groups[2].as_deref()),
+            "other_group4" => opt_text(a.other_groups[3].as_deref()),
+            _ => FieldValue::One(None),
+        }
+    }
+}

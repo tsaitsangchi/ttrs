@@ -396,3 +396,34 @@ warehouse-col-location = 储位
 warehouse-col-location-name = 储位名称
 warehouse-class-S = S 一般仓
 warehouse-class-W = W 在制品仓
+
+# 料件預設倉儲（aimi202；item_storage.feature）
+item-storage-report-title = 料件默认仓储
+item-storage-col-item = 料号
+item-storage-col-name = 品名
+item-storage-col-spec = 规格
+item-storage-col-warehouse = 仓库
+item-storage-col-warehouse-name = 仓库名称
+item-storage-col-location = 储位
+item-storage-col-max-qty = 最高存量
+
+# 庫存參數（asms230；inventory_parameters.feature）
+inventory-params-report-title = 库存参数
+inventory-params-col-parameter = 参数
+inventory-params-col-value = 值
+inventory-params-storage-control = 料件存放位置管制
+inventory-params-storage-control-1 = 1 只能入默认仓库（储位自选）
+inventory-params-storage-control-2 = 2 只能入默认仓库与储位
+inventory-params-storage-control-3 = 3 输入时自行决定
+inventory-params-fast-turnover = 快速移动周转率
+inventory-params-average-turnover = 平速移动周转率
+inventory-params-posting-date-basis = 账务基础日期
+inventory-params-posting-date-basis-1 = 单据日期
+inventory-params-posting-date-basis-2 = 产生日期
+inventory-params-misc-receipt-new-location = 杂收时可新增储位
+inventory-params-stock-query-window = 开窗查询库存明细
+inventory-params-plant-transfer-same-no = 两阶段营运中心调拨单号相同
+inventory-params-warehouse-transfer-same-no = 两阶段仓库调拨单号相同
+inventory-params-misc-issue-dept = 杂发单输入部门
+inventory-params-misc-receipt-dept = 杂收单输入部门
+inventory-params-add-storage-freely = 可不经仓储维护新增仓储

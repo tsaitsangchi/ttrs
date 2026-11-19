@@ -12,7 +12,10 @@ use components::session::{
 use dioxus::prelude::*;
 use i18n::{UiLang, t};
 use pages::{
-    aim::{ItemGroupMaintenance, ItemMaintenance, WarehouseMaintenance},
+    aim::{
+        InventoryParameters, ItemGroupMaintenance, ItemMaintenance, ItemStorageMaintenance,
+        WarehouseMaintenance,
+    },
     aoo::{
         AccountingPeriodMaintenance, AreaMaintenance, BasicDataCarry, CarryHistoryQuery,
         CarrySettingMaintenance, ClassificationCodeMaintenance, CountryMaintenance,
@@ -56,6 +59,10 @@ enum Route {
         ItemGroupMaintenance {},
         #[route("/aim/warehouse-maintenance")]
         WarehouseMaintenance {},
+        #[route("/aim/item-storage-maintenance")]
+        ItemStorageMaintenance {},
+        #[route("/aim/inventory-parameters")]
+        InventoryParameters {},
         /// Plant Maintenance 營運中心維護（TipTop aooi901）
         #[route("/aoo/plant-maintenance")]
         PlantMaintenance {},
@@ -239,6 +246,16 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
         "warehouse-maintenance" => (
             Route::WarehouseMaintenance {},
             icons::INVENTORY,
+            Tone::Tertiary,
+        ),
+        "item-storage-maintenance" => (
+            Route::ItemStorageMaintenance {},
+            icons::INVENTORY,
+            Tone::Tertiary,
+        ),
+        "inventory-parameters" => (
+            Route::InventoryParameters {},
+            icons::SETTINGS,
             Tone::Tertiary,
         ),
         "plant-maintenance" => (Route::PlantMaintenance {}, icons::FACTORY, Tone::Success),

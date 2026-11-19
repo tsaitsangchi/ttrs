@@ -497,3 +497,212 @@ tables:
       - { legacy: ime091, type: varchar2(24), target: account2, sch: "存貨科目二", note: "方式 2 才輸入", verify: true }
       - { legacy: ime10, type: number(5), target: issue_priority, sch: "工單發料優先順序", note: "≥ 0" }
       - { legacy: ime11, type: number(5), target: ship_priority, sch: "銷售出貨優先順序", note: "≥ 0" }
+
+  - legacy: imf_file
+    target: item_storage
+    scope: plant
+    program: aimi202（Item Storage Maintenance 料件預設倉儲維護）
+    spec: specs/features/aim/item_storage.feature
+    note: "料件預設存放的倉庫＋儲位；工廠層、不拋轉（IS2）。刪除料件時連同刪除；倉庫、儲位被使用時不可刪除（IS10）。庫存交易的 s_imfchk（sma42）延到庫存模組（IS9）"
+    columns:
+      - { legacy: imf01, type: varchar2(40) PK NOT NULL, target: item_no, sch: "料件編號", note: "外鍵 item，ON DELETE CASCADE（IS2）；須為有效料件才能維護（IS4）" }
+      - { legacy: imf02, type: varchar2(10) PK NOT NULL, target: warehouse_code, sch: "倉庫編號", note: "外鍵 warehouse；新增、修改時須為有效倉庫（IS3(a)）" }
+      - { legacy: imf03, type: varchar2(10) PK NOT NULL, target: location_code, sch: "存放位置", note: "' ' 轉為空字串＝整個倉庫；非空白須為該倉庫的儲位（IS3(b)）" }
+      - { legacy: imf04, type: "number(15,3)", target: max_qty, sch: "最高存量限制", note: "NULL＝不限制；999999999 轉為 NULL；不可小於 0（IS3(d)）" }
+      - { legacy: "(無)", target: "version / created_at / updated_at", note: "TTRS 新增（ADR 0012 §1、§4）；轉入時 version＝1、created_at＝轉檔時間。資料權限依料件的所有者、所有部門（IS5）" }
+    not_ported:
+      - { legacy: imf05, type: varchar2(4), sch: "庫存單位", reason: "aimi202 不維護；庫存單位以料件 ima25 為準，庫存交易移植時改讀料件（IS12）" }
+      - { legacy: imf06, type: number(5), sch: "生產發料優先順序", reason: "aimi202 不維護；優先順序在倉庫、儲位 imd14／ime10（IS12）" }
+      - { legacy: imf07, type: number(5), sch: "銷售領料優先順序", reason: "aimi202 不維護；優先順序在倉庫、儲位 imd15／ime11（IS12）" }
+
+  - legacy: sma_file
+    target: manufacturing_parameter
+    scope: plant
+    program: asms230（Inventory Parameters 庫存參數；sma_file 由多支 asms 參數作業共用）
+    spec: specs/features/aim/inventory_parameters.feature
+    note: "每個營運中心一筆（IP2）；本批只移植 asms230 的 10 個參數，其他欄位屬於其他 asms 參數作業，移植時再加欄位（IP10）"
+    columns:
+      - { legacy: sma00, type: "varchar2(1)   PK NOT NULL", target: parameter_key, sch: "KEY VALUE(0)", note: "每個工廠 schema 一筆，固定 0（IP10）" }
+      - { legacy: sma39, type: "varchar2(1)", target: add_storage_freely, sch: "是否可不經由'倉儲基本資料維", note: "Y/N → boolean；與 sma24 的連動延到成本參數（IP8）" }
+      - { legacy: sma42, type: "varchar2(1)", target: storage_control, sch: "料件存放位置管制方式", note: "1／2／3，預設 3（IP4）" }
+      - { legacy: sma68, type: "number(9,4)", target: fast_turnover, sch: "快速移動料件週轉率", note: "0–100、不小於平速（IP5）" }
+      - { legacy: sma69, type: "number(9,4)", target: average_turnover, sch: "平速移動件週轉率", note: "0–100（IP5）" }
+      - { legacy: sma847, type: "varchar2(10)", target: "misc_issue_dept / misc_receipt_dept", sch: "第一碼雜發單是否要輸入部門", note: "第 1、2 碼 Y/N → boolean（IP8）" }
+      - { legacy: sma88, type: "varchar2(1)", target: plant_transfer_same_no, sch: "兩階段營運中心調撥,撥出單號", note: "Y/N → boolean（IP7）" }
+      - { legacy: sma884, type: "varchar2(1)", target: warehouse_transfer_same_no, sch: "兩階段倉庫調撥,撥出單號是否", note: "Y/N → boolean（IP7）" }
+      - { legacy: sma892, type: "varchar2(10)", target: "posting_date_basis / misc_receipt_new_location / stock_query_window", sch: "第一碼 : 庫存帳務基礎日期方", note: "第 1 碼帳務基礎日期 1／2；第 2、3 碼 Y/N → boolean（IP6）", verify: true }
+      - { legacy: "(無)", target: "created_by / created_dept / created_on / updated_by / updated_on / version / created_at / updated_at", note: "TTRS 標準欄位（ADR 0012）；sma_file 沒有資料所有者與修改者" }
+    not_ported:
+      - { legacy: sma01, type: "varchar2(1)", sch: "目前 Tiptop 系統是否可開放使", reason: "屬於 asms000、asms210、asms999 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma02, type: "varchar2(1)", sch: "是否與銷售管理系統相連", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma03, type: "varchar2(1)", sch: "是否與總帳管理系統相連", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma04, type: "varchar2(1)", sch: "是否與應付帳款管理系統相連", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma05, type: "varchar2(1)", sch: "是否與批次追蹤管理系統相連", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma06, type: "varchar2(1)", sch: "是否與專案管理系統相連", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma07, type: "varchar2(1)", sch: "是否與條碼系統相連", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma08, type: "varchar2(1)", sch: "是否與量產製造管理系統相連", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma09, type: "varchar2(1)", sch: "是否可在產品結構維護作業處", reason: "屬於 asms215、asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma10, type: "varchar2(1)", sch: "會計科目參照對應資料維護作", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma11, type: "varchar2(1)", sch: "'0':台灣", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma12, type: "varchar2(1)", sch: "是否為使用多倉儲管理", reason: "asms230 存檔時一律設為 Y、畫面也沒有；TTRS 一律為多倉儲，sma12＝N 的分支不移植（IP10）" }
+      - { legacy: sma13, type: "number(9,4)", sch: "料件庫存ABC分類 到A類所佔百", reason: "屬於 asms220 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma14, type: "number(9,4)", sch: "料件庫存ABC分類 到B類所佔百", reason: "屬於 asms220 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma15, type: "number(5)", sch: "ABC分類 A類循環盤點週期建議", reason: "屬於 asms220 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma16, type: "number(5)", sch: "ABC分類 B類循環盤點週期建議", reason: "屬於 asms220 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma17, type: "number(5)", sch: "ABC分類 C類循環盤點週期建議", reason: "屬於 asms220 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma18, type: "varchar2(1)", sch: "低階碼是否需重新計算", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma19, type: "number(5)", sch: "產品結構項次間隔數目", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma20, type: "number(5)", sch: "過期資料保留期間數", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma21, type: "date", sch: "最後一次MRP需求展開日期", reason: "屬於 asms260 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma22, type: "varchar2(1)", sch: "MRP需求時使用時距", reason: "屬於 asms260 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma23, type: "varchar2(1)", sch: "人工成本取得計算方式", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma24, type: "varchar2(1)", sch: "是否使用標準成本制", reason: "屬於 asms120、asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma25, type: "varchar2(1)", sch: "採購料件成本計算方式", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma26, type: "varchar2(1)", sch: "工單生產製程追蹤設定", reason: "屬於 asms120、asms280 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma27, type: "varchar2(1)", sch: "工單下階備料資料產生時機", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma28, type: "varchar2(1)", sch: "工單排程使用方式", reason: "屬於 asms280 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma29, type: "varchar2(1)", sch: "No Use", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma30, type: "date", sch: "目前系統使用的工作日", reason: "屬於 asms112、asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma31, type: "varchar2(1)", sch: "是否使用請購功能", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma32, type: "varchar2(1)", sch: "請購與採購是否要互相勾稽", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma33, type: "varchar2(1)", sch: "請購與採購若勾稽時，差異處", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma341, type: "number(9,4)", sch: "A類 採購數量大於請購數量之", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma342, type: "number(9,4)", sch: "B類 採購數量大於請購數量之", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma343, type: "number(9,4)", sch: "C類 採購數量大於請購數量之", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma351, type: "number(9,4)", sch: "A類 採購單價大於請購單價之", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma352, type: "number(9,4)", sch: "B類 採購單價大於請購單價之", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma353, type: "number(9,4)", sch: "C類 採購單價大於請購單價之", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma36, type: "varchar2(1)", sch: "是否使用採購預算", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma37, type: "number(9,4)", sch: "採購預算超限比率", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma38, type: "varchar2(1)", sch: "是否可在請購/採購單維護作業", reason: "屬於 asms215、asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma401, type: "number(9,4)", sch: "A類 超短交限率", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma402, type: "number(9,4)", sch: "B類 超短交限率", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma403, type: "number(9,4)", sch: "C類 超短交限率", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma41, type: "varchar2(1)", sch: "外購收貨是否檢查提單號碼", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma43, type: "varchar2(1)", sch: "庫存成本計價方式", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma44, type: "varchar2(1)", sch: "請購單是否可直接輸入", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma45, type: "varchar2(1)", sch: "採購單是否可直接輸入", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma46, type: "varchar2(1)", sch: "分隔符號", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma47, type: "varchar2(1)", sch: "ABC碼計算設定方式", reason: "屬於 asms220 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma48, type: "number(5)", sch: "ABC碼計算期間數設定", reason: "屬於 asms220 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma49, type: "varchar2(1)", sch: "ABC碼排定標準設定", reason: "屬於 asms220 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma50, type: "varchar2(1)", sch: "庫存發料使用方式", reason: "屬於 asms120、asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma51, type: "number(5)", sch: "目前單據輸入會計年度", reason: "屬於 asms112、asms210、asms510 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma52, type: "number(5)", sch: "目前單據輸入會計期別", reason: "屬於 asms112、asms210、asms510 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma53, type: "date", sch: "成本關帳日期", reason: "屬於 asms112、asms210、asms510 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma54, type: "varchar2(1)", sch: "是否使用製程", reason: "屬於 asms112、asms120、asms280 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma55, type: "varchar2(1)", sch: "是否做製程單元管理", reason: "屬於 asms280 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma551, type: "number(5)", sch: "每人每天工作時間", reason: "屬於 asms280 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma56, type: "varchar2(1)", sch: "料需求規劃時供給量是否考慮", reason: "屬於 asms260 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma57, type: "varchar2(1)", sch: "料需求規劃時供給量中對採購", reason: "屬於 asms260 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma58, type: "varchar2(1)", sch: "是否使用成本項目結構", reason: "屬於 asms112 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma59, type: "varchar2(1)", sch: "工作站是否使用工作站工作曆", reason: "屬於 asms112、asms280 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma60, type: "varchar2(1)", sch: "系統處理中料號輸入是否採分", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma601, type: "number(5)", sch: "料號第一段長度", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma602, type: "number(5)", sch: "料號第二段長度", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma603, type: "number(5)", sch: "料號第三段長度", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma604, type: "number(5)", sch: "料號第四段長度", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma605, type: "number(5)", sch: "料號第五段長度", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma609, type: "varchar2(1)", sch: "料號每段資料是否向右靠齊", reason: "屬於 asms215 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma61, type: "varchar2(1)", sch: "廠外加工成本取得方式", reason: "屬於 asms112 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma62, type: "varchar2(1)", sch: "料件供應商管制方式", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma63, type: "varchar2(1)", sch: "料件供應商控制方式", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma64, type: "varchar2(1)", sch: "品名是否採用規則化輸入法", reason: "屬於 asms215 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma65, type: "varchar2(1)", sch: "產品結構的元件通常以何順序", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma66, type: "varchar2(1)", sch: "工單備料時是否自動取代", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma67, type: "varchar2(1)", sch: "工單備料時是否自動替代", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma70, type: "varchar2(1)", sch: "工單工時收集方式", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma71, type: "varchar2(1)", sch: "工單產生下階備料時是否考慮", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma72, type: "varchar2(1)", sch: "工單是否使用三階段式結案步", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma73, type: "varchar2(1)", sch: "工單完工數量是否檢查發料最", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma74, type: "number(9,4)", sch: "工單完工量作勾稽時可容許差", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma75, type: "varchar2(10)", sch: "預設的在製品存放倉庫", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma76, type: "varchar2(10)", sch: "預設的在製品存放儲位", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma77, type: "varchar2(1)", sch: "已核准之單據變動時是否需重", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma78, type: "varchar2(1)", sch: "工單下階備料產生時計量單位", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma79, type: "varchar2(1)", sch: "是否使用保稅系統", reason: "屬於 asms112、asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma80, type: "varchar2(1)", sch: "工單工時輸入方式", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma81, type: "varchar2(1)", sch: "分針以時針表示方式", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma82, type: "varchar2(1)", sch: "成本計算考慮間接物料方式", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma83, type: "varchar2(1)", sch: "以核價檔與料件供應商取低者", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma84, type: "number(9,4)", sch: "採購單價大於最近採購單價之", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma841, type: "varchar2(1)", sch: "採購單價取價方式", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma842, type: "varchar2(1)", sch: "採購單發出時, 更新料件供應", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma843, type: "varchar2(1)", sch: "採購單發出時, 更新料件主檔", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma844, type: "varchar2(1)", sch: "採購單發出時, 更新料件主檔", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma845, type: "varchar2(1)", sch: "低階碼可否部份重計", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma846, type: "varchar2(1)", sch: "產品結構有異動時是否自動執", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma848, type: "varchar2(10)", sch: "工單展備料時,若下階料件須開", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma849, type: "number(5)", sch: "Run Card 製程追蹤產生項次間隔", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma85, type: "varchar2(1)", sch: "收料數量大於採購數量且超出", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma86, type: "varchar2(5)", sch: "帳別編號", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma87, type: "varchar2(10)", sch: "總帳所在營運中心編號", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma881, type: "varchar2(1)", sch: "料件月平均成本單價採用方式", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma882, type: "varchar2(1)", sch: "庫存量為零時,是否刪除庫存資", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma883, type: "varchar2(1)", sch: "試產性工單是否展至尾階", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma885, type: "varchar2(1)", sch: "No Use", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma886, type: "varchar2(10)", sch: "第一碼:採購單部份交貨否預設", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma887, type: "varchar2(10)", sch: "第一碼 : 工單備料是否必須存", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma888, type: "varchar2(10)", sch: "第一碼 : 產品結構列印時是否", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma889, type: "varchar2(10)", sch: "LCM 法則", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma89, type: "varchar2(1)", sch: "成本會計採用方式", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma891, type: "varchar2(10)", sch: "各工單是否設定期末在製約當", reason: "屬於 asms120 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma893, type: "varchar2(10)", sch: "第一碼 : 入庫單號流水號是否", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma894, type: "varchar2(10)", sch: "第一碼 : 庫存不足是否許雜項", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma895, type: "varchar2(10)", sch: "FAS 產品料號產生方式", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma896, type: "varchar2(10)", sch: "是否要有FQC", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma897, type: "varchar2(10)", sch: "是否可分批移轉(Y/N)", reason: "屬於 asms280 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma898, type: "varchar2(10)", sch: "load資料之資料條件篩選起始期", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma899, type: "varchar2(1)", sch: "是否允許發料誤差", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma901, type: "varchar2(1)", sch: "是否與 APS 系統串聯", reason: "屬於 asms112、asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma902, type: "varchar2(10)", sch: "是否使用防偽稅控接口系統", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma903, type: "varchar2(10)", sch: "第一碼:拆箱順序", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma904, type: "varchar2(10)", sch: "請採購匯率使用類別", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma905, type: "varchar2(10)", sch: "No Use", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma906, type: "varchar2(10)", sch: "No Use", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma907, type: "varchar2(10)", sch: "單據別與屬性組是否關聯", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma908, type: "varchar2(10)", sch: "是否允許單據輸入時新增料件", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma909, type: "varchar2(10)", sch: "新增多屬性料件時,復制BOM", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma100, type: "varchar2(1)", sch: "E-BOM轉P-BOM時料件編號需存在料", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma101, type: "varchar2(1)", sch: "BOM表發放後是否可以修改單身", reason: "屬於 asms240 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma102, type: "varchar2(1)", sch: "AVL是否與QVL串聯", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma103, type: "varchar2(1)", sch: "收貨單無承認文號時的管制方", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma104, type: "varchar2(1)", sch: "是否使用聯產品(Y/N)", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma105, type: "varchar2(1)", sch: "認定聯產品的時機點為(1/2)", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma106, type: "varchar2(1)", sch: "系統重要資料異動是否發mail通", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma107, type: "varchar2(1)", sch: "發料時是否可做取替代(Y/N)", reason: "屬於 asms270 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma108, type: "varchar2(1)", sch: "已收貨是否可變更採購單價(Y/N", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma109, type: "varchar2(1)", sch: "採購單價大於最近採購單價之", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma110, type: "number(5)", sch: "收貨單身儲存最大筆數", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma111, type: "varchar2(1)", sch: "是否使用移動加權平均", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma112, type: "varchar2(1)", sch: "採購單價可否為零", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma113, type: "varchar2(1)", sch: "Blanket PO轉採購單價認定", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma114, type: "varchar2(1)", sch: "委外採購是否影響料件最近採", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma115, type: "varchar2(1)", sch: "使用雙單位", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma116, type: "varchar2(1)", sch: "是否使用計價單位", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma117, type: "varchar2(1)", sch: "庫存不足是否自動拆箱", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma118, type: "varchar2(1)", sch: "是否使用特性BOM功能", reason: "屬於 asms240、asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma119, type: "varchar2(1)", sch: "料件編號資料長度", reason: "屬於 asms215 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma120, type: "varchar2(1)", sch: "是否使用多屬性料件", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: smauser, type: "varchar2(10)", sch: "資料所有者", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: smagrup, type: "varchar2(10)", sch: "資料所有部門", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: smamodu, type: "varchar2(10)", sch: "資料修改者", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: smadate, type: "date", sch: "最近修改日", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: smaacti, type: "varchar2(1)", sch: "資料有效碼", reason: "屬於 asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma121, type: "varchar2(1)", sch: "使用特性BOM的行業別", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma122, type: "varchar2(1)", sch: "使用多單位的單位管制方式", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma123, type: "varchar2(5)", sch: "庫存不足自動拆箱調撥單單別", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma124, type: "varchar2(10)", sch: "行業別", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma910, type: "varchar2(10)", sch: "價格評核項目代碼", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma911, type: "varchar2(10)", sch: "交期評核項目代碼", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma912, type: "varchar2(10)", sch: "品質評核項目代碼", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma913, type: "varchar2(10)", sch: "品質異常處理成本評核項目代", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma914, type: "number(5)", sch: "交期逾期容許天數", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma915, type: "number(15,6)", sch: "品質異常處理成本容許率", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma125, type: "varchar2(1)", sch: "訂單審核是否自動產生正式BOM", reason: "沒有 asms 參數作業維護；用到它的模組移植時再確認（IP10）" }
+      - { legacy: sma126, type: "varchar2(1)", sch: "NOT NULL DEFAULT ' '  工序移轉是否檢查單元報工", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma127, type: "varchar2(1)", sch: "NOT NULL DEFAULT ' '  工序移轉是否檢查裁片移轉套", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma128, type: "varchar2(1)", sch: "使用混合包裝", reason: "屬於 asms290 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma916, type: "varchar2(1)", sch: "APS整合類型", reason: "屬於 asms112、asms210 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma90, type: "varchar2(1)", sch: "收貨單做批/序號控管", reason: "屬於 asms250 參數作業，該作業移植時再加欄位（IP10）" }
+      - { legacy: sma917, type: "number(1)", sch: "DEFAULT '0'           資源型態", reason: "屬於 asms112、asms210 參數作業，該作業移植時再加欄位（IP10）" }

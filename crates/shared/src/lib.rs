@@ -2091,6 +2091,108 @@ pub mod warehouse_max_len {
     pub const ACCOUNT: usize = 24;
 }
 
+/// 料件預設倉儲的一筆單身（imf_file；item_storage.feature）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemStorageDto {
+    pub warehouse_code: String,
+    pub warehouse_name: Option<String>,
+    /// 空字串為整個倉庫（IS3(b)）
+    pub location_code: String,
+    pub location_name: Option<String>,
+    /// 空白為不限制（IS3(d)）
+    pub max_qty: Option<rust_decimal::Decimal>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 料件預設倉儲維護的一筆：單頭料件（唯讀）＋單身預設倉儲（aimi202.4fd）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemStorageItemDto {
+    pub item_no: String,
+    pub name: Option<String>,
+    pub spec: Option<String>,
+    pub current_version: Option<String>,
+    pub source_code: Option<String>,
+    pub stock_unit: Option<String>,
+    pub active: bool,
+    /// 依倉庫、儲位排序
+    pub storages: Vec<ItemStorageDto>,
+}
+
+/// 新增、修改預設倉儲；修改時 version 為該筆單身的版本
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ItemStorageInput {
+    pub warehouse_code: String,
+    pub location_code: String,
+    pub max_qty: Option<rust_decimal::Decimal>,
+    pub version: Option<i32>,
+}
+
+/// 整批產生（aimi202 batch_generate，IS7）：conditions 欄位為 item_no、group_code、other_group1–4
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ItemStorageBatchRequest {
+    pub conditions: Vec<QbeCondition>,
+    pub warehouse_code: String,
+    pub location_code: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct ItemStorageBatchResult {
+    pub inserted: u64,
+    pub skipped: u64,
+}
+
+/// 庫存參數（asms230 / sma_file；inventory_parameters.feature）。代碼欄位：storage_control 1／2／3、posting_date_basis 1／2
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct InventoryParametersInput {
+    pub storage_control: String,
+    pub fast_turnover: rust_decimal::Decimal,
+    pub average_turnover: rust_decimal::Decimal,
+    pub posting_date_basis: String,
+    pub misc_receipt_new_location: bool,
+    pub stock_query_window: bool,
+    pub plant_transfer_same_no: bool,
+    pub warehouse_transfer_same_no: bool,
+    pub misc_issue_dept: bool,
+    pub misc_receipt_dept: bool,
+    pub add_storage_freely: bool,
+    /// 尚未建立時為 0
+    pub version: Option<i32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct InventoryParametersDto {
+    #[serde(flatten)]
+    pub settings: InventoryParametersInput,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+impl InventoryParametersDto {
+    pub fn to_input(&self) -> InventoryParametersInput {
+        InventoryParametersInput {
+            version: Some(self.version),
+            ..self.settings.clone()
+        }
+    }
+}
+
 /// 料件拋轉（aimi100 carry；item_carry.feature）：targets 為 None 時拋給全部拋轉營運中心
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]

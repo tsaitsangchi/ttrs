@@ -1119,6 +1119,60 @@ pub trait WarehouseRepository: Send + Sync {
     ) -> Result<bool, RepoError>;
 }
 
+/// 庫存參數（asms230 / sma_file → manufacturing_parameter；inventory_parameters.feature）。工廠層、每廠一筆
+#[async_trait]
+pub trait InventoryParameterRepository: Send + Sync {
+    async fn inventory_parameters(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Option<ttrs_domain::inventory_parameter::InventoryParameters>, RepoError>;
+    /// 以預設值建立（IP2）；已存在 → Conflict
+    async fn insert_inventory_parameters(
+        &self,
+        plant: &PlantId,
+        p: &ttrs_domain::inventory_parameter::InventoryParameters,
+    ) -> Result<(), RepoError>;
+    /// 版本不符 → Stale
+    async fn update_inventory_parameters(
+        &self,
+        plant: &PlantId,
+        p: &ttrs_domain::inventory_parameter::InventoryParameters,
+    ) -> Result<(), RepoError>;
+}
+
+/// 料件預設倉儲（aimi202 / imf_file；item_storage.feature）。工廠層
+#[async_trait]
+pub trait ItemStorageRepository: Send + Sync {
+    /// 依料號、倉庫、儲位排序；item 有值時只列該料件
+    async fn list_item_storages(
+        &self,
+        plant: &PlantId,
+        item: Option<&ttrs_domain::item::ItemNo>,
+    ) -> Result<Vec<ttrs_domain::item_storage::ItemStorage>, RepoError>;
+    /// 同料件同倉庫儲位已存在 → Conflict
+    async fn insert_item_storage(
+        &self,
+        plant: &PlantId,
+        s: &ttrs_domain::item_storage::ItemStorage,
+    ) -> Result<(), RepoError>;
+    /// 修改（可改倉庫、儲位，IS3(e)）：old 為原本的倉庫與儲位；版本不符 → Stale；新鍵值已存在 → Conflict
+    async fn update_item_storage(
+        &self,
+        plant: &PlantId,
+        old: (
+            &ttrs_domain::warehouse::WarehouseCode,
+            Option<&ttrs_domain::warehouse::LocationCode>,
+        ),
+        s: &ttrs_domain::item_storage::ItemStorage,
+    ) -> Result<(), RepoError>;
+    /// 刪除一筆；版本不符 → Stale
+    async fn delete_item_storage(
+        &self,
+        plant: &PlantId,
+        s: &ttrs_domain::item_storage::ItemStorage,
+    ) -> Result<(), RepoError>;
+}
+
 /// 拋到一個營運中心的一筆料件與子資料（item_carry.feature IC6）
 #[derive(Debug, Clone)]
 pub struct ItemCarryBatch {

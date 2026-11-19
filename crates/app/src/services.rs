@@ -79,6 +79,8 @@ pub trait Store:
     + crate::ports::BasicCarryRepository
     + crate::ports::ItemCarryRepository
     + crate::ports::WarehouseRepository
+    + crate::ports::ItemStorageRepository
+    + crate::ports::InventoryParameterRepository
     + 'static
 {
 }
@@ -158,6 +160,8 @@ impl<T> Store for T where
         + crate::ports::BasicCarryRepository
         + crate::ports::ItemCarryRepository
         + crate::ports::WarehouseRepository
+        + crate::ports::ItemStorageRepository
+        + crate::ports::InventoryParameterRepository
         + 'static
 {
 }
@@ -200,6 +204,8 @@ pub struct Services {
     pub carry_settings: crate::CarrySettingService,
     /// 倉庫儲位維護（aimi201、aimi200）
     pub warehouses: crate::WarehouseService,
+    pub item_storages: crate::ItemStorageService,
+    pub inventory_parameters: crate::InventoryParameterService,
     /// 料件拋轉（aimi100 carry；item_carry.feature）
     pub item_carry: crate::ItemCarryService,
     /// 基本資料拋轉（aoop603）與拋轉歷史查詢（aooq604）
@@ -291,6 +297,20 @@ impl Services {
                 a.clone(),
                 store.clone(),
                 store.clone(),
+                store.clone(),
+                history.clone(),
+                reports.clone(),
+            ),
+            item_storages: crate::ItemStorageService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                history.clone(),
+                reports.clone(),
+            ),
+            inventory_parameters: crate::InventoryParameterService::new(
+                a.clone(),
                 store.clone(),
                 history.clone(),
                 reports.clone(),

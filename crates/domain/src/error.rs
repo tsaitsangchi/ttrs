@@ -602,6 +602,22 @@ pub enum DomainError {
     WarehouseLocationAccountRequired,
     #[error("會計科目方式只能是 0、1、2")]
     WarehouseAccountMethodInvalid,
+    // ----- 料件預設倉儲（aimi202 / imf_file；item_storage.feature） -----
+    #[error("這個料件已有此倉庫儲位")]
+    ItemStorageAlreadyExists,
+    #[error("找不到這筆料件預設倉儲")]
+    ItemStorageNotFound,
+    #[error("最高存量不可小於 0，最多 3 位小數")]
+    ItemStorageMaxQtyInvalid,
+    #[error("目的料件已有預設倉儲，不可複製")]
+    ItemStorageCopyTargetNotEmpty,
+    // ----- 庫存參數（asms230 / sma_file；inventory_parameters.feature） -----
+    #[error("料件存放位置管制只能是 1、2、3")]
+    InventoryStorageControlInvalid,
+    #[error("週轉率須介於 0 到 100、最多 4 位小數，且快速移動不可小於平速移動")]
+    InventoryTurnoverInvalid,
+    #[error("庫存帳務基礎日期只能是 1（單據日期）或 2（產生日期）")]
+    InventoryPostingDateBasisInvalid,
     // ----- 料件自動編號（aimi100 / aza28；item_auto_number.feature） -----
     #[error("整體管理系統參數未開啟料件編號自動編碼")]
     ItemAutoNumberDisabled,
@@ -1149,6 +1165,13 @@ impl DomainError {
             Self::WarehouseLocationInUse => "WAREHOUSE_LOCATION_IN_USE",
             Self::WarehouseLocationAccountRequired => "WAREHOUSE_LOCATION_ACCOUNT_REQUIRED",
             Self::WarehouseAccountMethodInvalid => "WAREHOUSE_ACCOUNT_METHOD_INVALID",
+            Self::ItemStorageAlreadyExists => "ITEM_STORAGE_ALREADY_EXISTS",
+            Self::ItemStorageNotFound => "ITEM_STORAGE_NOT_FOUND",
+            Self::ItemStorageMaxQtyInvalid => "ITEM_STORAGE_MAX_QTY_INVALID",
+            Self::ItemStorageCopyTargetNotEmpty => "ITEM_STORAGE_COPY_TARGET_NOT_EMPTY",
+            Self::InventoryStorageControlInvalid => "INVENTORY_STORAGE_CONTROL_INVALID",
+            Self::InventoryTurnoverInvalid => "INVENTORY_TURNOVER_INVALID",
+            Self::InventoryPostingDateBasisInvalid => "INVENTORY_POSTING_DATE_BASIS_INVALID",
             Self::ItemAutoNumberDisabled => "ITEM_AUTO_NUMBER_DISABLED",
             Self::EncodingClassNotForItem => "ENCODING_CLASS_NOT_FOR_ITEM",
             Self::EncodingRuleValueRequired => "ENCODING_RULE_VALUE_REQUIRED",

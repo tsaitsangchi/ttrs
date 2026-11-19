@@ -1042,6 +1042,106 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["查詢倉庫", code, "的異動記錄"] => {
             w.warehouses.history(a, "TW01", code, None).await.map(drop)
         }
+        // 庫存參數（asms230）
+        ["查看庫存參數"] => w.inventory_parameters.get(a, "TW01").await.map(drop),
+        ["修改庫存參數"] => w
+            .inventory_parameters
+            .update(
+                a,
+                "TW01",
+                ttrs_shared::InventoryParametersInput {
+                    storage_control: "3".into(),
+                    posting_date_basis: "1".into(),
+                    version: Some(0),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["查詢庫存參數的異動記錄"] => w
+            .inventory_parameters
+            .history(a, "TW01", None)
+            .await
+            .map(drop),
+        ["列印庫存參數"] => w
+            .inventory_parameters
+            .report(
+                a,
+                "TW01",
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出庫存參數為", "Excel"] => w
+            .inventory_parameters
+            .report(
+                a,
+                "TW01",
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        // 料件預設倉儲（aimi202；料件不存在時回 ITEM_NOT_FOUND，不是權限拒絕）
+        ["查詢料件預設倉儲"] => w
+            .item_storages
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["維護料件", no, "的預設倉儲"] => w
+            .item_storages
+            .create(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::ItemStorageInput {
+                    warehouse_code: "W01".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["複製料件", no, "的預設倉儲"] => {
+            w.item_storages.copy(a, "TW01", no, "A002").await.map(drop)
+        }
+        ["整批產生料件預設倉儲"] => w
+            .item_storages
+            .batch_generate(
+                a,
+                "TW01",
+                ttrs_shared::ItemStorageBatchRequest {
+                    warehouse_code: "W01".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["列印料件預設倉儲"] => w
+            .item_storages
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出料件預設倉儲為", "Excel"] => w
+            .item_storages
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["查詢料件", no, "的預設倉儲異動記錄"] => {
+            w.item_storages.history(a, "TW01", no, None).await.map(drop)
+        }
         // 料件拋轉（aimi100 carry；料件不存在時回 ITEM_NOT_FOUND，不是權限拒絕）
         ["拋轉料件", no] => w
             .item_carry
