@@ -11,6 +11,7 @@ mod misc_issue;
 mod misc_receipt;
 mod misc_scrap;
 mod warehouse_maintenance;
+mod warehouse_transfer;
 
 pub use document_type_maintenance::DocumentTypeMaintenance;
 pub use inventory_parameters::InventoryParameters;
@@ -21,3 +22,4 @@ pub use misc_issue::MiscIssue;
 pub use misc_receipt::MiscReceipt;
 pub use misc_scrap::MiscScrap;
 pub use warehouse_maintenance::WarehouseMaintenance;
+pub use warehouse_transfer::WarehouseTransfer;

@@ -50,5 +50,6 @@ pub mod unit_conversion;
 pub mod user;
 pub mod user_permission;
 pub mod warehouse;
+pub mod warehouse_transfer;
 
 pub use error::DomainError;

@@ -1087,3 +1087,126 @@ tables:
       - { legacy: img35, type: "varchar2(10)", sch: "專案號碼", reason: "專案延後（PT14）" }
       - { legacy: img36, type: "varchar2(4)", sch: "外觀編號", reason: "外觀編號：雜項單不用（PT14）" }
       - { legacy: img38, type: "varchar2(255)", sch: "備註", reason: "備註：雜項單不用（PT14）" }
+  - legacy: imm_file
+    target: warehouse_transfer
+    scope: plant
+    program: aimt324（Warehouse Transfer 庫存直接調撥；以客製 topcust/cim 為準；過帳還原 aimp378）
+    spec: specs/features/aim/warehouse_transfer.feature
+    note: "aimt324 一階段倉庫調撥（imm10＝1）的部分；aimt325 兩階段調撥、營運中心調撥移植時有自己的表（WT1）"
+    columns:
+      - { legacy: imm01, type: "varchar2(16)", target: doc_no, sch: "調撥單號", note: "單別-流水號，以調撥日編號（WT2）" }
+      - { legacy: imm02, type: "date", target: transfer_date, sch: "調撥日期", note: "輸入與過帳時檢查期間（WT3(a)）" }
+      - { legacy: imm03, type: "varchar2(1)", target: posted, sch: "過帳否" }
+      - { legacy: imm09, type: "varchar2(255)", target: memo, sch: "備註", note: "不必填" }
+      - { legacy: immuser, type: "varchar2(10)", target: created_by, sch: "資料所有者" }
+      - { legacy: immgrup, type: "varchar2(10)", target: created_dept, sch: "資料所有部門" }
+      - { legacy: immmodu, type: "varchar2(10)", target: updated_by, sch: "資料修改者" }
+      - { legacy: immdate, type: "date", target: updated_on, sch: "最近修改日" }
+      - { legacy: immconf, type: "varchar2(1)", target: status, sch: "確認碼(Y/N/X)", note: "N 開立、Y 已確認、X 作廢" }
+      - { legacy: imm14, type: "varchar2(10)", target: dept_code, sch: "部門", note: "預設申請人部門，不必填" }
+      - { legacy: imm16, type: "varchar2(10)", target: applicant, sch: "申請人", note: "預設與使用者同代號的員工" }
+    not_ported:
+      - { legacy: imm04, type: "varchar2(1)", sch: "撥出確認否", reason: "撥出確認：兩階段調撥 aimt325 用（WT14）" }
+      - { legacy: immdays, type: "number(5)", sch: "簽核完成天數", reason: "簽核：批次 8（WT14）" }
+      - { legacy: immprit, type: "number(5)", sch: "簽核優先等級", reason: "簽核：批次 8（WT14）" }
+      - { legacy: imm05, type: "number(5)", sch: "已簽核順序", reason: "簽核：批次 8（WT14）" }
+      - { legacy: imm06, type: "number(5)", sch: "應簽核順序", reason: "簽核：批次 8（WT14）" }
+      - { legacy: imm07, type: "number(5)", sch: "已列印次數", reason: "TTRS 列印不計次數（WT14）" }
+      - { legacy: imm08, type: "varchar2(10)", sch: "在途倉", reason: "在途倉：兩階段調撥用（WT14）" }
+      - { legacy: imm10, type: "varchar2(1)", sch: "資料來源", reason: "資料來源：本表固定為一階段倉庫調撥（WT1、WT14）" }
+      - { legacy: imm11, type: "varchar2(16)", sch: "撥入單號", reason: "撥入單號：兩階段調撥用（WT14）" }
+      - { legacy: imm12, type: "date", sch: "撥入日期", reason: "撥入日期：兩階段調撥用（WT14）" }
+      - { legacy: imm13, type: "varchar2(10)", sch: "撥入人員", reason: "撥入人員：兩階段調撥用（WT14）" }
+      - { legacy: immacti, type: "varchar2(1)", sch: "資料有效碼", reason: "aimt324 沒有失效功能（以作廢代替），固定有效（WT14）" }
+      - { legacy: immspc, type: "varchar2(1)", sch: "SPC拋轉碼 0/1/2", reason: "SPC 整合未使用（WT14）" }
+      - { legacy: immud01, type: "varchar2(255)", sch: "自訂欄位-Textedit", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud02, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud03, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud04, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud05, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud06, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud07, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud08, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud09, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud10, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud11, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud12, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud13, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud14, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: immud15, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imm15, type: "varchar2(1)", sch: "簽核狀況", reason: "簽核：批次 8（WT14）" }
+      - { legacy: immmksg, type: "varchar2(1)", sch: "是否簽核", reason: "簽核：批次 8（WT14）" }
+  - legacy: imn_file
+    target: warehouse_transfer_line
+    scope: plant
+    program: aimt324（Warehouse Transfer 庫存直接調撥；以客製 topcust/cim 為準；過帳還原 aimp378）
+    spec: specs/features/aim/warehouse_transfer.feature
+    note: "aimt324 的單身"
+    columns:
+      - { legacy: imn01, type: "varchar2(16)", target: doc_no, sch: "調撥單號" }
+      - { legacy: imn02, type: "number(5)", target: line_no, sch: "項次" }
+      - { legacy: imn03, type: "varchar2(40)", target: item_no, sch: "料號", note: "已確認、非 MISC 料件" }
+      - { legacy: imn04, type: "varchar2(10)", target: from_warehouse, sch: "撥出倉庫別", note: "有效倉庫，須有庫存資料（WT4）" }
+      - { legacy: imn05, type: "varchar2(10)", target: from_location, sch: "撥出儲位", note: "空白存空字串" }
+      - { legacy: imn06, type: "varchar2(24)", target: from_lot, sch: "撥出批號", note: "空白存空字串" }
+      - { legacy: imn09, type: "varchar2(4)", target: unit, sch: "庫存單位", note: "庫存單位（撥入單位 imn20 相同，WT6）" }
+      - { legacy: imn10, type: "number(15,3)", target: qty, sch: "撥出數量(預計)", note: "大於 0、不超過可用量（WT6）" }
+      - { legacy: imn15, type: "varchar2(10)", target: to_warehouse, sch: "撥入倉庫別", note: "有效倉庫，依存放位置管制（WT5）" }
+      - { legacy: imn16, type: "varchar2(10)", target: to_location, sch: "撥入儲位", note: "空白存空字串" }
+      - { legacy: imn17, type: "varchar2(24)", target: to_lot, sch: "撥入批號", note: "空白時帶撥出批號（WT5(e)）" }
+      - { legacy: imn28, type: "varchar2(4)", target: reason, sch: "調撥理由", note: "分類碼類別 2（WT7）" }
+    not_ported:
+      - { legacy: imn041, type: "varchar2(10)", sch: "撥出營運中心編號", reason: "一階段倉庫調撥在同一營運中心（WT14）" }
+      - { legacy: imn07, type: "varchar2(24)", sch: "會計科目", reason: "會計科目：總帳（WT14）" }
+      - { legacy: imn08, type: "varchar2(10)", sch: "專案號碼", reason: "專案延後（WT14）" }
+      - { legacy: imn091, type: "number(20,6)", sch: "單價", reason: "單價：成本模組（WT14）" }
+      - { legacy: imn092, type: "number(20,6)", sch: "金額", reason: "金額：成本模組（WT14）" }
+      - { legacy: imn11, type: "number(15,3)", sch: "累計實撥數量(實際)/異動後庫", reason: "累計實撥：兩階段調撥用（WT14）" }
+      - { legacy: imn12, type: "varchar2(1)", sch: "確認碼", reason: "確認碼：兩階段調撥用（WT14）" }
+      - { legacy: imn13, type: "varchar2(10)", sch: "確認人", reason: "確認人：兩階段調撥用（WT14）" }
+      - { legacy: imn14, type: "date", sch: "確認日期", reason: "確認日期：兩階段調撥用（WT14）" }
+      - { legacy: imn151, type: "varchar2(10)", sch: "撥入營運中心編號", reason: "一階段倉庫調撥在同一營運中心（WT14）" }
+      - { legacy: imn18, type: "varchar2(24)", sch: "會計科目", reason: "會計科目：總帳（WT14）" }
+      - { legacy: imn19, type: "varchar2(10)", sch: "專案號碼", reason: "專案延後（WT14）" }
+      - { legacy: imn20, type: "varchar2(4)", sch: "庫存單位", reason: "撥入單位＝撥出單位（單一單位，WT6）" }
+      - { legacy: imn201, type: "varchar2(10)", sch: "庫存等級", reason: "庫存等級：不用（WT14）" }
+      - { legacy: imn202, type: "varchar2(4)", sch: "外觀代號", reason: "外觀代號：不用（WT14）" }
+      - { legacy: imn21, type: "number(20,8)", sch: "單位轉換率", reason: "換算率固定 1（WT6）" }
+      - { legacy: imn22, type: "number(15,3)", sch: "轉換後數量", reason: "轉換後數量＝調撥數量（WT6）" }
+      - { legacy: imn23, type: "number(15,3)", sch: "累計實撥數量(實際)/異動後庫", reason: "累計實撥：兩階段調撥用（WT14）" }
+      - { legacy: imn24, type: "varchar2(1)", sch: "確認碼", reason: "確認碼：兩階段調撥用（WT14）" }
+      - { legacy: imn25, type: "varchar2(10)", sch: "確認人", reason: "確認人：兩階段調撥用（WT14）" }
+      - { legacy: imn26, type: "date", sch: "確認日期", reason: "確認日期：兩階段調撥用（WT14）" }
+      - { legacy: imn27, type: "varchar2(1)", sch: "結案否", reason: "結案：兩階段調撥用（WT14）" }
+      - { legacy: imn30, type: "varchar2(4)", sch: "單位一 (來源)", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn31, type: "number(20,8)", sch: "單位一換算率(與庫存單位)(來", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn32, type: "number(15,3)", sch: "單位一數量(來源)", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn33, type: "varchar2(4)", sch: "單位二(來源)", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn34, type: "number(20,8)", sch: "單位二換算率(與庫存單位)(來", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn35, type: "number(15,3)", sch: "單位二數量(來源)", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn40, type: "varchar2(4)", sch: "單位一(目的)", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn41, type: "number(20,8)", sch: "單位一換算率(與庫存單位)(目", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn42, type: "number(15,3)", sch: "單位一數量(目的)", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn43, type: "varchar2(4)", sch: "單位二(目的)", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn44, type: "number(20,8)", sch: "單位二換算率(與庫存單位)(目", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn45, type: "number(15,3)", sch: "單位二數量(目的)", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn51, type: "number(20,8)", sch: "來源單位一與目的單位一的轉", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn52, type: "number(20,8)", sch: "來源單位二與目的單位二的轉", reason: "雙單位（sma115 不移植，WT14）" }
+      - { legacy: imn29, type: "varchar2(1)", sch: "檢驗否", reason: "檢驗未移植（WT14）" }
+      - { legacy: imn9301, type: "varchar2(10)", sch: "撥出成本中心", reason: "成本中心延後（WT14）" }
+      - { legacy: imn9302, type: "varchar2(10)", sch: "撥入成本中心", reason: "成本中心延後（WT14）" }
+      - { legacy: imnud01, type: "varchar2(255)", sch: "自訂欄位-Textedit", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud02, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud03, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud04, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud05, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud06, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud07, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud08, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud09, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud10, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud11, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud12, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud13, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud14, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（WT14）" }
+      - { legacy: imnud15, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（WT14）" }

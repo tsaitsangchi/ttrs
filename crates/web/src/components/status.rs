@@ -224,6 +224,8 @@ has_status_no_active!(
     ttrs_shared::InventoryParametersDto,
     // 雜項發料／收料／報廢（ina_file 沒有資料有效碼，作廢另有狀態）
     ttrs_shared::InventoryTxnDto,
+    // 庫存直接調撥（imm_file 不提供失效，以作廢代替，WT14）
+    ttrs_shared::WarehouseTransferDto,
     // 會計期間（azm_file 沒有資料有效碼，PD9）
     ttrs_shared::AccountingYearDto,
     // 資料控管原則的營運中心（gev_file 沒有資料有效碼，DC9）

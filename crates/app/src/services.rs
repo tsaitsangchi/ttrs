@@ -85,6 +85,7 @@ pub trait Store:
     + crate::ports::InventoryTransactionRepository
     + crate::ports::InventoryBalanceRepository
     + crate::ports::InventoryPostingRepository
+    + crate::ports::WarehouseTransferRepository
     + 'static
 {
 }
@@ -170,6 +171,7 @@ impl<T> Store for T where
         + crate::ports::InventoryTransactionRepository
         + crate::ports::InventoryBalanceRepository
         + crate::ports::InventoryPostingRepository
+        + crate::ports::WarehouseTransferRepository
         + 'static
 {
 }
@@ -219,6 +221,8 @@ pub struct Services {
     pub misc_issues: crate::MiscIssueService,
     pub misc_receipts: crate::MiscReceiptService,
     pub misc_scraps: crate::MiscScrapService,
+    /// 庫存直接調撥（aimt324）
+    pub warehouse_transfers: crate::WarehouseTransferService,
     /// 料件拋轉（aimi100 carry；item_carry.feature）
     pub item_carry: crate::ItemCarryService,
     /// 基本資料拋轉（aoop603）與拋轉歷史查詢（aooq604）
@@ -352,6 +356,7 @@ impl Services {
                 warehouses: store.clone(),
                 codes: store.clone(),
                 posting: store.clone(),
+                transfers: store.clone(),
                 history: history.clone(),
                 reports: reports.clone(),
             }),
@@ -394,6 +399,28 @@ impl Services {
                 history: history.clone(),
                 reports: reports.clone(),
             }),
+            warehouse_transfers: crate::WarehouseTransferService::new(
+                crate::warehouse_transfer_service::WarehouseTransferRepos {
+                    authz: a.clone(),
+                    transfers: store.clone(),
+                    misc: store.clone(),
+                    balances: store.clone(),
+                    posting: store.clone(),
+                    docs: store.clone(),
+                    params: store.clone(),
+                    inventory_params: store.clone(),
+                    periods: store.clone(),
+                    users: store.clone(),
+                    depts: store.clone(),
+                    employees: store.clone(),
+                    items: store.clone(),
+                    warehouses: store.clone(),
+                    item_storages: store.clone(),
+                    codes: store.clone(),
+                    history: history.clone(),
+                    reports: reports.clone(),
+                },
+            ),
             programs: ProgramService::new(a.clone(), store.clone(), reports.clone()),
             dictionary: DataDictionaryService::new(
                 a.clone(),

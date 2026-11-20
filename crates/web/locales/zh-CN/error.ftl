@@ -510,3 +510,5 @@ error-INVENTORY_PERIOD_NOT_OPEN = 扣账日不可在现行年月之后。
 error-INVENTORY_CURRENT_PERIOD_INVALID = 现行年度与期别须一起设定，期别为 1 到 13。
 error-INVENTORY_TRANSACTION_NOT_POSTED = 单据尚未过账。
 error-INVENTORY_MAX_QTY_EXCEEDED = 超过料件预设仓储的最高存量。
+error-WAREHOUSE_TRANSFER_SAME_STORAGE = 拨出与拨入的仓库、储位、批号不可完全相同。
+error-WAREHOUSE_TRANSFER_STORAGE_NOT_ASSIGNED = 拨入仓储不在料件预设仓储（料件存放位置管制）。

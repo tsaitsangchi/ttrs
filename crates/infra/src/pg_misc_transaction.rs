@@ -10,7 +10,7 @@ use ttrs_app::{
     error::RepoError,
     ports::{
         InventoryBalanceRepository, InventoryPostingRepository, InventoryTransactionRepository,
-        PostingWrite,
+        PostedDoc, PostingWrite,
     },
 };
 use ttrs_domain::{
@@ -598,19 +598,30 @@ struct TxnRow {
 impl InventoryPostingRepository for PgStore {
     async fn apply_posting(&self, plant: &PlantId, w: &PostingWrite) -> Result<(), RepoError> {
         let mut tx = self.required_plant_tx(plant).await?;
-        let t = &w.doc;
-        let n = sqlx::query(sql!(
-            t.kind,
-            "UPDATE ",
-            H,
-            " SET posting_date = $2, posted = $3, updated_by = $4, updated_on = $5 WHERE doc_no = $1 AND version = $6"
-        ))
-        .bind(&t.no)
-        .bind(t.header.posting_date)
-        .bind(t.posted)
-        .bind(&t.updated_by)
-        .bind(t.updated_on)
-        .bind(t.stamp.version)
+        let n = match &w.doc {
+            PostedDoc::Misc(t) => sqlx::query(sql!(
+                t.kind,
+                "UPDATE ",
+                H,
+                " SET posting_date = $2, posted = $3, updated_by = $4, updated_on = $5 WHERE doc_no = $1 AND version = $6"
+            ))
+            .bind(&t.no)
+            .bind(t.header.posting_date)
+            .bind(t.posted)
+            .bind(&t.updated_by)
+            .bind(t.updated_on)
+            .bind(t.stamp.version),
+            PostedDoc::Transfer(t) => sqlx::query(
+                "UPDATE warehouse_transfer SET transfer_date = $2, posted = $3, updated_by = $4, updated_on = $5
+                  WHERE doc_no = $1 AND version = $6",
+            )
+            .bind(&t.no)
+            .bind(t.header.transfer_date)
+            .bind(t.posted)
+            .bind(&t.updated_by)
+            .bind(t.updated_on)
+            .bind(t.stamp.version),
+        }
         .execute(&mut *tx)
         .await
         .map_err(db_err)?
@@ -638,19 +649,21 @@ impl InventoryPostingRepository for PgStore {
         }
         if w.remove_records {
             sqlx::query("DELETE FROM inventory_txn WHERE program = $1 AND doc_no = $2")
-                .bind(t.kind.program())
-                .bind(&t.no)
+                .bind(w.doc.program())
+                .bind(w.doc.no())
                 .execute(&mut *tx)
                 .await
                 .map_err(db_err)?;
         }
         for r in &w.add_records {
             let dup: bool = sqlx::query_scalar(
-                "SELECT EXISTS (SELECT 1 FROM inventory_txn WHERE program = $1 AND doc_no = $2 AND doc_line = $3)",
+                "SELECT EXISTS (SELECT 1 FROM inventory_txn
+                                 WHERE program = $1 AND doc_no = $2 AND doc_line = $3 AND direction = $4)",
             )
             .bind(&r.program)
             .bind(&r.doc_no)
             .bind(r.doc_line)
+            .bind(r.direction)
             .fetch_one(&mut *tx)
             .await
             .map_err(db_err)?;
@@ -718,7 +731,7 @@ impl InventoryPostingRepository for PgStore {
         let rows: Vec<TxnRow> = sqlx::query_as(
             "SELECT item_no, warehouse, location, lot, doc_no, doc_line, doc_type, direction, source, dest, txn_date, qty,
                     unit_code, balance_after, program, reason, memo, dept_code, cost_group, created_by, created_at
-               FROM inventory_txn WHERE program = $1 AND doc_no = $2 ORDER BY doc_line",
+               FROM inventory_txn WHERE program = $1 AND doc_no = $2 ORDER BY doc_line, direction",
         )
         .bind(program)
         .bind(doc_no)

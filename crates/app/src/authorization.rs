@@ -219,6 +219,13 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AIM",
         "insert, query, modify, delete, detail, reproduce, void, confirm, undo_confirm, stock_post, undo_post, history, output, exporttoexcel",
     ),
+    // 庫存直接調撥（WT12）：沿用 TipTop 功能代號（過帳 post、過帳還原 undo_post）；複製依 ADR 0013 補做
+    (
+        "warehouse-transfer",
+        "aimt324",
+        "AIM",
+        "insert, query, modify, delete, detail, reproduce, void, confirm, undo_confirm, post, undo_post, history, output, exporttoexcel",
+    ),
     // 基本資料拋轉（BC10）：批次作業，只有查詢與執行拋轉；拋轉歷史查詢為唯讀查詢
     ("basic-data-carry", "aoop603", "AOO", "query, carry"),
     (

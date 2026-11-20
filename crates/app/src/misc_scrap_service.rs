@@ -40,8 +40,8 @@ use crate::{
         AccountingPeriodRepository, ClassificationCodeRepository, DepartmentRepository,
         DocumentTypeRepository, EmployeeRepository, InventoryBalanceRepository,
         InventoryParameterRepository, InventoryPostingRepository, InventoryTransactionRepository,
-        ItemDates, ItemRepository, PostingWrite, SystemParameterRepository, UserRepository,
-        WarehouseRepository,
+        ItemDates, ItemRepository, PostedDoc, PostingWrite, SystemParameterRepository,
+        UserRepository, WarehouseRepository,
     },
     query,
     report::{self, ReportData, ReportFormat},
@@ -507,7 +507,7 @@ impl MiscScrapService {
                 }
             }
             let w = PostingWrite {
-                doc: t.clone(),
+                doc: PostedDoc::Misc(t.clone()),
                 balances,
                 add_records: records,
                 remove_records: false,
@@ -559,7 +559,7 @@ impl MiscScrapService {
                 balances[i].1.undo(l.qty)?;
             }
             let w = PostingWrite {
-                doc: t.clone(),
+                doc: PostedDoc::Misc(t.clone()),
                 balances,
                 add_records: Vec::new(),
                 remove_records: true,

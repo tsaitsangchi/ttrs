@@ -561,6 +561,20 @@
       | misc-scrap                   | history      | 查詢雜項報廢單 MS1-00000001 的異動記錄 |
       | misc-scrap                   | output       | 列印雜項報廢單 |
       | misc-scrap                   | exporttoexcel | 匯出雜項報廢單為 Excel |
+      | warehouse-transfer           | query        | 查詢調撥單 |
+      | warehouse-transfer           | insert       | 新增調撥單 TR1 |
+      | warehouse-transfer           | modify       | 修改調撥單 TR1-00000001 |
+      | warehouse-transfer           | detail       | 修改調撥單 TR1-00000001 的單身 |
+      | warehouse-transfer           | delete       | 刪除調撥單 TR1-00000001 |
+      | warehouse-transfer           | void         | 作廢調撥單 TR1-00000001 |
+      | warehouse-transfer           | reproduce    | 複製調撥單 TR1-00000001 |
+      | warehouse-transfer           | confirm      | 確認調撥單 TR1-00000001 |
+      | warehouse-transfer           | undo_confirm | 取消確認調撥單 TR1-00000001 |
+      | warehouse-transfer           | post         | 過帳調撥單 TR1-00000001 |
+      | warehouse-transfer           | undo_post    | 過帳還原調撥單 TR1-00000001 |
+      | warehouse-transfer           | history      | 查詢調撥單 TR1-00000001 的異動記錄 |
+      | warehouse-transfer           | output       | 列印調撥單 |
+      | warehouse-transfer           | exporttoexcel | 匯出調撥單為 Excel |
       | item-maintenance             | carry        | 拋轉料件 A001              |
       | item-maintenance             | qry_carry_history | 查詢料件 A001 的拋轉歷史 |
       | basic-data-carry             | query        | 開啟基本資料拋轉           |

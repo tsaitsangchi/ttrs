@@ -15,6 +15,7 @@ mod aim_misc_issue;
 mod aim_misc_receipt;
 mod aim_misc_scrap;
 mod aim_warehouse;
+mod aim_warehouse_transfer;
 mod aoo_accounting_periods;
 mod aoo_basic_carry;
 mod aoo_basic_codes;

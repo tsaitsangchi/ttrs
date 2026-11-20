@@ -4002,3 +4002,89 @@ pub struct InventoryTxnRecordDto {
     pub created_by: String,
     pub created_at: Option<DateTime<Utc>>,
 }
+
+// ---------------------------------------------------------------------------
+// 庫存直接調撥（TipTop aimt324 / imm_file、imn_file；warehouse_transfer.feature）
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WarehouseTransferLineDto {
+    pub line_no: i32,
+    pub item_no: String,
+    pub item_name: Option<String>,
+    pub from_warehouse: String,
+    pub from_location: String,
+    pub from_lot: String,
+    pub to_warehouse: String,
+    pub to_location: String,
+    pub to_lot: String,
+    pub unit: String,
+    pub qty: rust_decimal::Decimal,
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WarehouseTransferDto {
+    pub doc_no: String,
+    pub transfer_date: NaiveDate,
+    pub dept: Option<String>,
+    pub applicant: Option<String>,
+    pub memo: Option<String>,
+    /// N 開立、Y 已確認、X 作廢
+    pub status: String,
+    pub posted: bool,
+    pub lines: Vec<WarehouseTransferLineDto>,
+    #[serde(default)]
+    pub print_now: bool,
+    #[serde(default)]
+    pub auto_confirm_error: Option<String>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 調撥單身輸入；項次 0 時自動取最大項次＋1；撥入批號空白時帶撥出批號（WT5(e)）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WarehouseTransferLineInput {
+    pub line_no: i32,
+    pub item_no: String,
+    pub from_warehouse: String,
+    pub from_location: Option<String>,
+    pub from_lot: Option<String>,
+    pub to_warehouse: String,
+    pub to_location: Option<String>,
+    pub to_lot: Option<String>,
+    pub qty: rust_decimal::Decimal,
+    pub reason: Option<String>,
+}
+
+/// 新增、修改調撥單；規則同雜項單的輸入（未給的欄位維持原值；有單頭欄位檢查 modify、有 lines 檢查 detail）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WarehouseTransferInput {
+    pub doc_no: String,
+    pub transfer_date: Option<NaiveDate>,
+    pub dept: Option<String>,
+    pub applicant: Option<String>,
+    pub memo: Option<String>,
+    pub lines: Option<Vec<WarehouseTransferLineInput>>,
+    pub version: Option<i32>,
+}
+
+/// 複製調撥單（WT12）：新單別或完整單號、調撥日
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WarehouseTransferCopyInput {
+    pub doc_no: String,
+    pub transfer_date: Option<NaiveDate>,
+}

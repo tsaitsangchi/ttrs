@@ -1291,6 +1291,47 @@ pub trait InventoryBalanceRepository: Send + Sync {
     ) -> Result<Vec<ttrs_domain::inventory_balance::InventoryBalance>, RepoError>;
 }
 
+/// 庫存直接調撥（aimt324 / imm_file、imn_file；warehouse_transfer.feature）。工廠層
+#[async_trait]
+pub trait WarehouseTransferRepository: Send + Sync {
+    /// 依單號排序
+    async fn list_warehouse_transfers(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Vec<ttrs_domain::warehouse_transfer::WarehouseTransfer>, RepoError>;
+    async fn get_warehouse_transfer(
+        &self,
+        plant: &PlantId,
+        no: &str,
+    ) -> Result<Option<ttrs_domain::warehouse_transfer::WarehouseTransfer>, RepoError>;
+    /// 單號已存在 → Conflict
+    async fn insert_warehouse_transfer(
+        &self,
+        plant: &PlantId,
+        t: &ttrs_domain::warehouse_transfer::WarehouseTransfer,
+    ) -> Result<(), RepoError>;
+    /// 單頭與單身一起存；版本不符 → Stale
+    async fn update_warehouse_transfer(
+        &self,
+        plant: &PlantId,
+        t: &ttrs_domain::warehouse_transfer::WarehouseTransfer,
+    ) -> Result<(), RepoError>;
+    async fn delete_warehouse_transfer(&self, plant: &PlantId, no: &str) -> Result<(), RepoError>;
+    /// 以 prefix 開頭的最大單號
+    async fn max_transfer_no(
+        &self,
+        plant: &PlantId,
+        prefix: &str,
+    ) -> Result<Option<String>, RepoError>;
+    /// 其他未過帳、未作廢的調撥單從此倉儲批撥出的數量合計（客製 aim-425；WT6）
+    async fn pending_transfer_qty(
+        &self,
+        plant: &PlantId,
+        key: &ttrs_domain::inventory_balance::BalanceKey,
+        exclude_no: &str,
+    ) -> Result<rust_decimal::Decimal, RepoError>;
+}
+
 /// 料件的最近異動日期（s_udima；PT5）：Some 的欄位才更新
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ItemDates {
@@ -1303,17 +1344,41 @@ pub struct ItemDates {
     pub last_txn_on: Option<chrono::NaiveDate>,
 }
 
+/// 過帳的單據（雜項單或調撥單）
+#[derive(Debug, Clone)]
+pub enum PostedDoc {
+    Misc(InventoryTransaction),
+    Transfer(ttrs_domain::warehouse_transfer::WarehouseTransfer),
+}
+
+impl PostedDoc {
+    /// 異動記錄的程式代號
+    pub fn program(&self) -> &'static str {
+        match self {
+            Self::Misc(t) => t.kind.program(),
+            Self::Transfer(_) => ttrs_domain::warehouse_transfer::PROGRAM,
+        }
+    }
+
+    pub fn no(&self) -> &str {
+        match self {
+            Self::Misc(t) => &t.no,
+            Self::Transfer(t) => &t.no,
+        }
+    }
+}
+
 /// 一次過帳或過帳還原要寫入的全部資料（同一交易；PT9）
 #[derive(Debug, Clone)]
 pub struct PostingWrite {
     /// 更新後的單據（過帳碼、扣帳日）；版本不符 → Stale
-    pub doc: InventoryTransaction,
+    pub doc: PostedDoc,
     /// (讀取時的庫存量，新建時 None, 新的庫存明細)；庫存量已被他人改過 → Stale
     pub balances: Vec<(
         Option<rust_decimal::Decimal>,
         ttrs_domain::inventory_balance::InventoryBalance,
     )>,
-    /// 新增的異動記錄；同單號＋項次＋程式已有 → Conflict（-239）
+    /// 新增的異動記錄；同程式＋單號＋項次＋方向已有 → Conflict（-239）
     pub add_records: Vec<ttrs_domain::inventory_balance::InventoryTxnRecord>,
     /// 過帳還原：刪除這張單（程式＋單號）的異動記錄
     pub remove_records: bool,

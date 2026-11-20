@@ -510,3 +510,5 @@ error-INVENTORY_PERIOD_NOT_OPEN = The posting date is after the current year/per
 error-INVENTORY_CURRENT_PERIOD_INVALID = Set both current year and period; period is 1 to 13.
 error-INVENTORY_TRANSACTION_NOT_POSTED = The document is not posted.
 error-INVENTORY_MAX_QTY_EXCEEDED = Exceeds the maximum quantity of the item storage.
+error-WAREHOUSE_TRANSFER_SAME_STORAGE = The source and target warehouse, location and lot cannot all be the same.
+error-WAREHOUSE_TRANSFER_STORAGE_NOT_ASSIGNED = The target is not an item storage of this item (storage control).

@@ -4946,3 +4946,123 @@ pub async fn misc_scrap_txn_records(
 ) -> Result<Vec<ttrs_shared::InventoryTxnRecordDto>, String> {
     get_json(plant_part_url(plant, "misc-scraps", no, "/txn-records")).await
 }
+
+// ----- Warehouse Transfer 庫存直接調撥（TipTop aimt324；工廠層） -----
+
+pub async fn query_warehouse_transfers(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::WarehouseTransferDto>, String> {
+    post_query(
+        plant_part_url(plant, "warehouse-transfers", "", "/query"),
+        req,
+    )
+    .await
+}
+
+/// 新增（no 為 None）或修改調撥單
+pub async fn save_warehouse_transfer(
+    plant: &str,
+    no: Option<&str>,
+    req: &ttrs_shared::WarehouseTransferInput,
+) -> Result<ttrs_shared::WarehouseTransferDto, String> {
+    match no {
+        None => {
+            send_json(
+                reqwest::Method::POST,
+                plant_part_url(plant, "warehouse-transfers", "", ""),
+                Some(req),
+            )
+            .await
+        }
+        Some(n) => {
+            send_json(
+                reqwest::Method::PUT,
+                plant_part_url(plant, "warehouse-transfers", n, ""),
+                Some(req),
+            )
+            .await
+        }
+    }
+}
+
+pub async fn copy_warehouse_transfer(
+    plant: &str,
+    no: &str,
+    req: &ttrs_shared::WarehouseTransferCopyInput,
+) -> Result<ttrs_shared::WarehouseTransferDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "warehouse-transfers", no, "/copy"),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn delete_warehouse_transfer(plant: &str, no: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            plant_part_url(plant, "warehouse-transfers", no, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// confirm、undo-confirm、void、unvoid、post、undo-post
+pub async fn set_warehouse_transfer_state(
+    plant: &str,
+    no: &str,
+    state: &str,
+    version: i32,
+) -> Result<ttrs_shared::WarehouseTransferDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "warehouse-transfers", no, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn warehouse_transfer_history(
+    plant: &str,
+    no: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    get_json(format!(
+        "{}?lang={}",
+        plant_part_url(plant, "warehouse-transfers", no, "/history"),
+        crate::i18n::current().code()
+    ))
+    .await
+}
+
+pub async fn warehouse_transfer_txn_records(
+    plant: &str,
+    no: &str,
+) -> Result<Vec<ttrs_shared::InventoryTxnRecordDto>, String> {
+    get_json(plant_part_url(
+        plant,
+        "warehouse-transfers",
+        no,
+        "/txn-records",
+    ))
+    .await
+}
+
+/// 撥入到新倉儲批時提示（WT5(d)）
+pub async fn warehouse_transfer_new_storages(
+    plant: &str,
+    lines: &[ttrs_shared::WarehouseTransferLineInput],
+) -> Result<Vec<usize>, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "warehouse-transfers", "", "/new-storages"),
+        Some(&lines),
+    )
+    .await
+}

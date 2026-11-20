@@ -15,6 +15,7 @@ use pages::{
     aim::{
         DocumentTypeMaintenance, InventoryParameters, ItemGroupMaintenance, ItemMaintenance,
         ItemStorageMaintenance, MiscIssue, MiscReceipt, MiscScrap, WarehouseMaintenance,
+        WarehouseTransfer,
     },
     aoo::{
         AccountingPeriodMaintenance, AreaMaintenance, BasicDataCarry, CarryHistoryQuery,
@@ -72,6 +73,9 @@ enum Route {
         MiscReceipt {},
         #[route("/aim/misc-scrap")]
         MiscScrap {},
+        /// Warehouse Transfer 庫存直接調撥（TipTop aimt324）
+        #[route("/aim/warehouse-transfer")]
+        WarehouseTransfer {},
         /// Plant Maintenance 營運中心維護（TipTop aooi901）
         #[route("/aoo/plant-maintenance")]
         PlantMaintenance {},
@@ -275,6 +279,11 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
         "misc-issue" => (Route::MiscIssue {}, icons::INVENTORY, Tone::Tertiary),
         "misc-receipt" => (Route::MiscReceipt {}, icons::INVENTORY, Tone::Tertiary),
         "misc-scrap" => (Route::MiscScrap {}, icons::INVENTORY, Tone::Tertiary),
+        "warehouse-transfer" => (
+            Route::WarehouseTransfer {},
+            icons::INVENTORY,
+            Tone::Tertiary,
+        ),
         "plant-maintenance" => (Route::PlantMaintenance {}, icons::FACTORY, Tone::Success),
         "department-maintenance" => (
             Route::DepartmentMaintenance {},

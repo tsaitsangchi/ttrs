@@ -103,6 +103,9 @@ struct State {
         (PlantId, &'static str, String),
         ttrs_domain::inventory_transaction::InventoryTransaction,
     >,
+    /// 庫存直接調撥（aimt324 / imm_file、imn_file）
+    warehouse_transfers:
+        BTreeMap<(PlantId, String), ttrs_domain::warehouse_transfer::WarehouseTransfer>,
     /// 庫存異動記錄（tlf_file → inventory_txn）
     inventory_txns: Vec<(PlantId, ttrs_domain::inventory_balance::InventoryTxnRecord)>,
     /// 庫存明細（img_file）
@@ -7648,13 +7651,22 @@ impl crate::ports::InventoryPostingRepository for InMemoryStore {
         w: &crate::ports::PostingWrite,
     ) -> Result<(), RepoError> {
         let mut s = self.lock();
-        let t = &w.doc;
-        let key = (plant.clone(), t.kind.code(), t.no.clone());
-        let Some(old) = s.misc_txns.get(&key).cloned() else {
-            return Err(RepoError::Stale);
-        };
-        if old.stamp.version != t.stamp.version {
-            return Err(RepoError::Stale);
+        // 單據的版本比對
+        match &w.doc {
+            crate::ports::PostedDoc::Misc(t) => {
+                let cur = s
+                    .misc_txns
+                    .get(&(plant.clone(), t.kind.code(), t.no.clone()));
+                if cur.is_none_or(|o| o.stamp.version != t.stamp.version) {
+                    return Err(RepoError::Stale);
+                }
+            }
+            crate::ports::PostedDoc::Transfer(t) => {
+                let cur = s.warehouse_transfers.get(&(plant.clone(), t.no.clone()));
+                if cur.is_none_or(|o| o.stamp.version != t.stamp.version) {
+                    return Err(RepoError::Stale);
+                }
+            }
         }
         // 先全部檢查，再寫入（同一交易）
         for (expected, b) in &w.balances {
@@ -7672,6 +7684,7 @@ impl crate::ports::InventoryPostingRepository for InMemoryStore {
                     && x.program == r.program
                     && x.doc_no == r.doc_no
                     && x.doc_line == r.doc_line
+                    && x.direction == r.direction
             }) {
                 return Err(RepoError::Conflict);
             }
@@ -7681,9 +7694,9 @@ impl crate::ports::InventoryPostingRepository for InMemoryStore {
                 .insert((plant.clone(), b.key.clone()), b.clone());
         }
         if w.remove_records {
-            let no = t.no.clone();
+            let (program, no) = (w.doc.program(), w.doc.no().to_owned());
             s.inventory_txns
-                .retain(|(p, x)| !(p == plant && x.doc_no == no));
+                .retain(|(p, x)| !(p == plant && x.program == program && x.doc_no == no));
         }
         for r in &w.add_records {
             if let Ok(no) = ItemNo::parse(&r.key.item) {
@@ -7707,18 +7720,39 @@ impl crate::ports::InventoryPostingRepository for InMemoryStore {
                 }
             }
         }
-        let (head, _) = misc_tables(t.kind);
-        let mut n = t.clone();
-        n.stamp = bumped(&old.stamp, &t.stamp)?;
-        s.log_change(
-            Some(plant),
-            head,
-            vec![("doc_no", n.no.clone())],
-            Some(misc_row(&old)),
-            Some(misc_row(&n)),
-            &[],
-        );
-        s.misc_txns.insert(key, n);
+        match &w.doc {
+            crate::ports::PostedDoc::Misc(t) => {
+                let key = (plant.clone(), t.kind.code(), t.no.clone());
+                let old = s.misc_txns.get(&key).cloned().expect("已檢查");
+                let (head, _) = misc_tables(t.kind);
+                let mut n = t.clone();
+                n.stamp = bumped(&old.stamp, &t.stamp)?;
+                s.log_change(
+                    Some(plant),
+                    head,
+                    vec![("doc_no", n.no.clone())],
+                    Some(misc_row(&old)),
+                    Some(misc_row(&n)),
+                    &[],
+                );
+                s.misc_txns.insert(key, n);
+            }
+            crate::ports::PostedDoc::Transfer(t) => {
+                let key = (plant.clone(), t.no.clone());
+                let old = s.warehouse_transfers.get(&key).cloned().expect("已檢查");
+                let mut n = t.clone();
+                n.stamp = bumped(&old.stamp, &t.stamp)?;
+                s.log_change(
+                    Some(plant),
+                    "warehouse_transfer",
+                    vec![("doc_no", n.no.clone())],
+                    Some(transfer_row(&old)),
+                    Some(transfer_row(&n)),
+                    &[],
+                );
+                s.warehouse_transfers.insert(key, n);
+            }
+        }
         Ok(())
     }
 
@@ -7735,7 +7769,231 @@ impl crate::ports::InventoryPostingRepository for InMemoryStore {
             .filter(|(p, r)| p == plant && r.program == program && r.doc_no == doc_no)
             .map(|(_, r)| r.clone())
             .collect();
-        v.sort_by_key(|r| r.doc_line);
+        v.sort_by_key(|r| (r.doc_line, r.direction));
         Ok(v)
+    }
+}
+
+// ----- 庫存直接調撥（aimt324 / imm_file、imn_file；warehouse_transfer.feature） -----
+
+fn transfer_row(t: &ttrs_domain::warehouse_transfer::WarehouseTransfer) -> Row {
+    let h = &t.header;
+    let mut cols = vec![
+        ("doc_no", text::s(&t.no)),
+        ("transfer_date", text::date(h.transfer_date)),
+        ("dept_code", text::opt(h.dept.as_ref().map(|d| d.as_str()))),
+        ("applicant", text::opt(h.applicant.as_deref())),
+        ("memo", text::opt(h.memo.as_deref())),
+        ("status", text::s(t.status.code())),
+        ("posted", text::b(t.posted)),
+    ];
+    let mut audit = audit_cols(
+        true,
+        &t.created_by,
+        &t.created_dept,
+        t.created_on,
+        t.updated_by.as_deref(),
+        t.updated_on,
+        &t.stamp,
+    );
+    audit.retain(|(k, _)| *k != "active");
+    cols.extend(audit);
+    row(cols)
+}
+
+fn transfer_line_rows(
+    t: &ttrs_domain::warehouse_transfer::WarehouseTransfer,
+) -> Vec<(Vec<(&'static str, String)>, Row)> {
+    t.lines
+        .iter()
+        .map(|l| {
+            (
+                vec![("doc_no", t.no.clone()), ("line_no", l.line_no.to_string())],
+                row(vec![
+                    ("doc_no", text::s(&t.no)),
+                    ("line_no", text::int(i64::from(l.line_no))),
+                    ("item_no", text::s(&l.item)),
+                    ("from_warehouse", text::s(&l.from_warehouse)),
+                    ("from_location", text::s(&l.from_location)),
+                    ("from_lot", text::s(&l.from_lot)),
+                    ("to_warehouse", text::s(&l.to_warehouse)),
+                    ("to_location", text::s(&l.to_location)),
+                    ("to_lot", text::s(&l.to_lot)),
+                    ("unit", text::s(&l.unit)),
+                    ("qty", text::s(&l.qty.normalize().to_string())),
+                    ("reason", text::opt(l.reason.as_deref())),
+                ]),
+            )
+        })
+        .collect()
+}
+
+impl State {
+    fn log_transfer_lines(
+        &mut self,
+        plant: &PlantId,
+        old: Option<&ttrs_domain::warehouse_transfer::WarehouseTransfer>,
+        new: Option<&ttrs_domain::warehouse_transfer::WarehouseTransfer>,
+    ) {
+        let before = old.map(transfer_line_rows).unwrap_or_default();
+        let after = new.map(transfer_line_rows).unwrap_or_default();
+        let table = "warehouse_transfer_line";
+        for (k, r) in &before {
+            match after.iter().find(|(k2, _)| k2 == k) {
+                None => self.log_change(Some(plant), table, k.clone(), Some(r.clone()), None, &[]),
+                Some((_, r2)) if r2 != r => self.log_change(
+                    Some(plant),
+                    table,
+                    k.clone(),
+                    Some(r.clone()),
+                    Some(r2.clone()),
+                    &[],
+                ),
+                Some(_) => {}
+            }
+        }
+        for (k, r) in &after {
+            if !before.iter().any(|(k2, _)| k2 == k) {
+                self.log_change(Some(plant), table, k.clone(), None, Some(r.clone()), &[]);
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl crate::ports::WarehouseTransferRepository for InMemoryStore {
+    async fn list_warehouse_transfers(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Vec<ttrs_domain::warehouse_transfer::WarehouseTransfer>, RepoError> {
+        Ok(self
+            .lock()
+            .warehouse_transfers
+            .iter()
+            .filter(|((p, _), _)| p == plant)
+            .map(|(_, t)| t.clone())
+            .collect())
+    }
+
+    async fn get_warehouse_transfer(
+        &self,
+        plant: &PlantId,
+        no: &str,
+    ) -> Result<Option<ttrs_domain::warehouse_transfer::WarehouseTransfer>, RepoError> {
+        Ok(self
+            .lock()
+            .warehouse_transfers
+            .get(&(plant.clone(), no.to_owned()))
+            .cloned())
+    }
+
+    async fn insert_warehouse_transfer(
+        &self,
+        plant: &PlantId,
+        t: &ttrs_domain::warehouse_transfer::WarehouseTransfer,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.plants.contains_key(plant) {
+            return Err(RepoError::Other(format!(
+                "營運中心不存在：{}",
+                plant.as_str()
+            )));
+        }
+        let key = (plant.clone(), t.no.clone());
+        if s.warehouse_transfers.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let mut n = t.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            Some(plant),
+            "warehouse_transfer",
+            vec![("doc_no", n.no.clone())],
+            None,
+            Some(transfer_row(&n)),
+            &[],
+        );
+        s.log_transfer_lines(plant, None, Some(&n));
+        s.warehouse_transfers.insert(key, n);
+        Ok(())
+    }
+
+    async fn update_warehouse_transfer(
+        &self,
+        plant: &PlantId,
+        t: &ttrs_domain::warehouse_transfer::WarehouseTransfer,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (plant.clone(), t.no.clone());
+        let Some(old) = s.warehouse_transfers.get(&key).cloned() else {
+            return Err(RepoError::Stale);
+        };
+        let mut n = t.clone();
+        n.stamp = bumped(&old.stamp, &t.stamp)?;
+        s.log_change(
+            Some(plant),
+            "warehouse_transfer",
+            vec![("doc_no", n.no.clone())],
+            Some(transfer_row(&old)),
+            Some(transfer_row(&n)),
+            &[],
+        );
+        s.log_transfer_lines(plant, Some(&old), Some(&n));
+        s.warehouse_transfers.insert(key, n);
+        Ok(())
+    }
+
+    async fn delete_warehouse_transfer(&self, plant: &PlantId, no: &str) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s
+            .warehouse_transfers
+            .remove(&(plant.clone(), no.to_owned()))
+        else {
+            return Ok(());
+        };
+        s.log_transfer_lines(plant, Some(&old), None);
+        s.log_change(
+            Some(plant),
+            "warehouse_transfer",
+            vec![("doc_no", old.no.clone())],
+            Some(transfer_row(&old)),
+            None,
+            &[],
+        );
+        Ok(())
+    }
+
+    async fn max_transfer_no(
+        &self,
+        plant: &PlantId,
+        prefix: &str,
+    ) -> Result<Option<String>, RepoError> {
+        Ok(self
+            .lock()
+            .warehouse_transfers
+            .keys()
+            .filter(|(p, no)| p == plant && no.starts_with(prefix))
+            .map(|(_, no)| no.clone())
+            .max())
+    }
+
+    async fn pending_transfer_qty(
+        &self,
+        plant: &PlantId,
+        key: &ttrs_domain::inventory_balance::BalanceKey,
+        exclude_no: &str,
+    ) -> Result<rust_decimal::Decimal, RepoError> {
+        use ttrs_domain::inventory_transaction::TxnStatus;
+        Ok(self
+            .lock()
+            .warehouse_transfers
+            .iter()
+            .filter(|((p, no), t)| {
+                p == plant && no != exclude_no && !t.posted && t.status != TxnStatus::Voided
+            })
+            .flat_map(|(_, t)| t.lines.iter())
+            .filter(|l| l.from_key() == *key)
+            .map(|l| l.qty)
+            .sum())
     }
 }

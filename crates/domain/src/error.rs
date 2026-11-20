@@ -682,6 +682,11 @@ pub enum DomainError {
     InventoryTransactionNotPosted,
     #[error("超過料件預設倉儲的最高存量")]
     InventoryMaxQtyExceeded,
+    // ----- 庫存直接調撥（aimt324 / imm_file、imn_file；warehouse_transfer.feature） -----
+    #[error("撥出與撥入的倉庫、儲位、批號不可完全相同")]
+    WarehouseTransferSameStorage,
+    #[error("撥入倉儲不在料件預設倉儲（料件存放位置管制）")]
+    WarehouseTransferStorageNotAssigned,
     // ----- 單別（asmi300 / smy_file；document_type.feature） -----
     #[error("單別位數只能是 3、4、5 碼")]
     DocCodeLengthInvalid,
@@ -1316,6 +1321,8 @@ impl DomainError {
             Self::InventoryCurrentPeriodInvalid => "INVENTORY_CURRENT_PERIOD_INVALID",
             Self::InventoryTransactionNotPosted => "INVENTORY_TRANSACTION_NOT_POSTED",
             Self::InventoryMaxQtyExceeded => "INVENTORY_MAX_QTY_EXCEEDED",
+            Self::WarehouseTransferSameStorage => "WAREHOUSE_TRANSFER_SAME_STORAGE",
+            Self::WarehouseTransferStorageNotAssigned => "WAREHOUSE_TRANSFER_STORAGE_NOT_ASSIGNED",
             Self::DocCodeLengthInvalid => "DOC_CODE_LENGTH_INVALID",
             Self::DocCodeLengthInUse => "DOC_CODE_LENGTH_IN_USE",
             Self::DocumentTypeCodeLength { .. } => "DOCUMENT_TYPE_CODE_LENGTH",

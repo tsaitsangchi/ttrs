@@ -1365,6 +1365,116 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 調撥單（warehouse-transfer；單據不存在時回 INVENTORY_TRANSACTION_NOT_FOUND，不是權限拒絕）
+        ["查詢調撥單"] => w
+            .warehouse_transfers
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增調撥單", code] => w
+            .warehouse_transfers
+            .create(
+                a,
+                "TW01",
+                ttrs_shared::WarehouseTransferInput {
+                    doc_no: (*code).to_owned(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["修改調撥單", no] => w
+            .warehouse_transfers
+            .update(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::WarehouseTransferInput {
+                    memo: Some("測試".into()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["修改調撥單", no, "的單身"] => w
+            .warehouse_transfers
+            .update(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::WarehouseTransferInput {
+                    lines: Some(Vec::new()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["刪除調撥單", no] => w.warehouse_transfers.delete(a, "TW01", no, None).await,
+        ["作廢調撥單", no] => w
+            .warehouse_transfers
+            .set_void(a, "TW01", no, true, None)
+            .await
+            .map(drop),
+        ["複製調撥單", no] => w
+            .warehouse_transfers
+            .copy(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::WarehouseTransferCopyInput {
+                    doc_no: "TR1".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["確認調撥單", no] => w
+            .warehouse_transfers
+            .confirm(a, "TW01", no, true, None)
+            .await
+            .map(drop),
+        ["取消確認調撥單", no] => w
+            .warehouse_transfers
+            .confirm(a, "TW01", no, false, None)
+            .await
+            .map(drop),
+        ["過帳調撥單", no] => w
+            .warehouse_transfers
+            .post(a, "TW01", no, None)
+            .await
+            .map(drop),
+        ["過帳還原調撥單", no] => w
+            .warehouse_transfers
+            .undo_post(a, "TW01", no, None)
+            .await
+            .map(drop),
+        ["查詢調撥單", no, "的異動記錄"] => w
+            .warehouse_transfers
+            .history(a, "TW01", no, None)
+            .await
+            .map(drop),
+        ["列印調撥單"] => w
+            .warehouse_transfers
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出調撥單為", "Excel"] => w
+            .warehouse_transfers
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         // 單別（asmi300；單別不存在時回 DOCUMENT_TYPE_NOT_FOUND，不是權限拒絕）
         ["查詢單別"] => w
             .document_types

@@ -64,6 +64,7 @@ pub mod unit_service;
 pub mod user_permission_service;
 pub mod user_service;
 pub mod warehouse_service;
+pub mod warehouse_transfer_service;
 
 pub use accounting_period_service::AccountingPeriodService;
 pub use authorization::{Actor, ActorKind, Authorizer, PermissionAuthorizer};
@@ -117,3 +118,4 @@ pub use unit_service::UnitService;
 pub use user_permission_service::UserPermissionService;
 pub use user_service::UserService;
 pub use warehouse_service::WarehouseService;
+pub use warehouse_transfer_service::WarehouseTransferService;

@@ -2,7 +2,7 @@
 //! 規格：specs/features/aim/misc_issue.feature（MI-1～MI-19；確認事項 MT1–MT18）。寫入一律經 change_log::run（ADR 0012）。
 //!
 //! 與雜項收料、雜項報廢各自獨立（Key User 2026-11-20）。本作業特有的規則：
-//! 須已有庫存資料（mfg6069）、不可超過庫存與可用量（mfg1303、客製 aim-425 扣除其他未過帳雜發）、檢查有效日期（aim-400）、
+//! 須已有庫存資料（mfg6069）、不可超過庫存與可用量（mfg1303、客製 aim-425 扣除其他未過帳雜發與未過帳調撥 WT6）、檢查有效日期（aim-400）、
 //! 部門依庫存參數「雜發須輸入部門」（sma847 第 1 碼，aim-330）、確認時須仍有庫存資料（asf-507）。
 
 use std::sync::Arc;
@@ -39,8 +39,8 @@ use crate::{
         AccountingPeriodRepository, ClassificationCodeRepository, DepartmentRepository,
         DocumentTypeRepository, EmployeeRepository, InventoryBalanceRepository,
         InventoryParameterRepository, InventoryPostingRepository, InventoryTransactionRepository,
-        ItemDates, ItemRepository, PostingWrite, SystemParameterRepository, UserRepository,
-        WarehouseRepository,
+        ItemDates, ItemRepository, PostedDoc, PostingWrite, SystemParameterRepository,
+        UserRepository, WarehouseRepository,
     },
     query,
     report::{self, ReportData, ReportFormat},
@@ -90,6 +90,8 @@ pub struct MiscIssueRepos {
     pub codes: Arc<dyn ClassificationCodeRepository>,
     /// 過帳（PT9：單據、庫存明細、異動記錄、料件日期同一交易）
     pub posting: Arc<dyn InventoryPostingRepository>,
+    /// 可用量扣除未過帳調撥（客製 aim-425；warehouse_transfer.feature WT6）
+    pub transfers: Arc<dyn crate::ports::WarehouseTransferRepository>,
     pub history: HistoryReader,
     pub reports: ListReporter,
 }
@@ -506,7 +508,7 @@ impl MiscIssueService {
                 }
             }
             let w = PostingWrite {
-                doc: t.clone(),
+                doc: PostedDoc::Misc(t.clone()),
                 balances,
                 add_records: records,
                 remove_records: false,
@@ -558,7 +560,7 @@ impl MiscIssueService {
                 balances[i].1.undo(l.qty)?;
             }
             let w = PostingWrite {
-                doc: t.clone(),
+                doc: PostedDoc::Misc(t.clone()),
                 balances,
                 add_records: Vec::new(),
                 remove_records: true,
@@ -718,7 +720,13 @@ impl MiscIssueService {
                 .pending_issue_qty(plant, &key, exclude_no)
                 .await
                 .map_err(infra)?;
-            if qty > balance.qty || qty + pending > balance.qty {
+            let transfers = self
+                .r
+                .transfers
+                .pending_transfer_qty(plant, &key, "")
+                .await
+                .map_err(infra)?;
+            if qty > balance.qty || qty + pending + transfers > balance.qty {
                 return Err(DomainError::InventoryInsufficient.into());
             }
             out.push(TxnLine {

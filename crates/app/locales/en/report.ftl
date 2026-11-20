@@ -492,3 +492,22 @@ misc-receipt-report-title = Misc Receipts
 misc-scrap-report-title = Misc Scraps
 inventory-params-current-period = Current year/period
 inventory-params-closing-date = Cost closing date
+
+# 庫存直接調撥（warehouse_transfer.feature WT12）
+wt-report-title = Warehouse Transfers
+wt-col-doc-no = Document no.
+wt-col-transfer-date = Transfer date
+wt-col-dept = Department
+wt-col-applicant = Applicant
+wt-col-status = Status
+wt-col-line-no = Line
+wt-col-item-no = Item
+wt-col-item-name = Item name
+wt-col-from = From
+wt-col-to = To
+wt-col-unit = Unit
+wt-col-qty = Quantity
+wt-col-reason = Reason code
+wt-status-n = Open
+wt-status-y = Confirmed
+wt-status-x = Voided

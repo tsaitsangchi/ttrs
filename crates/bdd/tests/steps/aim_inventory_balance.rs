@@ -409,6 +409,12 @@ async fn records(
             .await
             .expect("異動記錄"),
     );
+    v.extend(
+        w.warehouse_transfers
+            .txn_records(&w.actor, plant, no)
+            .await
+            .expect("異動記錄"),
+    );
     v
 }
 
@@ -448,4 +454,19 @@ async fn records_are(w: &mut ErpWorld, plant: String, no: String, step: &Step) {
 #[then(regex = r#"^營運中心 "([^"]*)" 單號 "([^"]*)" 應沒有庫存異動記錄$"#)]
 async fn no_records(w: &mut ErpWorld, plant: String, no: String) {
     assert!(records(w, &plant, &no).await.is_empty());
+}
+
+#[given(regex = r#"^營運中心 "([^"]*)" 的庫存參數「料件存放位置管制」為 "([^"]*)"$"#)]
+async fn storage_control(w: &mut ErpWorld, plant: String, v: String) {
+    let cur = w
+        .inventory_parameters
+        .get(&w.actor, &plant)
+        .await
+        .expect("庫存參數");
+    let mut input = cur.to_input();
+    input.storage_control = v;
+    w.inventory_parameters
+        .update(&w.actor, &plant, input)
+        .await
+        .unwrap_or_else(|e| panic!("設定存放位置管制失敗：{e}"));
 }

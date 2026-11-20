@@ -492,3 +492,22 @@ misc-receipt-report-title = 杂项收料单
 misc-scrap-report-title = 杂项报废单
 inventory-params-current-period = 现行年度期别
 inventory-params-closing-date = 成本关账日
+
+# 庫存直接調撥（warehouse_transfer.feature WT12）
+wt-report-title = 库存直接调拨单
+wt-col-doc-no = 单号
+wt-col-transfer-date = 调拨日
+wt-col-dept = 部门
+wt-col-applicant = 申请人
+wt-col-status = 状态
+wt-col-line-no = 项次
+wt-col-item-no = 料件
+wt-col-item-name = 品名
+wt-col-from = 拨出
+wt-col-to = 拨入
+wt-col-unit = 单位
+wt-col-qty = 数量
+wt-col-reason = 理由码
+wt-status-n = 开立
+wt-status-y = 已确认
+wt-status-x = 已作废

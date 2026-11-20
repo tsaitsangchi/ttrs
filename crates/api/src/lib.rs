@@ -83,6 +83,8 @@ pub struct AppState {
     pub misc_issues: ttrs_app::MiscIssueService,
     pub misc_receipts: ttrs_app::MiscReceiptService,
     pub misc_scraps: ttrs_app::MiscScrapService,
+    /// 庫存直接調撥 aimt324
+    pub warehouse_transfers: ttrs_app::WarehouseTransferService,
     pub encoding_years: ttrs_app::EncodingYearService,
     pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
@@ -191,6 +193,7 @@ impl AppState {
             misc_issues,
             misc_receipts,
             misc_scraps,
+            warehouse_transfers,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -243,6 +246,7 @@ impl AppState {
             misc_issues,
             misc_receipts,
             misc_scraps,
+            warehouse_transfers,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -707,6 +711,45 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/plants/{plant}/misc-scraps/{no}/{state}",
             post(set_misc_scrap_state),
+        )
+        // Warehouse Transfer 庫存直接調撥（TipTop aimt324；工廠層；warehouse_transfer.feature）
+        .route(
+            "/api/plants/{plant}/warehouse-transfers",
+            post(create_warehouse_transfer),
+        )
+        .route(
+            "/api/plants/{plant}/warehouse-transfers/query",
+            post(query_warehouse_transfers),
+        )
+        .route(
+            "/api/plants/{plant}/warehouse-transfers/new-storages",
+            post(warehouse_transfer_new_storages),
+        )
+        .route(
+            "/api/plants/{plant}/warehouse-transfers/report.{format}",
+            get(warehouse_transfer_report),
+        )
+        .route(
+            "/api/plants/{plant}/warehouse-transfers/{no}",
+            get(get_warehouse_transfer)
+                .put(update_warehouse_transfer)
+                .delete(delete_warehouse_transfer),
+        )
+        .route(
+            "/api/plants/{plant}/warehouse-transfers/{no}/copy",
+            post(copy_warehouse_transfer),
+        )
+        .route(
+            "/api/plants/{plant}/warehouse-transfers/{no}/history",
+            get(warehouse_transfer_history),
+        )
+        .route(
+            "/api/plants/{plant}/warehouse-transfers/{no}/txn-records",
+            get(warehouse_transfer_txn_records),
+        )
+        .route(
+            "/api/plants/{plant}/warehouse-transfers/{no}/{state}",
+            post(set_warehouse_transfer_state),
         )
         // Inventory Parameters 庫存參數（TipTop asms230；工廠層；inventory_parameters.feature）
         .route(
@@ -2187,6 +2230,8 @@ impl IntoResponse for HttpError {
             | "INVENTORY_TRANSACTION_NOT_POSTED"
             | "INVENTORY_PERIOD_CLOSED"
             | "INVENTORY_PERIOD_NOT_OPEN"
+            | "WAREHOUSE_TRANSFER_SAME_STORAGE"
+            | "WAREHOUSE_TRANSFER_STORAGE_NOT_ASSIGNED"
             | "ITEM_STORAGE_COPY_TARGET_NOT_EMPTY"
             | "CARRY_SETTING_IN_USE"
             | "BASIC_CARRY_NOT_SOURCE"
@@ -6861,6 +6906,146 @@ fn txn_record_dto(
         created_by: r.created_by,
         created_at: r.created_at,
     }
+}
+
+// ----- 庫存直接調撥（aimt324；warehouse_transfer.feature） -----
+
+async fn query_warehouse_transfers(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::WarehouseTransferDto>>> {
+    Ok(Json(
+        s.warehouse_transfers.query(&s.actor, &plant, req).await?,
+    ))
+}
+
+async fn get_warehouse_transfer(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+) -> ApiResult<Json<ttrs_shared::WarehouseTransferDto>> {
+    Ok(Json(
+        s.warehouse_transfers.get(&s.actor, &plant, &no).await?,
+    ))
+}
+
+async fn create_warehouse_transfer(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<ttrs_shared::WarehouseTransferInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::WarehouseTransferDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.warehouse_transfers.create(&s.actor, &plant, req).await?),
+    ))
+}
+
+async fn update_warehouse_transfer(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::WarehouseTransferInput>,
+) -> ApiResult<Json<ttrs_shared::WarehouseTransferDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.warehouse_transfers
+            .update(&s.actor, &plant, &no, req)
+            .await?,
+    ))
+}
+
+async fn delete_warehouse_transfer(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.warehouse_transfers
+        .delete(&s.actor, &plant, &no, version)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn copy_warehouse_transfer(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::WarehouseTransferCopyInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::WarehouseTransferDto>)> {
+    let d = s
+        .warehouse_transfers
+        .copy(&s.actor, &plant, &no, req)
+        .await?;
+    Ok((StatusCode::CREATED, Json(d)))
+}
+
+async fn warehouse_transfer_history(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.warehouse_transfers
+            .history(&s.actor, &plant, &no, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+async fn warehouse_transfer_txn_records(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+) -> ApiResult<Json<Vec<ttrs_shared::InventoryTxnRecordDto>>> {
+    let v = s
+        .warehouse_transfers
+        .txn_records(&s.actor, &plant, &no)
+        .await?;
+    Ok(Json(v.into_iter().map(txn_record_dto).collect()))
+}
+
+/// 撥入到新倉儲批時提示（WT5(d)）
+async fn warehouse_transfer_new_storages(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<Vec<ttrs_shared::WarehouseTransferLineInput>>,
+) -> ApiResult<Json<Vec<usize>>> {
+    Ok(Json(
+        s.warehouse_transfers
+            .new_storages(&s.actor, &plant, req)
+            .await?,
+    ))
+}
+
+/// 確認（confirm）、取消確認（undo-confirm）、作廢（void）、取消作廢（unvoid）、過帳（post）、過帳還原（undo-post）
+async fn set_warehouse_transfer_state(
+    Ctx(s): Ctx,
+    Path((plant, no, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let g = &s.warehouse_transfers;
+    let dto = match state.as_str() {
+        "confirm" => g.confirm(&s.actor, &plant, &no, true, version).await?,
+        "undo-confirm" => g.confirm(&s.actor, &plant, &no, false, version).await?,
+        "void" => g.set_void(&s.actor, &plant, &no, true, version).await?,
+        "unvoid" => g.set_void(&s.actor, &plant, &no, false, version).await?,
+        "post" => g.post(&s.actor, &plant, &no, version).await?,
+        "undo-post" => g.undo_post(&s.actor, &plant, &no, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+async fn warehouse_transfer_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .warehouse_transfers
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
 }
 
 // ----- 庫存參數（asms230；inventory_parameters.feature） -----
