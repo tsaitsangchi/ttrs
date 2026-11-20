@@ -98,6 +98,18 @@ struct State {
     warehouses: BTreeMap<(PlantId, String), ttrs_domain::warehouse::Warehouse>,
     /// 單別（asmi300 / smy_file 與三個單身）
     document_types: BTreeMap<(PlantId, String), ttrs_domain::document_type::DocumentType>,
+    /// 雜項發料／收料／報廢（ina_file、inb_file；三支作業各自的表）：(營運中心, 單據類別代碼, 單號)
+    misc_txns: BTreeMap<
+        (PlantId, &'static str, String),
+        ttrs_domain::inventory_transaction::InventoryTransaction,
+    >,
+    /// 庫存異動記錄（tlf_file → inventory_txn）
+    inventory_txns: Vec<(PlantId, ttrs_domain::inventory_balance::InventoryTxnRecord)>,
+    /// 庫存明細（img_file）
+    inventory_balances: BTreeMap<
+        (PlantId, ttrs_domain::inventory_balance::BalanceKey),
+        ttrs_domain::inventory_balance::InventoryBalance,
+    >,
     /// 庫存參數（asms230 / sma_file）：每個營運中心一筆
     inventory_parameters: BTreeMap<PlantId, ttrs_domain::inventory_parameter::InventoryParameters>,
     /// 料件預設倉儲（aimi202 / imf_file）：鍵值（營運中心, 料號, 倉庫, 儲位；整個倉庫為 ""）
@@ -4150,6 +4162,10 @@ fn general_row(p: &GeneralParameters) -> Row {
         ("rate_basis", text::s(p.rate_basis.code())),
         ("auto_item_number", text::b(p.auto_item_number)),
         ("doc_code_length", text::int(i64::from(p.doc_code_length))),
+        (
+            "doc_serial_length",
+            text::int(i64::from(p.doc_serial_length)),
+        ),
         ("created_by", text::s(&p.created_by)),
         ("created_dept", text::s(&p.created_dept)),
         ("created_on", text::date(p.created_on)),
@@ -7309,5 +7325,417 @@ impl crate::ports::DocumentTypeRepository for InMemoryStore {
 
     async fn any_document_type(&self) -> Result<bool, RepoError> {
         Ok(!self.lock().document_types.is_empty())
+    }
+}
+
+// ----- 雜項發料／收料／報廢（ina_file、inb_file；misc_issue／misc_receipt／misc_scrap.feature） -----
+
+/// 三支作業各自的資料表名稱（MT2）
+fn misc_tables(kind: ttrs_domain::inventory_transaction::TxnKind) -> (&'static str, &'static str) {
+    use ttrs_domain::inventory_transaction::TxnKind;
+    match kind {
+        TxnKind::Issue => ("misc_issue", "misc_issue_line"),
+        TxnKind::Receipt => ("misc_receipt", "misc_receipt_line"),
+        TxnKind::Scrap => ("misc_scrap", "misc_scrap_line"),
+    }
+}
+
+fn misc_row(t: &ttrs_domain::inventory_transaction::InventoryTransaction) -> Row {
+    let h = &t.header;
+    let mut cols = vec![
+        ("doc_no", text::s(&t.no)),
+        ("input_date", text::date(h.input_date)),
+        ("posting_date", text::date(h.posting_date)),
+        ("dept_code", text::opt(h.dept.as_ref().map(|d| d.as_str()))),
+        ("applicant", text::opt(h.applicant.as_deref())),
+        ("memo", text::opt(h.memo.as_deref())),
+        ("status", text::s(t.status.code())),
+        ("posted", text::b(t.posted)),
+    ];
+    let mut audit = audit_cols(
+        true,
+        &t.created_by,
+        &t.created_dept,
+        t.created_on,
+        t.updated_by.as_deref(),
+        t.updated_on,
+        &t.stamp,
+    );
+    audit.retain(|(k, _)| *k != "active");
+    cols.extend(audit);
+    row(cols)
+}
+
+fn misc_line_rows(
+    t: &ttrs_domain::inventory_transaction::InventoryTransaction,
+) -> Vec<(Vec<(&'static str, String)>, Row)> {
+    t.lines
+        .iter()
+        .map(|l| {
+            (
+                vec![("doc_no", t.no.clone()), ("line_no", l.line_no.to_string())],
+                row(vec![
+                    ("doc_no", text::s(&t.no)),
+                    ("line_no", text::int(i64::from(l.line_no))),
+                    ("item_no", text::s(&l.item)),
+                    ("warehouse", text::s(&l.warehouse)),
+                    ("location", text::s(&l.location)),
+                    ("lot", text::s(&l.lot)),
+                    ("unit", text::s(&l.unit)),
+                    ("qty", text::s(&l.qty.normalize().to_string())),
+                    ("reason", text::opt(l.reason.as_deref())),
+                ]),
+            )
+        })
+        .collect()
+}
+
+impl State {
+    /// 單身的異動記錄：新增、刪除、內容有變的列（與 PostgreSQL 觸發器相同，沒變的列不記）
+    fn log_misc_lines(
+        &mut self,
+        plant: &PlantId,
+        table: &str,
+        old: Option<&ttrs_domain::inventory_transaction::InventoryTransaction>,
+        new: Option<&ttrs_domain::inventory_transaction::InventoryTransaction>,
+    ) {
+        let before = old.map(misc_line_rows).unwrap_or_default();
+        let after = new.map(misc_line_rows).unwrap_or_default();
+        for (k, r) in &before {
+            match after.iter().find(|(k2, _)| k2 == k) {
+                None => self.log_change(Some(plant), table, k.clone(), Some(r.clone()), None, &[]),
+                Some((_, r2)) if r2 != r => self.log_change(
+                    Some(plant),
+                    table,
+                    k.clone(),
+                    Some(r.clone()),
+                    Some(r2.clone()),
+                    &[],
+                ),
+                Some(_) => {}
+            }
+        }
+        for (k, r) in &after {
+            if !before.iter().any(|(k2, _)| k2 == k) {
+                self.log_change(Some(plant), table, k.clone(), None, Some(r.clone()), &[]);
+            }
+        }
+    }
+}
+
+#[async_trait]
+impl crate::ports::InventoryTransactionRepository for InMemoryStore {
+    async fn list_inventory_transactions(
+        &self,
+        plant: &PlantId,
+        kind: ttrs_domain::inventory_transaction::TxnKind,
+    ) -> Result<Vec<ttrs_domain::inventory_transaction::InventoryTransaction>, RepoError> {
+        Ok(self
+            .lock()
+            .misc_txns
+            .iter()
+            .filter(|((p, k, _), _)| p == plant && *k == kind.code())
+            .map(|(_, t)| t.clone())
+            .collect())
+    }
+
+    async fn get_inventory_transaction(
+        &self,
+        plant: &PlantId,
+        kind: ttrs_domain::inventory_transaction::TxnKind,
+        no: &str,
+    ) -> Result<Option<ttrs_domain::inventory_transaction::InventoryTransaction>, RepoError> {
+        Ok(self
+            .lock()
+            .misc_txns
+            .get(&(plant.clone(), kind.code(), no.to_owned()))
+            .cloned())
+    }
+
+    async fn insert_inventory_transaction(
+        &self,
+        plant: &PlantId,
+        t: &ttrs_domain::inventory_transaction::InventoryTransaction,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        if !s.plants.contains_key(plant) {
+            return Err(RepoError::Other(format!(
+                "營運中心不存在：{}",
+                plant.as_str()
+            )));
+        }
+        let key = (plant.clone(), t.kind.code(), t.no.clone());
+        if s.misc_txns.contains_key(&key) {
+            return Err(RepoError::Conflict);
+        }
+        let (head, line) = misc_tables(t.kind);
+        let mut n = t.clone();
+        n.stamp = new_stamp();
+        s.log_change(
+            Some(plant),
+            head,
+            vec![("doc_no", n.no.clone())],
+            None,
+            Some(misc_row(&n)),
+            &[],
+        );
+        s.log_misc_lines(plant, line, None, Some(&n));
+        s.misc_txns.insert(key, n);
+        Ok(())
+    }
+
+    async fn update_inventory_transaction(
+        &self,
+        plant: &PlantId,
+        t: &ttrs_domain::inventory_transaction::InventoryTransaction,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let key = (plant.clone(), t.kind.code(), t.no.clone());
+        let Some(old) = s.misc_txns.get(&key).cloned() else {
+            return Err(RepoError::Stale);
+        };
+        let (head, line) = misc_tables(t.kind);
+        let mut n = t.clone();
+        n.stamp = bumped(&old.stamp, &t.stamp)?;
+        s.log_change(
+            Some(plant),
+            head,
+            vec![("doc_no", n.no.clone())],
+            Some(misc_row(&old)),
+            Some(misc_row(&n)),
+            &[],
+        );
+        s.log_misc_lines(plant, line, Some(&old), Some(&n));
+        s.misc_txns.insert(key, n);
+        Ok(())
+    }
+
+    async fn delete_inventory_transaction(
+        &self,
+        plant: &PlantId,
+        kind: ttrs_domain::inventory_transaction::TxnKind,
+        no: &str,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let Some(old) = s
+            .misc_txns
+            .remove(&(plant.clone(), kind.code(), no.to_owned()))
+        else {
+            return Ok(());
+        };
+        let (head, line) = misc_tables(kind);
+        s.log_misc_lines(plant, line, Some(&old), None);
+        s.log_change(
+            Some(plant),
+            head,
+            vec![("doc_no", old.no.clone())],
+            Some(misc_row(&old)),
+            None,
+            &[],
+        );
+        Ok(())
+    }
+
+    async fn max_doc_no(
+        &self,
+        plant: &PlantId,
+        kind: ttrs_domain::inventory_transaction::TxnKind,
+        prefix: &str,
+    ) -> Result<Option<String>, RepoError> {
+        Ok(self
+            .lock()
+            .misc_txns
+            .keys()
+            .filter(|(p, k, no)| p == plant && *k == kind.code() && no.starts_with(prefix))
+            .map(|(_, _, no)| no.clone())
+            .max())
+    }
+
+    async fn pending_issue_qty(
+        &self,
+        plant: &PlantId,
+        key: &ttrs_domain::inventory_balance::BalanceKey,
+        exclude_no: &str,
+    ) -> Result<rust_decimal::Decimal, RepoError> {
+        use ttrs_domain::inventory_transaction::{TxnKind, TxnStatus};
+        Ok(self
+            .lock()
+            .misc_txns
+            .iter()
+            .filter(|((p, k, no), t)| {
+                p == plant
+                    && *k == TxnKind::Issue.code()
+                    && no != exclude_no
+                    && !t.posted
+                    && t.status != TxnStatus::Voided
+            })
+            .flat_map(|(_, t)| t.lines.iter())
+            .filter(|l| {
+                l.item == key.item
+                    && l.warehouse == key.warehouse
+                    && l.location == key.location
+                    && l.lot == key.lot
+            })
+            .map(|l| l.qty)
+            .sum())
+    }
+
+    async fn any_inventory_transaction(&self) -> Result<bool, RepoError> {
+        Ok(!self.lock().misc_txns.is_empty())
+    }
+}
+
+#[async_trait]
+impl crate::ports::InventoryBalanceRepository for InMemoryStore {
+    async fn get_inventory_balance(
+        &self,
+        plant: &PlantId,
+        key: &ttrs_domain::inventory_balance::BalanceKey,
+    ) -> Result<Option<ttrs_domain::inventory_balance::InventoryBalance>, RepoError> {
+        Ok(self
+            .lock()
+            .inventory_balances
+            .get(&(plant.clone(), key.clone()))
+            .cloned())
+    }
+
+    async fn put_inventory_balance(
+        &self,
+        plant: &PlantId,
+        b: &ttrs_domain::inventory_balance::InventoryBalance,
+    ) -> Result<(), RepoError> {
+        self.lock()
+            .inventory_balances
+            .insert((plant.clone(), b.key.clone()), b.clone());
+        Ok(())
+    }
+
+    async fn delete_inventory_balance(
+        &self,
+        plant: &PlantId,
+        key: &ttrs_domain::inventory_balance::BalanceKey,
+    ) -> Result<(), RepoError> {
+        self.lock()
+            .inventory_balances
+            .remove(&(plant.clone(), key.clone()));
+        Ok(())
+    }
+
+    async fn list_inventory_balances(
+        &self,
+        plant: &PlantId,
+        item: &str,
+        warehouse: &str,
+        location: &str,
+    ) -> Result<Vec<ttrs_domain::inventory_balance::InventoryBalance>, RepoError> {
+        Ok(self
+            .lock()
+            .inventory_balances
+            .iter()
+            .filter(|((p, k), _)| {
+                p == plant && k.item == item && k.warehouse == warehouse && k.location == location
+            })
+            .map(|(_, b)| b.clone())
+            .collect())
+    }
+}
+
+#[async_trait]
+impl crate::ports::InventoryPostingRepository for InMemoryStore {
+    async fn apply_posting(
+        &self,
+        plant: &PlantId,
+        w: &crate::ports::PostingWrite,
+    ) -> Result<(), RepoError> {
+        let mut s = self.lock();
+        let t = &w.doc;
+        let key = (plant.clone(), t.kind.code(), t.no.clone());
+        let Some(old) = s.misc_txns.get(&key).cloned() else {
+            return Err(RepoError::Stale);
+        };
+        if old.stamp.version != t.stamp.version {
+            return Err(RepoError::Stale);
+        }
+        // 先全部檢查，再寫入（同一交易）
+        for (expected, b) in &w.balances {
+            let cur = s
+                .inventory_balances
+                .get(&(plant.clone(), b.key.clone()))
+                .map(|x| x.qty);
+            if cur != *expected {
+                return Err(RepoError::Stale);
+            }
+        }
+        for r in &w.add_records {
+            if s.inventory_txns.iter().any(|(p, x)| {
+                p == plant
+                    && x.program == r.program
+                    && x.doc_no == r.doc_no
+                    && x.doc_line == r.doc_line
+            }) {
+                return Err(RepoError::Conflict);
+            }
+        }
+        for (_, b) in &w.balances {
+            s.inventory_balances
+                .insert((plant.clone(), b.key.clone()), b.clone());
+        }
+        if w.remove_records {
+            let no = t.no.clone();
+            s.inventory_txns
+                .retain(|(p, x)| !(p == plant && x.doc_no == no));
+        }
+        for r in &w.add_records {
+            if let Ok(no) = ItemNo::parse(&r.key.item) {
+                s.transactions.insert((plant.clone(), no));
+            }
+            s.inventory_txns.push((plant.clone(), r.clone()));
+        }
+        for d in &w.items {
+            let Ok(no) = ItemNo::parse(&d.item) else {
+                continue;
+            };
+            if let Some(item) = s.items.get_mut(&(plant.clone(), no)) {
+                if let Some(v) = d.last_received_on {
+                    item.system.last_received_on = Some(v);
+                }
+                if let Some(v) = d.last_issued_on {
+                    item.system.last_issued_on = Some(v);
+                }
+                if let Some(v) = d.last_txn_on {
+                    item.system.last_txn_on = Some(v);
+                }
+            }
+        }
+        let (head, _) = misc_tables(t.kind);
+        let mut n = t.clone();
+        n.stamp = bumped(&old.stamp, &t.stamp)?;
+        s.log_change(
+            Some(plant),
+            head,
+            vec![("doc_no", n.no.clone())],
+            Some(misc_row(&old)),
+            Some(misc_row(&n)),
+            &[],
+        );
+        s.misc_txns.insert(key, n);
+        Ok(())
+    }
+
+    async fn inventory_txn_records(
+        &self,
+        plant: &PlantId,
+        program: &str,
+        doc_no: &str,
+    ) -> Result<Vec<ttrs_domain::inventory_balance::InventoryTxnRecord>, RepoError> {
+        let mut v: Vec<_> = self
+            .lock()
+            .inventory_txns
+            .iter()
+            .filter(|(p, r)| p == plant && r.program == program && r.doc_no == doc_no)
+            .map(|(_, r)| r.clone())
+            .collect();
+        v.sort_by_key(|r| r.doc_line);
+        Ok(v)
     }
 }

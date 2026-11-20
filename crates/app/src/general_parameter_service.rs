@@ -48,6 +48,7 @@ pub struct GeneralParameterService {
     years: Arc<dyn AccountingPeriodRepository>,
     /// 已有單別時不可變更單別位數（DT5(a)）
     doc_types: Option<Arc<dyn DocumentTypeRepository>>,
+    txns: Option<Arc<dyn crate::ports::InventoryTransactionRepository>>,
     reports: ListReporter,
 }
 
@@ -67,11 +68,21 @@ impl GeneralParameterService {
             rates,
             years,
             doc_types: None,
+            txns: None,
             reports,
         }
     }
 
     /// 接上單別（document_type.feature DT5(a)）
+    /// 單號位數 aza42 已有單據時不可變更（misc_issue.feature MT4(a)）
+    pub fn with_inventory_transactions(
+        mut self,
+        txns: Arc<dyn crate::ports::InventoryTransactionRepository>,
+    ) -> Self {
+        self.txns = Some(txns);
+        self
+    }
+
     pub fn with_doc_types(mut self, doc_types: Arc<dyn DocumentTypeRepository>) -> Self {
         self.doc_types = Some(doc_types);
         self
@@ -143,6 +154,18 @@ impl GeneralParameterService {
                     p.doc_code_length = len;
                 }
             }
+            // aza42 單號位數（MT4(a)）：已有單據時不可變更
+            if let Some(len) = input.doc_serial_length {
+                let len = ttrs_domain::general_parameter::parse_doc_serial_length(len)?;
+                if len != p.doc_serial_length {
+                    if let Some(t) = &self.txns
+                        && t.any_inventory_transaction().await.map_err(infra)?
+                    {
+                        return Err(DomainError::DocSerialLengthInUse.into());
+                    }
+                    p.doc_serial_length = len;
+                }
+            }
             self.params
                 .update_general_parameters(&p)
                 .await
@@ -189,6 +212,10 @@ impl GeneralParameterService {
                 p.doc_code_length.to_string(),
             ],
             vec![
+                t("general-params-doc-serial-length"),
+                p.doc_serial_length.to_string(),
+            ],
+            vec![
                 t("general-params-rate-basis"),
                 t(match p.rate_basis {
                     RateBasis::Monthly => "general-params-rate-monthly",
@@ -224,6 +251,7 @@ impl GeneralParameterService {
             rate_basis: p.rate_basis.code().to_owned(),
             auto_item_number: p.auto_item_number,
             doc_code_length: i16::from(p.doc_code_length),
+            doc_serial_length: i16::from(p.doc_serial_length),
             created_by: p.created_by.clone(),
             created_dept: p.created_dept.clone(),
             created_on: p.created_on,

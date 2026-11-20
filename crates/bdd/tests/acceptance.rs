@@ -128,6 +128,11 @@ pub struct ErpWorld {
     pub inventory_param_version: Option<i32>,
     pub document_types: ttrs_app::DocumentTypeService,
     pub doc_type_version: Option<i32>,
+    /// 雜項發料、收料、報廢（misc_issue／misc_receipt／misc_scrap.feature）與最近一次產生的單號
+    pub misc_issues: ttrs_app::MiscIssueService,
+    pub misc_receipts: ttrs_app::MiscReceiptService,
+    pub misc_scraps: ttrs_app::MiscScrapService,
+    pub misc_no: Option<String>,
     pub warehouse_version: Option<i32>,
     pub item_carry_result: Option<ttrs_shared::ItemCarryResultDto>,
     pub carry_result: Option<ttrs_shared::BasicCarryResultDto>,
@@ -243,7 +248,7 @@ impl ErpWorld {
                     .expect("truncate tables");
                 // 帳號稽核原則回到起始值（migration 0020，ADR 0009 W5）
                 for sql in [
-                    "UPDATE system_parameter SET base_currency = 'TWD', accounting_periods = 12, rate_basis = 'daily', auto_item_number = false, doc_code_length = 3",
+                    "UPDATE system_parameter SET base_currency = 'TWD', accounting_periods = 12, rate_basis = 'daily', auto_item_number = false, doc_code_length = 3, doc_serial_length = 8",
                     "DELETE FROM account_policy",
                     "INSERT INTO account_policy (policy_key) VALUES ('0')",
                 ] {
@@ -296,6 +301,9 @@ impl ErpWorld {
             item_storages,
             inventory_parameters,
             document_types,
+            misc_issues,
+            misc_receipts,
+            misc_scraps,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -389,7 +397,11 @@ impl ErpWorld {
             inventory_parameters,
             inventory_param_version: None,
             document_types,
+            misc_issues,
+            misc_receipts,
+            misc_scraps,
             doc_type_version: None,
+            misc_no: None,
             warehouse_version: None,
             item_carry_result: None,
             carry_result: None,

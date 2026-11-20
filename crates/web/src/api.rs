@@ -4537,3 +4537,412 @@ pub async fn github_epub_convert(
         .map_err(|e| e.to_string())?;
     epub_file(res, format).await
 }
+
+// ----- Misc Issue 雜項發料（TipTop aimt301；工廠層） -----
+
+pub async fn query_misc_issues(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::InventoryTxnDto>, String> {
+    post_query(plant_part_url(plant, "misc-issues", "", "/query"), req).await
+}
+
+/// 新增（no 為 None）或修改雜項發料單
+pub async fn save_misc_issue(
+    plant: &str,
+    no: Option<&str>,
+    req: &ttrs_shared::InventoryTxnInput,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    match no {
+        None => {
+            send_json(
+                reqwest::Method::POST,
+                plant_part_url(plant, "misc-issues", "", ""),
+                Some(req),
+            )
+            .await
+        }
+        Some(n) => {
+            send_json(
+                reqwest::Method::PUT,
+                plant_part_url(plant, "misc-issues", n, ""),
+                Some(req),
+            )
+            .await
+        }
+    }
+}
+
+pub async fn copy_misc_issue(
+    plant: &str,
+    no: &str,
+    req: &ttrs_shared::InventoryTxnCopyInput,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "misc-issues", no, "/copy"),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn delete_misc_issue(plant: &str, no: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-issues", no, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 確認（confirm）、取消確認（undo-confirm）、作廢（void）、取消作廢（unvoid）
+pub async fn set_misc_issue_state(
+    plant: &str,
+    no: &str,
+    state: &str,
+    version: i32,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-issues", no, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn misc_issue_history(
+    plant: &str,
+    no: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    get_json(format!(
+        "{}?lang={}",
+        plant_part_url(plant, "misc-issues", no, "/history"),
+        crate::i18n::current().code()
+    ))
+    .await
+}
+
+// ----- Misc Receipt 雜項收料（TipTop aimt302；工廠層） -----
+
+pub async fn query_misc_receipts(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::InventoryTxnDto>, String> {
+    post_query(plant_part_url(plant, "misc-receipts", "", "/query"), req).await
+}
+
+/// 雜收至新倉儲時提示（MT8(b)）：參數為是時回傳還沒有庫存資料的單身列
+pub async fn misc_receipt_new_storages(
+    plant: &str,
+    lines: &[ttrs_shared::InventoryTxnLineInput],
+) -> Result<Vec<usize>, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "misc-receipts", "", "/new-storages"),
+        Some(&lines),
+    )
+    .await
+}
+
+/// 新增（no 為 None）或修改雜項收料單
+pub async fn save_misc_receipt(
+    plant: &str,
+    no: Option<&str>,
+    req: &ttrs_shared::InventoryTxnInput,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    match no {
+        None => {
+            send_json(
+                reqwest::Method::POST,
+                plant_part_url(plant, "misc-receipts", "", ""),
+                Some(req),
+            )
+            .await
+        }
+        Some(n) => {
+            send_json(
+                reqwest::Method::PUT,
+                plant_part_url(plant, "misc-receipts", n, ""),
+                Some(req),
+            )
+            .await
+        }
+    }
+}
+
+pub async fn copy_misc_receipt(
+    plant: &str,
+    no: &str,
+    req: &ttrs_shared::InventoryTxnCopyInput,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "misc-receipts", no, "/copy"),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn delete_misc_receipt(plant: &str, no: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-receipts", no, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 確認（confirm）、取消確認（undo-confirm）、作廢（void）、取消作廢（unvoid）
+pub async fn set_misc_receipt_state(
+    plant: &str,
+    no: &str,
+    state: &str,
+    version: i32,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-receipts", no, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn misc_receipt_history(
+    plant: &str,
+    no: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    get_json(format!(
+        "{}?lang={}",
+        plant_part_url(plant, "misc-receipts", no, "/history"),
+        crate::i18n::current().code()
+    ))
+    .await
+}
+
+// ----- Misc Scrap 雜項報廢（TipTop aimt303；工廠層） -----
+
+pub async fn query_misc_scraps(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::InventoryTxnDto>, String> {
+    post_query(plant_part_url(plant, "misc-scraps", "", "/query"), req).await
+}
+
+/// 新增（no 為 None）或修改雜項報廢單
+pub async fn save_misc_scrap(
+    plant: &str,
+    no: Option<&str>,
+    req: &ttrs_shared::InventoryTxnInput,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    match no {
+        None => {
+            send_json(
+                reqwest::Method::POST,
+                plant_part_url(plant, "misc-scraps", "", ""),
+                Some(req),
+            )
+            .await
+        }
+        Some(n) => {
+            send_json(
+                reqwest::Method::PUT,
+                plant_part_url(plant, "misc-scraps", n, ""),
+                Some(req),
+            )
+            .await
+        }
+    }
+}
+
+pub async fn copy_misc_scrap(
+    plant: &str,
+    no: &str,
+    req: &ttrs_shared::InventoryTxnCopyInput,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "misc-scraps", no, "/copy"),
+        Some(req),
+    )
+    .await
+}
+
+pub async fn delete_misc_scrap(plant: &str, no: &str, version: i32) -> Result<(), String> {
+    let res = reqwest::Client::new()
+        .delete(format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-scraps", no, "")
+        ))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    no_content(res).await
+}
+
+/// 確認（confirm）、取消確認（undo-confirm）、作廢（void）、取消作廢（unvoid）
+pub async fn set_misc_scrap_state(
+    plant: &str,
+    no: &str,
+    state: &str,
+    version: i32,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-scraps", no, &format!("/{state}"))
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn misc_scrap_history(
+    plant: &str,
+    no: &str,
+) -> Result<Vec<ttrs_shared::ChangeDto>, String> {
+    get_json(format!(
+        "{}?lang={}",
+        plant_part_url(plant, "misc-scraps", no, "/history"),
+        crate::i18n::current().code()
+    ))
+    .await
+}
+
+/// 庫存過帳（stock_post；posting_date 為 None 時用單據扣帳日）
+pub async fn post_misc_issue(
+    plant: &str,
+    no: &str,
+    posting_date: Option<ttrs_shared::NaiveDate>,
+    version: i32,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-issues", no, "/post")
+        ),
+        Some(&ttrs_shared::InventoryPostInput { posting_date }),
+    )
+    .await
+}
+
+/// 過帳還原（undo_post）
+pub async fn undo_post_misc_issue(
+    plant: &str,
+    no: &str,
+    version: i32,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-issues", no, "/undo-post")
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn misc_issue_txn_records(
+    plant: &str,
+    no: &str,
+) -> Result<Vec<ttrs_shared::InventoryTxnRecordDto>, String> {
+    get_json(plant_part_url(plant, "misc-issues", no, "/txn-records")).await
+}
+
+/// 庫存過帳（stock_post；posting_date 為 None 時用單據扣帳日）
+pub async fn post_misc_receipt(
+    plant: &str,
+    no: &str,
+    posting_date: Option<ttrs_shared::NaiveDate>,
+    version: i32,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-receipts", no, "/post")
+        ),
+        Some(&ttrs_shared::InventoryPostInput { posting_date }),
+    )
+    .await
+}
+
+/// 過帳還原（undo_post）
+pub async fn undo_post_misc_receipt(
+    plant: &str,
+    no: &str,
+    version: i32,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-receipts", no, "/undo-post")
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn misc_receipt_txn_records(
+    plant: &str,
+    no: &str,
+) -> Result<Vec<ttrs_shared::InventoryTxnRecordDto>, String> {
+    get_json(plant_part_url(plant, "misc-receipts", no, "/txn-records")).await
+}
+
+/// 庫存過帳（stock_post；posting_date 為 None 時用單據扣帳日）
+pub async fn post_misc_scrap(
+    plant: &str,
+    no: &str,
+    posting_date: Option<ttrs_shared::NaiveDate>,
+    version: i32,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-scraps", no, "/post")
+        ),
+        Some(&ttrs_shared::InventoryPostInput { posting_date }),
+    )
+    .await
+}
+
+/// 過帳還原（undo_post）
+pub async fn undo_post_misc_scrap(
+    plant: &str,
+    no: &str,
+    version: i32,
+) -> Result<ttrs_shared::InventoryTxnDto, String> {
+    send_json::<_, ()>(
+        reqwest::Method::POST,
+        format!(
+            "{}?version={version}",
+            plant_part_url(plant, "misc-scraps", no, "/undo-post")
+        ),
+        None,
+    )
+    .await
+}
+
+pub async fn misc_scrap_txn_records(
+    plant: &str,
+    no: &str,
+) -> Result<Vec<ttrs_shared::InventoryTxnRecordDto>, String> {
+    get_json(plant_part_url(plant, "misc-scraps", no, "/txn-records")).await
+}

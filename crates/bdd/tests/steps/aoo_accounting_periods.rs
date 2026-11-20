@@ -44,6 +44,7 @@ async fn param_periods(w: &mut ErpWorld, n: i16) {
         rate_basis: cur.rate_basis,
         auto_item_number: None,
         doc_code_length: None,
+        doc_serial_length: None,
         version: Some(cur.version),
     };
     let actor = w.actor.clone();

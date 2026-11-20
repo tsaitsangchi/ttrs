@@ -102,12 +102,47 @@ pub struct InventorySettings {
     pub misc_receipt_dept: bool,
     /// sma39 可不經倉儲維護新增倉儲
     pub add_storage_freely: bool,
+    /// sma51 現行年度（misc_issue_posting.feature PT3；未設定時過帳不檢查現行年月）
+    pub current_year: Option<i32>,
+    /// sma52 現行期別
+    pub current_period: Option<i16>,
+    /// sma53 成本關帳日（扣帳日不可小於等於此日，PT3）
+    pub closing_date: Option<NaiveDate>,
 }
 
 impl InventorySettings {
     /// 檢查週轉率（IP5）；其他欄位的值域由型別保證
     pub fn validate(&self) -> Result<(), DomainError> {
-        check_turnover(self.fast_turnover, self.average_turnover)
+        check_turnover(self.fast_turnover, self.average_turnover)?;
+        // 現行年度、期別須一起設定，期別 1–13（PT3）
+        match (self.current_year, self.current_period) {
+            (None, None) => Ok(()),
+            (Some(y), Some(p)) if (1900..=9999).contains(&y) && (1..=13).contains(&p) => Ok(()),
+            _ => Err(DomainError::InventoryCurrentPeriodInvalid),
+        }
+    }
+
+    /// 扣帳日的期間檢查（t370_s_chk、aimp379；PT3）：不可小於等於成本關帳日（mfg9999）、
+    /// 所屬會計年度期別不可在現行年月之後（mfg6090、mfg6091）；參數未設定時不檢查。`day` 為扣帳日所屬的會計期間
+    pub fn check_posting_date(
+        &self,
+        date: NaiveDate,
+        day: Option<&crate::accounting_period::AccountingDay>,
+    ) -> Result<(), DomainError> {
+        if self.closing_date.is_some_and(|c| date <= c) {
+            return Err(DomainError::InventoryPeriodClosed);
+        }
+        if let (Some(y), Some(p), Some(d)) = (self.current_year, self.current_period, day)
+            && (d.year, d.period) > (y, p)
+        {
+            return Err(DomainError::InventoryPeriodNotOpen);
+        }
+        Ok(())
+    }
+
+    /// 是否需要扣帳日所屬的會計期間（有設現行年月時）
+    pub fn needs_period(&self) -> bool {
+        self.current_year.is_some() && self.current_period.is_some()
     }
 }
 
@@ -126,6 +161,9 @@ impl Default for InventorySettings {
             misc_issue_dept: false,
             misc_receipt_dept: false,
             add_storage_freely: false,
+            current_year: None,
+            current_period: None,
+            closing_date: None,
         }
     }
 }

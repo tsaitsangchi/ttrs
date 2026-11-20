@@ -79,6 +79,10 @@ pub struct AppState {
     pub item_storages: ttrs_app::ItemStorageService,
     pub inventory_parameters: ttrs_app::InventoryParameterService,
     pub document_types: ttrs_app::DocumentTypeService,
+    /// 雜項發料 aimt301、雜項收料 aimt302、雜項報廢 aimt303（三支獨立作業）
+    pub misc_issues: ttrs_app::MiscIssueService,
+    pub misc_receipts: ttrs_app::MiscReceiptService,
+    pub misc_scraps: ttrs_app::MiscScrapService,
     pub encoding_years: ttrs_app::EncodingYearService,
     pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
@@ -184,6 +188,9 @@ impl AppState {
             item_storages,
             inventory_parameters,
             document_types,
+            misc_issues,
+            misc_receipts,
+            misc_scraps,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -233,6 +240,9 @@ impl AppState {
             item_storages,
             inventory_parameters,
             document_types,
+            misc_issues,
+            misc_receipts,
+            misc_scraps,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -570,6 +580,133 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/plants/{plant}/document-types/{code}/{state}",
             post(set_document_type_state),
+        )
+        // Misc Issue 雜項發料（TipTop aimt301；工廠層；misc_issue.feature）
+        .route("/api/plants/{plant}/misc-issues", post(create_misc_issue))
+        .route(
+            "/api/plants/{plant}/misc-issues/query",
+            post(query_misc_issues),
+        )
+        .route(
+            "/api/plants/{plant}/misc-issues/report.{format}",
+            get(misc_issue_report),
+        )
+        .route(
+            "/api/plants/{plant}/misc-issues/{no}",
+            get(get_misc_issue)
+                .put(update_misc_issue)
+                .delete(delete_misc_issue),
+        )
+        .route(
+            "/api/plants/{plant}/misc-issues/{no}/copy",
+            post(copy_misc_issue),
+        )
+        .route(
+            "/api/plants/{plant}/misc-issues/{no}/history",
+            get(misc_issue_history),
+        )
+        .route(
+            "/api/plants/{plant}/misc-issues/{no}/post",
+            post(post_misc_issue),
+        )
+        .route(
+            "/api/plants/{plant}/misc-issues/{no}/undo-post",
+            post(undo_post_misc_issue),
+        )
+        .route(
+            "/api/plants/{plant}/misc-issues/{no}/txn-records",
+            get(misc_issue_txn_records),
+        )
+        .route(
+            "/api/plants/{plant}/misc-issues/{no}/{state}",
+            post(set_misc_issue_state),
+        )
+        // Misc Receipt 雜項收料（TipTop aimt302；工廠層；misc_receipt.feature）
+        .route(
+            "/api/plants/{plant}/misc-receipts",
+            post(create_misc_receipt),
+        )
+        .route(
+            "/api/plants/{plant}/misc-receipts/query",
+            post(query_misc_receipts),
+        )
+        .route(
+            "/api/plants/{plant}/misc-receipts/new-storages",
+            post(misc_receipt_new_storages),
+        )
+        .route(
+            "/api/plants/{plant}/misc-receipts/report.{format}",
+            get(misc_receipt_report),
+        )
+        .route(
+            "/api/plants/{plant}/misc-receipts/{no}",
+            get(get_misc_receipt)
+                .put(update_misc_receipt)
+                .delete(delete_misc_receipt),
+        )
+        .route(
+            "/api/plants/{plant}/misc-receipts/{no}/copy",
+            post(copy_misc_receipt),
+        )
+        .route(
+            "/api/plants/{plant}/misc-receipts/{no}/history",
+            get(misc_receipt_history),
+        )
+        .route(
+            "/api/plants/{plant}/misc-receipts/{no}/post",
+            post(post_misc_receipt),
+        )
+        .route(
+            "/api/plants/{plant}/misc-receipts/{no}/undo-post",
+            post(undo_post_misc_receipt),
+        )
+        .route(
+            "/api/plants/{plant}/misc-receipts/{no}/txn-records",
+            get(misc_receipt_txn_records),
+        )
+        .route(
+            "/api/plants/{plant}/misc-receipts/{no}/{state}",
+            post(set_misc_receipt_state),
+        )
+        // Misc Scrap 雜項報廢（TipTop aimt303；工廠層；misc_scrap.feature）
+        .route("/api/plants/{plant}/misc-scraps", post(create_misc_scrap))
+        .route(
+            "/api/plants/{plant}/misc-scraps/query",
+            post(query_misc_scraps),
+        )
+        .route(
+            "/api/plants/{plant}/misc-scraps/report.{format}",
+            get(misc_scrap_report),
+        )
+        .route(
+            "/api/plants/{plant}/misc-scraps/{no}",
+            get(get_misc_scrap)
+                .put(update_misc_scrap)
+                .delete(delete_misc_scrap),
+        )
+        .route(
+            "/api/plants/{plant}/misc-scraps/{no}/copy",
+            post(copy_misc_scrap),
+        )
+        .route(
+            "/api/plants/{plant}/misc-scraps/{no}/history",
+            get(misc_scrap_history),
+        )
+        .route(
+            "/api/plants/{plant}/misc-scraps/{no}/post",
+            post(post_misc_scrap),
+        )
+        .route(
+            "/api/plants/{plant}/misc-scraps/{no}/undo-post",
+            post(undo_post_misc_scrap),
+        )
+        .route(
+            "/api/plants/{plant}/misc-scraps/{no}/txn-records",
+            get(misc_scrap_txn_records),
+        )
+        .route(
+            "/api/plants/{plant}/misc-scraps/{no}/{state}",
+            post(set_misc_scrap_state),
         )
         // Inventory Parameters 庫存參數（TipTop asms230；工廠層；inventory_parameters.feature）
         .route(
@@ -1962,6 +2099,7 @@ impl IntoResponse for HttpError {
             | "WAREHOUSE_LOCATION_NOT_FOUND"
             | "ITEM_STORAGE_NOT_FOUND"
             | "DOCUMENT_TYPE_NOT_FOUND"
+            | "INVENTORY_TRANSACTION_NOT_FOUND"
             | "CARRY_TARGET_NOT_FOUND"
             | "CARRY_CONDITION_NOT_FOUND"
             | "CARRY_DEFAULT_NOT_FOUND"
@@ -2041,6 +2179,14 @@ impl IntoResponse for HttpError {
             | "DOCUMENT_TYPE_ALREADY_EXISTS"
             | "DOCUMENT_TYPE_INACTIVE"
             | "DOC_CODE_LENGTH_IN_USE"
+            | "DOC_SERIAL_LENGTH_IN_USE"
+            | "INVENTORY_TRANSACTION_ALREADY_EXISTS"
+            | "INVENTORY_TRANSACTION_CONFIRMED"
+            | "INVENTORY_TRANSACTION_VOIDED"
+            | "INVENTORY_TRANSACTION_POSTED"
+            | "INVENTORY_TRANSACTION_NOT_POSTED"
+            | "INVENTORY_PERIOD_CLOSED"
+            | "INVENTORY_PERIOD_NOT_OPEN"
             | "ITEM_STORAGE_COPY_TARGET_NOT_EMPTY"
             | "CARRY_SETTING_IN_USE"
             | "BASIC_CARRY_NOT_SOURCE"
@@ -6255,6 +6401,466 @@ async fn document_type_report(
         .report_in(&s.actor, &plant, conditions, format, &lang)
         .await?;
     report_response(&data, format)
+}
+
+// ----- 雜項發料（aimt301；misc_issue.feature） -----
+
+async fn query_misc_issues(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::InventoryTxnDto>>> {
+    Ok(Json(s.misc_issues.query(&s.actor, &plant, req).await?))
+}
+
+async fn get_misc_issue(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    Ok(Json(s.misc_issues.get(&s.actor, &plant, &no).await?))
+}
+
+async fn create_misc_issue(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<ttrs_shared::InventoryTxnInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::InventoryTxnDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.misc_issues.create(&s.actor, &plant, req).await?),
+    ))
+}
+
+async fn update_misc_issue(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::InventoryTxnInput>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.misc_issues.update(&s.actor, &plant, &no, req).await?,
+    ))
+}
+
+async fn delete_misc_issue(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.misc_issues.delete(&s.actor, &plant, &no, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn copy_misc_issue(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::InventoryTxnCopyInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::InventoryTxnDto>)> {
+    let d = s.misc_issues.copy(&s.actor, &plant, &no, req).await?;
+    Ok((StatusCode::CREATED, Json(d)))
+}
+
+async fn misc_issue_history(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.misc_issues
+            .history(&s.actor, &plant, &no, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+/// 確認（confirm）、取消確認（undo-confirm）、作廢（void）、取消作廢（unvoid）
+async fn set_misc_issue_state(
+    Ctx(s): Ctx,
+    Path((plant, no, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let g = &s.misc_issues;
+    let dto = match state.as_str() {
+        "confirm" => g.confirm(&s.actor, &plant, &no, true, version).await?,
+        "undo-confirm" => g.confirm(&s.actor, &plant, &no, false, version).await?,
+        "void" => g.set_void(&s.actor, &plant, &no, true, version).await?,
+        "unvoid" => g.set_void(&s.actor, &plant, &no, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+/// 庫存過帳（stock_post）：可指定扣帳日（PT2）
+async fn post_misc_issue(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+    Json(req): Json<ttrs_shared::InventoryPostInput>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.misc_issues
+            .post(&s.actor, &plant, &no, req.posting_date, version)
+            .await?,
+    ))
+}
+
+/// 過帳還原（undo_post；PT8）
+async fn undo_post_misc_issue(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.misc_issues
+            .undo_post(&s.actor, &plant, &no, version)
+            .await?,
+    ))
+}
+
+/// 本單的庫存異動記錄（PT6）
+async fn misc_issue_txn_records(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+) -> ApiResult<Json<Vec<ttrs_shared::InventoryTxnRecordDto>>> {
+    let v = s.misc_issues.txn_records(&s.actor, &plant, &no).await?;
+    Ok(Json(v.into_iter().map(txn_record_dto).collect()))
+}
+
+async fn misc_issue_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .misc_issues
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+// ----- 雜項收料（aimt302；misc_receipt.feature） -----
+
+async fn query_misc_receipts(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::InventoryTxnDto>>> {
+    Ok(Json(s.misc_receipts.query(&s.actor, &plant, req).await?))
+}
+
+/// 雜收至新倉儲時提示（MT8(b)）：回傳還沒有庫存資料的單身列
+async fn misc_receipt_new_storages(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<Vec<ttrs_shared::InventoryTxnLineInput>>,
+) -> ApiResult<Json<Vec<usize>>> {
+    Ok(Json(
+        s.misc_receipts.new_storages(&s.actor, &plant, req).await?,
+    ))
+}
+
+async fn get_misc_receipt(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    Ok(Json(s.misc_receipts.get(&s.actor, &plant, &no).await?))
+}
+
+async fn create_misc_receipt(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<ttrs_shared::InventoryTxnInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::InventoryTxnDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.misc_receipts.create(&s.actor, &plant, req).await?),
+    ))
+}
+
+async fn update_misc_receipt(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::InventoryTxnInput>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.misc_receipts.update(&s.actor, &plant, &no, req).await?,
+    ))
+}
+
+async fn delete_misc_receipt(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.misc_receipts
+        .delete(&s.actor, &plant, &no, version)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn copy_misc_receipt(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::InventoryTxnCopyInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::InventoryTxnDto>)> {
+    let d = s.misc_receipts.copy(&s.actor, &plant, &no, req).await?;
+    Ok((StatusCode::CREATED, Json(d)))
+}
+
+async fn misc_receipt_history(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.misc_receipts
+            .history(&s.actor, &plant, &no, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+/// 確認（confirm）、取消確認（undo-confirm）、作廢（void）、取消作廢（unvoid）
+async fn set_misc_receipt_state(
+    Ctx(s): Ctx,
+    Path((plant, no, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let g = &s.misc_receipts;
+    let dto = match state.as_str() {
+        "confirm" => g.confirm(&s.actor, &plant, &no, true, version).await?,
+        "undo-confirm" => g.confirm(&s.actor, &plant, &no, false, version).await?,
+        "void" => g.set_void(&s.actor, &plant, &no, true, version).await?,
+        "unvoid" => g.set_void(&s.actor, &plant, &no, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+/// 庫存過帳（stock_post）：可指定扣帳日（PT2）
+async fn post_misc_receipt(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+    Json(req): Json<ttrs_shared::InventoryPostInput>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.misc_receipts
+            .post(&s.actor, &plant, &no, req.posting_date, version)
+            .await?,
+    ))
+}
+
+/// 過帳還原（undo_post；PT8）
+async fn undo_post_misc_receipt(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.misc_receipts
+            .undo_post(&s.actor, &plant, &no, version)
+            .await?,
+    ))
+}
+
+/// 本單的庫存異動記錄（PT6）
+async fn misc_receipt_txn_records(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+) -> ApiResult<Json<Vec<ttrs_shared::InventoryTxnRecordDto>>> {
+    let v = s.misc_receipts.txn_records(&s.actor, &plant, &no).await?;
+    Ok(Json(v.into_iter().map(txn_record_dto).collect()))
+}
+
+async fn misc_receipt_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .misc_receipts
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+// ----- 雜項報廢（aimt303；misc_scrap.feature） -----
+
+async fn query_misc_scraps(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::InventoryTxnDto>>> {
+    Ok(Json(s.misc_scraps.query(&s.actor, &plant, req).await?))
+}
+
+async fn get_misc_scrap(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    Ok(Json(s.misc_scraps.get(&s.actor, &plant, &no).await?))
+}
+
+async fn create_misc_scrap(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<ttrs_shared::InventoryTxnInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::InventoryTxnDto>)> {
+    Ok((
+        StatusCode::CREATED,
+        Json(s.misc_scraps.create(&s.actor, &plant, req).await?),
+    ))
+}
+
+async fn update_misc_scrap(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::InventoryTxnInput>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    require_version(req.version)?;
+    Ok(Json(
+        s.misc_scraps.update(&s.actor, &plant, &no, req).await?,
+    ))
+}
+
+async fn delete_misc_scrap(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<StatusCode> {
+    let version = Some(require_version(v.version)?);
+    s.misc_scraps.delete(&s.actor, &plant, &no, version).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn copy_misc_scrap(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Json(req): Json<ttrs_shared::InventoryTxnCopyInput>,
+) -> ApiResult<(StatusCode, Json<ttrs_shared::InventoryTxnDto>)> {
+    let d = s.misc_scraps.copy(&s.actor, &plant, &no, req).await?;
+    Ok((StatusCode::CREATED, Json(d)))
+}
+
+async fn misc_scrap_history(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(q): Query<LangQuery>,
+) -> ApiResult<Json<Vec<ttrs_shared::ChangeDto>>> {
+    Ok(Json(
+        s.misc_scraps
+            .history(&s.actor, &plant, &no, q.lang.as_deref())
+            .await?,
+    ))
+}
+
+/// 確認（confirm）、取消確認（undo-confirm）、作廢（void）、取消作廢（unvoid）
+async fn set_misc_scrap_state(
+    Ctx(s): Ctx,
+    Path((plant, no, state)): Path<(String, String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Response> {
+    let version = Some(require_version(v.version)?);
+    let g = &s.misc_scraps;
+    let dto = match state.as_str() {
+        "confirm" => g.confirm(&s.actor, &plant, &no, true, version).await?,
+        "undo-confirm" => g.confirm(&s.actor, &plant, &no, false, version).await?,
+        "void" => g.set_void(&s.actor, &plant, &no, true, version).await?,
+        "unvoid" => g.set_void(&s.actor, &plant, &no, false, version).await?,
+        _ => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    Ok(Json(dto).into_response())
+}
+
+/// 庫存過帳（stock_post）：可指定扣帳日（PT2）
+async fn post_misc_scrap(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+    Json(req): Json<ttrs_shared::InventoryPostInput>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.misc_scraps
+            .post(&s.actor, &plant, &no, req.posting_date, version)
+            .await?,
+    ))
+}
+
+/// 過帳還原（undo_post；PT8）
+async fn undo_post_misc_scrap(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+    Query(v): Query<VersionQuery>,
+) -> ApiResult<Json<ttrs_shared::InventoryTxnDto>> {
+    let version = Some(require_version(v.version)?);
+    Ok(Json(
+        s.misc_scraps
+            .undo_post(&s.actor, &plant, &no, version)
+            .await?,
+    ))
+}
+
+/// 本單的庫存異動記錄（PT6）
+async fn misc_scrap_txn_records(
+    Ctx(s): Ctx,
+    Path((plant, no)): Path<(String, String)>,
+) -> ApiResult<Json<Vec<ttrs_shared::InventoryTxnRecordDto>>> {
+    let v = s.misc_scraps.txn_records(&s.actor, &plant, &no).await?;
+    Ok(Json(v.into_iter().map(txn_record_dto).collect()))
+}
+
+async fn misc_scrap_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .misc_scraps
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+fn txn_record_dto(
+    r: ttrs_domain::inventory_balance::InventoryTxnRecord,
+) -> ttrs_shared::InventoryTxnRecordDto {
+    ttrs_shared::InventoryTxnRecordDto {
+        doc_no: r.doc_no,
+        doc_line: r.doc_line,
+        item_no: r.key.item,
+        warehouse: r.key.warehouse,
+        location: r.key.location,
+        lot: r.key.lot,
+        direction: r.direction,
+        source: r.source,
+        dest: r.dest,
+        txn_date: r.txn_date,
+        qty: r.qty,
+        unit: r.unit,
+        balance_after: r.balance_after,
+        program: r.program,
+        reason: r.reason,
+        created_by: r.created_by,
+        created_at: r.created_at,
+    }
 }
 
 // ----- 庫存參數（asms230；inventory_parameters.feature） -----

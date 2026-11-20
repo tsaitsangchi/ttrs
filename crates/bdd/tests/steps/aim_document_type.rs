@@ -136,6 +136,7 @@ async fn code_length(w: &mut ErpWorld, len: i16) {
         rate_basis: cur.rate_basis.clone(),
         auto_item_number: None,
         doc_code_length: Some(len),
+        doc_serial_length: None,
         version: Some(cur.version),
     };
     w.general

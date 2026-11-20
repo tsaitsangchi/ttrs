@@ -117,6 +117,44 @@ fn Fields(
             {flag("sma847_2", "ip-field-misc-receipt-dept", v.misc_receipt_dept, |i, x| i.misc_receipt_dept = x)}
             {flag("sma39", "ip-field-add-storage-freely", v.add_storage_freely, |i, x| i.add_storage_freely = x)}
         }
+        // 期間參數（sma51、sma52、sma53；misc_issue_posting.feature PT3）：未設定時過帳不檢查
+        h3 { {t("ip-group-period")} }
+        div { class: "form-grid",
+            TextField {
+                id: "sma51",
+                label: t("ip-field-current-year"),
+                input_type: "number",
+                value: v.current_year.map(|x| x.to_string()).unwrap_or_default(),
+                readonly,
+                oninput: {
+                    let v = v.clone();
+                    move |x: String| onchange.call(InventoryParametersInput { current_year: x.trim().parse().ok(), ..v.clone() })
+                },
+            }
+            TextField {
+                id: "sma52",
+                label: t("ip-field-current-period"),
+                input_type: "number",
+                value: v.current_period.map(|x| x.to_string()).unwrap_or_default(),
+                readonly,
+                oninput: {
+                    let v = v.clone();
+                    move |x: String| onchange.call(InventoryParametersInput { current_period: x.trim().parse().ok(), ..v.clone() })
+                },
+            }
+            TextField {
+                id: "sma53",
+                label: t("ip-field-closing-date"),
+                input_type: "date",
+                value: v.closing_date.map(|x| x.to_string()).unwrap_or_default(),
+                readonly,
+                oninput: {
+                    let v = v.clone();
+                    move |x: String| onchange.call(InventoryParametersInput { closing_date: ttrs_shared::NaiveDate::parse_from_str(x.trim(), "%Y-%m-%d").ok(), ..v.clone() })
+                },
+            }
+        }
+        p { class: "muted", {t("ip-hint-period")} }
     }
 }
 

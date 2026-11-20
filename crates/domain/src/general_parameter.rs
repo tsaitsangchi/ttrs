@@ -48,6 +48,14 @@ pub fn parse_doc_code_length(v: i16) -> Result<u8, DomainError> {
     }
 }
 
+/// 單號位數（aza42：1 → 流水號 8 碼、2 → 9 碼、3 → 10 碼；misc_transaction.feature MT4(a)）
+pub fn parse_doc_serial_length(v: i16) -> Result<u8, DomainError> {
+    match v {
+        8..=10 => Ok(v as u8),
+        _ => Err(DomainError::DocSerialLengthInvalid),
+    }
+}
+
 /// 整體管理系統參數（只有一筆，aza01＝'0'）
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GeneralParameters {
@@ -59,6 +67,8 @@ pub struct GeneralParameters {
     pub auto_item_number: bool,
     /// aza41 單別位數：3、4、5 碼（TipTop 1／2／3；document_type.feature DT5(a)）
     pub doc_code_length: u8,
+    /// aza42 單號流水號位數：8、9、10 碼（TipTop 1／2／3；misc_transaction.feature MT4(a)）
+    pub doc_serial_length: u8,
     /// azauser 資料所有者
     pub created_by: String,
     /// azagrup 資料所有群
@@ -80,6 +90,7 @@ impl GeneralParameters {
             rate_basis: RateBasis::Daily,
             auto_item_number: false,
             doc_code_length: 3,
+            doc_serial_length: 8,
             created_by: user.to_owned(),
             created_dept: dept.to_owned(),
             created_on: today,

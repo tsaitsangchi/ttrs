@@ -2278,6 +2278,13 @@ pub struct InventoryParametersInput {
     pub misc_issue_dept: bool,
     pub misc_receipt_dept: bool,
     pub add_storage_freely: bool,
+    /// sma51、sma52 現行年度、期別；sma53 成本關帳日（misc_issue_posting.feature PT3；未設定時過帳不檢查）
+    #[serde(default)]
+    pub current_year: Option<i32>,
+    #[serde(default)]
+    pub current_period: Option<i16>,
+    #[serde(default)]
+    pub closing_date: Option<NaiveDate>,
     /// 尚未建立時為 0
     pub version: Option<i32>,
 }
@@ -3502,6 +3509,10 @@ fn default_doc_code_length() -> i16 {
     3
 }
 
+fn default_doc_serial_length() -> i16 {
+    8
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GeneralParametersDto {
     /// 會計期間 12／13（aza02）
@@ -3518,6 +3529,9 @@ pub struct GeneralParametersDto {
     /// 單別位數 3／4／5（aza41；document_type.feature DT5）
     #[serde(default = "default_doc_code_length")]
     pub doc_code_length: i16,
+    /// 單號流水號位數 8／9／10（aza42；misc_transaction.feature MT4(a)）
+    #[serde(default = "default_doc_serial_length")]
+    pub doc_serial_length: i16,
     pub created_by: String,
     pub created_dept: String,
     pub created_on: NaiveDate,
@@ -3542,6 +3556,9 @@ pub struct GeneralParametersInput {
     /// 單別位數（aza41）；未給時維持原值
     #[serde(default)]
     pub doc_code_length: Option<i16>,
+    /// 單號位數（aza42）；未給時維持原值
+    #[serde(default)]
+    pub doc_serial_length: Option<i16>,
     /// 修改時帶回的版本號（ADR 0012 §4）
     pub version: Option<i32>,
 }
@@ -3860,4 +3877,128 @@ pub struct EpubUrlDto {
 pub struct EpubUrlLinkDto {
     pub name: String,
     pub url: String,
+}
+
+// ---------------------------------------------------------------------------
+// 雜項發料／收料／報廢（TipTop aimt301／302／303 / ina_file、inb_file；misc_transaction.feature）
+// ---------------------------------------------------------------------------
+
+/// 雜項單單身
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct InventoryTxnLineDto {
+    pub line_no: i32,
+    pub item_no: String,
+    /// 品名、規格（顯示用）
+    pub item_name: Option<String>,
+    pub item_spec: Option<String>,
+    pub warehouse: String,
+    pub location: String,
+    pub lot: String,
+    pub unit: String,
+    pub qty: rust_decimal::Decimal,
+    pub reason: Option<String>,
+}
+
+/// 雜項單（單頭＋單身）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct InventoryTxnDto {
+    pub doc_no: String,
+    /// issue／receipt／scrap
+    pub kind: String,
+    pub input_date: NaiveDate,
+    pub posting_date: NaiveDate,
+    pub dept: Option<String>,
+    pub applicant: Option<String>,
+    pub memo: Option<String>,
+    /// N 開立、Y 已確認、X 作廢
+    pub status: String,
+    pub posted: bool,
+    pub lines: Vec<InventoryTxnLineDto>,
+    /// 單別「立即列印」（MT10：畫面存檔後詢問列印）
+    #[serde(default)]
+    pub print_now: bool,
+    /// 新增時單別「立即確認」失敗的原因（錯誤代碼；MT10）
+    #[serde(default)]
+    pub auto_confirm_error: Option<String>,
+    pub created_by: String,
+    pub created_dept: String,
+    pub created_on: NaiveDate,
+    pub updated_by: Option<String>,
+    pub updated_on: Option<NaiveDate>,
+    #[serde(default)]
+    pub version: i32,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// 雜項單單身輸入；項次為 0 時自動取最大項次＋1；倉庫空白時帶料件的主要倉庫儲位
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct InventoryTxnLineInput {
+    pub line_no: i32,
+    pub item_no: String,
+    pub warehouse: Option<String>,
+    pub location: Option<String>,
+    pub lot: Option<String>,
+    pub qty: rust_decimal::Decimal,
+    pub reason: Option<String>,
+}
+
+/// 新增、修改雜項單。新增時 `doc_no` 給單別（自動編號）或完整單號；
+/// 未給的日期為今天（扣帳日預設等於輸入日）；`dept`、`applicant` 未給時帶預設，給空字串表示空白。
+/// 修改時未給的欄位維持原值：有單頭欄位時檢查功能 modify、有 `lines` 時檢查 detail（TipTop t370_u／t370_b）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct InventoryTxnInput {
+    pub doc_no: String,
+    pub input_date: Option<NaiveDate>,
+    pub posting_date: Option<NaiveDate>,
+    pub dept: Option<String>,
+    pub applicant: Option<String>,
+    pub memo: Option<String>,
+    pub lines: Option<Vec<InventoryTxnLineInput>>,
+    pub version: Option<i32>,
+}
+
+/// 複製雜項單（MT11）：新單別或完整單號、輸入日、扣帳日
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct InventoryTxnCopyInput {
+    pub doc_no: String,
+    pub input_date: Option<NaiveDate>,
+    pub posting_date: Option<NaiveDate>,
+}
+
+/// 庫存過帳（stock_post）：扣帳日未給時用單據上的扣帳日（misc_issue_posting.feature PT2）
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct InventoryPostInput {
+    pub posting_date: Option<NaiveDate>,
+}
+
+/// 庫存異動記錄（tlf_file → inventory_txn；PT6）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct InventoryTxnRecordDto {
+    pub doc_no: String,
+    pub doc_line: i32,
+    pub item_no: String,
+    pub warehouse: String,
+    pub location: String,
+    pub lot: String,
+    /// -1 出庫、1 入庫
+    pub direction: i16,
+    /// 來源、目的狀況（50 庫存、90 雜項、40 報廢）
+    pub source: i16,
+    pub dest: i16,
+    pub txn_date: NaiveDate,
+    pub qty: rust_decimal::Decimal,
+    pub unit: String,
+    pub balance_after: rust_decimal::Decimal,
+    pub program: String,
+    pub reason: Option<String>,
+    pub created_by: String,
+    pub created_at: Option<DateTime<Utc>>,
 }

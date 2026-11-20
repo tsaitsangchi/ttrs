@@ -1042,6 +1042,329 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
         ["查詢倉庫", code, "的異動記錄"] => {
             w.warehouses.history(a, "TW01", code, None).await.map(drop)
         }
+        // 雜項發料單（misc-issue；單據不存在時回 INVENTORY_TRANSACTION_NOT_FOUND，不是權限拒絕）
+        ["查詢雜項發料單"] => w
+            .misc_issues
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增雜項發料單", code] => w
+            .misc_issues
+            .create(
+                a,
+                "TW01",
+                ttrs_shared::InventoryTxnInput {
+                    doc_no: (*code).to_owned(),
+                    memo: Some("測試".into()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["修改雜項發料單", no] => w
+            .misc_issues
+            .update(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::InventoryTxnInput {
+                    memo: Some("測試".into()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["修改雜項發料單", no, "的單身"] => w
+            .misc_issues
+            .update(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::InventoryTxnInput {
+                    lines: Some(Vec::new()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["刪除雜項發料單", no] => w.misc_issues.delete(a, "TW01", no, None).await,
+        ["作廢雜項發料單", no] => w
+            .misc_issues
+            .set_void(a, "TW01", no, true, None)
+            .await
+            .map(drop),
+        ["複製雜項發料單", no] => w
+            .misc_issues
+            .copy(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::InventoryTxnCopyInput {
+                    doc_no: "MI1".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["確認雜項發料單", no] => w
+            .misc_issues
+            .confirm(a, "TW01", no, true, None)
+            .await
+            .map(drop),
+        ["取消確認雜項發料單", no] => w
+            .misc_issues
+            .confirm(a, "TW01", no, false, None)
+            .await
+            .map(drop),
+        ["過帳雜項發料單", no] => w
+            .misc_issues
+            .post(a, "TW01", no, None, None)
+            .await
+            .map(drop),
+        ["過帳還原雜項發料單", no] => {
+            w.misc_issues.undo_post(a, "TW01", no, None).await.map(drop)
+        }
+        ["查詢雜項發料單", no, "的異動記錄"] => {
+            w.misc_issues.history(a, "TW01", no, None).await.map(drop)
+        }
+        ["列印雜項發料單"] => w
+            .misc_issues
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出雜項發料單為", "Excel"] => w
+            .misc_issues
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        // 雜項收料單（misc-receipt；單據不存在時回 INVENTORY_TRANSACTION_NOT_FOUND，不是權限拒絕）
+        ["查詢雜項收料單"] => w
+            .misc_receipts
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增雜項收料單", code] => w
+            .misc_receipts
+            .create(
+                a,
+                "TW01",
+                ttrs_shared::InventoryTxnInput {
+                    doc_no: (*code).to_owned(),
+                    memo: Some("測試".into()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["修改雜項收料單", no] => w
+            .misc_receipts
+            .update(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::InventoryTxnInput {
+                    memo: Some("測試".into()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["修改雜項收料單", no, "的單身"] => w
+            .misc_receipts
+            .update(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::InventoryTxnInput {
+                    lines: Some(Vec::new()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["刪除雜項收料單", no] => w.misc_receipts.delete(a, "TW01", no, None).await,
+        ["作廢雜項收料單", no] => w
+            .misc_receipts
+            .set_void(a, "TW01", no, true, None)
+            .await
+            .map(drop),
+        ["複製雜項收料單", no] => w
+            .misc_receipts
+            .copy(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::InventoryTxnCopyInput {
+                    doc_no: "MR1".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["確認雜項收料單", no] => w
+            .misc_receipts
+            .confirm(a, "TW01", no, true, None)
+            .await
+            .map(drop),
+        ["取消確認雜項收料單", no] => w
+            .misc_receipts
+            .confirm(a, "TW01", no, false, None)
+            .await
+            .map(drop),
+        ["過帳雜項收料單", no] => w
+            .misc_receipts
+            .post(a, "TW01", no, None, None)
+            .await
+            .map(drop),
+        ["過帳還原雜項收料單", no] => w
+            .misc_receipts
+            .undo_post(a, "TW01", no, None)
+            .await
+            .map(drop),
+        ["查詢雜項收料單", no, "的異動記錄"] => {
+            w.misc_receipts.history(a, "TW01", no, None).await.map(drop)
+        }
+        ["列印雜項收料單"] => w
+            .misc_receipts
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出雜項收料單為", "Excel"] => w
+            .misc_receipts
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        // 雜項報廢單（misc-scrap；單據不存在時回 INVENTORY_TRANSACTION_NOT_FOUND，不是權限拒絕）
+        ["查詢雜項報廢單"] => w
+            .misc_scraps
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["新增雜項報廢單", code] => w
+            .misc_scraps
+            .create(
+                a,
+                "TW01",
+                ttrs_shared::InventoryTxnInput {
+                    doc_no: (*code).to_owned(),
+                    memo: Some("測試".into()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["修改雜項報廢單", no] => w
+            .misc_scraps
+            .update(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::InventoryTxnInput {
+                    memo: Some("測試".into()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["修改雜項報廢單", no, "的單身"] => w
+            .misc_scraps
+            .update(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::InventoryTxnInput {
+                    lines: Some(Vec::new()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["刪除雜項報廢單", no] => w.misc_scraps.delete(a, "TW01", no, None).await,
+        ["作廢雜項報廢單", no] => w
+            .misc_scraps
+            .set_void(a, "TW01", no, true, None)
+            .await
+            .map(drop),
+        ["複製雜項報廢單", no] => w
+            .misc_scraps
+            .copy(
+                a,
+                "TW01",
+                no,
+                ttrs_shared::InventoryTxnCopyInput {
+                    doc_no: "MS1".into(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["確認雜項報廢單", no] => w
+            .misc_scraps
+            .confirm(a, "TW01", no, true, None)
+            .await
+            .map(drop),
+        ["取消確認雜項報廢單", no] => w
+            .misc_scraps
+            .confirm(a, "TW01", no, false, None)
+            .await
+            .map(drop),
+        ["過帳雜項報廢單", no] => w
+            .misc_scraps
+            .post(a, "TW01", no, None, None)
+            .await
+            .map(drop),
+        ["過帳還原雜項報廢單", no] => {
+            w.misc_scraps.undo_post(a, "TW01", no, None).await.map(drop)
+        }
+        ["查詢雜項報廢單", no, "的異動記錄"] => {
+            w.misc_scraps.history(a, "TW01", no, None).await.map(drop)
+        }
+        ["列印雜項報廢單"] => w
+            .misc_scraps
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出雜項報廢單為", "Excel"] => w
+            .misc_scraps
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         // 單別（asmi300；單別不存在時回 DOCUMENT_TYPE_NOT_FOUND，不是權限拒絕）
         ["查詢單別"] => w
             .document_types
@@ -2214,6 +2537,7 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
                 rate_basis: "daily".into(),
                 auto_item_number: None,
                 doc_code_length: None,
+                doc_serial_length: None,
                 version: None,
             };
             w.general.update(a, input).await.map(drop)

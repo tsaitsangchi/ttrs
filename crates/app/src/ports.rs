@@ -6,6 +6,7 @@ use ttrs_domain::{
     department::{Department, DeptCode},
     dictionary::{ColumnText, TableDictionary, TableText},
     employee::{Employee, EmployeeId},
+    inventory_transaction::{InventoryTransaction, TxnKind},
     item::{Item, ItemNo},
     legacy_catalog::LegacyTable,
     permission::ProgramPermission,
@@ -1206,6 +1207,130 @@ pub trait ItemStorageRepository: Send + Sync {
         plant: &PlantId,
         s: &ttrs_domain::item_storage::ItemStorage,
     ) -> Result<(), RepoError>;
+}
+
+/// 雜項發料／收料／報廢（aimt301／302／303 / ina_file、inb_file；misc_transaction.feature）。工廠層。
+/// 三支作業各自一組單頭、單身資料表（misc_issue、misc_receipt、misc_scrap；Key User 2026-11-20），以 `kind` 決定
+#[async_trait]
+pub trait InventoryTransactionRepository: Send + Sync {
+    /// 該單據類別的全部單據，依單號排序
+    async fn list_inventory_transactions(
+        &self,
+        plant: &PlantId,
+        kind: TxnKind,
+    ) -> Result<Vec<InventoryTransaction>, RepoError>;
+    async fn get_inventory_transaction(
+        &self,
+        plant: &PlantId,
+        kind: TxnKind,
+        no: &str,
+    ) -> Result<Option<InventoryTransaction>, RepoError>;
+    /// 單號已存在 → Conflict
+    async fn insert_inventory_transaction(
+        &self,
+        plant: &PlantId,
+        t: &InventoryTransaction,
+    ) -> Result<(), RepoError>;
+    /// 單頭與單身一起存；版本不符 → Stale
+    async fn update_inventory_transaction(
+        &self,
+        plant: &PlantId,
+        t: &InventoryTransaction,
+    ) -> Result<(), RepoError>;
+    /// 連同單身刪除
+    async fn delete_inventory_transaction(
+        &self,
+        plant: &PlantId,
+        kind: TxnKind,
+        no: &str,
+    ) -> Result<(), RepoError>;
+    /// 以 prefix 開頭的最大單號（s_auto_assign_no 的 SELECT MAX）
+    async fn max_doc_no(
+        &self,
+        plant: &PlantId,
+        kind: TxnKind,
+        prefix: &str,
+    ) -> Result<Option<String>, RepoError>;
+    /// 其他未過帳、未作廢的雜發單在此倉儲批的數量合計（客製 aim-425，MT14）
+    async fn pending_issue_qty(
+        &self,
+        plant: &PlantId,
+        key: &ttrs_domain::inventory_balance::BalanceKey,
+        exclude_no: &str,
+    ) -> Result<rust_decimal::Decimal, RepoError>;
+    /// 任何營運中心是否已有雜項單（單號位數 aza42 已有單據時不可變更，MT4(a)）
+    async fn any_inventory_transaction(&self) -> Result<bool, RepoError>;
+}
+
+/// 庫存明細（img_file；MT8、MT17）。工廠層；本份只讀，`put` 給測試資料與第二份規格的過帳
+#[async_trait]
+pub trait InventoryBalanceRepository: Send + Sync {
+    async fn get_inventory_balance(
+        &self,
+        plant: &PlantId,
+        key: &ttrs_domain::inventory_balance::BalanceKey,
+    ) -> Result<Option<ttrs_domain::inventory_balance::InventoryBalance>, RepoError>;
+    /// 新增或取代一筆
+    async fn put_inventory_balance(
+        &self,
+        plant: &PlantId,
+        b: &ttrs_domain::inventory_balance::InventoryBalance,
+    ) -> Result<(), RepoError>;
+    async fn delete_inventory_balance(
+        &self,
+        plant: &PlantId,
+        key: &ttrs_domain::inventory_balance::BalanceKey,
+    ) -> Result<(), RepoError>;
+    /// 同料件＋倉庫＋儲位的全部批號（最高存量檢查，PR2）
+    async fn list_inventory_balances(
+        &self,
+        plant: &PlantId,
+        item: &str,
+        warehouse: &str,
+        location: &str,
+    ) -> Result<Vec<ttrs_domain::inventory_balance::InventoryBalance>, RepoError>;
+}
+
+/// 料件的最近異動日期（s_udima；PT5）：Some 的欄位才更新
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ItemDates {
+    pub item: String,
+    /// ima73 最近入庫日
+    pub last_received_on: Option<chrono::NaiveDate>,
+    /// ima74 最近出庫日
+    pub last_issued_on: Option<chrono::NaiveDate>,
+    /// ima29 最近異動日
+    pub last_txn_on: Option<chrono::NaiveDate>,
+}
+
+/// 一次過帳或過帳還原要寫入的全部資料（同一交易；PT9）
+#[derive(Debug, Clone)]
+pub struct PostingWrite {
+    /// 更新後的單據（過帳碼、扣帳日）；版本不符 → Stale
+    pub doc: InventoryTransaction,
+    /// (讀取時的庫存量，新建時 None, 新的庫存明細)；庫存量已被他人改過 → Stale
+    pub balances: Vec<(
+        Option<rust_decimal::Decimal>,
+        ttrs_domain::inventory_balance::InventoryBalance,
+    )>,
+    /// 新增的異動記錄；同單號＋項次＋程式已有 → Conflict（-239）
+    pub add_records: Vec<ttrs_domain::inventory_balance::InventoryTxnRecord>,
+    /// 過帳還原：刪除這張單（程式＋單號）的異動記錄
+    pub remove_records: bool,
+    pub items: Vec<ItemDates>,
+}
+
+/// 庫存過帳（t370_s_upd、aimp379；misc_*_posting.feature）。工廠層
+#[async_trait]
+pub trait InventoryPostingRepository: Send + Sync {
+    async fn apply_posting(&self, plant: &PlantId, w: &PostingWrite) -> Result<(), RepoError>;
+    /// 某程式某單號的異動記錄，依項次排序
+    async fn inventory_txn_records(
+        &self,
+        plant: &PlantId,
+        program: &str,
+        doc_no: &str,
+    ) -> Result<Vec<ttrs_domain::inventory_balance::InventoryTxnRecord>, RepoError>;
 }
 
 /// 拋到一個營運中心的一筆料件與子資料（item_carry.feature IC6）

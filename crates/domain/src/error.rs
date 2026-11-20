@@ -618,6 +618,70 @@ pub enum DomainError {
     InventoryTurnoverInvalid,
     #[error("庫存帳務基礎日期只能是 1（單據日期）或 2（產生日期）")]
     InventoryPostingDateBasisInvalid,
+    // ----- 單號自動編號（s_auto_assign_no；misc_transaction.feature MT4） -----
+    #[error("單號位數只能是 8、9、10 碼")]
+    DocSerialLengthInvalid,
+    #[error("已有單據，不可變更單號位數")]
+    DocSerialLengthInUse,
+    #[error("單號格式不正確：須為單別、「-」與 {len} 碼流水號")]
+    DocNoInvalid { len: u8 },
+    #[error("單號的流水號已用完")]
+    DocNoExhausted,
+    // ----- 雜項發料／收料／報廢（aimt301／302／303 / ina_file、inb_file；misc_transaction.feature） -----
+    #[error("雜項單不存在")]
+    InventoryTransactionNotFound,
+    #[error("單號已存在")]
+    InventoryTransactionAlreadyExists,
+    #[error("已確認的單據不可修改、刪除或作廢")]
+    InventoryTransactionConfirmed,
+    #[error("已作廢的單據不可修改、刪除或確認")]
+    InventoryTransactionVoided,
+    #[error("已過帳的單據不可取消確認或作廢")]
+    InventoryTransactionPosted,
+    #[error("沒有單身，不可確認")]
+    InventoryTransactionNoLines,
+    #[error("數量須大於 0，小數最多 3 位")]
+    InventoryTransactionQtyInvalid,
+    #[error("須輸入部門")]
+    InventoryTransactionDeptRequired,
+    #[error("申請人已停用")]
+    InventoryTransactionApplicantInactive,
+    #[error("備註最多 255 字")]
+    InventoryTransactionMemoTooLong,
+    #[error("須輸入備註")]
+    InventoryTransactionMemoRequired,
+    #[error("項次 {0} 重複")]
+    InventoryTransactionLineDuplicate(i32),
+    #[error("項次須大於 0")]
+    InventoryTransactionLineNoInvalid,
+    #[error("MISC 料件不可用於雜項單")]
+    InventoryTransactionItemMisc,
+    #[error("倉庫須為一般倉")]
+    InventoryTransactionWarehouseClass,
+    #[error("理由碼不存在或已停用")]
+    InventoryTransactionReasonNotFound,
+    #[error("此單別須輸入理由碼")]
+    InventoryTransactionReasonRequired,
+    #[error("同一張單的理由碼須相同")]
+    InventoryTransactionReasonMixed,
+    #[error("儲位或批號最多 {0} 字")]
+    InventoryTransactionStorageTooLong(usize),
+    #[error("此倉儲批沒有庫存資料")]
+    InventoryBalanceNotFound,
+    #[error("庫存不足")]
+    InventoryInsufficient,
+    #[error("此倉儲批已超過有效日期")]
+    InventoryBalanceExpired,
+    #[error("扣帳日已在成本關帳日之前，不可異動")]
+    InventoryPeriodClosed,
+    #[error("扣帳日不可在現行年月之後")]
+    InventoryPeriodNotOpen,
+    #[error("現行年度與期別須一起設定，期別為 1 到 13")]
+    InventoryCurrentPeriodInvalid,
+    #[error("單據尚未過帳")]
+    InventoryTransactionNotPosted,
+    #[error("超過料件預設倉儲的最高存量")]
+    InventoryMaxQtyExceeded,
     // ----- 單別（asmi300 / smy_file；document_type.feature） -----
     #[error("單別位數只能是 3、4、5 碼")]
     DocCodeLengthInvalid,
@@ -1219,6 +1283,39 @@ impl DomainError {
             Self::InventoryStorageControlInvalid => "INVENTORY_STORAGE_CONTROL_INVALID",
             Self::InventoryTurnoverInvalid => "INVENTORY_TURNOVER_INVALID",
             Self::InventoryPostingDateBasisInvalid => "INVENTORY_POSTING_DATE_BASIS_INVALID",
+            Self::DocSerialLengthInvalid => "DOC_SERIAL_LENGTH_INVALID",
+            Self::DocSerialLengthInUse => "DOC_SERIAL_LENGTH_IN_USE",
+            Self::DocNoInvalid { .. } => "DOC_NO_INVALID",
+            Self::DocNoExhausted => "DOC_NO_EXHAUSTED",
+            Self::InventoryTransactionNotFound => "INVENTORY_TRANSACTION_NOT_FOUND",
+            Self::InventoryTransactionAlreadyExists => "INVENTORY_TRANSACTION_ALREADY_EXISTS",
+            Self::InventoryTransactionConfirmed => "INVENTORY_TRANSACTION_CONFIRMED",
+            Self::InventoryTransactionVoided => "INVENTORY_TRANSACTION_VOIDED",
+            Self::InventoryTransactionPosted => "INVENTORY_TRANSACTION_POSTED",
+            Self::InventoryTransactionNoLines => "INVENTORY_TRANSACTION_NO_LINES",
+            Self::InventoryTransactionQtyInvalid => "INVENTORY_TRANSACTION_QTY_INVALID",
+            Self::InventoryTransactionDeptRequired => "INVENTORY_TRANSACTION_DEPT_REQUIRED",
+            Self::InventoryTransactionApplicantInactive => {
+                "INVENTORY_TRANSACTION_APPLICANT_INACTIVE"
+            }
+            Self::InventoryTransactionMemoTooLong => "INVENTORY_TRANSACTION_MEMO_TOO_LONG",
+            Self::InventoryTransactionMemoRequired => "INVENTORY_TRANSACTION_MEMO_REQUIRED",
+            Self::InventoryTransactionLineDuplicate(_) => "INVENTORY_TRANSACTION_LINE_DUPLICATE",
+            Self::InventoryTransactionLineNoInvalid => "INVENTORY_TRANSACTION_LINE_NO_INVALID",
+            Self::InventoryTransactionItemMisc => "INVENTORY_TRANSACTION_ITEM_MISC",
+            Self::InventoryTransactionWarehouseClass => "INVENTORY_TRANSACTION_WAREHOUSE_CLASS",
+            Self::InventoryTransactionReasonNotFound => "INVENTORY_TRANSACTION_REASON_NOT_FOUND",
+            Self::InventoryTransactionReasonRequired => "INVENTORY_TRANSACTION_REASON_REQUIRED",
+            Self::InventoryTransactionReasonMixed => "INVENTORY_TRANSACTION_REASON_MIXED",
+            Self::InventoryTransactionStorageTooLong(_) => "INVENTORY_TRANSACTION_STORAGE_TOO_LONG",
+            Self::InventoryBalanceNotFound => "INVENTORY_BALANCE_NOT_FOUND",
+            Self::InventoryInsufficient => "INVENTORY_INSUFFICIENT",
+            Self::InventoryBalanceExpired => "INVENTORY_BALANCE_EXPIRED",
+            Self::InventoryPeriodClosed => "INVENTORY_PERIOD_CLOSED",
+            Self::InventoryPeriodNotOpen => "INVENTORY_PERIOD_NOT_OPEN",
+            Self::InventoryCurrentPeriodInvalid => "INVENTORY_CURRENT_PERIOD_INVALID",
+            Self::InventoryTransactionNotPosted => "INVENTORY_TRANSACTION_NOT_POSTED",
+            Self::InventoryMaxQtyExceeded => "INVENTORY_MAX_QTY_EXCEEDED",
             Self::DocCodeLengthInvalid => "DOC_CODE_LENGTH_INVALID",
             Self::DocCodeLengthInUse => "DOC_CODE_LENGTH_IN_USE",
             Self::DocumentTypeCodeLength { .. } => "DOCUMENT_TYPE_CODE_LENGTH",

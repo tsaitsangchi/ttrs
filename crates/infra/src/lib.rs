@@ -32,6 +32,7 @@ mod pg_item_group;
 mod pg_item_storage;
 mod pg_legacy;
 mod pg_menu;
+mod pg_misc_transaction;
 mod pg_password_reset;
 mod pg_permission;
 mod pg_permission_class;

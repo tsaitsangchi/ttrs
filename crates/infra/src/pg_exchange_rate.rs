@@ -452,6 +452,7 @@ struct GeneralRow {
     rate_basis: String,
     auto_item_number: bool,
     doc_code_length: i16,
+    doc_serial_length: i16,
     created_by: String,
     created_dept: String,
     created_on: NaiveDate,
@@ -473,6 +474,10 @@ impl GeneralRow {
             auto_item_number: self.auto_item_number,
             doc_code_length: ttrs_domain::general_parameter::parse_doc_code_length(
                 self.doc_code_length,
+            )
+            .map_err(bad)?,
+            doc_serial_length: ttrs_domain::general_parameter::parse_doc_serial_length(
+                self.doc_serial_length,
             )
             .map_err(bad)?,
             created_by: self.created_by,
@@ -515,7 +520,7 @@ impl SystemParameterRepository for PgStore {
 
     async fn general_parameters(&self) -> Result<Option<GeneralParameters>, RepoError> {
         let row: Option<GeneralRow> = sqlx::query_as(
-            "SELECT accounting_periods, base_currency, rate_basis, auto_item_number, doc_code_length, created_by, created_dept, created_on,
+            "SELECT accounting_periods, base_currency, rate_basis, auto_item_number, doc_code_length, doc_serial_length, created_by, created_dept, created_on,
                     updated_by, updated_on, version, created_at, updated_at
                FROM system_parameter WHERE parameter_key = '0'",
         )
@@ -528,7 +533,7 @@ impl SystemParameterRepository for PgStore {
     async fn update_general_parameters(&self, p: &GeneralParameters) -> Result<(), RepoError> {
         let n = sqlx::query(
             "UPDATE system_parameter SET accounting_periods = $1, base_currency = $2, rate_basis = $3,
-                    updated_by = $4, updated_on = $5, auto_item_number = $7, doc_code_length = $8
+                    updated_by = $4, updated_on = $5, auto_item_number = $7, doc_code_length = $8, doc_serial_length = $9
               WHERE parameter_key = '0' AND version = $6",
         )
         .bind(p.accounting_periods.get())
@@ -539,6 +544,7 @@ impl SystemParameterRepository for PgStore {
         .bind(p.stamp.version)
         .bind(p.auto_item_number)
         .bind(i16::from(p.doc_code_length))
+        .bind(i16::from(p.doc_serial_length))
         .execute(&self.pool)
         .await
         .map_err(db_err)?

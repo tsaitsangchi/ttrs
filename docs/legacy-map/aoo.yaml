@@ -693,6 +693,7 @@ tables:
       - { legacy: aza17, type: varchar2(4), target: base_currency, sch: "本國幣別", note: "起始資料 TWD（ER2）；須為有效幣別、已有匯率時不可變更（GP5）" }
       - { legacy: aza19, type: varchar2(1), target: rate_basis, sch: "匯率採用", note: "1 月平均 → monthly、2 每日 → daily（GP6）" }
       - { legacy: aza41, type: varchar2(1), target: doc_code_length, sch: "單別位數設定", note: "1→3、2→4、3→5 碼，預設 3；已有單別時不可變更（document_type.feature DT5(a)，2026-11-19 由 GP9 延後改為移植）" }
+      - { legacy: aza42, type: varchar2(1), target: doc_serial_length, sch: "單號位數設定", note: "1→8、2→9、3→10 碼，預設 8；已有單據時不可變更（misc_issue.feature MT4(a)，2026-11-20 由 GP9 延後改為移植）" }
       - { legacy: azauser, type: varchar2(10), target: created_by, sch: "資料所有者", note: "ADR 0012" }
       - { legacy: azagrup, type: varchar2(10), target: created_dept, sch: "資料所有群", note: "ADR 0012" }
       - { legacy: azamodu, type: varchar2(10), target: updated_by, sch: "資料修改者", note: "ADR 0012" }
@@ -733,7 +734,6 @@ tables:
       - { legacy: aza38, type: number(5), sch: "最大動態開窗查詢筆數", reason: "開窗改為分頁查詢（GP10）" }
       - { legacy: aza39, type: varchar2(1), sch: "是否允許使用者隱藏單身欄位", reason: "TTRS 一律隱藏無權限功能鈕（ADR 0006）；欄位隱藏是 Genero 畫面功能（GP10）" }
       - { legacy: aza40, type: varchar2(1), sch: "是否使用集團間銷售預測", reason: "延後：銷售／流通（axm、atm）移植時加入（GP9）" }
-      - { legacy: aza42, type: varchar2(1), sch: "單號位數設定", reason: "延後：批次 5 編碼規則／第一支單據作業（GP9）" }
       - { legacy: aza43, type: varchar2(1), sch: "金額欄位格式", reason: "金額依幣別小數位數顯示；多語言一律開啟、預設 zh-TW（ADR 0005）（GP10）" }
       - { legacy: aza44, type: varchar2(1), sch: "使用多語言功能", reason: "金額依幣別小數位數顯示；多語言一律開啟、預設 zh-TW（ADR 0005）（GP10）" }
       - { legacy: aza45, type: varchar2(1), sch: "預設語言別", reason: "金額依幣別小數位數顯示；多語言一律開啟、預設 zh-TW（ADR 0005）（GP10）" }

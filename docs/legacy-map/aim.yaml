@@ -278,10 +278,115 @@ tables:
   - legacy: tlf_file
     target: inventory_txn
     scope: plant
-    note: 庫存異動明細，所有進出庫交易皆寫入
-    pending: "早期骨架；移植庫存異動時逐欄萃取"
-    verify: true
-    columns: []   # 待匯入 tlf_file 結構後補齊
+    program: 各庫存交易的過帳寫入（本批：aimt301／302／303 stock_post；還原時刪除）
+    spec: specs/features/aim/misc_issue_posting.feature、misc_receipt_posting.feature、misc_scrap_posting.feature
+    note: "庫存異動記錄，一筆單身一筆；同程式＋單號＋項次唯一（-239）；骨架表 inventory_txn 由 migrations/plant/0021 擴充"
+    columns:
+      - { legacy: tlf01, type: "varchar2(40)", target: item_no, sch: "異動料件編號" }
+      - { legacy: tlf02, type: "number(5)", target: source, sch: "來源狀況", note: "50 庫存、90 雜項（PT6）" }
+      - { legacy: tlf024, type: "number(15,3)", target: balance_after, sch: "異動後庫存數量", note: "出庫時；入庫時為 tlf034" }
+      - { legacy: tlf026, type: "varchar2(16)", target: doc_no, sch: "單據編號", note: "與 tlf905 同" }
+      - { legacy: tlf027, type: "number(5)", target: doc_line, sch: "單據項次", note: "與 tlf906 同" }
+      - { legacy: tlf03, type: "number(5)", target: dest, sch: "目的狀況", note: "50 庫存、90 雜項、40 報廢" }
+      - { legacy: tlf034, type: "number(15,3)", target: balance_after, sch: "異動後庫存數量", note: "入庫時" }
+      - { legacy: tlf036, type: "varchar2(16)", target: doc_no, sch: "單據編號", note: "與 tlf905 同" }
+      - { legacy: tlf037, type: "number(5)", target: doc_line, sch: "單據項次", note: "與 tlf906 同" }
+      - { legacy: tlf06, type: "date", target: txn_date, sch: "單據日期", note: "扣帳日" }
+      - { legacy: tlf07, type: "date", target: created_at, sch: "產生日期", note: "產生日期與時間合為一欄" }
+      - { legacy: tlf08, type: "varchar2(8)", target: created_at, sch: "異動資料產生時間", note: "同 tlf07" }
+      - { legacy: tlf09, type: "varchar2(10)", target: created_by, sch: "異動資料發出者" }
+      - { legacy: tlf10, type: "number(15,3)", target: qty, sch: "異動數量" }
+      - { legacy: tlf11, type: "varchar2(4)", target: unit_code, sch: "異動數量單位", note: "庫存單位" }
+      - { legacy: tlf13, type: "varchar2(20)", target: program, sch: "異動命令代號", note: "TTRS 程式代號（misc-issue 等）" }
+      - { legacy: tlf14, type: "varchar2(4)", target: reason, sch: "異動原因", note: "理由碼（tlf43 同）" }
+      - { legacy: tlf17, type: "varchar2(255)", target: memo, sch: "備註", note: "單頭備註" }
+      - { legacy: tlf19, type: "varchar2(10)", target: dept_code, sch: "異動廠商/客戶編號/部門編號", note: "單頭部門" }
+      - { legacy: tlf61, type: "varchar2(5)", target: doc_type, sch: "單別" }
+      - { legacy: tlf901, type: "varchar2(1)", target: cost_group, sch: "成本庫別", note: "倉庫成本庫別 imd09" }
+      - { legacy: tlf902, type: "varchar2(10)", target: warehouse, sch: "倉庫" }
+      - { legacy: tlf903, type: "varchar2(10)", target: location, sch: "儲位", note: "空白存空字串" }
+      - { legacy: tlf904, type: "varchar2(24)", target: lot, sch: "批號", note: "空白存空字串" }
+      - { legacy: tlf905, type: "varchar2(16)", target: doc_no, sch: "單號", note: "tlf026／tlf036 同" }
+      - { legacy: tlf906, type: "number(5)", target: doc_line, sch: "項次", note: "tlf027／tlf037 同" }
+      - { legacy: tlf907, type: "number(5)", target: direction, sch: "入出庫碼", note: "-1 出庫、1 入庫" }
+      - { legacy: tlf43, type: "varchar2(6)", target: reason, sch: "理由碼", note: "與 tlf14 同" }
+    not_ported:
+      - { legacy: tlf020, type: "varchar2(10)", sch: "營運中心編號", reason: "工廠層資料表本身就是該營運中心（PT13）" }
+      - { legacy: tlf021, type: "varchar2(10)", sch: "倉庫別", reason: "只存實際異動的一組倉儲 tlf902–904（PT13）" }
+      - { legacy: tlf022, type: "varchar2(10)", sch: "儲位", reason: "同 tlf021（PT13）" }
+      - { legacy: tlf023, type: "varchar2(24)", sch: "批號", reason: "同 tlf021（PT13）" }
+      - { legacy: tlf025, type: "varchar2(4)", sch: "異動後庫存數量單位", reason: "單位存 tlf11（PT13）" }
+      - { legacy: tlf030, type: "varchar2(10)", sch: "營運中心編號", reason: "工廠層資料表本身就是該營運中心（PT13）" }
+      - { legacy: tlf031, type: "varchar2(10)", sch: "倉庫別", reason: "同 tlf021（PT13）" }
+      - { legacy: tlf032, type: "varchar2(10)", sch: "儲位", reason: "同 tlf021（PT13）" }
+      - { legacy: tlf033, type: "varchar2(24)", sch: "批號", reason: "同 tlf021（PT13）" }
+      - { legacy: tlf035, type: "varchar2(4)", sch: "異動後庫存數量單位", reason: "單位存 tlf11（PT13）" }
+      - { legacy: tlf04, type: "varchar2(10)", sch: "工作站", reason: "工作站：工單製程 asf（PT13）" }
+      - { legacy: tlf05, type: "varchar2(6)", sch: "作業編號", reason: "作業編號：工單製程 asf（PT13）" }
+      - { legacy: tlf12, type: "number(20,8)", sch: "異動數量單位與異動目的數量", reason: "單一單位，換算率固定 1（PT6）" }
+      - { legacy: tlf15, type: "varchar2(24)", sch: "借方會計科目", reason: "會計科目：總帳（PT13）" }
+      - { legacy: tlf16, type: "varchar2(24)", sch: "貸方會計科目", reason: "會計科目：總帳（PT13）" }
+      - { legacy: tlf18, type: "number(15,3)", sch: "異動後總庫存量", reason: "異動後總庫存量：由庫存明細即時加總（PT13）" }
+      - { legacy: tlf20, type: "varchar2(10)", sch: "專案號碼", reason: "專案延後（PT13）" }
+      - { legacy: tlf21, type: "number(20,6)", sch: "成會異動成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf211, type: "date", sch: "成會計算日期", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf212, type: "varchar2(8)", sch: "成會計算時間", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2131, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2132, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf214, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf215, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2151, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf216, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2171, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2172, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf219, type: "number(5)", sch: "1.第二單位 2.第一單位", reason: "雙單位不移植（PT13）" }
+      - { legacy: tlf218, type: "varchar2(30)", sch: "第二單位的rowid內容", reason: "雙單位不移植（PT13）" }
+      - { legacy: tlf220, type: "varchar2(4)", sch: "單位 雙單位的單位", reason: "雙單位不移植（PT13）" }
+      - { legacy: tlf221, type: "number(20,6)", sch: "材料成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf222, type: "number(20,6)", sch: "人工成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2231, type: "number(20,6)", sch: "製費成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2232, type: "number(20,6)", sch: "加工成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf224, type: "number(20,6)", sch: "其他成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf225, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2251, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf226, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2271, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2272, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf229, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf230, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf231, type: "number(5)", sch: "No Use", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf60, type: "number(20,8)", sch: "異動單據單位對庫存單位之換", reason: "單一單位，換算率固定 1（PT6）" }
+      - { legacy: tlf62, type: "varchar2(40)", sch: "工單單號", reason: "工單單號／參考單號：雜項單沒有（PT13）" }
+      - { legacy: tlf63, type: "number(10)", sch: "No Use", reason: ".sch 註明 No Use（PT13）" }
+      - { legacy: tlf64, type: "varchar2(20)", sch: "手冊編號", reason: "手冊編號：保稅不移植（PT13）" }
+      - { legacy: tlf65, type: "varchar2(16)", sch: "傳票編號", reason: "傳票編號：總帳拋轉（PT13）" }
+      - { legacy: tlf66, type: "varchar2(1)", sch: "多倉出貨 Flag", reason: "Flag：總帳拋轉（PT13）" }
+      - { legacy: tlf908, type: "varchar2(1)", sch: "保稅確認否", reason: "保稅不移植（PT13）" }
+      - { legacy: tlf909, type: "varchar2(1)", sch: "保稅擷取否", reason: "保稅不移植（PT13）" }
+      - { legacy: tlf910, type: "varchar2(1)", sch: "合同擷取否", reason: "保稅不移植（PT13）" }
+      - { legacy: tlf99, type: "varchar2(17)", sch: "多角序號", reason: "多角貿易未移植（PT13）" }
+      - { legacy: tlf930, type: "varchar2(10)", sch: "成本中心", reason: "成本中心延後（PT13）" }
+      - { legacy: tlf931, type: "number(20,6)", sch: "內部成本", reason: "內部成本：成本模組（PT13）" }
+      - { legacy: tlf151, type: "varchar2(24)", sch: "借方會計科目二", reason: "會計科目：總帳（PT13）" }
+      - { legacy: tlf161, type: "varchar2(24)", sch: "貸方會計科目二", reason: "會計科目：總帳（PT13）" }
+      - { legacy: tlf2241, type: "number(20,6)", sch: "製費三成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2242, type: "number(20,6)", sch: "製費四成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2243, type: "number(20,6)", sch: "製費五成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlfcost, type: "varchar2(40)", sch: "類別代號(批次號/專案號/利潤", reason: "類別代號：成本模組（PT13）" }
+      - { legacy: tlf41, type: "varchar2(30)", sch: "WBS編碼", reason: "WBS：專案延後（PT13）" }
+      - { legacy: tlf42, type: "varchar2(4)", sch: "活動代號", reason: "活動：專案延後（PT13）" }
+      - { legacy: tlf211x, type: "date", sch: "成會計算日期", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf212x, type: "varchar2(8)", sch: "成會計算時間", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf21x, type: "number(20,6)", sch: "成會異動成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf221x, type: "number(20,6)", sch: "材料成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf222x, type: "number(20,6)", sch: "人工成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2231x, type: "number(20,6)", sch: "製費一成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2232x, type: "number(20,6)", sch: "加工成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2241x, type: "number(20,6)", sch: "製費三成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2242x, type: "number(20,6)", sch: "製費四成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf2243x, type: "number(20,6)", sch: "製費五成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf224x, type: "number(20,6)", sch: "製費二成本", reason: "成本計算欄位：成本模組（axc）移植時加（PT13）" }
+      - { legacy: tlf65x, type: "varchar2(16)", sch: "傳票編號", reason: "傳票編號：總帳拋轉（PT13）" }
 
   # gfe_file（單位）已移至 docs/legacy-map/aoo.yaml（aooi101）
 
@@ -528,6 +633,9 @@ tables:
       - { legacy: sma68, type: "number(9,4)", target: fast_turnover, sch: "快速移動料件週轉率", note: "0–100、不小於平速（IP5）" }
       - { legacy: sma69, type: "number(9,4)", target: average_turnover, sch: "平速移動件週轉率", note: "0–100（IP5）" }
       - { legacy: sma847, type: "varchar2(10)", target: "misc_issue_dept / misc_receipt_dept", sch: "第一碼雜發單是否要輸入部門", note: "第 1、2 碼 Y/N → boolean（IP8）" }
+      - { legacy: sma53, type: "date", target: closing_date, sch: "成本關帳日期", note: "過帳扣帳日的期間檢查；未設定時不檢查（misc_issue_posting.feature PT3，2026-11-20 移植）" }
+      - { legacy: sma52, type: "number(5)", target: current_period, sch: "目前單據輸入會計期別", note: "過帳扣帳日的期間檢查；未設定時不檢查（misc_issue_posting.feature PT3，2026-11-20 移植）" }
+      - { legacy: sma51, type: "number(5)", target: current_year, sch: "目前單據輸入會計年度", note: "過帳扣帳日的期間檢查；未設定時不檢查（misc_issue_posting.feature PT3，2026-11-20 移植）" }
       - { legacy: sma88, type: "varchar2(1)", target: plant_transfer_same_no, sch: "兩階段營運中心調撥,撥出單號", note: "Y/N → boolean（IP7）" }
       - { legacy: sma884, type: "varchar2(1)", target: warehouse_transfer_same_no, sch: "兩階段倉庫調撥,撥出單號是否", note: "Y/N → boolean（IP7）" }
       - { legacy: sma892, type: "varchar2(10)", target: "posting_date_basis / misc_receipt_new_location / stock_query_window", sch: "第一碼 : 庫存帳務基礎日期方", note: "第 1 碼帳務基礎日期 1／2；第 2、3 碼 Y/N → boolean（IP6）", verify: true }
@@ -587,9 +695,6 @@ tables:
       - { legacy: sma48, type: "number(5)", sch: "ABC碼計算期間數設定", reason: "屬於 asms220 參數作業，該作業移植時再加欄位（IP10）" }
       - { legacy: sma49, type: "varchar2(1)", sch: "ABC碼排定標準設定", reason: "屬於 asms220 參數作業，該作業移植時再加欄位（IP10）" }
       - { legacy: sma50, type: "varchar2(1)", sch: "庫存發料使用方式", reason: "屬於 asms120、asms210 參數作業，該作業移植時再加欄位（IP10）" }
-      - { legacy: sma51, type: "number(5)", sch: "目前單據輸入會計年度", reason: "屬於 asms112、asms210、asms510 參數作業，該作業移植時再加欄位（IP10）" }
-      - { legacy: sma52, type: "number(5)", sch: "目前單據輸入會計期別", reason: "屬於 asms112、asms210、asms510 參數作業，該作業移植時再加欄位（IP10）" }
-      - { legacy: sma53, type: "date", sch: "成本關帳日期", reason: "屬於 asms112、asms210、asms510 參數作業，該作業移植時再加欄位（IP10）" }
       - { legacy: sma54, type: "varchar2(1)", sch: "是否使用製程", reason: "屬於 asms112、asms120、asms280 參數作業，該作業移植時再加欄位（IP10）" }
       - { legacy: sma55, type: "varchar2(1)", sch: "是否做製程單元管理", reason: "屬於 asms280 參數作業，該作業移植時再加欄位（IP10）" }
       - { legacy: sma551, type: "number(5)", sch: "每人每天工作時間", reason: "屬於 asms280 參數作業，該作業移植時再加欄位（IP10）" }
@@ -723,7 +828,7 @@ tables:
       - { legacy: smydmy1, type: "varchar2(1)", target: cost_enabled, sch: "計算成本否", note: "Y/N → boolean，預設是（DT7）" }
       - { legacy: smydmy2, type: "varchar2(1)", target: cost_class, sch: "成會單據類別", note: "1–5、X；計算成本時不可為 X（mfg0180，DT7）" }
       - { legacy: smydmy4, type: "varchar2(1)", target: confirm_now, sch: "是否立即確認", note: "Y/N → boolean" }
-      - { legacy: smydmy5, type: "varchar2(1)", target: numbering, sch: "編號方式", note: "1 流水號、2 年月、3 年週、4 年月日（預設 2；1、3 意義待確認，DT6(b)）", verify: true }
+      - { legacy: smydmy5, type: "varchar2(1)", target: numbering, sch: "編號方式", note: "1 依流水號、2 依年度期別、3 依年度週別、4 依年月日（預設 2；s_auto_assign_no 確認，misc_issue.feature MT4(b)）" }
       - { legacy: smyware, type: "varchar2(1)", target: restriction, sch: "倉庫設限方式", note: "0–4（DT8）" }
       - { legacy: smy53, type: "varchar2(1)", target: internal_trade, sch: "兩交內部交易單據否", note: "Y/N → boolean" }
       - { legacy: smy56, type: "varchar2(1)", target: affects_idle_date, sch: "是否影響呆滯日期", note: "Y/N → boolean，預設是" }
@@ -798,3 +903,187 @@ tables:
     not_ported:
       - { legacy: smv03, type: "varchar2(3)", sch: "系統別", reason: "設限直接掛在單別上、不再存系統別（DT9）" }
       - { legacy: smv04, type: "varchar2(1)", sch: "No Use", reason: ".sch 註明 No Use（DT13）" }
+  - legacy: ina_file
+    target: misc_issue／misc_receipt／misc_scrap
+    scope: plant
+    program: aimt301／aimt302／aimt303（saimt370 參數 1／3／5；三支獨立作業，以客製 topcust/cim 為準）
+    spec: specs/features/aim/misc_issue.feature、misc_receipt.feature、misc_scrap.feature
+    note: "三支作業各自一組單頭資料表、欄位相同（MT1、MT2，Key User 2026-11-20）；WIP 版 ina00 2／4／6 延到 asf（MT3）"
+    columns:
+      - { legacy: ina00, type: "varchar2(1)", target: "(由資料表決定)", sch: "單據類別", note: "由資料表決定：1 → misc_issue、3 → misc_receipt、5 → misc_scrap；2／4／6 WIP 版延到 asf（MT2、MT3）" }
+      - { legacy: ina01, type: "varchar2(16)", target: doc_no, sch: "單據編號", note: "單別-流水號（MT4）" }
+      - { legacy: ina02, type: "date", target: posting_date, sch: "扣帳日期", note: "預設等於輸入日（MT6(a)）" }
+      - { legacy: ina03, type: "date", target: input_date, sch: "輸入日期", note: "預設今天；單號的年度期別週別取自此日（MT4(b)）" }
+      - { legacy: ina04, type: "varchar2(10)", target: dept_code, sch: "部門編號", note: "雜發、雜收依庫存參數必填，報廢一律必填（MT6(c)、MT14）" }
+      - { legacy: ina07, type: "varchar2(255)", target: memo, sch: "備註", note: "客製 aim-372 必填（MT14）" }
+      - { legacy: inapost, type: "varchar2(1)", target: posted, sch: "過帳碼", note: "過帳在第二份規格；本份固定未過帳（MT15）" }
+      - { legacy: inauser, type: "varchar2(10)", target: created_by, sch: "資料所有者" }
+      - { legacy: inagrup, type: "varchar2(10)", target: created_dept, sch: "資料所有群" }
+      - { legacy: inamodu, type: "varchar2(10)", target: updated_by, sch: "資料更改者" }
+      - { legacy: inadate, type: "date", target: updated_on, sch: "資料更改者" }
+      - { legacy: ina11, type: "varchar2(10)", target: applicant, sch: "申請人", note: "員工代號；新增時預設與使用者同代號的員工（MT6(b)）" }
+      - { legacy: inaconf, type: "varchar2(1)", target: status, sch: "確認碼", note: "N 開立、Y 已確認、X 作廢（MT9）" }
+    not_ported:
+      - { legacy: ina05, type: "varchar2(1)", sch: "No Use", reason: ".sch 註明 No Use（MT16）" }
+      - { legacy: ina06, type: "varchar2(10)", sch: "專案編號", reason: "專案；延後：專案管理 aza08 移植時（MT15）" }
+      - { legacy: ina08, type: "varchar2(1)", sch: "No Use", reason: "簽核狀態；延後：批次 8 簽核（MT15）" }
+      - { legacy: ina09, type: "varchar2(1)", sch: "No Use", reason: ".sch 註明 No Use（MT16）" }
+      - { legacy: ina10, type: "varchar2(16)", sch: "工單編號", reason: "工單編號；延後：asf（MT3 WIP 版，MT15）" }
+      - { legacy: inaprsw, type: "number(5)", sch: "列印次數", reason: "TTRS 列印不計次數（MT16）" }
+      - { legacy: inamksg, type: "varchar2(1)", sch: "簽核否", reason: "簽核否；延後：批次 8 簽核（MT15）" }
+      - { legacy: ina1001, type: "varchar2(10)", sch: "客戶代號", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1003, type: "varchar2(10)", sch: "送貨客戶", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1002, type: "varchar2(10)", sch: "帳款客戶", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1004, type: "varchar2(10)", sch: "收款客戶", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1005, type: "varchar2(10)", sch: "地址碼", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1006, type: "varchar2(255)", sch: "地址-1", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1007, type: "varchar2(255)", sch: "地址-2", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1008, type: "varchar2(255)", sch: "地址-3", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1009, type: "varchar2(10)", sch: "債權代碼", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1010, type: "varchar2(10)", sch: "客戶所屬機構", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1011, type: "varchar2(10)", sch: "費用歸屬機構", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1012, type: "varchar2(10)", sch: "客戶所屬通路", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1013, type: "date", sch: "預計發出日", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1014, type: "date", sch: "實際發出日", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1015, type: "number(15,3)", sch: "重量", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1016, type: "number(15,3)", sch: "體積", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1017, type: "varchar2(20)", sch: "手工單號", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1018, type: "varchar2(20)", sch: "雜發申請單號", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1019, type: "varchar2(15)", sch: "非直營業KAB", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1020, type: "number(20,6)", sch: "庫存異動總金額", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1021, type: "varchar2(1)", sch: "已列印提單", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1022, type: "varchar2(1)", sch: "導物流狀況碼", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1023, type: "varchar2(4)", sch: "幣別", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1024, type: "number(20,10)", sch: "匯率", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: ina1025, type: "varchar2(1)", sch: "異動類別", reason: "流通業（零售）欄位，畫面沒有（MT16）" }
+      - { legacy: inaspc, type: "varchar2(1)", sch: "SPC拋轉碼 0/1/2", reason: "SPC 整合未使用（aza64；MT16）" }
+      - { legacy: ina100, type: "varchar2(10)", sch: "保稅異動原因代碼", reason: "保稅（sma79，同 GP10 海關不移植；MT16）" }
+      - { legacy: ina101, type: "varchar2(30)", sch: "保稅進口報單", reason: "保稅（MT16）" }
+      - { legacy: ina102, type: "date", sch: "保稅進口報單日期", reason: "保稅（MT16）" }
+      - { legacy: inaud01, type: "varchar2(255)", sch: "自訂欄位-Textedit", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud02, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud03, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud04, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud05, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud06, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud07, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud08, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud09, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud10, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud11, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud12, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud13, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud14, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inaud15, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（MT16）" }
+  - legacy: inb_file
+    target: misc_issue_line／misc_receipt_line／misc_scrap_line
+    scope: plant
+    program: aimt301／aimt302／aimt303（saimt370）
+    spec: specs/features/aim/misc_issue.feature、misc_receipt.feature、misc_scrap.feature
+    note: "三支作業各自一組單身資料表（MT2）"
+    columns:
+      - { legacy: inb01, type: "varchar2(16)", target: doc_no, sch: "單據編號", note: "外鍵單頭" }
+      - { legacy: inb03, type: "number(5)", target: line_no, sch: "項次", note: "未輸入時取最大項次＋1（MT7(a)）" }
+      - { legacy: inb04, type: "varchar2(40)", target: item_no, sch: "料號", note: "須為已確認料件、不可為 MISC（MT7(b)）" }
+      - { legacy: inb05, type: "varchar2(10)", target: warehouse, sch: "倉庫", note: "須為有效的一般倉；空白時帶料件主要倉庫（MT7(c)）" }
+      - { legacy: inb06, type: "varchar2(10)", target: location, sch: "儲位", note: "空白存空字串" }
+      - { legacy: inb07, type: "varchar2(24)", target: lot, sch: "批號", note: "空白存空字串" }
+      - { legacy: inb08, type: "varchar2(4)", target: unit, sch: "單位", note: "一律為庫存單位（MT7(d)）" }
+      - { legacy: inb09, type: "number(15,3)", target: qty, sch: "異動數量", note: "大於 0、小數最多 3 位（MT7(e)）" }
+      - { legacy: inb15, type: "varchar2(10)", target: reason, sch: "理由碼", note: "分類碼類別 2；同一張單須相同（MT7(f)、MT14）" }
+    not_ported:
+      - { legacy: inb08_fac, type: "number(20,8)", sch: "異動/庫存單位的換算率", reason: "單位一律為庫存單位，換算率固定 1（MT16）" }
+      - { legacy: inb10, type: "varchar2(1)", sch: "檢驗否", reason: "客製固定 N；檢驗未移植（MT16）" }
+      - { legacy: inb11, type: "varchar2(16)", sch: "來源單號", reason: "來源單號；延後：asf（MT15）" }
+      - { legacy: inb12, type: "varchar2(16)", sch: "參考單號", reason: "畫面沒有（MT16）" }
+      - { legacy: inb13, type: "number(20,6)", sch: "單價", reason: "借料／暫估用，畫面沒有（MT16）" }
+      - { legacy: inb14, type: "number(20,6)", sch: "金額", reason: "借料／暫估用，畫面沒有（MT16）" }
+      - { legacy: inb901, type: "varchar2(20)", sch: "手冊編號", reason: "手冊編號：保稅不移植（MT16）" }
+      - { legacy: inb902, type: "varchar2(4)", sch: "單位一", reason: "雙單位（sma115 不移植；MT16）" }
+      - { legacy: inb903, type: "number(20,8)", sch: "單位一換算率(與庫存單位)", reason: "雙單位（sma115 不移植；MT16）" }
+      - { legacy: inb904, type: "number(15,3)", sch: "單位一數量", reason: "雙單位（sma115 不移植；MT16）" }
+      - { legacy: inb905, type: "varchar2(4)", sch: "單位二", reason: "雙單位（sma115 不移植；MT16）" }
+      - { legacy: inb906, type: "number(20,8)", sch: "單位二換算率(與庫存單位)", reason: "雙單位（sma115 不移植；MT16）" }
+      - { legacy: inb907, type: "number(15,3)", sch: "單位二數量", reason: "雙單位（sma115 不移植；MT16）" }
+      - { legacy: inb908, type: "number(5)", sch: "年度", reason: "畫面沒有（MT16）" }
+      - { legacy: inb909, type: "number(5)", sch: "月份", reason: "畫面沒有（MT16）" }
+      - { legacy: inb910, type: "varchar2(10)", sch: "成本中心", reason: "成本中心；延後：aaz90 移植時（MT15）" }
+      - { legacy: inb1001, type: "varchar2(10)", sch: "訂價編號", reason: "流通業欄位（MT16）" }
+      - { legacy: inb1002, type: "varchar2(16)", sch: "提案編號", reason: "流通業欄位（MT16）" }
+      - { legacy: inb1003, type: "number(20,6)", sch: "單價(非成本)", reason: "流通業欄位（MT16）" }
+      - { legacy: inb1004, type: "varchar2(4)", sch: "計價單位", reason: "流通業欄位（MT16）" }
+      - { legacy: inb1005, type: "number(15,3)", sch: "計價數量", reason: "流通業欄位（MT16）" }
+      - { legacy: inb1006, type: "number(20,6)", sch: "金額", reason: "流通業欄位（MT16）" }
+      - { legacy: inb930, type: "varchar2(10)", sch: "成本中心", reason: "成本中心；延後：aaz90 移植時（MT15）" }
+      - { legacy: inb911, type: "varchar2(16)", sch: "保稅受託加工訂單編號", reason: "保稅（MT16）" }
+      - { legacy: inb912, type: "number(5)", sch: "保稅受託加工訂單項次", reason: "保稅（MT16）" }
+      - { legacy: inb41, type: "varchar2(10)", sch: "專案代號", reason: "專案；延後：aza08（MT15）" }
+      - { legacy: inb42, type: "varchar2(30)", sch: "WBS編碼", reason: "WBS；延後：aza08（MT15）" }
+      - { legacy: inb43, type: "varchar2(4)", sch: "活動代號", reason: "活動；延後：aza08（MT15）" }
+      - { legacy: inbud01, type: "varchar2(255)", sch: "自訂欄位-Textedit", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud02, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud03, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud04, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud05, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud06, type: "varchar2(40)", sch: "自訂欄位-文字", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud07, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud08, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud09, type: "number(15,3)", sch: "自訂欄位-數值", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud10, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud11, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud12, type: "number(10)", sch: "自訂欄位-整數", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud13, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud14, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inbud15, type: "date", sch: "自訂欄位-日期", reason: "自訂欄位，畫面沒有使用（MT16）" }
+      - { legacy: inb16, type: "number(15,3)", sch: "申請數量", reason: "新增時等於異動數量（FUN-870163），客製畫面兩者相同（MT16）" }
+      - { legacy: inb922, type: "varchar2(4)", sch: "申請單位一", reason: "雙單位（sma115 不移植；MT16）" }
+      - { legacy: inb923, type: "number(20,8)", sch: "申請單位一換算率", reason: "雙單位（sma115 不移植；MT16）" }
+      - { legacy: inb924, type: "number(15,3)", sch: "申請單位一數量", reason: "雙單位（sma115 不移植；MT16）" }
+      - { legacy: inb925, type: "varchar2(4)", sch: "申請單位二", reason: "雙單位（sma115 不移植；MT16）" }
+      - { legacy: inb926, type: "number(20,8)", sch: "申請單位二換算率", reason: "雙單位（sma115 不移植；MT16）" }
+      - { legacy: inb927, type: "number(15,3)", sch: "申請單位二數量", reason: "雙單位（sma115 不移植；MT16）" }
+  - legacy: img_file
+    target: inventory_balance
+    scope: plant
+    program: 由各作業的過帳維護（aimt301／302／303 stock_post、undo_post）
+    spec: specs/features/aim/misc_issue_posting.feature、misc_receipt_posting.feature、misc_scrap_posting.feature
+    note: "庫存明細；數量不可小於 0（PT4）；雜收到新倉儲批時過帳新建（PR1）"
+    columns:
+      - { legacy: img01, type: "varchar2(40)", target: item_no, sch: "料件編號" }
+      - { legacy: img02, type: "varchar2(10)", target: warehouse, sch: "倉庫編號" }
+      - { legacy: img03, type: "varchar2(10)", target: location, sch: "儲位", note: "空白存空字串" }
+      - { legacy: img04, type: "varchar2(24)", target: lot, sch: "批號", note: "空白存空字串" }
+      - { legacy: img05, type: "varchar2(16)", target: ref_no, sch: "參考號碼", note: "新建時記建立它的單號（PT14）" }
+      - { legacy: img06, type: "number(5)", target: ref_line, sch: "參考序號", note: "新建時記建立它的項次" }
+      - { legacy: img09, type: "varchar2(4)", target: unit, sch: "庫存單位", note: "單一單位，為料件庫存單位" }
+      - { legacy: img10, type: "number(15,3)", target: qty, sch: "庫存數量", note: "過帳更新；不可小於 0（PT4）" }
+      - { legacy: img15, type: "date", target: last_received_on, sch: "最近一次收料日期", note: "入庫時更新" }
+      - { legacy: img16, type: "date", target: last_issued_on, sch: "最近一次發料日期", note: "雜發時更新；報廢不改（PS1）" }
+      - { legacy: img17, type: "date", target: last_txn_on, sch: "最近一次異動日期", note: "每次異動更新" }
+      - { legacy: img18, type: "date", target: expiry, sch: "有效日期", note: "新建時＝扣帳日＋料件儲存有效天數，0 為無期限（PR1）；雜發、雜收檢查（MT8(c)）" }
+      - { legacy: img23, type: "varchar2(1)", target: usable, sch: "是否為可用倉儲", note: "新建時取儲位，沒有儲位時取倉庫（PT14）" }
+      - { legacy: img24, type: "varchar2(1)", target: mrp_usable, sch: "是否為ＭＲＰ可用倉儲", note: "同 img23" }
+      - { legacy: img25, type: "varchar2(1)", target: bonded, sch: "保稅與否", note: "同 img23" }
+      - { legacy: img37, type: "date", target: idle_on, sch: "呆滯日期", note: "新建時為扣帳日" }
+    not_ported:
+      - { legacy: img07, type: "varchar2(4)", sch: "採購單位/生產單位", reason: "採購單位：雜項單不用，採購移植時加（PT14）" }
+      - { legacy: img08, type: "number(15,3)", sch: "收貨數量", reason: "收貨數量：採購移植時加（PT14）" }
+      - { legacy: img11, type: "number(15,3)", sch: "No Use", reason: ".sch 註明 No Use（PT14）" }
+      - { legacy: img12, type: "number(15,3)", sch: "No Use", reason: ".sch 註明 No Use（PT14）" }
+      - { legacy: img13, type: "date", sch: "製造日期", reason: "製造日期：批序號移植時加（PT14）" }
+      - { legacy: img14, type: "date", sch: "最近一次盤點日期", reason: "最近盤點日：盤點（aimt8xx）移植時加（PT14）" }
+      - { legacy: img19, type: "varchar2(10)", sch: "庫存等級", reason: "庫存等級：雜項單不用（PT14）" }
+      - { legacy: img20, type: "number(20,8)", sch: "單位數量換算率", reason: "單一單位，換算率固定 1（PT14）" }
+      - { legacy: img21, type: "number(20,8)", sch: "單位數量換算率-對料件庫存單", reason: "單一單位，換算率固定 1（PT14）" }
+      - { legacy: img22, type: "varchar2(1)", sch: "倉儲類別", reason: "倉儲類別由倉庫決定，不重複存（PT14）" }
+      - { legacy: img26, type: "varchar2(24)", sch: "倉儲所屬會計科目", reason: "會計科目：總帳移植時加（PT14）" }
+      - { legacy: img27, type: "number(5)", sch: "工單發料優先順序", reason: "發料優先順序：生產移植時由料件預設倉儲帶入（PT14）" }
+      - { legacy: img28, type: "number(5)", sch: "銷售出貨優先順序", reason: "出貨優先順序：銷售移植時加（PT14）" }
+      - { legacy: img30, type: "number(20,6)", sch: "直接材料成本", reason: "成本：成本模組（PT14）" }
+      - { legacy: img31, type: "number(20,6)", sch: "間接材料成本", reason: "成本：成本模組（PT14）" }
+      - { legacy: img32, type: "number(20,6)", sch: "廠外加工材料成本", reason: "成本：成本模組（PT14）" }
+      - { legacy: img33, type: "number(20,6)", sch: "廠外加工人工成本", reason: "成本：成本模組（PT14）" }
+      - { legacy: img34, type: "number(20,8)", sch: "庫存單位對成本單位的轉換率", reason: "單一單位，換算率固定 1（PT14）" }
+      - { legacy: img35, type: "varchar2(10)", sch: "專案號碼", reason: "專案延後（PT14）" }
+      - { legacy: img36, type: "varchar2(4)", sch: "外觀編號", reason: "外觀編號：雜項單不用（PT14）" }
+      - { legacy: img38, type: "varchar2(255)", sch: "備註", reason: "備註：雜項單不用（PT14）" }

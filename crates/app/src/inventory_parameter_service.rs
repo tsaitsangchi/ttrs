@@ -190,6 +190,17 @@ impl InventoryParameterService {
                 t("inventory-params-add-storage-freely"),
                 yn(v.add_storage_freely),
             ],
+            vec![
+                t("inventory-params-current-period"),
+                match (v.current_year, v.current_period) {
+                    (Some(y), Some(p)) => format!("{y}/{p:02}"),
+                    _ => String::new(),
+                },
+            ],
+            vec![
+                t("inventory-params-closing-date"),
+                v.closing_date.map(|d| d.to_string()).unwrap_or_default(),
+            ],
         ];
         self.reports
             .build(actor, Some(&plant), &REPORT, rows, &[], format, lang)
@@ -229,6 +240,9 @@ fn settings_of(i: &InventoryParametersInput) -> Result<InventorySettings, Domain
         misc_issue_dept: i.misc_issue_dept,
         misc_receipt_dept: i.misc_receipt_dept,
         add_storage_freely: i.add_storage_freely,
+        current_year: i.current_year,
+        current_period: i.current_period,
+        closing_date: i.closing_date,
     })
 }
 
@@ -247,6 +261,9 @@ fn dto(p: &InventoryParameters) -> InventoryParametersDto {
             misc_issue_dept: v.misc_issue_dept,
             misc_receipt_dept: v.misc_receipt_dept,
             add_storage_freely: v.add_storage_freely,
+            current_year: v.current_year,
+            current_period: v.current_period,
+            closing_date: v.closing_date,
             version: Some(p.stamp.version),
         },
         created_by: p.created_by.clone(),

@@ -14,7 +14,7 @@ use i18n::{UiLang, t};
 use pages::{
     aim::{
         DocumentTypeMaintenance, InventoryParameters, ItemGroupMaintenance, ItemMaintenance,
-        ItemStorageMaintenance, WarehouseMaintenance,
+        ItemStorageMaintenance, MiscIssue, MiscReceipt, MiscScrap, WarehouseMaintenance,
     },
     aoo::{
         AccountingPeriodMaintenance, AreaMaintenance, BasicDataCarry, CarryHistoryQuery,
@@ -65,6 +65,13 @@ enum Route {
         InventoryParameters {},
         #[route("/aim/document-type-maintenance")]
         DocumentTypeMaintenance {},
+        /// 雜項發料、收料、報廢（TipTop aimt301、aimt302、aimt303；三支獨立作業）
+        #[route("/aim/misc-issue")]
+        MiscIssue {},
+        #[route("/aim/misc-receipt")]
+        MiscReceipt {},
+        #[route("/aim/misc-scrap")]
+        MiscScrap {},
         /// Plant Maintenance 營運中心維護（TipTop aooi901）
         #[route("/aoo/plant-maintenance")]
         PlantMaintenance {},
@@ -265,6 +272,9 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
             icons::CATEGORY,
             Tone::Tertiary,
         ),
+        "misc-issue" => (Route::MiscIssue {}, icons::INVENTORY, Tone::Tertiary),
+        "misc-receipt" => (Route::MiscReceipt {}, icons::INVENTORY, Tone::Tertiary),
+        "misc-scrap" => (Route::MiscScrap {}, icons::INVENTORY, Tone::Tertiary),
         "plant-maintenance" => (Route::PlantMaintenance {}, icons::FACTORY, Tone::Success),
         "department-maintenance" => (
             Route::DepartmentMaintenance {},

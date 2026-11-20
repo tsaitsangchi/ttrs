@@ -47,6 +47,9 @@ pub fn MaintenanceToolbar(
     /// 失效／啟用檢查的功能代號；未給時為 invalid（例如營運中心沿用 modify，AQ3）
     #[props(default)]
     invalid_action: Option<&'static str>,
+    /// 取消確認的功能代號（預設 notconfirm；雜項單沿用 TipTop 的 undo_confirm）
+    #[props(default)]
+    unconfirm_action: Option<&'static str>,
     /// 新增、修改、刪除檢查的功能代號；未給時為 insert、modify、delete
     /// （TipTop 單身式作業如 p_zw、aooi101 一律用 detail）
     #[props(default)]
@@ -100,7 +103,7 @@ pub fn MaintenanceToolbar(
                 rsx! { Button { icon: icons::DELETE, tone: Tone::Error, variant: ButtonVariant::Error, disabled: !enabled, onclick: move |_| on.call(()), {t("common-action-delete")} } }
             }
         }
-        if show(&confirm, if confirmed { "notconfirm" } else { "confirm" }) {
+        if show(&confirm, if confirmed { unconfirm_action.unwrap_or("notconfirm") } else { "confirm" }) {
             {
                 let (enabled, on) = btn(&confirm);
                 rsx! {

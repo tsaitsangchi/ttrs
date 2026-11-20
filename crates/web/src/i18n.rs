@@ -97,6 +97,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-TW/item_storage.ftl"),
         include_str!("../locales/zh-TW/inventory_parameters.ftl"),
         include_str!("../locales/zh-TW/document_type.ftl"),
+        include_str!("../locales/zh-TW/misc_transaction.ftl"),
     ],
     &[
         include_str!("../locales/en/common.ftl"),
@@ -140,6 +141,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/en/item_storage.ftl"),
         include_str!("../locales/en/inventory_parameters.ftl"),
         include_str!("../locales/en/document_type.ftl"),
+        include_str!("../locales/en/misc_transaction.ftl"),
     ],
     &[
         include_str!("../locales/zh-CN/common.ftl"),
@@ -183,6 +185,7 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-CN/item_storage.ftl"),
         include_str!("../locales/zh-CN/inventory_parameters.ftl"),
         include_str!("../locales/zh-CN/document_type.ftl"),
+        include_str!("../locales/zh-CN/misc_transaction.ftl"),
     ],
 ];
 
@@ -375,7 +378,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 52] = [
+        const TRANSLATED: [(&str, &str); 55] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/session.rs",
@@ -421,6 +424,18 @@ mod tests {
             (
                 "pages/aim/document_type_maintenance.rs",
                 include_str!("pages/aim/document_type_maintenance.rs"),
+            ),
+            (
+                "pages/aim/misc_issue.rs",
+                include_str!("pages/aim/misc_issue.rs"),
+            ),
+            (
+                "pages/aim/misc_receipt.rs",
+                include_str!("pages/aim/misc_receipt.rs"),
+            ),
+            (
+                "pages/aim/misc_scrap.rs",
+                include_str!("pages/aim/misc_scrap.rs"),
             ),
             (
                 "pages/aim/item_auto_number.rs",

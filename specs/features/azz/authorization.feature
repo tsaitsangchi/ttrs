@@ -519,6 +519,48 @@
       | document-type-maintenance    | history      | 查詢單別 MI1 的異動記錄             |
       | document-type-maintenance    | output       | 列印單別                       |
       | document-type-maintenance    | exporttoexcel | 匯出單別為 Excel                |
+      | misc-issue                   | query        | 查詢雜項發料單 |
+      | misc-issue                   | insert       | 新增雜項發料單 MI1 |
+      | misc-issue                   | modify       | 修改雜項發料單 MI1-00000001 |
+      | misc-issue                   | detail       | 修改雜項發料單 MI1-00000001 的單身 |
+      | misc-issue                   | delete       | 刪除雜項發料單 MI1-00000001 |
+      | misc-issue                   | void         | 作廢雜項發料單 MI1-00000001 |
+      | misc-issue                   | reproduce    | 複製雜項發料單 MI1-00000001 |
+      | misc-issue                   | confirm      | 確認雜項發料單 MI1-00000001 |
+      | misc-issue                   | undo_confirm | 取消確認雜項發料單 MI1-00000001 |
+      | misc-issue                   | stock_post   | 過帳雜項發料單 MI1-00000001 |
+      | misc-issue                   | undo_post    | 過帳還原雜項發料單 MI1-00000001 |
+      | misc-issue                   | history      | 查詢雜項發料單 MI1-00000001 的異動記錄 |
+      | misc-issue                   | output       | 列印雜項發料單 |
+      | misc-issue                   | exporttoexcel | 匯出雜項發料單為 Excel |
+      | misc-receipt                 | query        | 查詢雜項收料單 |
+      | misc-receipt                 | insert       | 新增雜項收料單 MR1 |
+      | misc-receipt                 | modify       | 修改雜項收料單 MR1-00000001 |
+      | misc-receipt                 | detail       | 修改雜項收料單 MR1-00000001 的單身 |
+      | misc-receipt                 | delete       | 刪除雜項收料單 MR1-00000001 |
+      | misc-receipt                 | void         | 作廢雜項收料單 MR1-00000001 |
+      | misc-receipt                 | reproduce    | 複製雜項收料單 MR1-00000001 |
+      | misc-receipt                 | confirm      | 確認雜項收料單 MR1-00000001 |
+      | misc-receipt                 | undo_confirm | 取消確認雜項收料單 MR1-00000001 |
+      | misc-receipt                 | stock_post   | 過帳雜項收料單 MR1-00000001 |
+      | misc-receipt                 | undo_post    | 過帳還原雜項收料單 MR1-00000001 |
+      | misc-receipt                 | history      | 查詢雜項收料單 MR1-00000001 的異動記錄 |
+      | misc-receipt                 | output       | 列印雜項收料單 |
+      | misc-receipt                 | exporttoexcel | 匯出雜項收料單為 Excel |
+      | misc-scrap                   | query        | 查詢雜項報廢單 |
+      | misc-scrap                   | insert       | 新增雜項報廢單 MS1 |
+      | misc-scrap                   | modify       | 修改雜項報廢單 MS1-00000001 |
+      | misc-scrap                   | detail       | 修改雜項報廢單 MS1-00000001 的單身 |
+      | misc-scrap                   | delete       | 刪除雜項報廢單 MS1-00000001 |
+      | misc-scrap                   | void         | 作廢雜項報廢單 MS1-00000001 |
+      | misc-scrap                   | reproduce    | 複製雜項報廢單 MS1-00000001 |
+      | misc-scrap                   | confirm      | 確認雜項報廢單 MS1-00000001 |
+      | misc-scrap                   | undo_confirm | 取消確認雜項報廢單 MS1-00000001 |
+      | misc-scrap                   | stock_post   | 過帳雜項報廢單 MS1-00000001 |
+      | misc-scrap                   | undo_post    | 過帳還原雜項報廢單 MS1-00000001 |
+      | misc-scrap                   | history      | 查詢雜項報廢單 MS1-00000001 的異動記錄 |
+      | misc-scrap                   | output       | 列印雜項報廢單 |
+      | misc-scrap                   | exporttoexcel | 匯出雜項報廢單為 Excel |
       | item-maintenance             | carry        | 拋轉料件 A001              |
       | item-maintenance             | qry_carry_history | 查詢料件 A001 的拋轉歷史 |
       | basic-data-carry             | query        | 開啟基本資料拋轉           |

@@ -17,3 +17,5 @@ gp-msg-periods-invalid = Accounting periods must be 12 or 13
 gp-field-auto-item-number = Auto-number item numbers
 gp-field-doc-code-length = Document type code length
 gp-doc-code-length = { $n } characters
+gp-field-doc-serial-length = Document number serial length
+gp-doc-serial-length = { $n } digits

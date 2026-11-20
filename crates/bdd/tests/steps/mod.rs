@@ -1,6 +1,7 @@
 //! 步驟定義依 TipTop 模組分檔。共用的「那麼」步驟放 common.rs。
 
 mod aim_document_type;
+mod aim_inventory_balance;
 mod aim_inventory_parameters;
 mod aim_item_carry;
 mod aim_item_group;
@@ -10,6 +11,9 @@ mod aim_item_maintenance;
 mod aim_item_maintenance_query;
 mod aim_item_storage;
 mod aim_list_report;
+mod aim_misc_issue;
+mod aim_misc_receipt;
+mod aim_misc_scrap;
 mod aim_warehouse;
 mod aoo_accounting_periods;
 mod aoo_basic_carry;

@@ -53,6 +53,8 @@ struct Form {
     auto_item_number: bool,
     /// aza41 單別位數（document_type.feature DT5(a)）
     doc_code_length: i16,
+    /// aza42 單號位數（misc_issue.feature MT4(a)）
+    doc_serial_length: i16,
 }
 
 #[component]
@@ -137,6 +139,7 @@ fn ParametersPage() -> Element {
             rate_basis: f.rate_basis.clone(),
             auto_item_number: Some(f.auto_item_number),
             doc_code_length: Some(f.doc_code_length),
+            doc_serial_length: Some(f.doc_serial_length),
             version: Some(c.version),
         };
         spawn(async move {
@@ -171,6 +174,7 @@ fn ParametersPage() -> Element {
                             rate_basis: c.rate_basis.clone(),
                             auto_item_number: c.auto_item_number,
                             doc_code_length: c.doc_code_length,
+                            doc_serial_length: c.doc_serial_length,
                         });
                         editing.set(true);
                     }),
@@ -220,6 +224,7 @@ fn ParametersPage() -> Element {
                                 TextField { id: "aza19", label: t("gp-field-rate-basis"), value: basis_label(&p.rate_basis), readonly: true }
                                 Checkbox { id: "aza28", label: t("gp-field-auto-item-number"), checked: p.auto_item_number, readonly: true }
                                 TextField { id: "aza41", label: t("gp-field-doc-code-length"), value: tf("gp-doc-code-length", &[("n", p.doc_code_length.to_string().as_str())]), readonly: true }
+                                TextField { id: "aza42", label: t("gp-field-doc-serial-length"), value: tf("gp-doc-serial-length", &[("n", p.doc_serial_length.to_string().as_str())]), readonly: true }
                             }
                             p { class: "muted", {t("gp-hint")} }
                         },
@@ -278,6 +283,13 @@ fn ParametersPage() -> Element {
                             options: [3i16, 4, 5].iter().map(|n| (n.to_string(), tf("gp-doc-code-length", &[("n", n.to_string().as_str())]))).collect(),
                             value: form().doc_code_length.to_string(),
                             onchange: move |v: String| form.write().doc_code_length = v.parse().unwrap_or(3),
+                        }
+                        Select {
+                            id: "gp-doc-serial-length",
+                            label: t("gp-field-doc-serial-length"),
+                            options: [8i16, 9, 10].iter().map(|n| (n.to_string(), tf("gp-doc-serial-length", &[("n", n.to_string().as_str())]))).collect(),
+                            value: form().doc_serial_length.to_string(),
+                            onchange: move |v: String| form.write().doc_serial_length = v.parse().unwrap_or(8),
                         }
                     }
                     p { class: "muted", {t("gp-dialog-hint")} }

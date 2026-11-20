@@ -47,7 +47,7 @@
 #        | aza21 | 以邏輯檢查營利事業統一編號 | 客戶、供應商（axm、apm） |
 #        | aza94 | 總機構彙總報繳 | 營業稅申報（amd） |
 #        | aza29–aza31 | 客戶、供應商、固定資產編號自動編碼 | 客戶、供應商、固定資產模組（aza28 料件已於 2026-11-17 移植，見 item_auto_number.feature AN1） |
-#        | aza41、aza42 | 單別位數、單號位數 | 批次 5 編碼規則／第一支單據作業（aza41 已於 2026-11-19 隨單別維護移植，document_type.feature DT5(a)） |
+#        | aza41、aza42 | 單別位數、單號位數 | 批次 5 編碼規則／第一支單據作業（aza41 已於 2026-11-19 隨單別維護移植，document_type.feature DT5(a)；aza42 已於 2026-11-20 隨雜項發料移植，misc_issue.feature MT4(a)） |
 #        | aza60–aza62 | 使用料件、客戶、廠商申請作業 | aim、axm、apm 的申請作業 |
 #        | aza63、aza81、aza82 | 使用多帳別、主財務帳別、主管理帳別 | 總帳（agl）；帳別 aaa_file 尚未移植。產品分類 PC5 維持「科目二一律顯示」 |
 #        | aza40、aza50 | 集團間銷售預測、流通配銷 | 銷售／流通（axm、atm）；分類碼類別 H 同 OC2 |

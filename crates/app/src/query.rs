@@ -2264,3 +2264,66 @@ pub mod document_type {
         }
     }
 }
+
+/// 雜項發料／收料／報廢（ina_file、inb_file；misc_transaction.feature MT12）
+pub mod inventory_transaction {
+    use ttrs_domain::{inventory_transaction::InventoryTransaction, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("doc_no", FieldType::Text),
+        field("input_date", FieldType::Date),
+        field("posting_date", FieldType::Date),
+        field("dept", FieldType::Text),
+        field("applicant", FieldType::Text),
+        field("memo", FieldType::Text),
+        field("status", FieldType::Text),
+        field("posted", FieldType::Flag),
+        field("item_no", FieldType::Text),
+        field("warehouse", FieldType::Text),
+        field("reason", FieldType::Text),
+        field("created_by", FieldType::Text),
+        field("created_dept", FieldType::Text),
+        field("created_on", FieldType::Date),
+        field("updated_by", FieldType::Text),
+        field("updated_on", FieldType::Date),
+        field("version", FieldType::Integer),
+    ];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(t: &InventoryTransaction, field: &str) -> FieldValue {
+        let h = &t.header;
+        let set = |f: &dyn Fn(&ttrs_domain::inventory_transaction::TxnLine) -> Option<String>| {
+            FieldValue::Set(t.lines.iter().filter_map(f).map(QbeValue::Text).collect())
+        };
+        match field {
+            "doc_no" => text(&t.no),
+            "input_date" => date(Some(h.input_date)),
+            "posting_date" => date(Some(h.posting_date)),
+            "dept" => opt_text(h.dept.as_ref().map(|d| d.as_str())),
+            "applicant" => opt_text(h.applicant.as_deref()),
+            "memo" => opt_text(h.memo.as_deref()),
+            "status" => text(t.status.code()),
+            "posted" => flag(t.posted),
+            "item_no" => set(&|l| Some(l.item.clone())),
+            "warehouse" => set(&|l| Some(l.warehouse.clone())),
+            "reason" => set(&|l| l.reason.clone()),
+            other => status_value(
+                other,
+                None,
+                &t.created_by,
+                &t.created_dept,
+                Some(t.created_on),
+                t.updated_by.as_deref(),
+                t.updated_on,
+                t.stamp.version,
+            )
+            .unwrap_or(FieldValue::One(None)),
+        }
+    }
+}

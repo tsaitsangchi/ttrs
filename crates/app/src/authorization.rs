@@ -200,6 +200,25 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AIM",
         "insert, query, modify, delete, invalid, detail, authorization, dept_authorization, reproduce, confirm, notconfirm, history, output, exporttoexcel",
     ),
+    // 雜項發料、收料、報廢（MT1、MT13、PT1）：三支獨立作業，沿用 TipTop 功能代號（作廢 void、取消確認 undo_confirm、過帳 stock_post、過帳還原 undo_post）
+    (
+        "misc-issue",
+        "aimt301",
+        "AIM",
+        "insert, query, modify, delete, detail, reproduce, void, confirm, undo_confirm, stock_post, undo_post, history, output, exporttoexcel",
+    ),
+    (
+        "misc-receipt",
+        "aimt302",
+        "AIM",
+        "insert, query, modify, delete, detail, reproduce, void, confirm, undo_confirm, stock_post, undo_post, history, output, exporttoexcel",
+    ),
+    (
+        "misc-scrap",
+        "aimt303",
+        "AIM",
+        "insert, query, modify, delete, detail, reproduce, void, confirm, undo_confirm, stock_post, undo_post, history, output, exporttoexcel",
+    ),
     // 基本資料拋轉（BC10）：批次作業，只有查詢與執行拋轉；拋轉歷史查詢為唯讀查詢
     ("basic-data-carry", "aoop603", "AOO", "query, carry"),
     (

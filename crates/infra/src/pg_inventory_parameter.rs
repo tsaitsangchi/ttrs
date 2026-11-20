@@ -27,6 +27,9 @@ struct Row {
     misc_issue_dept: bool,
     misc_receipt_dept: bool,
     add_storage_freely: bool,
+    current_year: Option<i32>,
+    current_period: Option<i16>,
+    closing_date: Option<NaiveDate>,
     created_by: String,
     created_dept: String,
     created_on: NaiveDate,
@@ -52,6 +55,9 @@ fn to_domain(r: Row) -> Result<InventoryParameters, RepoError> {
             misc_issue_dept: r.misc_issue_dept,
             misc_receipt_dept: r.misc_receipt_dept,
             add_storage_freely: r.add_storage_freely,
+            current_year: r.current_year,
+            current_period: r.current_period,
+            closing_date: r.closing_date,
         },
         created_by: r.created_by,
         created_dept: r.created_dept,
@@ -78,8 +84,8 @@ impl InventoryParameterRepository for PgStore {
         let row: Option<Row> = sqlx::query_as(
             "SELECT storage_control, fast_turnover, average_turnover, posting_date_basis, misc_receipt_new_location,
                     stock_query_window, plant_transfer_same_no, warehouse_transfer_same_no, misc_issue_dept,
-                    misc_receipt_dept, add_storage_freely, created_by, created_dept, created_on, updated_by, updated_on,
-                    version, created_at, updated_at
+                    misc_receipt_dept, add_storage_freely, current_year, current_period, closing_date, created_by,
+                    created_dept, created_on, updated_by, updated_on, version, created_at, updated_at
                FROM manufacturing_parameter WHERE parameter_key = '0'",
         )
         .fetch_optional(&mut *tx)
@@ -99,8 +105,9 @@ impl InventoryParameterRepository for PgStore {
         sqlx::query(
             "INSERT INTO manufacturing_parameter (storage_control, fast_turnover, average_turnover, posting_date_basis,
                     misc_receipt_new_location, stock_query_window, plant_transfer_same_no, warehouse_transfer_same_no,
-                    misc_issue_dept, misc_receipt_dept, add_storage_freely, created_by, created_dept, created_on)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+                    misc_issue_dept, misc_receipt_dept, add_storage_freely, created_by, created_dept, created_on,
+                    current_year, current_period, closing_date)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)",
         )
         .bind(v.storage_control.code())
         .bind(v.fast_turnover)
@@ -116,6 +123,9 @@ impl InventoryParameterRepository for PgStore {
         .bind(&p.created_by)
         .bind(&p.created_dept)
         .bind(p.created_on)
+        .bind(v.current_year)
+        .bind(v.current_period)
+        .bind(v.closing_date)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?;
@@ -133,7 +143,8 @@ impl InventoryParameterRepository for PgStore {
             "UPDATE manufacturing_parameter SET storage_control = $1, fast_turnover = $2, average_turnover = $3,
                     posting_date_basis = $4, misc_receipt_new_location = $5, stock_query_window = $6,
                     plant_transfer_same_no = $7, warehouse_transfer_same_no = $8, misc_issue_dept = $9,
-                    misc_receipt_dept = $10, add_storage_freely = $11, updated_by = $12, updated_on = $13
+                    misc_receipt_dept = $10, add_storage_freely = $11, updated_by = $12, updated_on = $13,
+                    current_year = $15, current_period = $16, closing_date = $17
               WHERE parameter_key = '0' AND version = $14",
         )
         .bind(v.storage_control.code())
@@ -150,6 +161,9 @@ impl InventoryParameterRepository for PgStore {
         .bind(&p.updated_by)
         .bind(p.updated_on)
         .bind(p.stamp.version)
+        .bind(v.current_year)
+        .bind(v.current_period)
+        .bind(v.closing_date)
         .execute(&mut *tx)
         .await
         .map_err(db_err)?

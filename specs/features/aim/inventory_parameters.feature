@@ -49,6 +49,7 @@
 #        | sma00 KEY VALUE(0) | 每個工廠 schema 只有一筆，以單列表表示 |
 #        | sma_file 其他 171 欄 | 屬於其他 asms 參數作業（整體、成本、採購、MRP、現場、製程…），各作業移植時再加（legacy-map 逐欄註明延後到哪一支） |
 #        可以嗎？
+#        （2026-11-20 補：sma51、sma52、sma53 現行年度、期別、成本關帳日已隨雜項單過帳加進庫存參數，misc_issue_posting.feature PT3。）
 
 功能: 庫存參數（Inventory Parameters）
   身為 物管主管
@@ -141,8 +142,8 @@
     那麼 應出現錯誤 "RECORD_CHANGED"
     而且 營運中心 "TW01" 庫存參數的異動記錄應有 "insert、update"
 
-  # IP9 列印
+  # IP9 列印（2026-11-20 起多「現行年度期別」「成本關帳日」兩列，misc_issue_posting.feature PT3）
   場景: IP-7 列印庫存參數
     當 使用者列印營運中心 "TW01" 的庫存參數
     那麼 報表欄位應為 "參數、值"
-    而且 報表應有 11 筆資料
+    而且 報表應有 13 筆資料
