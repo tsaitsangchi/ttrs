@@ -4088,3 +4088,91 @@ pub struct WarehouseTransferCopyInput {
     pub doc_no: String,
     pub transfer_date: Option<NaiveDate>,
 }
+
+// ---------------------------------------------------------------------------
+// 料件庫存數量查詢（TipTop aimq400；item_stock_query.feature）
+// ---------------------------------------------------------------------------
+
+/// 一筆庫存明細（img_file）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemStockLineDto {
+    pub warehouse: String,
+    pub location: String,
+    pub lot: String,
+    /// img23 可用倉儲
+    pub usable: bool,
+    pub unit: String,
+    pub qty: rust_decimal::Decimal,
+    /// img18 有效日期（SQ4）
+    pub expiry: Option<NaiveDate>,
+    /// img37 呆滯日期
+    pub idle_on: Option<NaiveDate>,
+}
+
+/// 一個料件的庫存（表頭＋明細）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemStockDto {
+    pub item_no: String,
+    pub name: Option<String>,
+    pub spec: Option<String>,
+    /// ima05 目前使用版本、ima08 來源碼、ima06 分群碼、ima07 ABC 碼
+    pub current_version: Option<String>,
+    pub source_code: Option<String>,
+    pub group_code: Option<String>,
+    pub abc_code: Option<String>,
+    /// ima26 MRP 可用、ima262 可用、ima261 不可用（由庫存明細即時加總，SQ3）
+    pub mrp_available: rust_decimal::Decimal,
+    pub available: rust_decimal::Decimal,
+    pub unavailable: rust_decimal::Decimal,
+    /// 下方明細的庫存量合計
+    pub total: rust_decimal::Decimal,
+    pub lines: Vec<ItemStockLineDto>,
+}
+
+// ---------------------------------------------------------------------------
+// 料件 BIN 卡查詢（TipTop aimq231；item_bin_card.feature）
+// ---------------------------------------------------------------------------
+
+/// BIN 卡的一筆異動
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BinCardLineDto {
+    pub txn_date: NaiveDate,
+    /// 異動狀況：產生異動的程式代號（畫面顯示程式名稱）
+    pub program: String,
+    pub doc_no: String,
+    pub doc_line: i32,
+    /// 入庫為正、出庫為負
+    pub qty: rust_decimal::Decimal,
+    pub unit: String,
+    /// 累計結存
+    pub balance: rust_decimal::Decimal,
+}
+
+/// 一張 BIN 卡＝一個倉儲批在所選期別起的進出帳
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BinCardDto {
+    pub item_no: String,
+    pub name: Option<String>,
+    pub spec: Option<String>,
+    pub source_code: Option<String>,
+    pub warehouse: String,
+    pub location: String,
+    pub lot: String,
+    pub unit: String,
+    pub year: i32,
+    pub period: i16,
+    /// 期初庫存（BN3：目前庫存反推）
+    pub opening: rust_decimal::Decimal,
+    /// 目前庫存
+    pub current: rust_decimal::Decimal,
+    pub lines: Vec<BinCardLineDto>,
+}
+
+/// BIN 卡查詢：年度、期別與 QBE 條件
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BinCardQuery {
+    pub year: i32,
+    pub period: i16,
+    pub request: QueryRequest,
+}

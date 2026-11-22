@@ -85,6 +85,10 @@ pub struct AppState {
     pub misc_scraps: ttrs_app::MiscScrapService,
     /// 庫存直接調撥 aimt324
     pub warehouse_transfers: ttrs_app::WarehouseTransferService,
+    /// 料件庫存數量查詢 aimq400
+    pub item_stock: ttrs_app::ItemStockQueryService,
+    /// 料件 BIN 卡查詢 aimq231
+    pub bin_cards: ttrs_app::ItemBinCardService,
     pub encoding_years: ttrs_app::EncodingYearService,
     pub encoding_classes: ttrs_app::EncodingClassService,
     /// 基本代碼：區域別、國別、地區、交運方式、報表抬頭（aooi100、090、110、160、210；共用）
@@ -194,6 +198,8 @@ impl AppState {
             misc_receipts,
             misc_scraps,
             warehouse_transfers,
+            item_stock,
+            bin_cards,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -247,6 +253,8 @@ impl AppState {
             misc_receipts,
             misc_scraps,
             warehouse_transfers,
+            item_stock,
+            bin_cards,
             encoding_years,
             encoding_classes,
             basic_codes,
@@ -750,6 +758,21 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/plants/{plant}/warehouse-transfers/{no}/{state}",
             post(set_warehouse_transfer_state),
+        )
+        // Item Bin Card 料件 BIN 卡查詢（TipTop aimq231；工廠層；item_bin_card.feature）
+        .route("/api/plants/{plant}/bin-cards/query", post(query_bin_cards))
+        .route(
+            "/api/plants/{plant}/bin-cards/report.{format}",
+            get(bin_card_report),
+        )
+        // Item Stock Query 料件庫存數量查詢（TipTop aimq400；工廠層；item_stock_query.feature）
+        .route(
+            "/api/plants/{plant}/item-stock/query",
+            post(query_item_stock),
+        )
+        .route(
+            "/api/plants/{plant}/item-stock/report.{format}",
+            get(item_stock_report),
         )
         // Inventory Parameters 庫存參數（TipTop asms230；工廠層；inventory_parameters.feature）
         .route(
@@ -7043,6 +7066,71 @@ async fn warehouse_transfer_report(
     };
     let data = s
         .warehouse_transfers
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+// ----- 料件 BIN 卡查詢（aimq231；item_bin_card.feature） -----
+
+async fn query_bin_cards(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<ttrs_shared::BinCardQuery>,
+) -> ApiResult<Json<Page<ttrs_shared::BinCardDto>>> {
+    Ok(Json(s.bin_cards.query(&s.actor, &plant, req).await?))
+}
+
+#[derive(Deserialize)]
+struct BinCardPeriod {
+    year: i32,
+    period: i16,
+}
+
+async fn bin_card_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(period): Query<BinCardPeriod>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .bin_cards
+        .report_in(
+            &s.actor,
+            &plant,
+            period.year,
+            period.period,
+            conditions,
+            format,
+            &lang,
+        )
+        .await?;
+    report_response(&data, format)
+}
+
+// ----- 料件庫存數量查詢（aimq400；item_stock_query.feature） -----
+
+async fn query_item_stock(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::ItemStockDto>>> {
+    Ok(Json(s.item_stock.query(&s.actor, &plant, req).await?))
+}
+
+async fn item_stock_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .item_stock
         .report_in(&s.actor, &plant, conditions, format, &lang)
         .await?;
     report_response(&data, format)

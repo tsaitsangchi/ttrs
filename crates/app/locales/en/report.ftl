@@ -511,3 +511,36 @@ wt-col-reason = Reason code
 wt-status-n = Open
 wt-status-y = Confirmed
 wt-status-x = Voided
+
+# 料件庫存數量查詢（item_stock_query.feature SQ7）
+sq-report-title = Item Stock
+sq-col-item-no = Item
+sq-col-name = Item name
+sq-col-spec = Specification
+sq-col-warehouse = Warehouse
+sq-col-location = Location
+sq-col-lot = Lot
+sq-col-usable = Usable
+sq-col-unit = Unit
+sq-col-qty = Quantity
+sq-col-expiry = Expiry date
+sq-col-idle-on = Idle date
+
+# 料件 BIN 卡查詢（item_bin_card.feature BN6）
+bn-report-title = Item Bin Card
+bn-col-item-no = Item
+bn-col-warehouse = Warehouse
+bn-col-location = Location
+bn-col-lot = Lot
+bn-col-txn-date = Date
+bn-col-program = Movement
+bn-col-doc-no = Document no.
+bn-col-doc-line = Line
+bn-col-qty = Quantity
+bn-col-unit = Unit
+bn-col-balance = Balance
+bn-opening = Opening balance
+bn-program-misc-issue = Misc issue
+bn-program-misc-receipt = Misc receipt
+bn-program-misc-scrap = Misc scrap
+bn-program-warehouse-transfer = Warehouse transfer

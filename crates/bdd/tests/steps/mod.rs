@@ -3,12 +3,14 @@
 mod aim_document_type;
 mod aim_inventory_balance;
 mod aim_inventory_parameters;
+mod aim_item_bin_card;
 mod aim_item_carry;
 mod aim_item_group;
 mod aim_item_group_confirm;
 mod aim_item_group_query;
 mod aim_item_maintenance;
 mod aim_item_maintenance_query;
+mod aim_item_stock_query;
 mod aim_item_storage;
 mod aim_list_report;
 mod aim_misc_issue;

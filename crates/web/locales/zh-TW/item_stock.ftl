@@ -1,0 +1,26 @@
+# 料件庫存數量查詢 aimq400（item_stock_query.feature）
+sq-title = 料件庫存數量查詢
+sq-breadcrumb = 庫存管理 / aimq400
+sq-field-item-no = 料件編號
+sq-field-name = 品名
+sq-field-spec = 規格
+sq-field-version = 目前使用版本
+sq-field-source = 來源碼
+sq-field-group = 分群碼
+sq-field-abc = ABC 碼
+sq-field-mrp-available = MRP 可用庫存
+sq-field-available = 可用庫存
+sq-field-unavailable = 不可用庫存
+sq-field-warehouse = 倉庫
+sq-field-location = 儲位
+sq-field-lot = 批號
+sq-field-usable = 可用倉儲
+sq-field-unit = 單位
+sq-field-qty = 庫存量
+sq-field-expiry = 有效日期
+sq-field-idle-on = 呆滯日期
+sq-usable-yes = 可用
+sq-usable-no = 不可用
+sq-lines-title = 庫存明細（{ $count } 筆，合計 { $total }）
+sq-msg-no-stock = 沒有庫存資料
+sq-hint-query = 只給料件條件時列出所有符合的料件；有倉庫、儲位、批號或庫存量條件時只列出有符合庫存的料件。三個合計依料件全部的庫存計算。

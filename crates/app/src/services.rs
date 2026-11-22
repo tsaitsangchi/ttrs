@@ -223,6 +223,10 @@ pub struct Services {
     pub misc_scraps: crate::MiscScrapService,
     /// 庫存直接調撥（aimt324）
     pub warehouse_transfers: crate::WarehouseTransferService,
+    /// 料件庫存數量查詢（aimq400）
+    pub item_stock: crate::ItemStockQueryService,
+    /// 料件 BIN 卡查詢（aimq231）
+    pub bin_cards: crate::ItemBinCardService,
     /// 料件拋轉（aimi100 carry；item_carry.feature）
     pub item_carry: crate::ItemCarryService,
     /// 基本資料拋轉（aoop603）與拋轉歷史查詢（aooq604）
@@ -420,6 +424,20 @@ impl Services {
                     history: history.clone(),
                     reports: reports.clone(),
                 },
+            ),
+            item_stock: crate::ItemStockQueryService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
+            bin_cards: crate::ItemBinCardService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                reports.clone(),
             ),
             programs: ProgramService::new(a.clone(), store.clone(), reports.clone()),
             dictionary: DataDictionaryService::new(

@@ -57,6 +57,7 @@ async fn balance(
     lot: String,
     qty: i64,
 ) {
+    let plant_code = plant.clone();
     let plant = PlantId::parse(&plant).unwrap();
     let k = key(&item, &wh, &loc, &lot);
     let r = repo(w);
@@ -65,7 +66,15 @@ async fn balance(
             b.qty = Decimal::from(qty);
             b
         }
-        None => InventoryBalance::simple(k, "PCS", Decimal::from(qty)),
+        None => {
+            // 新建時帶倉庫的可用倉儲、MRP 可用設定（同過帳新建，PT14）
+            let mut b = InventoryBalance::simple(k, "PCS", Decimal::from(qty));
+            if let Ok(d) = w.warehouses.get(&w.actor, &plant_code, &wh).await {
+                b.usable = d.usable;
+                b.mrp_usable = d.mrp_usable;
+            }
+            b
+        }
     };
     r.put_inventory_balance(&plant, &b)
         .await
@@ -469,4 +478,20 @@ async fn storage_control(w: &mut ErpWorld, plant: String, v: String) {
         .update(&w.actor, &plant, input)
         .await
         .unwrap_or_else(|e| panic!("設定存放位置管制失敗：{e}"));
+}
+
+#[given(regex = r#"^營運中心 "([^"]*)" 已有不可用倉庫 "([^"]*)"$"#)]
+async fn unusable_warehouse(w: &mut ErpWorld, plant: String, code: String) {
+    let input = ttrs_shared::WarehouseInput {
+        warehouse_code: code.clone(),
+        name: Some(code.clone()),
+        storage_class: "S".into(),
+        usable: Some(false),
+        mrp_usable: Some(false),
+        ..ttrs_shared::WarehouseInput::default()
+    };
+    w.warehouses
+        .create(&w.actor, &plant, input)
+        .await
+        .unwrap_or_else(|e| panic!("建立倉庫 {code} 失敗：{e}"));
 }

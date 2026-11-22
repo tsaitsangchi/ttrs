@@ -545,6 +545,23 @@ impl InventoryBalanceRepository for PgStore {
         tx.commit().await.map_err(db_err)
     }
 
+    async fn list_all_inventory_balances(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Vec<InventoryBalance>, RepoError> {
+        let Some(mut tx) = self.plant_tx(plant).await? else {
+            return Ok(Vec::new());
+        };
+        let rows: Vec<BalanceRow> = sqlx::query_as(select_balance!(
+            "ORDER BY item_no COLLATE \"C\", warehouse COLLATE \"C\", location COLLATE \"C\", lot COLLATE \"C\""
+        ))
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(db_err)?;
+        tx.commit().await.map_err(db_err)?;
+        Ok(rows.into_iter().map(Into::into).collect())
+    }
+
     async fn list_inventory_balances(
         &self,
         plant: &PlantId,
@@ -592,6 +609,29 @@ struct TxnRow {
     cost_group: Option<String>,
     created_by: String,
     created_at: DateTime<Utc>,
+}
+
+fn txn_record(r: TxnRow) -> InventoryTxnRecord {
+    InventoryTxnRecord {
+        key: BalanceKey::new(&r.item_no, &r.warehouse, &r.location, &r.lot),
+        doc_no: r.doc_no,
+        doc_line: r.doc_line,
+        doc_type: r.doc_type,
+        direction: r.direction,
+        source: r.source.unwrap_or_default(),
+        dest: r.dest.unwrap_or_default(),
+        txn_date: r.txn_date,
+        qty: r.qty.normalize(),
+        unit: r.unit_code,
+        balance_after: r.balance_after.unwrap_or_default().normalize(),
+        program: r.program,
+        reason: r.reason,
+        memo: r.memo,
+        dept: r.dept_code,
+        cost_group: r.cost_group,
+        created_by: r.created_by,
+        created_at: Some(r.created_at),
+    }
 }
 
 #[async_trait]
@@ -719,6 +759,34 @@ impl InventoryPostingRepository for PgStore {
         tx.commit().await.map_err(db_err)
     }
 
+    async fn inventory_txn_records_since(
+        &self,
+        plant: &PlantId,
+        key: &BalanceKey,
+        from: NaiveDate,
+    ) -> Result<Vec<InventoryTxnRecord>, RepoError> {
+        let Some(mut tx) = self.plant_tx(plant).await? else {
+            return Ok(Vec::new());
+        };
+        let rows: Vec<TxnRow> = sqlx::query_as(
+            "SELECT item_no, warehouse, location, lot, doc_no, doc_line, doc_type, direction, source, dest, txn_date, qty,
+                    unit_code, balance_after, program, reason, memo, dept_code, cost_group, created_by, created_at
+               FROM inventory_txn
+              WHERE item_no = $1 AND warehouse = $2 AND location = $3 AND lot = $4 AND txn_date >= $5 AND direction <> 0
+              ORDER BY txn_date, created_at, txn_id",
+        )
+        .bind(&key.item)
+        .bind(&key.warehouse)
+        .bind(&key.location)
+        .bind(&key.lot)
+        .bind(from)
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(db_err)?;
+        tx.commit().await.map_err(db_err)?;
+        Ok(rows.into_iter().map(txn_record).collect())
+    }
+
     async fn inventory_txn_records(
         &self,
         plant: &PlantId,
@@ -739,28 +807,6 @@ impl InventoryPostingRepository for PgStore {
         .await
         .map_err(db_err)?;
         tx.commit().await.map_err(db_err)?;
-        Ok(rows
-            .into_iter()
-            .map(|r| InventoryTxnRecord {
-                key: BalanceKey::new(&r.item_no, &r.warehouse, &r.location, &r.lot),
-                doc_no: r.doc_no,
-                doc_line: r.doc_line,
-                doc_type: r.doc_type,
-                direction: r.direction,
-                source: r.source.unwrap_or_default(),
-                dest: r.dest.unwrap_or_default(),
-                txn_date: r.txn_date,
-                qty: r.qty.normalize(),
-                unit: r.unit_code,
-                balance_after: r.balance_after.unwrap_or_default().normalize(),
-                program: r.program,
-                reason: r.reason,
-                memo: r.memo,
-                dept: r.dept_code,
-                cost_group: r.cost_group,
-                created_by: r.created_by,
-                created_at: Some(r.created_at),
-            })
-            .collect())
+        Ok(rows.into_iter().map(txn_record).collect())
     }
 }

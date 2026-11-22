@@ -1,0 +1,26 @@
+# 料件庫存數量查詢 aimq400（item_stock_query.feature）
+sq-title = Item Stock Query
+sq-breadcrumb = Inventory / aimq400
+sq-field-item-no = Item no.
+sq-field-name = Item name
+sq-field-spec = Specification
+sq-field-version = Current version
+sq-field-source = Source code
+sq-field-group = Group code
+sq-field-abc = ABC code
+sq-field-mrp-available = MRP available
+sq-field-available = Available
+sq-field-unavailable = Unavailable
+sq-field-warehouse = Warehouse
+sq-field-location = Location
+sq-field-lot = Lot
+sq-field-usable = Usable
+sq-field-unit = Unit
+sq-field-qty = Quantity
+sq-field-expiry = Expiry date
+sq-field-idle-on = Idle date
+sq-usable-yes = Usable
+sq-usable-no = Unusable
+sq-lines-title = Stock ({ $count } rows, total { $total })
+sq-msg-no-stock = No stock
+sq-hint-query = With only item conditions, all matching items are listed; with warehouse, location, lot or quantity conditions, only items with matching stock are listed. The three totals always cover all of the item's stock.

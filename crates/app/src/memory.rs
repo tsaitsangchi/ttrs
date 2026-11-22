@@ -7624,6 +7624,19 @@ impl crate::ports::InventoryBalanceRepository for InMemoryStore {
         Ok(())
     }
 
+    async fn list_all_inventory_balances(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Vec<ttrs_domain::inventory_balance::InventoryBalance>, RepoError> {
+        Ok(self
+            .lock()
+            .inventory_balances
+            .iter()
+            .filter(|((p, _), _)| p == plant)
+            .map(|(_, b)| b.clone())
+            .collect())
+    }
+
     async fn list_inventory_balances(
         &self,
         plant: &PlantId,
@@ -7754,6 +7767,24 @@ impl crate::ports::InventoryPostingRepository for InMemoryStore {
             }
         }
         Ok(())
+    }
+
+    async fn inventory_txn_records_since(
+        &self,
+        plant: &PlantId,
+        key: &ttrs_domain::inventory_balance::BalanceKey,
+        from: chrono::NaiveDate,
+    ) -> Result<Vec<ttrs_domain::inventory_balance::InventoryTxnRecord>, RepoError> {
+        // 寫入順序即產生順序；依單據日期穩定排序
+        let mut v: Vec<_> = self
+            .lock()
+            .inventory_txns
+            .iter()
+            .filter(|(p, r)| p == plant && r.key == *key && r.txn_date >= from && r.direction != 0)
+            .map(|(_, r)| r.clone())
+            .collect();
+        v.sort_by_key(|r| r.txn_date);
+        Ok(v)
     }
 
     async fn inventory_txn_records(

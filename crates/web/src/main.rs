@@ -13,9 +13,9 @@ use dioxus::prelude::*;
 use i18n::{UiLang, t};
 use pages::{
     aim::{
-        DocumentTypeMaintenance, InventoryParameters, ItemGroupMaintenance, ItemMaintenance,
-        ItemStorageMaintenance, MiscIssue, MiscReceipt, MiscScrap, WarehouseMaintenance,
-        WarehouseTransfer,
+        DocumentTypeMaintenance, InventoryParameters, ItemBinCard, ItemGroupMaintenance,
+        ItemMaintenance, ItemStockQuery, ItemStorageMaintenance, MiscIssue, MiscReceipt, MiscScrap,
+        WarehouseMaintenance, WarehouseTransfer,
     },
     aoo::{
         AccountingPeriodMaintenance, AreaMaintenance, BasicDataCarry, CarryHistoryQuery,
@@ -73,6 +73,12 @@ enum Route {
         MiscReceipt {},
         #[route("/aim/misc-scrap")]
         MiscScrap {},
+        /// Item Bin Card 料件 BIN 卡查詢（TipTop aimq231）
+        #[route("/aim/item-bin-card")]
+        ItemBinCard {},
+        /// Item Stock Query 料件庫存數量查詢（TipTop aimq400）
+        #[route("/aim/item-stock-query")]
+        ItemStockQuery {},
         /// Warehouse Transfer 庫存直接調撥（TipTop aimt324）
         #[route("/aim/warehouse-transfer")]
         WarehouseTransfer {},

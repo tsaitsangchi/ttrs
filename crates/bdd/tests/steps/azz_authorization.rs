@@ -1475,6 +1475,74 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 料件 BIN 卡查詢（aimq231）
+        ["查詢", "BIN", "卡"] => w
+            .bin_cards
+            .query(
+                a,
+                "TW01",
+                ttrs_shared::BinCardQuery {
+                    year: 2026,
+                    period: 1,
+                    ..Default::default()
+                },
+            )
+            .await
+            .map(drop),
+        ["列印", "BIN", "卡"] => w
+            .bin_cards
+            .report_in(
+                a,
+                "TW01",
+                2026,
+                1,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出", "BIN", "卡為", "Excel"] => w
+            .bin_cards
+            .report_in(
+                a,
+                "TW01",
+                2026,
+                1,
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        // 料件庫存數量查詢（aimq400）
+        ["查詢料件庫存"] => w
+            .item_stock
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["列印料件庫存"] => w
+            .item_stock
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出料件庫存為", "Excel"] => w
+            .item_stock
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         // 單別（asmi300；單別不存在時回 DOCUMENT_TYPE_NOT_FOUND，不是權限拒絕）
         ["查詢單別"] => w
             .document_types

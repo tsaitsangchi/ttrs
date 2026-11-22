@@ -1,0 +1,30 @@
+# 料件 BIN 卡查詢 aimq231（item_bin_card.feature）
+bn-title = Item Bin Card
+bn-breadcrumb = Inventory / aimq231
+bn-field-year = Year
+bn-field-period = Period
+bn-field-year-period = Year / period
+bn-field-item-no = Item no.
+bn-field-name = Item name
+bn-field-spec = Specification
+bn-field-source = Source code
+bn-field-warehouse = Warehouse
+bn-field-location = Location
+bn-field-lot = Lot
+bn-field-unit = Unit
+bn-field-qty = Quantity
+bn-field-opening = Opening balance
+bn-field-current = Current stock
+bn-field-txn-date = Date
+bn-field-program = Movement
+bn-field-doc-no = Document no.
+bn-field-doc-line = Line
+bn-field-balance = Balance
+bn-msg-no-movement = No movements since this period
+bn-msg-period-required = Enter the year and period
+bn-hint-query = Year and period are required. One card per warehouse/location/lot, listing every movement from that period on.
+bn-hint-opening = Opening balance = current stock minus all movements since the period (until month-end closing is ported).
+bn-program-misc-issue = Misc issue
+bn-program-misc-receipt = Misc receipt
+bn-program-misc-scrap = Misc scrap
+bn-program-warehouse-transfer = Warehouse transfer

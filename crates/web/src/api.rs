@@ -5066,3 +5066,44 @@ pub async fn warehouse_transfer_new_storages(
     )
     .await
 }
+
+// ----- Item Stock Query 料件庫存數量查詢（TipTop aimq400；工廠層） -----
+
+pub async fn query_item_stock(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::ItemStockDto>, String> {
+    post_query(plant_part_url(plant, "item-stock", "", "/query"), req).await
+}
+
+// ----- Item Bin Card 料件 BIN 卡查詢（TipTop aimq231；工廠層） -----
+
+pub async fn query_bin_cards(
+    plant: &str,
+    req: &ttrs_shared::BinCardQuery,
+) -> Result<Page<ttrs_shared::BinCardDto>, String> {
+    send_json(
+        reqwest::Method::POST,
+        plant_part_url(plant, "bin-cards", "", "/query"),
+        Some(req),
+    )
+    .await
+}
+
+/// BIN 卡列印、匯出（BN6）：年度、期別放在網址參數
+pub async fn bin_card_report(
+    plant: &str,
+    year: i32,
+    period: i16,
+    format: ReportFormat,
+    conditions: &[QbeCondition],
+    lang: &str,
+    tab: ReportTab,
+) -> Result<(), String> {
+    let u = format!(
+        "{}?year={year}&period={period}",
+        plant_part_url(plant, "bin-cards", "", &format!("/report.{}", format.ext()))
+    );
+    let file = format!("{plant}-bin-cards-{year}-{period:02}.{}", format.ext());
+    report_at(u, &file, format, conditions, lang, tab).await
+}

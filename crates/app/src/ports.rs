@@ -1281,6 +1281,11 @@ pub trait InventoryBalanceRepository: Send + Sync {
         plant: &PlantId,
         key: &ttrs_domain::inventory_balance::BalanceKey,
     ) -> Result<(), RepoError>;
+    /// 營運中心的全部庫存明細（料件庫存數量查詢 aimq400；item_stock_query.feature）
+    async fn list_all_inventory_balances(
+        &self,
+        plant: &PlantId,
+    ) -> Result<Vec<ttrs_domain::inventory_balance::InventoryBalance>, RepoError>;
     /// 同料件＋倉庫＋儲位的全部批號（最高存量檢查，PR2）
     async fn list_inventory_balances(
         &self,
@@ -1389,6 +1394,13 @@ pub struct PostingWrite {
 #[async_trait]
 pub trait InventoryPostingRepository: Send + Sync {
     async fn apply_posting(&self, plant: &PlantId, w: &PostingWrite) -> Result<(), RepoError>;
+    /// 一個倉儲批自某日起的異動記錄（料件 BIN 卡 aimq231；item_bin_card.feature BN4），依單據日期、產生時間排序
+    async fn inventory_txn_records_since(
+        &self,
+        plant: &PlantId,
+        key: &ttrs_domain::inventory_balance::BalanceKey,
+        from: chrono::NaiveDate,
+    ) -> Result<Vec<ttrs_domain::inventory_balance::InventoryTxnRecord>, RepoError>;
     /// 某程式某單號的異動記錄，依項次排序
     async fn inventory_txn_records(
         &self,

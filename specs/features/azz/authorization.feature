@@ -575,6 +575,12 @@
       | warehouse-transfer           | history      | 查詢調撥單 TR1-00000001 的異動記錄 |
       | warehouse-transfer           | output       | 列印調撥單 |
       | warehouse-transfer           | exporttoexcel | 匯出調撥單為 Excel |
+      | item-stock-query             | query        | 查詢料件庫存 |
+      | item-stock-query             | output       | 列印料件庫存 |
+      | item-stock-query             | exporttoexcel | 匯出料件庫存為 Excel |
+      | item-bin-card                | query        | 查詢 BIN 卡 |
+      | item-bin-card                | output       | 列印 BIN 卡 |
+      | item-bin-card                | exporttoexcel | 匯出 BIN 卡為 Excel |
       | item-maintenance             | carry        | 拋轉料件 A001              |
       | item-maintenance             | qry_carry_history | 查詢料件 A001 的拋轉歷史 |
       | basic-data-carry             | query        | 開啟基本資料拋轉           |

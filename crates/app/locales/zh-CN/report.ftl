@@ -511,3 +511,36 @@ wt-col-reason = 理由码
 wt-status-n = 开立
 wt-status-y = 已确认
 wt-status-x = 已作废
+
+# 料件庫存數量查詢（item_stock_query.feature SQ7）
+sq-report-title = 料件库存数量
+sq-col-item-no = 料件
+sq-col-name = 品名
+sq-col-spec = 规格
+sq-col-warehouse = 仓库
+sq-col-location = 储位
+sq-col-lot = 批号
+sq-col-usable = 可用仓储
+sq-col-unit = 单位
+sq-col-qty = 库存量
+sq-col-expiry = 有效日期
+sq-col-idle-on = 呆滞日期
+
+# 料件 BIN 卡查詢（item_bin_card.feature BN6）
+bn-report-title = 料件 BIN 卡
+bn-col-item-no = 料件
+bn-col-warehouse = 仓库
+bn-col-location = 储位
+bn-col-lot = 批号
+bn-col-txn-date = 单据日期
+bn-col-program = 异动状况
+bn-col-doc-no = 单号
+bn-col-doc-line = 项次
+bn-col-qty = 数量
+bn-col-unit = 单位
+bn-col-balance = 结存
+bn-opening = 期初库存
+bn-program-misc-issue = 杂项发料
+bn-program-misc-receipt = 杂项收料
+bn-program-misc-scrap = 杂项报废
+bn-program-warehouse-transfer = 库存直接调拨

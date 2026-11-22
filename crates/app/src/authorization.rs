@@ -226,6 +226,20 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AIM",
         "insert, query, modify, delete, detail, reproduce, void, confirm, undo_confirm, post, undo_post, history, output, exporttoexcel",
     ),
+    // 料件庫存數量查詢（SQ7、SQ8）：唯讀查詢，只有查詢、列印、匯出
+    (
+        "item-stock-query",
+        "aimq400",
+        "AIM",
+        "query, output, exporttoexcel",
+    ),
+    // 料件 BIN 卡查詢（BN6、BN7）：唯讀查詢，只有查詢、列印、匯出
+    (
+        "item-bin-card",
+        "aimq231",
+        "AIM",
+        "query, output, exporttoexcel",
+    ),
     // 基本資料拋轉（BC10）：批次作業，只有查詢與執行拋轉；拋轉歷史查詢為唯讀查詢
     ("basic-data-carry", "aoop603", "AOO", "query, carry"),
     (

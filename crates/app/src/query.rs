@@ -2390,3 +2390,69 @@ pub mod warehouse_transfer {
         }
     }
 }
+
+/// 料件庫存數量查詢的庫存明細條件（aimq400 q400_b_askkey：img02、img03、img04、img10；item_stock_query.feature SQ2）
+pub mod item_stock {
+    use ttrs_domain::{inventory_balance::InventoryBalance, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("warehouse", FieldType::Text),
+        field("location", FieldType::Text),
+        field("lot", FieldType::Text),
+        field("qty", FieldType::Decimal),
+    ];
+
+    /// 料件的條件（料號、品名、規格）沿用料件查詢的欄位
+    pub const ITEM_FIELDS: &[&str] = &["item_no", "name", "spec"];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(b: &InventoryBalance, field: &str) -> FieldValue {
+        match field {
+            "warehouse" => text(&b.key.warehouse),
+            "location" => text(&b.key.location),
+            "lot" => text(&b.key.lot),
+            "qty" => FieldValue::One(Some(QbeValue::Decimal(b.qty))),
+            _ => FieldValue::One(None),
+        }
+    }
+}
+
+/// 料件 BIN 卡查詢的庫存明細條件（aimq231 q231_curs：img02、img03、img04、img09、img10；item_bin_card.feature BN2）
+pub mod bin_card {
+    use ttrs_domain::{inventory_balance::InventoryBalance, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("warehouse", FieldType::Text),
+        field("location", FieldType::Text),
+        field("lot", FieldType::Text),
+        field("unit", FieldType::Text),
+        field("qty", FieldType::Decimal),
+    ];
+
+    /// 料件的條件（料號、品名、規格、來源碼）沿用料件查詢的欄位
+    pub const ITEM_FIELDS: &[&str] = &["item_no", "name", "spec", "source_code"];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(b: &InventoryBalance, field: &str) -> FieldValue {
+        match field {
+            "warehouse" => text(&b.key.warehouse),
+            "location" => text(&b.key.location),
+            "lot" => text(&b.key.lot),
+            "unit" => text(&b.unit),
+            "qty" => FieldValue::One(Some(QbeValue::Decimal(b.qty))),
+            _ => FieldValue::One(None),
+        }
+    }
+}
