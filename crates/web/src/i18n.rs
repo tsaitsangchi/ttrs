@@ -100,6 +100,9 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-TW/misc_transaction.ftl"),
         include_str!("../locales/zh-TW/warehouse_transfer.ftl"),
         include_str!("../locales/zh-TW/item_stock.ftl"),
+        include_str!("../locales/zh-TW/multi_plant_stock.ftl"),
+        include_str!("../locales/zh-TW/item_available.ftl"),
+        include_str!("../locales/zh-TW/warehouse_stock.ftl"),
         include_str!("../locales/zh-TW/item_bin_card.ftl"),
     ],
     &[
@@ -147,6 +150,9 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/en/misc_transaction.ftl"),
         include_str!("../locales/en/warehouse_transfer.ftl"),
         include_str!("../locales/en/item_stock.ftl"),
+        include_str!("../locales/en/multi_plant_stock.ftl"),
+        include_str!("../locales/en/item_available.ftl"),
+        include_str!("../locales/en/warehouse_stock.ftl"),
         include_str!("../locales/en/item_bin_card.ftl"),
     ],
     &[
@@ -194,6 +200,9 @@ const SOURCES: [&[&str]; 3] = [
         include_str!("../locales/zh-CN/misc_transaction.ftl"),
         include_str!("../locales/zh-CN/warehouse_transfer.ftl"),
         include_str!("../locales/zh-CN/item_stock.ftl"),
+        include_str!("../locales/zh-CN/multi_plant_stock.ftl"),
+        include_str!("../locales/zh-CN/item_available.ftl"),
+        include_str!("../locales/zh-CN/warehouse_stock.ftl"),
         include_str!("../locales/zh-CN/item_bin_card.ftl"),
     ],
 ];
@@ -387,7 +396,7 @@ mod tests {
     /// 已改用翻譯的畫面不得再有直接寫死的中文字串（資料值等例外以 `i18n-allow` 註記該行）
     #[test]
     fn translated_pages_have_no_hardcoded_chinese() {
-        const TRANSLATED: [(&str, &str); 58] = [
+        const TRANSLATED: [(&str, &str); 61] = [
             ("main.rs", include_str!("main.rs")),
             (
                 "components/session.rs",
@@ -453,6 +462,18 @@ mod tests {
             (
                 "pages/aim/item_stock_query.rs",
                 include_str!("pages/aim/item_stock_query.rs"),
+            ),
+            (
+                "pages/aim/warehouse_stock_query.rs",
+                include_str!("pages/aim/warehouse_stock_query.rs"),
+            ),
+            (
+                "pages/aim/item_available_query.rs",
+                include_str!("pages/aim/item_available_query.rs"),
+            ),
+            (
+                "pages/aim/multi_plant_stock_query.rs",
+                include_str!("pages/aim/multi_plant_stock_query.rs"),
             ),
             (
                 "pages/aim/item_bin_card.rs",

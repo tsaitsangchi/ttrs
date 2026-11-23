@@ -4130,6 +4130,92 @@ pub struct ItemStockDto {
 }
 
 // ---------------------------------------------------------------------------
+// 倉庫料件數量查詢（TipTop aimq401；warehouse_stock_query.feature）
+// ---------------------------------------------------------------------------
+
+/// 倉庫的一筆庫存明細（img_file＋ima_file）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WarehouseStockLineDto {
+    pub item_no: String,
+    pub name: Option<String>,
+    pub spec: Option<String>,
+    pub location: String,
+    pub lot: String,
+    pub unit: String,
+    pub qty: rust_decimal::Decimal,
+    /// img18 有效日期（WK3）
+    pub expiry: Option<NaiveDate>,
+    /// img37 呆滯日期
+    pub idle_on: Option<NaiveDate>,
+}
+
+/// 一個倉庫的庫存（表頭＋明細）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WarehouseStockDto {
+    pub warehouse: String,
+    pub name: Option<String>,
+    pub lines: Vec<WarehouseStockLineDto>,
+}
+
+// ---------------------------------------------------------------------------
+// 料件數量查詢（TipTop aimq402；item_available_query.feature）
+// ---------------------------------------------------------------------------
+
+/// 一個料件的可用量
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemAvailableDto {
+    pub item_no: String,
+    pub name: Option<String>,
+    pub spec: Option<String>,
+    /// ima25 庫存單位
+    pub unit: Option<String>,
+    /// ima262 可用量（由可用倉儲的庫存明細即時加總，IA3）
+    pub available: rust_decimal::Decimal,
+    /// ima05 目前使用版本、ima08 來源碼、ima06 分群碼、ima07 ABC 碼
+    pub current_version: Option<String>,
+    pub source_code: Option<String>,
+    pub group_code: Option<String>,
+    pub abc_code: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// 料件多工廠庫存數量查詢（TipTop aimq404；multi_plant_stock_query.feature）
+// ---------------------------------------------------------------------------
+
+/// 一個營運中心的一筆庫存明細（img_file）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MultiPlantStockLineDto {
+    pub plant: String,
+    pub warehouse: String,
+    pub location: String,
+    pub lot: String,
+    /// img23 可用倉儲
+    pub usable: bool,
+    pub unit: String,
+    pub qty: rust_decimal::Decimal,
+    /// img18 有效日期（MP4）
+    pub expiry: Option<NaiveDate>,
+    /// img37 呆滯日期
+    pub idle_on: Option<NaiveDate>,
+}
+
+/// 一個料件在各營運中心的庫存（表頭＋明細）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MultiPlantStockDto {
+    pub item_no: String,
+    pub name: Option<String>,
+    pub spec: Option<String>,
+    /// ima05 目前使用版本、ima08 來源碼、ima06 分群碼、ima07 ABC 碼
+    pub current_version: Option<String>,
+    pub source_code: Option<String>,
+    pub group_code: Option<String>,
+    pub abc_code: Option<String>,
+    /// 下方明細的庫存量合計（MP5）
+    pub total: rust_decimal::Decimal,
+    pub lines: Vec<MultiPlantStockLineDto>,
+}
+
+// ---------------------------------------------------------------------------
 // 料件 BIN 卡查詢（TipTop aimq231；item_bin_card.feature）
 // ---------------------------------------------------------------------------
 

@@ -13,9 +13,10 @@ use dioxus::prelude::*;
 use i18n::{UiLang, t};
 use pages::{
     aim::{
-        DocumentTypeMaintenance, InventoryParameters, ItemBinCard, ItemGroupMaintenance,
-        ItemMaintenance, ItemStockQuery, ItemStorageMaintenance, MiscIssue, MiscReceipt, MiscScrap,
-        WarehouseMaintenance, WarehouseTransfer,
+        DocumentTypeMaintenance, InventoryParameters, ItemAvailableQuery, ItemBinCard,
+        ItemGroupMaintenance, ItemMaintenance, ItemStockQuery, ItemStorageMaintenance, MiscIssue,
+        MiscReceipt, MiscScrap, MultiPlantStockQuery, WarehouseMaintenance, WarehouseStockQuery,
+        WarehouseTransfer,
     },
     aoo::{
         AccountingPeriodMaintenance, AreaMaintenance, BasicDataCarry, CarryHistoryQuery,
@@ -76,9 +77,18 @@ enum Route {
         /// Item Bin Card 料件 BIN 卡查詢（TipTop aimq231）
         #[route("/aim/item-bin-card")]
         ItemBinCard {},
+        /// Item Available Query 料件數量查詢（TipTop aimq402）
+        #[route("/aim/item-available-query")]
+        ItemAvailableQuery {},
+        /// Multi-Plant Stock Query 料件多工廠庫存數量查詢（TipTop aimq404）
+        #[route("/aim/multi-plant-stock-query")]
+        MultiPlantStockQuery {},
         /// Item Stock Query 料件庫存數量查詢（TipTop aimq400）
         #[route("/aim/item-stock-query")]
         ItemStockQuery {},
+        /// Warehouse Stock Query 倉庫料件數量查詢（TipTop aimq401）
+        #[route("/aim/warehouse-stock-query")]
+        WarehouseStockQuery {},
         /// Warehouse Transfer 庫存直接調撥（TipTop aimt324）
         #[route("/aim/warehouse-transfer")]
         WarehouseTransfer {},
@@ -287,6 +297,23 @@ fn screen(program: &str) -> Option<(Route, &'static str, Tone)> {
         "misc-scrap" => (Route::MiscScrap {}, icons::INVENTORY, Tone::Tertiary),
         "warehouse-transfer" => (
             Route::WarehouseTransfer {},
+            icons::INVENTORY,
+            Tone::Tertiary,
+        ),
+        "item-available-query" => (
+            Route::ItemAvailableQuery {},
+            icons::INVENTORY,
+            Tone::Tertiary,
+        ),
+        "multi-plant-stock-query" => (
+            Route::MultiPlantStockQuery {},
+            icons::INVENTORY,
+            Tone::Tertiary,
+        ),
+        "item-stock-query" => (Route::ItemStockQuery {}, icons::INVENTORY, Tone::Tertiary),
+        "item-bin-card" => (Route::ItemBinCard {}, icons::INVENTORY, Tone::Tertiary),
+        "warehouse-stock-query" => (
+            Route::WarehouseStockQuery {},
             icons::INVENTORY,
             Tone::Tertiary,
         ),

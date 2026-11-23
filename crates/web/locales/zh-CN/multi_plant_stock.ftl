@@ -1,0 +1,24 @@
+# 料件多工廠庫存數量查詢 aimq404（multi_plant_stock_query.feature）
+mp-title = 料件多工厂库存数量查询
+mp-breadcrumb = 库存管理 / aimq404
+mp-field-item-no = 料件编号
+mp-field-name = 品名
+mp-field-spec = 规格
+mp-field-version = 目前使用版本
+mp-field-source = 来源码
+mp-field-group = 分群码
+mp-field-abc = ABC 码
+mp-field-warehouse = 仓库
+mp-field-location = 储位
+mp-field-lot = 批号
+mp-field-usable = 可用仓储
+mp-field-unit = 单位
+mp-field-qty = 库存量
+mp-field-expiry = 有效日期
+mp-field-idle-on = 呆滞日期
+mp-usable-yes = 可用
+mp-usable-no = 不可用
+mp-lines-title = 库存明细（{ $count } 笔，合计 { $total }）
+mp-msg-no-stock = 没有库存资料
+mp-hint-query = 料件取自目前营运中心；下方列出您可使用的营运中心的库存。仓库、储位、批号条件只过滤下方明细。
+mp-field-plant = 营运中心

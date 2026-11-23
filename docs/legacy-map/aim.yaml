@@ -91,7 +91,7 @@ tables:
       - { legacy: ima22, type: number(9,3), sch: "保稅料件應補稅稅率", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
       - { legacy: ima26, type: number(15,3) NOT NULL, sch: "MPS/MRP可用庫存數量", reason: "庫存資料 aimi101，第二階段（IM1）" }
       - { legacy: ima261, type: number(15,3) NOT NULL, sch: "不可用庫存數量", reason: "庫存資料 aimi101，第二階段（IM1）" }
-      - { legacy: ima262, type: number(15,3) NOT NULL, sch: "庫存可用數量", reason: "庫存資料 aimi101，第二階段（IM1）" }
+      - { legacy: ima262, type: number(15,3) NOT NULL, sch: "庫存可用數量", reason: "不存於料件主檔，查詢時由可用倉儲的庫存明細即時加總（PT5；aimq400 SQ3、aimq402 IA3）" }
       - { legacy: ima31, type: varchar2(4), sch: "銷售單位", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
       - { legacy: ima31_fac, type: number(20,8), sch: "銷售單位/庫存單位換算率", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
       - { legacy: ima32, type: number(20,6), sch: "標準銷售訂價", reason: "不在任何料件畫面（程式自動寫入、拋轉用或已不使用），隨寫入它的模組移植" }
@@ -1046,7 +1046,7 @@ tables:
     target: inventory_balance
     scope: plant
     program: 由各作業的過帳維護（aimt301／302／303 stock_post、undo_post）
-    spec: specs/features/aim/misc_issue_posting.feature、misc_receipt_posting.feature、misc_scrap_posting.feature
+    spec: specs/features/aim/misc_issue_posting.feature、misc_receipt_posting.feature、misc_scrap_posting.feature、warehouse_stock_query.feature（aimq401 唯讀查詢）、multi_plant_stock_query.feature（aimq404 跨營運中心唯讀查詢）
     note: "庫存明細；數量不可小於 0（PT4）；雜收到新倉儲批時過帳新建（PR1）"
     columns:
       - { legacy: img01, type: "varchar2(40)", target: item_no, sch: "料件編號" }

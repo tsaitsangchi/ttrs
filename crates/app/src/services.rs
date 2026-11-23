@@ -225,6 +225,9 @@ pub struct Services {
     pub warehouse_transfers: crate::WarehouseTransferService,
     /// 料件庫存數量查詢（aimq400）
     pub item_stock: crate::ItemStockQueryService,
+    pub multi_plant_stock: crate::MultiPlantStockQueryService,
+    pub item_available: crate::ItemAvailableQueryService,
+    pub warehouse_stock: crate::WarehouseStockQueryService,
     /// 料件 BIN 卡查詢（aimq231）
     pub bin_cards: crate::ItemBinCardService,
     /// 料件拋轉（aimi100 carry；item_carry.feature）
@@ -427,6 +430,27 @@ impl Services {
             ),
             item_stock: crate::ItemStockQueryService::new(
                 a.clone(),
+                store.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
+            warehouse_stock: crate::WarehouseStockQueryService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
+            item_available: crate::ItemAvailableQueryService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
+                reports.clone(),
+            ),
+            multi_plant_stock: crate::MultiPlantStockQueryService::new(
+                a.clone(),
+                store.clone(),
+                store.clone(),
                 store.clone(),
                 store.clone(),
                 reports.clone(),

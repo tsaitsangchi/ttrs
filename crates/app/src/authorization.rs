@@ -233,6 +233,27 @@ pub const PORTED_PROGRAMS: &[(&str, &str, &str, &str)] = &[
         "AIM",
         "query, output, exporttoexcel",
     ),
+    // 倉庫料件數量查詢（WK6、WK7）：唯讀查詢，只有查詢、列印、匯出
+    (
+        "warehouse-stock-query",
+        "aimq401",
+        "AIM",
+        "query, output, exporttoexcel",
+    ),
+    // 料件數量查詢（IA6、IA7）：唯讀查詢，只有查詢、列印、匯出
+    (
+        "item-available-query",
+        "aimq402",
+        "AIM",
+        "query, output, exporttoexcel",
+    ),
+    // 料件多工廠庫存數量查詢（MP7、MP8）：唯讀查詢，只有查詢、列印、匯出
+    (
+        "multi-plant-stock-query",
+        "aimq404",
+        "AIM",
+        "query, output, exporttoexcel",
+    ),
     // 料件 BIN 卡查詢（BN6、BN7）：唯讀查詢，只有查詢、列印、匯出
     (
         "item-bin-card",

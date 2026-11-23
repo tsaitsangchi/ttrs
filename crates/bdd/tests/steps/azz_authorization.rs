@@ -1543,6 +1543,90 @@ async fn perform(w: &ErpWorld, op: &str) -> Result<(), AppError> {
             )
             .await
             .map(drop),
+        // 料件數量查詢（aimq402）
+        ["查詢料件數量"] => w
+            .item_available
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["列印料件數量"] => w
+            .item_available
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出料件數量為", "Excel"] => w
+            .item_available
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        // 料件多工廠庫存數量查詢（aimq404）
+        ["查詢多工廠庫存"] => w
+            .multi_plant_stock
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["列印多工廠庫存"] => w
+            .multi_plant_stock
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出多工廠庫存為", "Excel"] => w
+            .multi_plant_stock
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        // 倉庫料件數量查詢（aimq401）
+        ["查詢倉庫庫存"] => w
+            .warehouse_stock
+            .query(a, "TW01", QueryRequest::default())
+            .await
+            .map(drop),
+        ["列印倉庫庫存"] => w
+            .warehouse_stock
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Pdf,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
+        ["匯出倉庫庫存為", "Excel"] => w
+            .warehouse_stock
+            .report_in(
+                a,
+                "TW01",
+                Vec::new(),
+                ttrs_app::report::ReportFormat::Excel,
+                &ttrs_domain::lang::Lang::default_lang(),
+            )
+            .await
+            .map(drop),
         // 單別（asmi300；單別不存在時回 DOCUMENT_TYPE_NOT_FOUND，不是權限拒絕）
         ["查詢單別"] => w
             .document_types

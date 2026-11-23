@@ -1,0 +1,24 @@
+# 料件多工廠庫存數量查詢 aimq404（multi_plant_stock_query.feature）
+mp-title = Multi-Plant Stock Query
+mp-breadcrumb = Inventory / aimq404
+mp-field-item-no = Item no.
+mp-field-name = Item name
+mp-field-spec = Specification
+mp-field-version = Current version
+mp-field-source = Source code
+mp-field-group = Group code
+mp-field-abc = ABC code
+mp-field-warehouse = Warehouse
+mp-field-location = Location
+mp-field-lot = Lot
+mp-field-usable = Usable
+mp-field-unit = Unit
+mp-field-qty = Quantity
+mp-field-expiry = Expiry date
+mp-field-idle-on = Idle date
+mp-usable-yes = Usable
+mp-usable-no = Unusable
+mp-lines-title = Stock ({ $count } rows, total { $total })
+mp-msg-no-stock = No stock
+mp-hint-query = Items come from the current plant; stock is listed for the plants you may use. Warehouse, location and lot conditions only filter the rows below.
+mp-field-plant = Plant

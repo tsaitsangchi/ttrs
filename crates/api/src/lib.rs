@@ -87,6 +87,9 @@ pub struct AppState {
     pub warehouse_transfers: ttrs_app::WarehouseTransferService,
     /// 料件庫存數量查詢 aimq400
     pub item_stock: ttrs_app::ItemStockQueryService,
+    pub multi_plant_stock: ttrs_app::MultiPlantStockQueryService,
+    pub item_available: ttrs_app::ItemAvailableQueryService,
+    pub warehouse_stock: ttrs_app::WarehouseStockQueryService,
     /// 料件 BIN 卡查詢 aimq231
     pub bin_cards: ttrs_app::ItemBinCardService,
     pub encoding_years: ttrs_app::EncodingYearService,
@@ -199,6 +202,9 @@ impl AppState {
             misc_scraps,
             warehouse_transfers,
             item_stock,
+            multi_plant_stock,
+            item_available,
+            warehouse_stock,
             bin_cards,
             encoding_years,
             encoding_classes,
@@ -254,6 +260,9 @@ impl AppState {
             misc_scraps,
             warehouse_transfers,
             item_stock,
+            multi_plant_stock,
+            item_available,
+            warehouse_stock,
             bin_cards,
             encoding_years,
             encoding_classes,
@@ -764,6 +773,33 @@ pub fn router(state: AppState) -> Router {
         .route(
             "/api/plants/{plant}/bin-cards/report.{format}",
             get(bin_card_report),
+        )
+        // Warehouse Stock Query 倉庫料件數量查詢（TipTop aimq401；工廠層；warehouse_stock_query.feature）
+        .route(
+            "/api/plants/{plant}/warehouse-stock/query",
+            post(query_warehouse_stock),
+        )
+        .route(
+            "/api/plants/{plant}/warehouse-stock/report.{format}",
+            get(warehouse_stock_report),
+        )
+        // Item Available Query 料件數量查詢（TipTop aimq402；工廠層；item_available_query.feature）
+        .route(
+            "/api/plants/{plant}/item-available/query",
+            post(query_item_available),
+        )
+        .route(
+            "/api/plants/{plant}/item-available/report.{format}",
+            get(item_available_report),
+        )
+        // Multi-Plant Stock Query 料件多工廠庫存數量查詢（TipTop aimq404；multi_plant_stock_query.feature）
+        .route(
+            "/api/plants/{plant}/multi-plant-stock/query",
+            post(query_multi_plant_stock),
+        )
+        .route(
+            "/api/plants/{plant}/multi-plant-stock/report.{format}",
+            get(multi_plant_stock_report),
         )
         // Item Stock Query 料件庫存數量查詢（TipTop aimq400；工廠層；item_stock_query.feature）
         .route(
@@ -7131,6 +7167,83 @@ async fn item_stock_report(
     };
     let data = s
         .item_stock
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+// ----- 倉庫料件數量查詢（aimq401；warehouse_stock_query.feature） -----
+
+async fn query_warehouse_stock(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::WarehouseStockDto>>> {
+    Ok(Json(s.warehouse_stock.query(&s.actor, &plant, req).await?))
+}
+
+async fn warehouse_stock_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .warehouse_stock
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+// ----- 料件數量查詢（aimq402；item_available_query.feature） -----
+
+async fn query_item_available(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::ItemAvailableDto>>> {
+    Ok(Json(s.item_available.query(&s.actor, &plant, req).await?))
+}
+
+async fn item_available_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .item_available
+        .report_in(&s.actor, &plant, conditions, format, &lang)
+        .await?;
+    report_response(&data, format)
+}
+
+// ----- 料件多工廠庫存數量查詢（aimq404；multi_plant_stock_query.feature） -----
+
+async fn query_multi_plant_stock(
+    Ctx(s): Ctx,
+    Path(plant): Path<String>,
+    Json(req): Json<QueryRequest>,
+) -> ApiResult<Json<Page<ttrs_shared::MultiPlantStockDto>>> {
+    Ok(Json(
+        s.multi_plant_stock.query(&s.actor, &plant, req).await?,
+    ))
+}
+
+async fn multi_plant_stock_report(
+    Ctx(s): Ctx,
+    Path((plant, format)): Path<(String, String)>,
+    Query(q): Query<ReportQuery>,
+) -> ApiResult<Response> {
+    let Some((format, conditions, lang)) = report_args(&format, &q)? else {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    };
+    let data = s
+        .multi_plant_stock
         .report_in(&s.actor, &plant, conditions, format, &lang)
         .await?;
     report_response(&data, format)

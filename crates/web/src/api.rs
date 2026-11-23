@@ -5076,6 +5076,37 @@ pub async fn query_item_stock(
     post_query(plant_part_url(plant, "item-stock", "", "/query"), req).await
 }
 
+// ----- Warehouse Stock Query 倉庫料件數量查詢（TipTop aimq401；工廠層） -----
+
+pub async fn query_warehouse_stock(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::WarehouseStockDto>, String> {
+    post_query(plant_part_url(plant, "warehouse-stock", "", "/query"), req).await
+}
+
+// ----- Item Available Query 料件數量查詢（TipTop aimq402；工廠層） -----
+
+pub async fn query_item_available(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::ItemAvailableDto>, String> {
+    post_query(plant_part_url(plant, "item-available", "", "/query"), req).await
+}
+
+// ----- Multi-Plant Stock Query 料件多工廠庫存數量查詢（TipTop aimq404） -----
+
+pub async fn query_multi_plant_stock(
+    plant: &str,
+    req: &QueryRequest,
+) -> Result<Page<ttrs_shared::MultiPlantStockDto>, String> {
+    post_query(
+        plant_part_url(plant, "multi-plant-stock", "", "/query"),
+        req,
+    )
+    .await
+}
+
 // ----- Item Bin Card 料件 BIN 卡查詢（TipTop aimq231；工廠層） -----
 
 pub async fn query_bin_cards(

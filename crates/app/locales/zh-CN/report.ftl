@@ -544,3 +544,44 @@ bn-program-misc-issue = 杂项发料
 bn-program-misc-receipt = 杂项收料
 bn-program-misc-scrap = 杂项报废
 bn-program-warehouse-transfer = 库存直接调拨
+
+# 倉庫料件數量查詢 aimq401（warehouse_stock_query.feature）
+wk-report-title = 仓库料件数量
+wk-col-warehouse = 仓库
+wk-col-warehouse-name = 仓库名称
+wk-col-item-no = 料件
+wk-col-name = 品名
+wk-col-spec = 规格
+wk-col-location = 储位
+wk-col-lot = 批号
+wk-col-unit = 单位
+wk-col-qty = 库存量
+wk-col-expiry = 有效日期
+wk-col-idle-on = 呆滞日期
+
+# 料件數量查詢 aimq402（item_available_query.feature）
+ia-report-title = 料件数量
+ia-col-item-no = 料件
+ia-col-name = 品名
+ia-col-spec = 规格
+ia-col-unit = 单位
+ia-col-available = 可用量
+ia-col-version = 目前使用版本
+ia-col-source = 来源码
+ia-col-group = 分群码
+ia-col-abc = ABC 码
+
+# 料件多工廠庫存數量查詢 aimq404（multi_plant_stock_query.feature）
+mp-report-title = 料件多工厂库存数量
+mp-col-item-no = 料件
+mp-col-name = 品名
+mp-col-spec = 规格
+mp-col-plant = 营运中心
+mp-col-warehouse = 仓库
+mp-col-location = 储位
+mp-col-lot = 批号
+mp-col-usable = 可用仓储
+mp-col-unit = 单位
+mp-col-qty = 库存量
+mp-col-expiry = 有效日期
+mp-col-idle-on = 呆滞日期

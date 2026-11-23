@@ -2423,6 +2423,105 @@ pub mod item_stock {
     }
 }
 
+/// 倉庫料件數量查詢的條件（aimq401 q401_cs：imd01；img01、img03、img04、img09、img10、img37；warehouse_stock_query.feature WK2）
+pub mod warehouse_stock {
+    use ttrs_domain::{inventory_balance::InventoryBalance, qbe::FieldType, warehouse::Warehouse};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const HEADER: &[Field] = &[field("warehouse", FieldType::Text)];
+
+    pub const LINES: &[Field] = &[
+        field("item_no", FieldType::Text),
+        field("location", FieldType::Text),
+        field("lot", FieldType::Text),
+        field("unit", FieldType::Text),
+        field("qty", FieldType::Decimal),
+        field("idle_on", FieldType::Date),
+    ];
+
+    /// 單頭（倉庫）的條件欄位，其餘為單身條件
+    pub const HEADER_FIELDS: &[&str] = &["warehouse"];
+
+    pub fn header_filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, HEADER, as_is)
+    }
+
+    pub fn line_filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, LINES, as_is)
+    }
+
+    pub fn header_value(w: &Warehouse, field: &str) -> FieldValue {
+        match field {
+            "warehouse" => text(w.code.as_str()),
+            _ => FieldValue::One(None),
+        }
+    }
+
+    pub fn line_value(b: &InventoryBalance, field: &str) -> FieldValue {
+        match field {
+            "item_no" => text(&b.key.item),
+            "location" => text(&b.key.location),
+            "lot" => text(&b.key.lot),
+            "unit" => text(&b.unit),
+            "qty" => FieldValue::One(Some(QbeValue::Decimal(b.qty))),
+            "idle_on" => date(b.idle_on),
+            _ => FieldValue::One(None),
+        }
+    }
+}
+
+/// 料件數量查詢的條件（aimq402 q402_q：ima01、ima02、ima021；item_available_query.feature IA2）
+pub mod item_available {
+    use ttrs_domain::qbe::FieldType;
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("item_no", FieldType::Text),
+        field("name", FieldType::Text),
+        field("spec", FieldType::Text),
+    ];
+
+    /// 只接受本作業的三個欄位，篩選沿用料件查詢
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)?;
+        super::item::filters(conditions)
+    }
+}
+
+/// 料件多工廠庫存數量查詢的單身條件（aimq404 q404_b_askkey：img02、img03、img04；multi_plant_stock_query.feature MP2）
+pub mod multi_plant_stock {
+    use ttrs_domain::{inventory_balance::InventoryBalance, qbe::FieldType};
+    use ttrs_shared::QbeCondition;
+
+    use super::*;
+
+    pub const FIELDS: &[Field] = &[
+        field("warehouse", FieldType::Text),
+        field("location", FieldType::Text),
+        field("lot", FieldType::Text),
+    ];
+
+    /// 料件的條件（料號、品名、規格）沿用料件查詢的欄位
+    pub const ITEM_FIELDS: &[&str] = &["item_no", "name", "spec"];
+
+    pub fn filters(conditions: &[QbeCondition]) -> Result<Vec<QbeFilter>, DomainError> {
+        super::filters(conditions, FIELDS, as_is)
+    }
+
+    pub fn value(b: &InventoryBalance, field: &str) -> FieldValue {
+        match field {
+            "warehouse" => text(&b.key.warehouse),
+            "location" => text(&b.key.location),
+            "lot" => text(&b.key.lot),
+            _ => FieldValue::One(None),
+        }
+    }
+}
+
 /// 料件 BIN 卡查詢的庫存明細條件（aimq231 q231_curs：img02、img03、img04、img09、img10；item_bin_card.feature BN2）
 pub mod bin_card {
     use ttrs_domain::{inventory_balance::InventoryBalance, qbe::FieldType};

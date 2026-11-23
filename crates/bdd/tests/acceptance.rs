@@ -139,6 +139,15 @@ pub struct ErpWorld {
     /// 料件庫存數量查詢（item_stock_query.feature）與最近一次查詢結果
     pub item_stock: ttrs_app::ItemStockQueryService,
     pub item_stock_result: Option<Vec<ttrs_shared::ItemStockDto>>,
+    /// 料件多工廠庫存數量查詢（multi_plant_stock_query.feature）與最近一次查詢結果
+    pub multi_plant_stock: ttrs_app::MultiPlantStockQueryService,
+    pub multi_plant_stock_result: Option<Vec<ttrs_shared::MultiPlantStockDto>>,
+    /// 料件數量查詢（item_available_query.feature）與最近一次查詢結果
+    pub item_available: ttrs_app::ItemAvailableQueryService,
+    pub item_available_result: Option<Vec<ttrs_shared::ItemAvailableDto>>,
+    /// 倉庫料件數量查詢（warehouse_stock_query.feature）與最近一次查詢結果
+    pub warehouse_stock: ttrs_app::WarehouseStockQueryService,
+    pub warehouse_stock_result: Option<Vec<ttrs_shared::WarehouseStockDto>>,
     /// 料件 BIN 卡查詢（item_bin_card.feature）與最近一次查詢結果
     pub bin_cards: ttrs_app::ItemBinCardService,
     pub bin_card_result: Option<Vec<ttrs_shared::BinCardDto>>,
@@ -315,6 +324,9 @@ impl ErpWorld {
             misc_scraps,
             warehouse_transfers,
             item_stock,
+            multi_plant_stock,
+            item_available,
+            warehouse_stock,
             bin_cards,
             encoding_years,
             encoding_classes,
@@ -414,11 +426,17 @@ impl ErpWorld {
             misc_scraps,
             warehouse_transfers,
             item_stock,
+            multi_plant_stock,
+            item_available,
+            warehouse_stock,
             bin_cards,
             doc_type_version: None,
             misc_no: None,
             transfer_no: None,
             item_stock_result: None,
+            multi_plant_stock_result: None,
+            item_available_result: None,
+            warehouse_stock_result: None,
             bin_card_result: None,
             warehouse_version: None,
             item_carry_result: None,

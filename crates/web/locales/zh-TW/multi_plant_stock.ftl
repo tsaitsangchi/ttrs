@@ -1,0 +1,24 @@
+# 料件多工廠庫存數量查詢 aimq404（multi_plant_stock_query.feature）
+mp-title = 料件多工廠庫存數量查詢
+mp-breadcrumb = 庫存管理 / aimq404
+mp-field-item-no = 料件編號
+mp-field-name = 品名
+mp-field-spec = 規格
+mp-field-version = 目前使用版本
+mp-field-source = 來源碼
+mp-field-group = 分群碼
+mp-field-abc = ABC 碼
+mp-field-warehouse = 倉庫
+mp-field-location = 儲位
+mp-field-lot = 批號
+mp-field-usable = 可用倉儲
+mp-field-unit = 單位
+mp-field-qty = 庫存量
+mp-field-expiry = 有效日期
+mp-field-idle-on = 呆滯日期
+mp-usable-yes = 可用
+mp-usable-no = 不可用
+mp-lines-title = 庫存明細（{ $count } 筆，合計 { $total }）
+mp-msg-no-stock = 沒有庫存資料
+mp-hint-query = 料件取自目前營運中心；下方列出您可使用的營運中心的庫存。倉庫、儲位、批號條件只過濾下方明細。
+mp-field-plant = 營運中心

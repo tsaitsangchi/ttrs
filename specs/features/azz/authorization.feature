@@ -578,6 +578,15 @@
       | item-stock-query             | query        | 查詢料件庫存 |
       | item-stock-query             | output       | 列印料件庫存 |
       | item-stock-query             | exporttoexcel | 匯出料件庫存為 Excel |
+      | item-available-query         | query        | 查詢料件數量 |
+      | item-available-query         | output       | 列印料件數量 |
+      | item-available-query         | exporttoexcel | 匯出料件數量為 Excel |
+      | multi-plant-stock-query      | query        | 查詢多工廠庫存 |
+      | multi-plant-stock-query      | output       | 列印多工廠庫存 |
+      | multi-plant-stock-query      | exporttoexcel | 匯出多工廠庫存為 Excel |
+      | warehouse-stock-query        | query        | 查詢倉庫庫存 |
+      | warehouse-stock-query        | output       | 列印倉庫庫存 |
+      | warehouse-stock-query        | exporttoexcel | 匯出倉庫庫存為 Excel |
       | item-bin-card                | query        | 查詢 BIN 卡 |
       | item-bin-card                | output       | 列印 BIN 卡 |
       | item-bin-card                | exporttoexcel | 匯出 BIN 卡為 Excel |

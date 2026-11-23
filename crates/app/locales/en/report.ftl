@@ -544,3 +544,44 @@ bn-program-misc-issue = Misc issue
 bn-program-misc-receipt = Misc receipt
 bn-program-misc-scrap = Misc scrap
 bn-program-warehouse-transfer = Warehouse transfer
+
+# 倉庫料件數量查詢 aimq401（warehouse_stock_query.feature）
+wk-report-title = Warehouse Stock
+wk-col-warehouse = Warehouse
+wk-col-warehouse-name = Warehouse name
+wk-col-item-no = Item
+wk-col-name = Item name
+wk-col-spec = Specification
+wk-col-location = Location
+wk-col-lot = Lot
+wk-col-unit = Unit
+wk-col-qty = Quantity
+wk-col-expiry = Expiry date
+wk-col-idle-on = Idle date
+
+# 料件數量查詢 aimq402（item_available_query.feature）
+ia-report-title = Item Quantity
+ia-col-item-no = Item
+ia-col-name = Item name
+ia-col-spec = Specification
+ia-col-unit = Unit
+ia-col-available = Available
+ia-col-version = Current version
+ia-col-source = Source code
+ia-col-group = Group code
+ia-col-abc = ABC code
+
+# 料件多工廠庫存數量查詢 aimq404（multi_plant_stock_query.feature）
+mp-report-title = Multi-Plant Item Stock
+mp-col-item-no = Item
+mp-col-name = Item name
+mp-col-spec = Specification
+mp-col-plant = Plant
+mp-col-warehouse = Warehouse
+mp-col-location = Location
+mp-col-lot = Lot
+mp-col-usable = Usable
+mp-col-unit = Unit
+mp-col-qty = Quantity
+mp-col-expiry = Expiry date
+mp-col-idle-on = Idle date
